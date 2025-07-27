@@ -1,0 +1,13 @@
+ACL-EDU: "AcademicChain Ledger"**  
+#### **Significado del nombre:**  
+- **"AcademicChain"**:  
+  - **Academic** (Académico): Representa el enfoque en educación y credenciales.  
+  - **Chain** (Cadena): Hace referencia a la tecnología de ledger distribuido (Hedera Hashgraph).  
+- **"Ledger"**: Libro mayor inmutable donde se registran títulos y diplomas.  
+
+#### **Descripción:**  
+Un sistema global de verificación académica **antifraude** que tokeniza títulos como NFTs dinámicos (HIP-746) en Hedera. Cada credencial queda registrada en un ledger público pero con acceso controlado, permitiendo a universidades, empleadores y estudiantes validar autenticidad en segundos.  
+
+**Ejemplo de uso:**  
+- Un estudiante de la *UT Austin* recibe su título como NFT en su wallet.  
+- LinkedIn se integra para auto-verificar CVs sin intermediarios.  
