@@ -1,36 +1,33 @@
 {
   "name": "academicchain-ledger",
   "version": "1.0.0",
-  "description": "A global, decentralized, and anti-fraud system for academic credential verification built on Hedera Hashgraph.",
-  "main": "index.js",
-  "private": true,
+  "description": "Sistema revolucionario de credenciales académicas en blockchain",
+  "scripts": {
+    "dev": "concurrently "npm run server:dev" "npm run client:dev"",
+    "server:dev": "cd server && npm run dev",
+    "client:dev": "cd client && npm run dev",
+    "build": "npm run server:build && npm run client:build",
+    "server:build": "cd server && npm run build",
+    "client:build": "cd client && npm run build",
+    "start": "npm run server:start",
+    "server:start": "cd server && npm start",
+    "setup": "npm run install:all && npm run setup:env && npm run setup:hedera",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install && cd ../contracts && npm install",
+    "setup:env": "node scripts/setup-env.js",
+    "setup:hedera": "cd contracts && node scripts/deploy.js",
+    "docker:up": "docker-compose up --build",
+    "docker:down": "docker-compose down",
+    "test": "npm run test:server && npm run test:client",
+    "test:server": "cd server && npm test",
+    "test:client": "cd client && npm test"
+  },
   "workspaces": [
-    "client",
     "server",
+    "client",
     "contracts"
   ],
-  "scripts": {
-    "start": "docker-compose up --build",
-    "dev": "docker-compose up --build",
-    "dev": "concurrently \"npm:dev:server\" \"npm:dev:client\"",
-    "dev:server": "cd apps/server && npm run dev",
-    "dev:client": "cd apps/client && npm run dev",
-    "build": "concurrently \"npm:build:server\" \"npm:build:client\"",
-    "build:server": "cd apps/server && npm run build",
-    "build:client": "cd apps/client && npm run build",
-    "start": "concurrently \"npm:start:server\" \"npm:start:client\"",
-    "start:server": "cd apps/server && npm run start",
-    "start:client": "cd apps/client && npm run start",
-    "lint": "eslint . --ext ts,tsx,js,jsx --fix",
-    "format": "prettier --write .",
-    "test": "jest",
-    "docker:build": "docker-compose build",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f"
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3"
   }
-  },
-  "keywords": [],
-  "author": "",
-  "license": "MIT"
 }
