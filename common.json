@@ -1,0 +1,12 @@
+{
+  "batch_issuance_title": "Batch Issuance",
+  "select_csv_prompt": "Select a CSV file to begin.",
+  "upload_csv": "Upload a CSV file",
+  "csv_headers_note": "CSV must have headers: studentName, degree, graduationDate, studentId, gpa",
+  "selected_file": "Selected file: {{fileName}}",
+  "start_batch_button": "Start Batch Issuance",
+  "processing": "Processing...",
+  "job_queued": "Job {{jobId}} queued. Awaiting progress...",
+  "job_progress": "Processing... {{successful}}/{{total}} completed.",
+  "job_completed": "Job completed!"
+}

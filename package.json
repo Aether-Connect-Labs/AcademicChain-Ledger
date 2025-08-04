@@ -1,0 +1,36 @@
+{
+  "name": "academicchain-ledger",
+  "version": "1.0.0",
+  "description": "A global, decentralized, and anti-fraud system for academic credential verification built on Hedera Hashgraph.",
+  "main": "index.js",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server",
+    "contracts"
+  ],
+  "scripts": {
+    "start": "docker-compose up --build",
+    "dev": "docker-compose up --build",
+    "dev": "concurrently \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "cd apps/server && npm run dev",
+    "dev:client": "cd apps/client && npm run dev",
+    "build": "concurrently \"npm:build:server\" \"npm:build:client\"",
+    "build:server": "cd apps/server && npm run build",
+    "build:client": "cd apps/client && npm run build",
+    "start": "concurrently \"npm:start:server\" \"npm:start:client\"",
+    "start:server": "cd apps/server && npm run start",
+    "start:client": "cd apps/client && npm run start",
+    "lint": "eslint . --ext ts,tsx,js,jsx --fix",
+    "format": "prettier --write .",
+    "test": "jest",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
+}

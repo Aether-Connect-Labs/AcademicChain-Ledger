@@ -1,0 +1,3 @@
+{
+  "extends": "@nomicfoundation/hardhat-toolbox"
+}
