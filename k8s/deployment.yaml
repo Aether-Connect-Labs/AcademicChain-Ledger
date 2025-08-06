@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: academicchain-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: academicchain-api
+  template:
+    metadata:
+      labels:
+        app: academicchain-api
+    spec:
+      containers:
+      - name: api
+        image: your-registry/academicchain-api:latest
+        ports:
+        - containerPort: 3001
+        envFrom:
+        - secretRef:
+            name: academicchain-secrets
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: academicchain-api
+spec:
+  selector:
+    app: academicchain-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3001

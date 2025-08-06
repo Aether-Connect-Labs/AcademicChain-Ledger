@@ -1,0 +1,24 @@
+FROM node:18-alpine as builder
+
+WORKDIR /app
+COPY package*.json ./
+COPY packages/core/package.json packages/core/
+COPY packages/infrastructure/package.json packages/infrastructure/
+COPY apps/api/package.json apps/api/
+
+RUN npm ci --production
+
+COPY . .
+
+RUN npm run build:api
+
+FROM node:18-alpine
+WORKDIR /app
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/core/dist ./packages/core/dist
+COPY --from=builder /app/packages/infrastructure/dist ./packages/infrastructure/dist
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+
+EXPOSE 3001
+CMD ["node", "apps/api/dist/server.js"]
