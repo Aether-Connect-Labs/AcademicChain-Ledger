@@ -2,42 +2,6 @@
   "name": "academicchain-ledger",
   "version": "1.0.0",
   "description": "Sistema revolucionario de credenciales académicas en blockchain",
-{
-  "name": "academicchain-ledger",
-  "version": "1.0.0",
-  "description": "Sistema revolucionario de credenciales académicas en blockchain",
-  "scripts": {
-    "dev": "concurrently \"npm:server:dev\" \"npm:client:dev\"",
-    "server:dev": "cd server && npm run dev",
-    "client:dev": "cd client && npm run dev",
-    "build": "npm run client:build",
-    "server:build": "cd server && npm run build",
-    "client:build": "cd client && npm run build",
-    "start": "npm run server:start",
-    "server:start": "cd server && npm start",
-    "setup": "npm run install:all && npm run setup:env && npm run setup:hedera",
-    "install:all": "npm install",
-    "setup:env": "node setup-env.js",
-    "setup:hedera": "cd contracts && node scripts/deploy.js",
-    "docker:up": "docker-compose -f docker-compose.yml up -d --build",
-    "docker:down": "docker-compose -f docker-compose.yml down",
-    "test": "npm run test:server && npm run test:client",
-    "test:server": "cd server && npm test",
-    "test:client": "cd client && npm test"
-  },
-  "workspaces": [
-    "server",
-    "client",
-    "contracts"
-  ],
-  "devDependencies": {
-    "concurrently": "^8.2.2",
-    "cross-env": "^7.0.3"
-  },
-  "dependencies": {
-    "mongodb": "^6.20.0"
-  }
-}
   "scripts": {
     "dev": "concurrently \"npm:server:dev\" \"npm:client:dev\"",
     "server:dev": "cd server && npm run dev",

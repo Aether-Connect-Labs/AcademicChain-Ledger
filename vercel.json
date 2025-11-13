@@ -2,26 +2,22 @@
   "version": 2,
   "builds": [
     {
-      "src": "client/package.json",
-      "use": "@vercel/vite",
-      "config": {
-        "project": "client/project.json",
-        "root": "client"
-      }
-    },
-    {
       "src": "server/src/server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "client/package.json",
+      "use": "@vercel/vite"
     }
   ],
-  "rewrites": [
+  "routes": [
     {
       "source": "/api/(.*)",
       "destination": "/server/src/server.js"
     },
     {
       "source": "/(.*)",
-      "destination": "/client/$1"
+      "destination": "/client/index.html"
     }
   ]
 }
