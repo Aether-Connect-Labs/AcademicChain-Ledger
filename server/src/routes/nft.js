@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, param } = require('express-validator');
 const asyncHandler = require('express-async-handler');
-const hederaService = require('../services/hederaService');
+const hederaService = require('../services/hederaServices');
 const { logger } = require('../utils/logger');
 const { protect, isUniversity} = require('../middleware/auth');
 const { validate } = require('../middleware/validator');

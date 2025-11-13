@@ -1,11 +1,17 @@
-const pinataSDK = require('@pinata/sdk');
 const { logger } = require('../utils/logger');
 const { ServiceUnavailableError } = require('../utils/errors');
 
+let pinataSDK = null;
+try {
+  pinataSDK = require('@pinata/sdk');
+} catch (error) {
+  logger.warn('@pinata/sdk not installed. IPFS functionality will be disabled.');
+}
+
 class IpfsService {
   constructor() {
-    if (!process.env.PINATA_API_KEY || !process.env.PINATA_SECRET_API_KEY) {
-      logger.warn('Pinata API keys not found in .env. IPFS functionality will be disabled.');
+    if (!pinataSDK || !process.env.PINATA_API_KEY || !process.env.PINATA_SECRET_API_KEY) {
+      logger.warn('Pinata SDK or API keys not found. IPFS functionality will be disabled.');
       this.pinata = null;
     } else {
       this.pinata = new pinataSDK(process.env.PINATA_API_KEY, process.env.PINATA_SECRET_API_KEY);

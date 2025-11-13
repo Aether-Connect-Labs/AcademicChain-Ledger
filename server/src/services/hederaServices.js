@@ -30,10 +30,11 @@ class HederaService {
     this.operatorKey = null;
   }
 
-  connect() {
+  async connect() {
     try {
       if (!process.env.HEDERA_ACCOUNT_ID || !process.env.HEDERA_PRIVATE_KEY) {
-        throw new HederaError('Missing Hedera credentials in environment variables');
+        logger.warn('⚠️  Missing Hedera credentials in environment variables. Hedera features will be disabled.');
+        return false;
       }
       this.operatorId = AccountId.fromString(process.env.HEDERA_ACCOUNT_ID);
       this.operatorKey = PrivateKey.fromString(process.env.HEDERA_PRIVATE_KEY.replace(/^0x/, ''));
@@ -41,9 +42,10 @@ class HederaService {
       this.client = network === 'mainnet' ? Client.forMainnet() : Client.forTestnet();
       this.client.setOperator(this.operatorId, this.operatorKey);
       logger.info(`✅ Hedera client initialized for ${network}`);
+      return true;
     } catch (error) {
-      logger.error('❌ Failed to initialize Hedera client:', error);
-      throw new HederaError('Failed to initialize Hedera client');
+      logger.warn('⚠️  Failed to initialize Hedera client:', error.message);
+      return false;
     }
   }
 

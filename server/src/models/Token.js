@@ -1,29 +1,25 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const mongoose = require('mongoose');
 
-const Token = sequelize.define('Token', {
-  id: {
-    type: DataTypes.INTEGER,
-    autoIncrement: true,
-    primaryKey: true,
-  },
+const TokenSchema = new mongoose.Schema({
   tokenId: {
-    type: DataTypes.STRING,
-    allowNull: false,
+    type: String,
+    required: true,
     unique: true,
+    index: true,
   },
   tokenName: {
-    type: DataTypes.STRING,
-    allowNull: false,
+    type: String,
+    required: true,
   },
   tokenSymbol: {
-    type: DataTypes.STRING,
-    allowNull: false,
+    type: String,
+    required: true,
   },
   universityId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
+    type: String, // Should be mongoose.Schema.Types.ObjectId ref: 'University'
+    required: true,
+    index: true,
   },
-});
+}, { timestamps: true });
 
-module.exports = Token;
+module.exports = mongoose.model('Token', TokenSchema);

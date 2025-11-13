@@ -3,10 +3,10 @@ const { body, param } = require('express-validator');
 const asyncHandler = require('express-async-handler');
 const { protect, isUniversity } = require('../middleware/auth');
 const { validate } = require('../middleware/validator');
-const hederaService = require('../services/hederaService');
+const hederaService = require('../services/hederaServices');
 const { logger } = require('../utils/logger');
 const { Token, Transaction } = require('../models');
-const { issuanceQueue } = require('../queue/issuanceQueue');
+const { issuanceQueue } = require('../../queue/issuanceQueue');
 const { recordAnalytics, getUniversityInsights } = require('../services/analyticsService');
 const NodeCache = require('node-cache');
 

@@ -1,5 +1,5 @@
 const { logger } = require('../utils/logger');
-const { DatabaseError } = require('sequelize');
+const mongoose = require('mongoose');
 const { UnauthorizedError } = require('../utils/errors');
 
 const errorHandler = (err, req, res, next) => {
@@ -24,14 +24,14 @@ const errorHandler = (err, req, res, next) => {
   if (err.name === 'ValidationError') {
     response.message = 'Validation Error';
     response.errors = err.errors;
-  } else if (err instanceof DatabaseError) {
-    // Handle database-related errors
+  } else if (err instanceof mongoose.Error || err.name === 'MongoError' || err.name === 'MongoServerError') {
+    // Handle database-related errors (Mongoose/MongoDB)
     response.message = 'Database Error';
     response.dbError = {
       name: err.name,
       message: err.message,
-      code: err.original?.code,
-      detail: err.original?.detail
+      code: err.code,
+      detail: err.errmsg || err.message
     };
   } else if (err.code === 'ECONNREFUSED') {
     response.message = 'Service Unavailable';

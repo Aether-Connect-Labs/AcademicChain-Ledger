@@ -1,8 +1,8 @@
 const { Worker } = require('bullmq');
-const hederaService = require('../services/hederaService');
+const hederaService = require('../services/hederaServices');
 const { logger } = require('../utils/logger');
-const connection = require('../queue/connection');
-const { ISSUANCE_QUEUE_NAME } = require('../queue/issuanceQueue');
+const connection = require('../../queue/connection');
+const { ISSUANCE_QUEUE_NAME } = require('../../queue/issuanceQueue');
 
 const initializeWorkers = (io) => {
   logger.info('🚀 Initializing Issuance Worker...');

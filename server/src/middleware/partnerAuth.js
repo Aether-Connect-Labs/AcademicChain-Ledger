@@ -1,4 +1,4 @@
-const { Partner } = require('../models');
+const Partner = require('../models/Partner');
 const { logger } = require('../utils/logger');
 const { UnauthorizedError } = require('../utils/errors');
 const { compare } = require('bcryptjs'); // Asumimos que usas bcryptjs para hashear
