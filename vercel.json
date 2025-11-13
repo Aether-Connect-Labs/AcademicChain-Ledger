@@ -9,15 +9,5 @@
       "src": "client/package.json",
       "use": "@vercel/vite"
     }
-  ],
-  "routes": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/server/src/server.js"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/client/index.html"
-    }
   ]
 }
