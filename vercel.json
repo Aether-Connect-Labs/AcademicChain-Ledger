@@ -5,21 +5,12 @@
       "src": "server/src/server.js",
       "use": "@vercel/node"
     },
-    // Build the Client application
     {
       "src": "client/package.json",
       "use": "@vercel/vite"
-      "dest": "client"
     }
   ],
   "rewrites": [
-    {
-      "src": "/(.*\\.(js|ts|jsx|tsx|json|css|scss|sass|svg|png|jpg|jpeg|gif|webp))$",
-      "dest": "/client/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/client/index.html"
     {
       "source": "/api/:path*",
       "destination": "/server/src/server.js"
