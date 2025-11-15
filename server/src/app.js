@@ -22,7 +22,7 @@ const { protect, authorize } = require('./middleware/auth');
 const { issuanceQueue } = require('../queue/issuanceQueue');
 const { initializeWorkers } = require('./workers');
 const { isConnected: isMongoConnected, getConnectionStats: getMongoStats } = require('./config/database');
-const { isConnected: isRedisConnected, getStats: getRedisStats } = require('../../queue/connection');
+const { isConnected: isRedisConnected, getStats: getRedisStats } = require('../queue/connection');
 const ROLES = require('./config/roles');
 
 // Import routes
