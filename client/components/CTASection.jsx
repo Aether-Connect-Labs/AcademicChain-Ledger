@@ -1,0 +1,421 @@
+// src/components/landing/CTASection.js
+import React, { useState, useEffect } from 'react';
+import { useInView } from 'react-intersection-observer';
+import { useAnalytics } from './useAnalytics';
+import { useNavigate } from 'react-router-dom';
+
+const CTASection = ({ 
+  variant = 'primary', 
+  title = null,
+  subtitle = null,
+  showDemoForm = false 
+}) => {
+  const [email, setEmail] = useState('');
+  const [institution, setInstitution] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState(null);
+  const { trackButtonClick, trackFormSubmission } = useAnalytics();
+  const [animatedSubtitle, setAnimatedSubtitle] = useState('');
+  const navigate = useNavigate();
+
+  // Observer para animaciones
+  const [ref, inView] = useInView({
+    threshold: 0.1,
+    triggerOnce: true
+  });
+
+  // Configuraciones por variante
+  const variants = {
+    primary: {
+      bg: 'bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700',
+      text: 'text-white',
+      button: 'bg-white text-blue-600 hover:bg-gray-100',
+      secondaryButton: 'border-2 border-white text-white hover:bg-white hover:text-blue-600'
+    },
+    secondary: {
+      bg: 'bg-gradient-to-br from-gray-900 to-blue-900',
+      text: 'text-white',
+      button: 'bg-blue-500 text-white hover:bg-blue-600',
+      secondaryButton: 'border-2 border-blue-300 text-blue-100 hover:bg-blue-300 hover:text-gray-900'
+    },
+    light: {
+      bg: 'bg-gradient-to-br from-gray-50 to-blue-50',
+      text: 'text-gray-900',
+      button: 'bg-blue-600 text-white hover:bg-blue-700',
+      secondaryButton: 'border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'
+    }
+  };
+
+  const currentVariant = variants[variant] || variants.primary;
+
+  // Contenido por defecto
+  const defaultContent = {
+    primary: {
+      title: 'Comienza tu Revolución Educativa con Blockchain',
+      subtitle: 'Únete a las instituciones líderes que ya transforman la emisión y verificación de credenciales académicas.',
+      primaryButton: '🚀 Comenzar Gratis',
+      secondaryButton: '📅 Agendar Demo',
+      features: [
+        'Configuración en 5 minutos',
+        'Soporte técnico 24/7',
+        'Sin costos iniciales',
+        'Integración garantizada'
+      ]
+    },
+    secondary: {
+      title: '¿Listo para Eliminar el Fraude Académico?',
+      subtitle: 'Implementa la tecnología blockchain de Hedera y ofrece credenciales verificables instantáneamente.',
+      primaryButton: '🏫 Registrar Institución',
+      secondaryButton: '📚 Ver Casos de Éxito',
+      features: [
+        '99.9% de disponibilidad',
+        'Verificación en 3 segundos',
+        'Cero costos de transacción',
+        'Compliance internacional'
+      ]
+    },
+    light: {
+      title: 'Transforma tu Institución Hoy Mismo',
+      subtitle: 'Prueba AcademicChain sin compromiso y descubre el poder de las credenciales blockchain.',
+      primaryButton: '🎯 Probar Demo',
+      secondaryButton: '📞 Contactar Ventas',
+      features: [
+        'Demo interactiva incluida',
+        'Migración asistida',
+        'Training completo',
+        'ROI garantizado'
+      ]
+    }
+  };
+
+  const content = defaultContent[variant] || defaultContent.primary;
+
+  // Contador animado de instituciones
+  const [institutionCount, setInstitutionCount] = useState(0);
+  useEffect(() => {
+    if (inView) {
+      const target = 57; // Número real de instituciones
+      const duration = 2000;
+      const steps = 60;
+      const increment = target / steps;
+      let current = 0;
+
+      const timer = setInterval(() => {
+        current += increment;
+        if (current >= target) {
+          setInstitutionCount(target);
+          clearInterval(timer);
+        } else {
+          setInstitutionCount(Math.floor(current));
+        }
+      }, duration / steps);
+
+      return () => clearInterval(timer);
+    }
+  }, [inView]);
+
+  // Efecto de máquina de escribir para el subtítulo
+  useEffect(() => {
+    if (inView && (subtitle || content.subtitle)) {
+      const fullText = subtitle || content.subtitle;
+      let i = 0;
+      setAnimatedSubtitle(''); // Reiniciar
+
+      const timer = setInterval(() => {
+        if (i < fullText.length) {
+          setAnimatedSubtitle(prev => prev + fullText.charAt(i));
+          i++;
+        } else {
+          clearInterval(timer);
+        }
+      }, 30); // Velocidad de escritura
+
+      return () => clearInterval(timer);
+    }
+  }, [inView, subtitle, content.subtitle]);
+
+
+  const handleCTAClick = (type) => {
+    trackButtonClick({
+      buttonType: 'cta',
+      action: type,
+      variant: variant,
+      section: 'cta'
+    });
+
+    console.log(`[DEBUG] Navigating to action: ${type}`);
+
+    switch (type) {
+      case 'institution':
+        navigate('/institution/login'); // Redirigir al portal de instituciones
+        break;
+      case 'student':
+        navigate('/students/login'); // Redirigir al portal de alumnos
+        break;
+      case 'demo':
+        window.open('https://calendly.com/academicchain/demo', '_blank');
+        break;
+      case 'free':
+        navigate('/register');
+        break;
+      default:
+        console.warn(`[DEBUG] Unknown navigation action: ${type}`);
+        break;
+    }
+  };
+
+  const handleDemoSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      trackFormSubmission({
+        formType: 'demo_request',
+        email: email,
+        institution: institution,
+        variant: variant
+      });
+
+      // Simular envío a API
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Aquí iría la llamada real a la API
+      // await api.submitDemoRequest({ email, institution });
+      
+      setSubmitStatus('success');
+      setEmail('');
+      setInstitution('');
+      
+      trackButtonClick({
+        buttonType: 'demo_submit',
+        variant: variant,
+        section: 'cta',
+        action: 'demo_submitted'
+      });
+
+    } catch (error) {
+      setSubmitStatus('error');
+      console.error('Error submitting demo request:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <section 
+      ref={ref}
+      className={`${currentVariant.bg} ${currentVariant.text} py-20 lg:py-28 relative overflow-hidden`}
+    >
+      {/* Elementos decorativos de fondo */}
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute top-10 left-10 text-6xl">🎓</div>
+        <div className="absolute top-20 right-20 text-4xl">🔗</div>
+        <div className="absolute bottom-20 left-20 text-5xl">⚡</div>
+        <div className="absolute bottom-10 right-10 text-6xl">🏫</div>
+      </div>
+
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className={`max-w-6xl mx-auto text-center transition-all duration-700 ${
+          inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}>
+          
+          {/* Badge de confianza */}
+          <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm mb-8">
+            <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+            <span className="text-sm font-medium">
+              <span className="font-bold">{institutionCount}+</span> Instituciones Confían en Nosotros
+            </span>
+          </div>
+
+          {/* Título principal */}
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+            {title || content.title}
+          </h2>
+
+          {/* Subtítulo */}
+          <p className="text-xl md:text-2xl opacity-90 mb-12 max-w-3xl mx-auto leading-relaxed min-h-[3em]">
+            {animatedSubtitle}
+            <span className="inline-block w-1 h-7 ml-1 bg-current animate-pulse" style={{ animation: 'blink 1s step-end infinite' }}></span>
+          </p>
+
+          {/* Características rápidas */}
+          <div className="flex flex-wrap justify-center gap-6 mb-12">
+            {content.features.map((feature, index) => (
+              <div 
+                key={index}
+                className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm px-4 py-3 rounded-lg"
+              >
+                <span className="text-green-300">✓</span>
+                <span className="font-medium">{feature}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Botones de acción principales */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <button
+              onClick={() => handleCTAClick('institution')}
+              className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center space-x-3"
+            >
+              <span>🏫</span>
+              <span>Portal de Institución</span>
+            </button>
+            
+            <button
+              onClick={() => handleCTAClick('student')}
+              className="border-2 border-white text-white hover:bg-white hover:text-blue-600 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-105 backdrop-blur-sm"
+            >
+              <span>🎓</span>
+              <span>Portal de Alumno</span>
+            </button>
+            <button
+              onClick={() => handleCTAClick('free')}
+              className="bg-blue-600 text-white hover:bg-blue-700 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center space-x-3"
+            >
+              <span>🚀</span>
+              <span>Comenzar Gratis</span>
+            </button>
+          </div>
+
+          {/* Formulario de demo (condicional) */}
+          {(showDemoForm || submitStatus) && (
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 max-w-md mx-auto border border-white/20">
+              {submitStatus === 'success' ? (
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl text-white">✓</span>
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">¡Solicitud Recibida!</h3>
+                  <p className="opacity-90 mb-4">
+                    Te contactaremos en menos de 24 horas para agendar tu demo personalizada.
+                  </p>
+                  <button
+                    onClick={() => setSubmitStatus(null)}
+                    className="text-blue-300 hover:text-white underline"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <h3 className="text-xl font-bold mb-4 text-center">
+                    Agenda una Demo Personalizada
+                  </h3>
+                  <form onSubmit={handleDemoSubmit} className="space-y-4">
+                    <div>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="tu.email@institucion.edu"
+                        className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/30 placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        value={institution}
+                        onChange={(e) => setInstitution(e.target.value)}
+                        placeholder="Nombre de tu institución"
+                        className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/30 placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
+                        required
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="w-full bg-white text-blue-600 py-3 rounded-lg font-bold hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          <span>Enviando...</span>
+                        </>
+                      ) : (
+                        <span>🎯 Solicitar Demo Gratuita</span>
+                      )}
+                    </button>
+                  </form>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Información de confianza */}
+          <div className="mt-12 pt-8 border-t border-white/20">
+            <p className="text-sm opacity-75 mb-6 uppercase tracking-wider">
+              Incluye sin costo adicional
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
+              <div className="flex items-center justify-center space-x-2">
+                <span className="text-green-300">🛡️</span>
+                <span>Soporte 24/7</span>
+              </div>
+              <div className="flex items-center justify-center space-x-2">
+                <span className="text-green-300">🔧</span>
+                <span>Migración Asistida</span>
+              </div>
+              <div className="flex items-center justify-center space-x-2">
+                <span className="text-green-300">📚</span>
+                <span>Training Completo</span>
+              </div>
+              <div className="flex items-center justify-center space-x-2">
+                <span className="text-green-300">💰</span>
+                <span>Sin Costos Ocultos</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Garantía */}
+          <div className="mt-8 p-4 bg-white/5 rounded-xl border border-white/10">
+            <p className="text-sm opacity-80">
+              <strong className="opacity-100">Garantía de satisfacción:</strong> Si en los primeros 30 días no 
+              estás completamente satisfecho, te ayudamos a migrar tus datos sin costo.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Efecto de partículas decorativas */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(20)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-2 h-2 bg-white/30 rounded-full animate-float"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 5}s`,
+              animationDuration: `${10 + Math.random() * 10}s`
+            }}
+          />
+        ))}
+      </div>
+    </section>
+  );
+};
+
+// Animación CSS para las partículas
+const styles = `
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(180deg); }
+}
+.animate-float {
+  animation: float linear infinite;
+}
+@keyframes blink {
+  from, to { opacity: 1 }
+  50% { opacity: 0 }
+}
+`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement('style');
+  styleSheet.innerText = styles;
+  document.head.appendChild(styleSheet);
+}
+
+export default CTASection;

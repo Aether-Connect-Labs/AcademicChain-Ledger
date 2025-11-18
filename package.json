@@ -18,7 +18,8 @@
     "docker:down": "docker-compose -f docker-compose.yml down",
     "test": "npm run test:server && npm run test:client",
     "test:server": "cd server && npm test",
-    "test:client": "cd client && npm test"
+    "test:client": "cd client && npm test",
+    "vercel:deploy": "vercel --prod"
   },
   "workspaces": [
     "server",
@@ -27,7 +28,8 @@
   ],
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "cross-env": "^7.0.3"
+    "cross-env": "^7.0.3",
+    "vercel": "^32.3.0"
   },
   "dependencies": {
     "mongodb": "^6.20.0"

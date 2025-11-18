@@ -4,6 +4,7 @@ const asyncHandler = require('express-async-handler');
 const authService = require('../services/authService');
 const { protect } = require('../middleware/auth');
 const { validate } = require('../middleware/validator');
+const passport = require('passport');
 
 const router = express.Router();
 
@@ -39,6 +40,54 @@ router.get('/me',
   asyncHandler(async (req, res) => {
     const userProfile = authService.getUserProfile(req.user);
     res.status(200).json({ "success": true, "data": userProfile });
+  })
+);
+
+router.patch('/me',
+  protect,
+  [
+    body('name').optional().isString().trim().escape(),
+    body('hederaAccountId').optional().isString().trim().escape(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { name, hederaAccountId } = req.body;
+    const { User } = require('../models');
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (typeof name === 'string') user.name = name;
+    if (typeof hederaAccountId === 'string') user.hederaAccountId = hederaAccountId;
+    await user.save();
+    const userProfile = authService.getUserProfile(user);
+    res.status(200).json({ success: true, data: userProfile });
+  })
+);
+
+router.get('/google', (req, res, next) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    return res.status(503).json({ success: false, message: 'Google OAuth no está configurado' });
+  }
+  const defaultClient = (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',')[0] : 'http://localhost:5173');
+  const state = req.query.redirect_uri || defaultClient;
+  passport.authenticate('google', { scope: ['profile', 'email'], state })(req, res, next);
+});
+
+router.get('/google/callback',
+  passport.authenticate('google', { session: false, failureRedirect: (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',')[0] : 'http://localhost:5173') + '/login?error=google' }),
+  asyncHandler(async (req, res) => {
+    const redirect = req.query.state || (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',')[0] : 'http://localhost:5173');
+    const token = authService.generateToken(req.user);
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+    const url = `${redirect}/auth/callback?token=${encodeURIComponent(token)}&provider=google`;
+    res.redirect(url);
   })
 );
 

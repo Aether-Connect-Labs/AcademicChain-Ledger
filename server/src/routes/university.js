@@ -5,8 +5,8 @@ const { protect, isUniversity } = require('../middleware/auth');
 const { validate } = require('../middleware/validator');
 const hederaService = require('../services/hederaServices');
 const { logger } = require('../utils/logger');
-const { Token, Transaction } = require('../models');
-const { issuanceQueue } = require('../../queue/issuanceQueue');
+const { Token, Transaction, Credential } = require('../models');
+const { issuanceQueue, isRedisConnected } = require('../../queue/issuanceQueue');
 const { recordAnalytics, getUniversityInsights } = require('../services/analyticsService');
 const NodeCache = require('node-cache');
 
@@ -59,7 +59,7 @@ router.post('/create-token', protect, isUniversity,
     const { tokenName, tokenSymbol, tokenMemo } = req.body;
     const { user } = req;
 
-    const existingToken = await Token.findOne({ where: { tokenSymbol, universityId: user.id } });
+    const existingToken = await Token.findOne({ tokenSymbol, universityId: user.id });
     if (existingToken) {
       return res.status(409).json({ success: false, message: `Token symbol '${tokenSymbol}' already exists for your university.` });
     }
@@ -68,6 +68,7 @@ router.post('/create-token', protect, isUniversity,
       tokenName: `${user.universityName} - ${tokenName}`,
       tokenSymbol,
       tokenMemo: tokenMemo || `Academic credential from ${user.universityName}`,
+      treasuryAccountId: user.hederaAccountId || null,
     });
 
     const dbToken = await Token.create({
@@ -89,6 +90,8 @@ router.post('/create-token', protect, isUniversity,
 router.post('/prepare-issuance', protect, isUniversity, 
   [
     body('tokenId').notEmpty().withMessage('Token ID is required').trim().escape(),
+    body('uniqueHash').notEmpty().withMessage('uniqueHash is required').trim().escape(),
+    body('ipfsURI').notEmpty().withMessage('ipfsURI is required').trim(),
   ],
   validate,
   asyncHandler(async (req, res) => {
@@ -97,7 +100,7 @@ router.post('/prepare-issuance', protect, isUniversity,
     const MINT_FEE = 100000000;
     const PAYMENT_TOKEN_ID = process.env.PAYMENT_TOKEN_ID;
 
-    const token = await Token.findOne({ where: { tokenId, universityId: user.id } });
+    const token = await Token.findOne({ tokenId, universityId: user.id });
     if (!token) {
       return res.status(403).json({ success: false, message: 'Forbidden: You do not own this token.' });
     }
@@ -142,8 +145,9 @@ router.post('/execute-issuance', protect, isUniversity,
   asyncHandler(async (req, res) => {
     const { transactionId, signedPaymentTransactionBytes } = req.body;
     const { user } = req;
+    const { Credential } = require('../models');
 
-    const transaction = await Transaction.findByPk(transactionId);
+    const transaction = await Transaction.findById(transactionId);
     if (!transaction || transaction.universityId !== user.id) {
       return res.status(404).json({ success: false, message: 'Transaction not found or you are not authorized.' });
     }
@@ -153,6 +157,16 @@ router.post('/execute-issuance', protect, isUniversity,
     }
 
     try {
+      const { credentialData } = transaction;
+
+      // 1. On-chain validation via Smart Contract
+      await hederaService.requestCredentialOnChain(
+        credentialData.uniqueHash,
+        credentialData.ipfsURI,
+        credentialData.recipientAccountId || '0.0.0' // Use a placeholder if no student account
+      );
+
+      // 2. Process payment if required
       if (signedPaymentTransactionBytes) {
         if (transaction.status !== 'PENDING_PAYMENT') {
             return res.status(409).json({ success: false, message: 'Payment has already been processed or is not required.' });
@@ -170,7 +184,7 @@ router.post('/execute-issuance', protect, isUniversity,
         logger.info(`💰 Payment successful for DB transaction ${transaction.id}. TxID: ${paymentResult.transactionId}`);
       }
 
-      const { credentialData } = transaction;
+      // 3. Mint the NFT on HTS
       const mintResult = await hederaService.mintAcademicCredential(credentialData.tokenId, {
         ...credentialData,
         university: user.universityName,
@@ -180,6 +194,17 @@ router.post('/execute-issuance', protect, isUniversity,
       transaction.status = 'ISSUANCE_COMPLETE';
       await transaction.save();
 
+      // 4. Save credential record to local DB
+      await Credential.create({
+        tokenId: credentialData.tokenId,
+        serialNumber: mintResult.serialNumber,
+        universityId: user.id,
+        studentAccountId: credentialData.recipientAccountId || null,
+        uniqueHash: credentialData.uniqueHash,
+        ipfsURI: credentialData.ipfsURI,
+      });
+
+      // 5. Transfer to student if applicable
       let transferResult = null;
       if (credentialData.recipientAccountId) {
         transferResult = await hederaService.transferCredentialToStudent(
@@ -201,7 +226,7 @@ router.post('/execute-issuance', protect, isUniversity,
 
       res.status(201).json({
         success: true,
-        message: 'Payment successful and credential issued.',
+        message: 'Credential validated on-chain and issued successfully.',
         data: {
           mint: mintResult,
           transfer: transferResult,
@@ -212,7 +237,79 @@ router.post('/execute-issuance', protect, isUniversity,
         transaction.status = transaction.status === 'PENDING_ISSUANCE' ? 'ISSUANCE_FAILED' : 'PAYMENT_FAILED';
         transaction.errorDetails = { message: error.message, stack: error.stack };
         await transaction.save();
+        
+        if (error.message.includes('Duplicate credential')) {
+          return res.status(409).json({ success: false, message: error.message });
+        }
+        
         res.status(500).json({ success: false, message: 'An unexpected error occurred during issuance.' });
+    }
+  })
+);
+
+// Encolar emisión masiva
+router.post('/issue-bulk', protect, isUniversity,
+  [
+    body('tokenId').notEmpty().withMessage('Token ID is required').trim().escape(),
+    body('credentials').isArray({ min: 1 }).withMessage('At least one credential is required'),
+    body('roomId').optional().isString(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { tokenId, credentials, roomId } = req.body;
+    const { user } = req;
+    if (isRedisConnected()) {
+      const job = await issuanceQueue.add('bulk-issuance', {
+        tokenId,
+        credentials,
+        universityName: user.universityName,
+        roomId: roomId || user.id,
+      });
+      res.status(202).json({ success: true, message: 'Bulk issuance enqueued', data: { jobId: job.id } });
+    } else {
+      // Fallback: Process credentials directly if Redis is not connected
+      logger.warn('Redis not connected. Processing bulk issuance directly.');
+      const results = [];
+      for (const credentialData of credentials) {
+        try {
+          const mintResult = await hederaService.mintAcademicCredential(tokenId, {
+            ...credentialData,
+            university: user.universityName,
+          });
+
+          let transferResult = null;
+          if (credentialData.recipientAccountId) {
+            transferResult = await hederaService.transferCredentialToStudent(
+              tokenId,
+              mintResult.serialNumber,
+              credentialData.recipientAccountId
+            );
+          }
+
+          await Credential.create({
+            tokenId: tokenId,
+            serialNumber: mintResult.serialNumber,
+            universityId: user.id,
+            studentAccountId: credentialData.recipientAccountId || null,
+            uniqueHash: credentialData.uniqueHash,
+            ipfsURI: credentialData.ipfsURI,
+          });
+
+          await recordAnalytics('CREDENTIAL_MINTED', {
+            universityId: user.id,
+            universityName: user.universityName,
+            tokenId: tokenId,
+            serialNumber: mintResult.serialNumber,
+            degree: credentialData.degree,
+          });
+
+          results.push({ success: true, credential: credentialData, mint: mintResult, transfer: transferResult });
+        } catch (error) {
+          logger.error(`Error processing direct issuance for credential ${credentialData.uniqueHash}:`, error);
+          results.push({ success: false, credential: credentialData, error: error.message });
+        }
+      }
+      res.status(200).json({ success: true, message: 'Bulk issuance processed directly (Redis not connected)', data: results });
     }
   })
 );
@@ -228,7 +325,7 @@ router.post('/revoke-credential', protect, isUniversity,
     const { tokenId, serialNumber, reason } = req.body;
     const { user } = req;
 
-    const token = await Token.findOne({ where: { tokenId, universityId: user.id } });
+    const token = await Token.findOne({ tokenId, universityId: user.id });
     if (!token) {
       return res.status(403).json({ success: false, message: 'Forbidden: You do not own this token.' });
     }
@@ -248,7 +345,7 @@ router.post('/revoke-credential', protect, isUniversity,
 router.get('/tokens', protect, isUniversity, asyncHandler(async (req, res) => {
   const { user } = req;
 
-  const tokens = await Token.findAll({ where: { universityId: user.id }, order: [['createdAt', 'DESC']] });
+  const tokens = await Token.find({ universityId: user.id }).sort({ createdAt: -1 });
 
   res.status(200).json({
     success: true,

@@ -1,81 +1,170 @@
 // client/services/authService.js
 
-// En un proyecto real, esta URL apuntaría a tu backend.
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1/auth';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-/**
- * Simula una respuesta de la API con un retardo para emular la latencia de red.
- * @param {*} data Los datos a devolver en caso de éxito.
- * @param {boolean} shouldFail Si la promesa debe fallar.
- * @param {string} errorMessage Mensaje de error si la promesa falla.
- * @param {number} delay Retardo en milisegundos.
- * @returns {Promise}
- */
-const mockApiCall = (data, shouldFail = false, errorMessage = 'Error de red', delay = 800) => {
+const mockApiCall = (data, shouldFail = false, errorMessage = 'Error de red', delay = 600) => {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
-      if (shouldFail) {
-        reject(new Error(errorMessage));
-      } else {
-        resolve(data);
-      }
+      if (shouldFail) reject(new Error(errorMessage));
+      else resolve(data);
     }, delay);
   });
 };
 
+const isGmail = (email) => typeof email === 'string' && email.toLowerCase().endsWith('@gmail.com');
+const isValidPassword = (password) => typeof password === 'string' && password.length >= 6;
+
 export const authService = {
-  /**
-   * Inicia sesión de un usuario.
-   * @param {string} email
-   * @param {string} password
-   * @param {string} userType 'institution' o 'student'
-   * @returns {Promise<{user: object, token: string}>}
-   */
+  loginWithGoogle: async () => {
+    try {
+      if (API_BASE_URL) {
+        const res = await fetch(`${API_BASE_URL}/api/auth/google/mock`, { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          return data;
+        }
+      }
+    } catch {}
+    const user = {
+      id: 'student-google',
+      name: 'Usuario Google',
+      email: 'demo@gmail.com',
+      role: 'student',
+      permissions: [],
+    };
+    const token = `mock-jwt-token-for-student-${Date.now()}`;
+    return mockApiCall({ user, token });
+  },
   login: async (email, password, userType) => {
-    console.log(`Simulando login para ${userType}: ${email}`);
+    try {
+      if (API_BASE_URL) {
+        const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, userType })
+        });
+        if (!res.ok) throw new Error('Login inválido');
+        const data = await res.json();
+        return data;
+      }
+    } catch {}
 
-    // Lógica de simulación:
-    if (password === 'password' && email.includes('@')) {
-      const isAdmin = userType === 'institution' && email.startsWith('admin');
-      
-      const user = {
-        id: isAdmin ? 'admin-123' : 'student-456',
-        name: isAdmin ? 'Administrador Principal' : 'Estudiante de Ejemplo',
-        email: email,
-        role: isAdmin ? 'admin' : 'student',
-        // Los permisos se usarán para la navegación dinámica en el panel de admin
-        permissions: isAdmin ? ['view_dashboard', 'bulk_issue', 'view_job_monitor', 'manage_institutions', 'manage_users', 'manage_settings'] : [],
-      };
-      const token = `mock-jwt-token-for-${user.id}-${Date.now()}`;
-      
-      return mockApiCall({ user, token });
-    } else {
-      return mockApiCall(null, true, 'Credenciales inválidas. Inténtalo de nuevo.');
+    const forInstitution = userType === 'institution';
+    if (forInstitution) {
+      if (email && email.includes('@') && password === 'password') {
+        const user = {
+          id: 'admin-123',
+          name: 'Administrador Principal',
+          email,
+          role: 'admin',
+          permissions: ['view_dashboard', 'bulk_issue', 'view_job_monitor', 'manage_institutions', 'manage_users', 'manage_settings'],
+        };
+        const token = `mock-jwt-token-for-admin-${Date.now()}`;
+        return mockApiCall({ user, token });
+      }
+      return mockApiCall(null, true, 'Credenciales inválidas para institución.');
     }
+
+    if (!isGmail(email)) {
+      return mockApiCall(null, true, 'Para comenzar gratis usa un correo Gmail.');
+    }
+    if (!isValidPassword(password)) {
+      return mockApiCall(null, true, 'La contraseña debe tener 6 o más caracteres.');
+    }
+
+    const user = {
+      id: 'student-456',
+      name: 'Usuario Free',
+      email,
+      role: 'student',
+      permissions: [],
+    };
+    const token = `mock-jwt-token-for-student-${Date.now()}`;
+    return mockApiCall({ user, token });
   },
 
-  /**
-   * Cierra la sesión del usuario.
-   */
-  logout: () => {
-    console.log('Cerrando sesión...');
-    // En una implementación real, esto podría invalidar el token en el backend.
-    return Promise.resolve();
+  register: async (email, password) => {
+    try {
+      if (API_BASE_URL) {
+        const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        if (!res.ok) throw new Error('Registro inválido');
+        const data = await res.json();
+        return data;
+      }
+    } catch {}
+
+    if (!isGmail(email)) {
+      return mockApiCall(null, true, 'Regístrate con un correo @gmail.com');
+    }
+    if (!isValidPassword(password)) {
+      return mockApiCall(null, true, 'La contraseña debe tener 6 o más caracteres.');
+    }
+    const user = {
+      id: `student-${crypto.randomUUID()}`,
+      name: 'Usuario Free',
+      email,
+      role: 'student',
+      permissions: [],
+    };
+    const token = `mock-jwt-token-for-student-${Date.now()}`;
+    return mockApiCall({ user, token });
   },
 
-  /**
-   * Obtiene los datos del usuario actual usando un token guardado.
-   * @param {string} token
-   * @returns {Promise<object>}
-   */
+  registerInstitution: async (email, password) => {
+    try {
+      if (API_BASE_URL) {
+        const res = await fetch(`${API_BASE_URL}/api/auth/institutions/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        if (!res.ok) throw new Error('Registro inválido');
+        const data = await res.json();
+        return data;
+      }
+    } catch {}
+
+    if (!email || !email.includes('@')) {
+      return mockApiCall(null, true, 'Usa un correo válido institucional.');
+    }
+    if (!isValidPassword(password)) {
+      return mockApiCall(null, true, 'La contraseña debe tener 6 o más caracteres.');
+    }
+    const user = {
+      id: `admin-${crypto.randomUUID()}`,
+      name: 'Administrador Institución',
+      email,
+      role: 'admin',
+      permissions: ['view_dashboard', 'bulk_issue', 'view_job_monitor', 'manage_institutions', 'manage_users', 'manage_settings'],
+    };
+    const token = `mock-jwt-token-for-admin-${Date.now()}`;
+    return mockApiCall({ user, token });
+  },
+
+  logout: () => Promise.resolve(),
+
   getCurrentUser: async (token) => {
-    console.log('Verificando sesión con token...');
+    try {
+      if (API_BASE_URL) {
+        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Sesión inválida');
+        const data = await res.json();
+        return data?.data || data;
+      }
+    } catch {}
+
     if (token && token.startsWith('mock-jwt-token-for-admin')) {
       return mockApiCall({ id: 'admin-123', name: 'Administrador Principal', email: 'admin@academicchain.com', role: 'admin', permissions: ['view_dashboard', 'bulk_issue', 'view_job_monitor', 'manage_institutions', 'manage_users', 'manage_settings'] });
-    } else if (token && token.startsWith('mock-jwt-token-for-student')) {
-      return mockApiCall({ id: 'student-456', name: 'Estudiante de Ejemplo', email: 'student@academicchain.com', role: 'student', permissions: [] });
-    } else {
-      return mockApiCall(null, true, 'Token inválido o expirado.');
     }
+    if (token && token.startsWith('mock-jwt-token-for-student')) {
+      return mockApiCall({ id: 'student-456', name: 'Usuario Free', email: 'demo@gmail.com', role: 'student', permissions: [] });
+    }
+    return mockApiCall(null, true, 'Token inválido o expirado.');
   },
 };

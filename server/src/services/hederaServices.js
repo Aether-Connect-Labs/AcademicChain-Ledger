@@ -11,11 +11,15 @@ const {
   TokenSupplyType,
   TokenId,
   AccountBalanceQuery,
+  AccountInfoQuery,
   TokenInfoQuery,
   TokenNftInfoQuery,
   TransferTransaction,
   Transaction,
   NftId,
+  PublicKey,
+  ContractExecuteTransaction,
+  ContractFunctionParameters,
 } = require('@hashgraph/sdk');
 
 const { logger } = require('../utils/logger');
@@ -60,6 +64,40 @@ class HederaService {
     }
   }
 
+  async requestCredentialOnChain(uniqueHash, ipfsURI, studentAccountId) {
+    const contractId = process.env.ACADEMIC_LEDGER_CONTRACT_ID;
+    if (!contractId) {
+      throw new HederaError('ACADEMIC_LEDGER_CONTRACT_ID is not configured in environment variables.');
+    }
+
+    const transaction = new ContractExecuteTransaction()
+      .setContractId(contractId)
+      .setGas(100000) // Adjust gas as needed
+      .setFunction("mintCredential", new ContractFunctionParameters()
+        .addAddress(studentAccountId)
+        .addBytes32(Buffer.from(uniqueHash, 'hex'))
+        .addString(ipfsURI)
+      );
+
+    try {
+      const { receipt } = await this._executeTransaction(transaction);
+      if (receipt.status.toString() !== 'SUCCESS') {
+        throw new HederaError(`On-chain request failed with status: ${receipt.status.toString()}`);
+      }
+      logger.info(`✅ On-chain credential request successful for hash: ${uniqueHash}`);
+      return {
+        success: true,
+        transactionId: receipt.transactionId.toString(),
+      };
+    } catch (error) {
+      if (error.message.includes('Duplicate credential')) {
+        throw new BadRequestError('Duplicate credential: This hash has already been registered on-chain.');
+      }
+      logger.error(`❌ On-chain credential request failed for hash ${uniqueHash}:`, error);
+      throw error; // Re-throw other Hedera errors
+    }
+  }
+
   async createAcademicToken(tokenData) {
     if (!tokenData || !tokenData.tokenName || !tokenData.tokenSymbol) {
       throw new BadRequestError('tokenName and tokenSymbol are required');
@@ -70,7 +108,7 @@ class HederaService {
       .setTokenMemo(tokenData.tokenMemo || 'Academic credential NFT')
       .setTokenType(TokenType.NonFungibleUnique)
       .setSupplyType(TokenSupplyType.Infinite)
-      .setTreasuryAccountId(this.operatorId)
+      .setTreasuryAccountId(tokenData.treasuryAccountId ? AccountId.fromString(tokenData.treasuryAccountId) : this.operatorId)
       .setAdminKey(this.operatorKey.publicKey)
       .setSupplyKey(this.operatorKey.publicKey)
       .setFreezeDefault(false);
@@ -87,28 +125,41 @@ class HederaService {
     if (!tokenId || !metadata) {
       throw new BadRequestError('tokenId and metadata are required');
     }
+    if (!metadata.uniqueHash) {
+      throw new BadRequestError('uniqueHash is required');
+    }
+    const crypto = require('crypto');
+    const subjectRef = crypto
+      .createHash('sha256')
+      .update(`${metadata.studentId || ''}|${metadata.degree || ''}|${metadata.university || ''}|${metadata.graduationDate || ''}`)
+      .digest('hex');
+
     const standardizedMetadata = {
-      name: `${metadata.degree} - ${metadata.studentName}`,
-      description: `Credencial académica oficial emitida por ${metadata.university}. Verificable en AetherConnect.`,
-      image: "https://gateway.pinata.cloud/ipfs/QmY9n55aG4f3g2h1j0kLmnOpQrStUvWxYzAbCdEfGhIjKl",
+      name: `${metadata.degree} - ${metadata.university}`,
+      description: `Credencial académica verificable emitida por ${metadata.university}.`,
+      image: "ipfs://QmY9n55aG4f3g2h1j0kLmnOpQrStUvWxYzAbCdEfGhIjKl",
       type: "application/json",
       format: "HIP412@2.0.0",
       attributes: [
         { trait_type: "University", value: metadata.university },
         { trait_type: "Degree", value: metadata.degree },
-        { trait_type: "Student", value: metadata.studentName },
         { trait_type: "Graduation Date", display_type: "date", value: new Date(metadata.graduationDate).toISOString() },
-        { trait_type: "GPA", value: metadata.gpa.toString() },
+        { trait_type: "SubjectRef", value: subjectRef },
       ],
       properties: {
-        studentId: metadata.studentId,
         issuedDate: new Date().toISOString(),
-        ...metadata.additionalInfo
+        schemaVersion: "1.0",
+        additionalProofs: metadata.additionalInfo?.proofs || undefined
       }
     };
-    const ipfsResult = await ipfsService.pinJson(standardizedMetadata, `Credential for ${metadata.studentName}`);
-    const metadataCid = ipfsResult.IpfsHash;
-    const onChainMetadata = Buffer.from(`ipfs://${metadataCid}`, 'utf8');
+    let onChainMetadata;
+    if (metadata.ipfsURI) {
+      onChainMetadata = Buffer.from(metadata.ipfsURI, 'utf8');
+    } else {
+      const ipfsResult = await ipfsService.pinJson(standardizedMetadata, `Credential for ${metadata.studentName}`);
+      const metadataCid = ipfsResult.IpfsHash;
+      onChainMetadata = Buffer.from(`ipfs://${metadataCid}`, 'utf8');
+    }
     const transaction = new TokenMintTransaction()
       .setTokenId(TokenId.fromString(tokenId))
       .setMetadata([onChainMetadata]);
@@ -244,6 +295,25 @@ class HederaService {
       hbars: accountBalance.hbars.toString(),
       tokens: accountBalance.tokens.toString(),
     };
+  }
+
+  async getAccountPublicKey(accountId) {
+    if (!accountId) {
+      throw new BadRequestError('Account ID is required');
+    }
+    const info = await new AccountInfoQuery().setAccountId(AccountId.fromString(accountId)).execute(this.client);
+    return info.key.toString();
+  }
+
+  async verifySignature(accountId, message, signatureBase64) {
+    if (!accountId || !message || !signatureBase64) {
+      throw new BadRequestError('accountId, message, and signature are required');
+    }
+    const pubKeyStr = await this.getAccountPublicKey(accountId);
+    const pubKey = PublicKey.fromString(pubKeyStr);
+    const msgBytes = Buffer.from(message, 'utf8');
+    const sigBytes = Buffer.from(signatureBase64, 'base64');
+    return pubKey.verify(msgBytes, sigBytes);
   }
 
   async getTokenInfo(tokenId) {

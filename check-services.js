@@ -37,7 +37,7 @@ async function checkRedis() {
   log('\n💾 Verificando Redis...', 'cyan');
   try {
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-    const client = createClient({ url: redisUrl });
+    const client = createClient({ url: redisUrl, password: process.env.REDIS_PASSWORD });
     await client.connect();
     await client.ping();
     await client.quit();

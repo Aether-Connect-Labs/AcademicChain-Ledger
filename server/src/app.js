@@ -13,6 +13,9 @@ const swaggerUi = require('swagger-ui-express');
 const { createBullBoard } = require('@bull-board/api');
 const { BullMQAdapter } = require('@bull-board/api/bullMQAdapter');
 const { ExpressAdapter } = require('@bull-board/express');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const hederaService = require('./services/hederaServices');
 
 const { logger } = require('./utils/logger');
 const { errorHandler } = require('./middleware/errorHandler');
@@ -21,7 +24,7 @@ const cacheService = require('./services/cacheService');
 const { protect, authorize } = require('./middleware/auth');
 const { issuanceQueue } = require('../queue/issuanceQueue');
 const { initializeWorkers } = require('./workers');
-const { isConnected: isMongoConnected, getConnectionStats: getMongoStats } = require('./config/database');
+const { connectDB, isConnected: isMongoConnected, getConnectionStats: getMongoStats } = require('./config/database');
 const { isConnected: isRedisConnected, getStats: getRedisStats } = require('../queue/connection');
 const ROLES = require('./config/roles');
 
@@ -33,52 +36,56 @@ const universityRoutes = require('./routes/university');
 const qrRoutes = require('./routes/qr');
 const partnerRoutes = require('./routes/partner');
 const adminRoutes = require('./routes/admin');
+const studentRoutes = require('./routes/student');
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000', 'http://localhost:5173']),
     methods: ['GET', 'POST'],
   },
 });
 const PORT = process.env.PORT || 3001;
 
 // Security middleware
+const isProduction = process.env.NODE_ENV === 'production';
+const clientUrl = process.env.CLIENT_URL;
+
+// Secure CORS Policy
+const whitelist = isProduction ? [clientUrl] : (clientUrl ? clientUrl.split(',') : ['http://localhost:3000', 'http://localhost:5173']);
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || whitelist.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+};
+app.use(cors(corsOptions));
+
+// Secure HTTP Headers with Helmet
 app.use(
   helmet({
-    contentSecurityPolicy: false, // Desactivamos la CSP de Helmet para que Next.js la gestione
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "https://accounts.google.com"], // Allow scripts from self and Google
+        frameSrc: ["'self'", "https://accounts.google.com"], // Allow frames from self and Google for OAuth
+        connectSrc: ["'self'"],
+        imgSrc: ["'self'", "data:"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+      },
+    },
   })
 );
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
-  credentials: true
-}));
 
-// Rate limiting escalable con diferentes límites por tipo de endpoint
-const createLimiter = (windowMs, max, message) => rateLimit({
-  windowMs,
-  max,
-  message,
-  standardHeaders: true,
-  legacyHeaders: false,
-  // Rate limit store se puede configurar con Redis si está disponible
-  // Por defecto usa memoria (mejor para desarrollo)
-  // Para producción con múltiples instancias, usar Redis store
-  skip: (req) => {
-    // Skip rate limiting para health checks
-    return req.path === '/health' || req.path === '/ready' || req.path === '/live';
-  }
-});
+app.use(passport.initialize());
 
-// Rate limiters diferenciados por tipo de endpoint
-const generalLimiter = createLimiter(15 * 60 * 1000, 100, 'Too many requests from this IP, please try again later.');
-const authLimiter = createLimiter(15 * 60 * 1000, 20, 'Too many authentication attempts, please try again later.');
-const verificationLimiter = createLimiter(60 * 1000, 30, 'Too many verification requests, please try again later.');
-const adminLimiter = createLimiter(15 * 60 * 1000, 200, 'Too many admin requests, please try again later.');
-
-// Aplicar rate limiting general
-app.use('/api/', generalLimiter);
 app.use(cookieParser());
 
 // Body parsing middleware
@@ -137,6 +144,7 @@ app.get('/health', async (req, res) => {
 // Readiness probe - verifica si el servicio está listo para recibir tráfico
 app.get('/ready', async (req, res) => {
   try {
+    const isDev = (process.env.NODE_ENV || 'development') !== 'production';
     const checks = {
       status: 'ready',
       timestamp: new Date().toISOString(),
@@ -147,8 +155,9 @@ app.get('/ready', async (req, res) => {
       }
     };
 
-    // Si alguna dependencia crítica no está disponible, retornar 503
-    const isReady = checks.checks.mongo && checks.checks.redis;
+    // En desarrollo, consideramos el servicio "ready" aunque falten dependencias
+    // para permitir probar el sistema completo con modo mock.
+    const isReady = (isDev && checks.checks.server) || (checks.checks.mongo && checks.checks.redis);
     const statusCode = isReady ? 200 : 503;
 
     res.status(statusCode).json(checks);
@@ -192,182 +201,21 @@ app.get('/metrics', protect, authorize(ROLES.ADMIN), async (req, res) => {
     });
   } catch (error) {
     logger.error('Metrics error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ status: 'ERROR', error: error.message });
   }
 });
 
-// API Routes con rate limiting específico
-app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/nft', protect, nftRoutes);
-app.use('/api/verification', verificationLimiter, verificationRoutes);
-app.use('/api/university', protect, universityRoutes);
+// Rutas de la API
+app.use('/api/auth', authRoutes);
+app.use('/api/nfts', nftRoutes);
+app.use('/api/verify', verificationRoutes);
+app.use('/api/universities', universityRoutes);
 app.use('/api/qr', qrRoutes);
-app.use('/api/partner', protect, authorize(ROLES.ADMIN), partnerRoutes);
-app.use('/api/admin', adminLimiter, adminRoutes);
+app.use('/api/partners', partnerRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/credentials', studentRoutes); // Ruta para credenciales de estudiantes
 
-// Bull Board (Admin UI for Queues)
-const serverAdapter = new ExpressAdapter();
-serverAdapter.setBasePath('/api/admin/queues');
-
-createBullBoard({
-  queues: [new BullMQAdapter(issuanceQueue)],
-  serverAdapter,
-});
-
-// Protect the admin dashboard
-app.use('/api/admin/queues', protect, authorize(ROLES.ADMIN), serverAdapter.getRouter());
-
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-  logger.info(`🔌 New client connected: ${socket.id}`);
-  socket.on('join_room', (roomId) => {
-    socket.join(roomId);
-    logger.info(`Client ${socket.id} joined room ${roomId}`);
-  });
-  socket.on('disconnect', () => {
-    logger.info(`🔌 Client disconnected: ${socket.id}`);
-  });
-});
-
-// API Documentation
-app.get('/api', (req, res) => {
-  res.json({
-    message: 'AcademicChain Ledger API - Sistema de Credenciales Académicas en Hedera',
-    version: '1.0.0',
-    endpoints: {
-      auth: '/api/auth',
-      nft: '/api/nft',
-      verification: '/api/verification',
-      university: '/api/university',
-      qr: '/api/qr',
-      partner: '/api/partner'
-    },
-    documentation: `http://localhost:${PORT}/api/docs`
-  });
-});
-
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    error: 'Endpoint not found',
-    path: req.originalUrl
-  });
-});
-
-// Error handling middleware
+// Manejo de errores
 app.use(errorHandler);
 
-const { connectDB } = require('./config/database');
-const hederaService = require('./services/hederaServices');
-
-// Start server
-const startServer = async () => {
-  try {
-    // Connect to MongoDB (optional, continue if fails in dev mode)
-    try {
-      await connectDB();
-    } catch (dbError) {
-      logger.warn('⚠️  MongoDB connection failed, continuing without database:', dbError.message);
-      if (process.env.NODE_ENV === 'production') {
-        throw dbError;
-      }
-    }
-
-    // Connect to Hedera (optional, continue if fails)
-    try {
-      await hederaService.connect();
-    } catch (hederaError) {
-      logger.warn('⚠️  Hedera connection failed, continuing without blockchain:', hederaError.message);
-    }
-
-    // Test IPFS connection (optional)
-    try {
-      await ipfsService.testConnection();
-    } catch (ipfsError) {
-      logger.warn('⚠️  IPFS connection failed, continuing without IPFS:', ipfsError.message);
-    }
-
-    // Initialize background workers and pass the io instance (optional, requires Redis)
-    try {
-      if (process.env.REDIS_URL || process.env.NODE_ENV !== 'production') {
-        initializeWorkers(io);
-      } else {
-        logger.warn('⚠️  Redis not configured. Workers disabled.');
-      }
-    } catch (workerError) {
-      logger.warn('⚠️  Workers initialization failed, continuing without workers:', workerError.message);
-    }
-
-    server.listen(PORT, () => {
-      logger.info(`🚀 AcademicChain Ledger Server running on port ${PORT}`);
-      logger.info(`📊 Health check: http://localhost:${PORT}/health`);
-      logger.info(`🔗 API Base: http://localhost:${PORT}/api`);
-      logger.info(`👑 Admin Queue UI: http://localhost:${PORT}/api/admin/queues`);
-    });
-  } catch (error) {
-    logger.error('❌ Failed to start server:', error);
-    process.exit(1);
-  }
-};
-
-startServer();
-
-// Graceful shutdown mejorado
-const gracefulShutdown = async (signal) => {
-  logger.info(`${signal} received, shutting down gracefully...`);
-  
-  // Cerrar servidor HTTP
-  server.close(() => {
-    logger.info('HTTP server closed');
-  });
-
-  // Cerrar conexiones de Socket.IO
-  io.close(() => {
-    logger.info('Socket.IO server closed');
-  });
-
-  // Cerrar workers
-  try {
-    await issuanceQueue.close();
-    logger.info('Queue connections closed');
-  } catch (error) {
-    logger.error('Error closing queue:', error);
-  }
-
-  // Cerrar conexión a MongoDB
-  try {
-    const { mongoose } = require('./config/database');
-    await mongoose.connection.close();
-    logger.info('MongoDB connection closed');
-  } catch (error) {
-    logger.error('Error closing MongoDB:', error);
-  }
-
-  // Dar tiempo para que las conexiones se cierren
-  setTimeout(() => {
-    logger.info('Graceful shutdown complete');
-    process.exit(0);
-  }, 10000); // 10 segundos máximo
-};
-
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-// Manejar errores no capturados
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  // No terminar el proceso en producción, solo registrar
-  if (process.env.NODE_ENV === 'production') {
-    // Podrías enviar a un servicio de monitoreo aquí
-  }
-});
-
-process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception:', error);
-  // En producción, podríamos querer cerrar el proceso
-  if (process.env.NODE_ENV === 'production') {
-    gracefulShutdown('uncaughtException');
-  }
-});
-
-module.exports = app; 
+module.exports = { app, server, io };

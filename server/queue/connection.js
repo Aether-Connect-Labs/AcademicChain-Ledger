@@ -2,6 +2,8 @@ const IORedis = require('ioredis');
 const { logger } = require('../src/utils/logger');
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+
+
 const REDIS_CLUSTER_NODES = process.env.REDIS_CLUSTER_NODES 
   ? process.env.REDIS_CLUSTER_NODES.split(',').map(node => {
       const [host, port] = node.trim().split(':');
@@ -118,8 +120,8 @@ connection.on('end', () => {
   logger.warn('⚠️  Redis connection ended');
 });
 
-// Conectar cuando el módulo se carga
-if (process.env.NODE_ENV !== 'test') {
+// Conectar cuando el módulo se carga (solo producción)
+if (process.env.NODE_ENV === 'production') {
   connection.connect().catch((err) => {
     logger.error('Failed to connect to Redis:', err);
   });

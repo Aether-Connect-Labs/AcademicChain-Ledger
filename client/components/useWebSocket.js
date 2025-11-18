@@ -2,12 +2,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
+const SOCKET_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
 
 export const useWebSocket = (token) => {
   const socketRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState(null);
+  const [hederaStatus, setHederaStatus] = useState({ isConnected: false, network: 'unknown', accountId: undefined, balance: undefined, timestamp: undefined });
 
   const disconnect = useCallback(() => {
     if (socketRef.current) {
@@ -47,6 +48,17 @@ export const useWebSocket = (token) => {
       console.error('WebSocket error:', error);
     });
 
+    socketRef.current.on('hedera-status', (data) => {
+      setHederaStatus({
+        isConnected: !!data?.isConnected,
+        network: data?.network || 'unknown',
+        accountId: data?.accountId,
+        balance: typeof data?.balance === 'number' ? { hbars: data.balance } : undefined,
+        timestamp: data?.timestamp
+      });
+      setLastMessage({ type: 'hedera-status', data });
+    });
+
     // Limpieza al desmontar el componente
     return () => {
       disconnect();
@@ -71,5 +83,5 @@ export const useWebSocket = (token) => {
     }
   }, []);
 
-  return { isConnected, lastMessage, subscribe, unsubscribe, emit, disconnect };
+  return { socket: socketRef.current, isConnected, lastMessage, hederaStatus, subscribe, unsubscribe, emit, disconnect };
 };

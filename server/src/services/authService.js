@@ -10,7 +10,7 @@ class AuthService {
   async register(userData) {
     const { email, password, name, role, universityName, hederaAccountId } = userData;
 
-    const existingUser = await User.findOne({ where: { email: email.toLowerCase() } });
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       throw new BadRequestError('User already exists');
     }
@@ -41,7 +41,7 @@ class AuthService {
   async login(credentials, res) {
     const { email, password } = credentials;
 
-    const user = await User.findOne({ where: { email: email.toLowerCase() } });
+    const user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
       throw new UnauthorizedError('Invalid credentials');

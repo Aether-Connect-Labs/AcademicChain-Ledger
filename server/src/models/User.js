@@ -20,6 +20,21 @@ const UserSchema = new mongoose.Schema({
     required: true,
     default: 'user',
   },
+  hederaAccountId: {
+    type: String,
+    index: true,
+  },
+  universityName: {
+    type: String,
+  },
+  did: {
+    type: String,
+    index: true,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

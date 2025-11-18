@@ -1,25 +1,24 @@
 {
+  "outputDirectory": "client/dist",
   "version": 2,
-  "public": true,
   "builds": [
-    {
-      "src": "server/src/server.js",
-      "use": "@vercel/node"
-    },
     {
       "src": "client/package.json",
       "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
+      "config": { "distDir": "dist" }
+    },
+    {
+      "src": "server/api/index.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/server/src/server.js"
+      "dest": "server/api/index.js"
     },
     {
+      "src": "/(.*)",
       "handle": "filesystem"
     },
     {

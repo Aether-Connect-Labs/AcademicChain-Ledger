@@ -36,6 +36,7 @@ const { v4: uuidv4 } = require('uuid');
 const PartnerSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   contactEmail: { type: String, required: true, unique: true, trim: true, lowercase: true },
+  universityId: { type: String, index: true },
   keyPrefix: { type: String, unique: true, sparse: true, index: true },
   keyHash: { type: String },
   isActive: { type: Boolean, default: true },

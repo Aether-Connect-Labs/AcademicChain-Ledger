@@ -2,14 +2,14 @@
 
 const fs = require('fs');
 const crypto = require('crypto');
-const readline = require('readline');
-
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+const { exec, spawn } = require('child_process');
 
 console.log('🎓 AcademicChain Ledger - Configuración Automática\n');
+
+function question(query) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise(resolve => rl.question(query, answer => { rl.close(); resolve(answer); }));
+}
 
 async function setupEnvironment() {
   // Generar secretos seguros
@@ -18,14 +18,25 @@ async function setupEnvironment() {
   const sessionSecret = crypto.randomBytes(64).toString('hex');
   
   console.log('✅ Secretos de seguridad generados');
-  
-  // Solicitar credenciales de Hedera
+
+  let mongoDbUri, redisUri;
+  const dockerRunning = await checkDocker().catch(() => false);
+
+  if (dockerRunning) {
+    console.log('🐳 Docker detectado. Usando configuración local para MongoDB y Redis.');
+    mongoDbUri = 'mongodb://localhost:27017/academicchain';
+    redisUri = 'redis://localhost:6379';
+  } else {
+    console.log('⚠️ Docker no está en ejecución. Por favor, introduce las credenciales de tus servicios manualmente.');
+    mongoDbUri = await question('MongoDB Atlas URI: ');
+    redisUri = await question('Redis Cloud URI: ');
+  }
+
+  // Solicitar credenciales que siempre son manuales
   const hederaAccountId = await question('Hedera Account ID (0.0.xxxxx): ');
   const hederaPrivateKey = await question('Hedera Private Key: ');
   const pinataApiKey = await question('Pinata API Key: ');
   const pinataSecretKey = await question('Pinata Secret Key: ');
-  const mongoDbUri = await question('MongoDB Atlas URI: ');
-  const redisUri = await question('Redis Cloud URI: ');
   
   const envContent = `
 # ==============================================
@@ -55,15 +66,56 @@ PINATA_SECRET_API_KEY=${pinataSecretKey}
 `;
 
   fs.writeFileSync('.env', envContent);
-  console.log('✅ Archivo .env unificado creado en la raíz del proyecto.');
+  ensureGitignore();
+
+  console.log('\n✅ Archivo .env unificado creado en la raíz del proyecto.');
   
-  console.log('🚀 Configuración completa. Ejecuta: npm run docker:up');
-  
-  rl.close();
+  if (dockerRunning) {
+    console.log('🚀 Iniciando servicios de Docker (MongoDB y Redis). Esto puede tardar un momento la primera vez...');
+    await runDockerCompose();
+    console.log('\n✅ ¡Servicios listos! Ahora puedes arrancar la aplicación con: npm run dev');
+  } else {
+    console.log('\n🚀 Configuración completa. Asegúrate de que tus servicios externos de MongoDB y Redis estén accesibles.');
+    console.log('Ahora puedes arrancar la aplicación con: npm run dev');
+  }
 }
 
-function question(query) {
-  return new Promise(resolve => rl.question(query, resolve));
+function checkDocker() {
+  return new Promise(resolve => {
+    exec('docker info', (error) => {
+      if (error) {
+        resolve(false);
+      } else {
+        resolve(true);
+      }
+    });
+  });
+}
+
+function runDockerCompose() {
+  return new Promise((resolve, reject) => {
+    const dockerProcess = spawn('npm', ['run', 'docker:up'], { stdio: 'inherit', shell: true, detached: false });
+    dockerProcess.on('close', code => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`El proceso de Docker falló con código ${code}`));
+      }
+    });
+  });
+}
+
+function ensureGitignore() {
+  const gitignorePath = '.gitignore';
+  const envEntry = '\n# Archivo de variables de entorno\n.env\n';
+
+  if (fs.existsSync(gitignorePath)) {
+    const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8');
+    if (!gitignoreContent.includes('.env')) {
+      fs.appendFileSync(gitignorePath, envEntry);
+      console.log('✅ ".env" añadido a .gitignore');
+    }
+  }
 }
 
 setupEnvironment().catch(console.error);
