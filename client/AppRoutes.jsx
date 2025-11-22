@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import HomePage from './components/HomePage';
@@ -8,46 +8,38 @@ import ProtectedRoute from './components/ProtectedRoute';
 import InstitutionDashboard from './components/InstitutionDashboard';
 import ComenzarGratisPage from './components/ComenzarGratisPage';
 
-const AppRoutes = () =\u003e {
+const AppRoutes = () => {
   return (
-    \u003cRoutes\u003e
-      \u003cRoute path="/" element={\u003cLayout\u003e\u003cHomePage /\u003e\u003c/Layout\u003e} /\u003e
-      \u003cRoute path="/login" element={\u003cLayout\u003e\u003cLoginPage /\u003e\u003c/Layout\u003e} /\u003e
-      \u003cRoute path="/register" element={\u003cLayout\u003e\u003cLoginPage mode="register" /\u003e\u003c/Layout\u003e} /\u003e
-      \u003cRoute path="/institution/login" element={\u003cLayout\u003e\u003cLoginPage userType="institution" /\u003e\u003c/Layout\u003e} /\u003e
-      \u003cRoute path="/institution/register" element={\u003cLayout\u003e\u003cLoginPage userType="institution" mode="register" /\u003e\u003c/Layout\u003e} /\u003e
-      \u003cRoute path="/students/login" element={\u003cLayout\u003e\u003cLoginPage userType="student" /\u003e\u003c/Layout\u003e} /\u003e
-      \u003cRoute path="/students/register" element={\u003cLayout\u003e\u003cLoginPage userType="student" mode="register" /\u003e\u003c/Layout\u003e} /\u003e
-      \u003cRoute path="/auth/callback" element={\u003cLayout\u003e\u003cAuthCallback /\u003e\u003c/Layout\u003e} /\u003e
-      \u003cRoute path="/comenzar-gratis" element={\u003cLayout\u003e\u003cComenzarGratisPage /\u003e\u003c/Layout\u003e} /\u003e
+    <Routes>
+      <Route path="/" element={<Layout><HomePage /></Layout>} />
+      <Route path="/login" element={<Layout><LoginPage /></Layout>} />
+      <Route path="/register" element={<Layout><LoginPage mode="register" /></Layout>} />
+      <Route path="/institution/login" element={<Layout><LoginPage userType="institution" /></Layout>} />
+      <Route path="/institution/register" element={<Layout><LoginPage userType="institution" mode="register" /></Layout>} />
+      <Route path="/students/login" element={<Layout><LoginPage userType="student" /></Layout>} />
+      <Route path="/students/register" element={<Layout><LoginPage userType="student" mode="register" /></Layout>} />
+      <Route path="/auth/callback" element={<Layout><AuthCallback /></Layout>} />
+      <Route path="/comenzar-gratis" element={<Layout><ComenzarGratisPage /></Layout>} />
 
       {/* Rutas Protegidas */}
-      \u003cRoute
+      <Route
         path="/institution/dashboard"
         element={
-          \u003cProtectedRoute requiredRoles={['institution']}\u003e
-            \u003cLayout\u003e\u003cInstitutionDashboard /\u003e\u003c/Layout\u003e
-          \u003c/ProtectedRoute\u003e
+          <ProtectedRoute requiredRoles={['institution']}>
+            <Layout><InstitutionDashboard /></Layout>
+          </ProtectedRoute>
         }
-      /\u003e
-      \u003cRoute
+      />
+      <Route
         path="/student/portal"
         element={
-          \u003cProtectedRoute requiredRoles={['student']}\u003e
-            \u003cLayout\u003e\u003cStudentPortal /\u003e\u003c/Layout\u003e
-          \u003c/ProtectedRoute\u003e
+          <ProtectedRoute requiredRoles={['student']}>
+            <Layout><StudentPortal /></Layout>
+          </ProtectedRoute>
         }
-      /\u003e
-    \u003c/Routes\u003e
+      />
+    </Routes>
   );
 };
 
 export default AppRoutes;
-
-
-
-
-
-
-
-
