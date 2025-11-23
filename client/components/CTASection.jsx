@@ -214,14 +214,14 @@ const CTASection = ({
         <div className="absolute bottom-10 right-10 text-6xl">🏫</div>
       </div>
 
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="container-responsive relative z-10">
         <div className={`max-w-6xl mx-auto text-center transition-all duration-700 ${
           inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
         }`}>
           
           {/* Badge de confianza */}
-          <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm mb-8">
-            <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+          <div className="badge badge-success mb-8 inline-flex items-center">
+            <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
             <span className="text-sm font-medium">
               <span className="font-bold">{institutionCount}+</span> Instituciones Confían en Nosotros
             </span>
@@ -255,7 +255,7 @@ const CTASection = ({
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <button
               onClick={() => handleCTAClick('institution')}
-              className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center space-x-3"
+              className="btn-secondary px-8 py-4 rounded-xl text-lg shadow-soft hover-lift flex items-center justify-center space-x-3"
             >
               <span>🏫</span>
               <span>Portal de Institución</span>
@@ -263,14 +263,14 @@ const CTASection = ({
             
             <button
               onClick={() => handleCTAClick('student')}
-              className="border-2 border-white text-white hover:bg-white hover:text-blue-600 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-105 backdrop-blur-sm"
+              className="btn-secondary px-8 py-4 rounded-xl text-lg shadow-soft hover-lift flex items-center justify-center space-x-3"
             >
               <span>🎓</span>
               <span>Portal de Alumno</span>
             </button>
             <button
               onClick={() => handleCTAClick('free')}
-              className="bg-blue-600 text-white hover:bg-blue-700 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center space-x-3"
+              className="btn-primary px-8 py-4 rounded-xl text-lg shadow-soft hover-lift flex items-center justify-center space-x-3"
             >
               <span>🚀</span>
               <span>Comenzar Gratis</span>
@@ -325,7 +325,7 @@ const CTASection = ({
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full bg-white text-blue-600 py-3 rounded-lg font-bold hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+                      className="w-full btn-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 hover-lift shadow-soft"
                     >
                       {isSubmitting ? (
                         <>

@@ -97,11 +97,8 @@ const AdminSidebar = ({
             }
           }}
           className={`
-            w-full flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200
-            ${isActive 
-              ? 'bg-blue-100 text-blue-700 border-r-2 border-blue-600' 
-              : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-            }
+            w-full flex items-center px-3 py-3 rounded-lg transition-all duration-200 hover-lift
+            ${isActive ? 'nav-link-active bg-primary-50 border-r-2 border-primary-600' : 'nav-link'}
             ${level > 0 ? 'text-sm' : 'text-base'}
           `}
         >
@@ -163,7 +160,7 @@ const AdminSidebar = ({
       flex flex-col bg-white border-r border-gray-200 h-full
       ${isOpen ? 'w-64' : 'w-20'} 
       ${isMobile ? 'fixed inset-y-0 left-0 z-50' : 'relative'}
-      transition-all duration-300 ease-in-out shadow-lg
+      transition-all duration-300 ease-in-out shadow-soft
     `}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -186,7 +183,7 @@ const AdminSidebar = ({
         {!isMobile && (
           <button
             onClick={onToggle}
-            className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            className="btn-ghost p-2 hover-lift"
             title={isOpen ? 'Contraer sidebar' : 'Expandir sidebar'}
           >
             {isOpen ? '◀' : '▶'}
@@ -196,7 +193,7 @@ const AdminSidebar = ({
         {isMobile && (
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            className="btn-ghost p-2 hover-lift"
           >
             ✕
           </button>
@@ -282,8 +279,7 @@ const AdminSidebar = ({
             if (isMobile && onClose) onClose();
           }}
           className={`
-            w-full flex items-center justify-center px-3 py-2 text-sm font-medium rounded-lg
-            text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors
+            btn-secondary w-full justify-center hover-lift text-red-600 border-red-300 hover:bg-red-50
             ${!isOpen ? 'px-2' : ''}
           `}
         >

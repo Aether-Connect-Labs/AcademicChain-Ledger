@@ -346,7 +346,7 @@ const BatchIssuance = () => {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isProcessing}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isProcessing ? 'Procesando...' : 'Seleccionar Archivo CSV'}
               </button>
@@ -391,7 +391,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                       ...prev,
                       credentialType: e.target.value
                     }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input-primary"
                   >
                     <option value="degree">Título Universitario</option>
                     <option value="certificate">Certificado</option>
@@ -412,7 +412,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                       institution: e.target.value
                     }))}
                     placeholder="Nombre de la institución"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input-primary"
                   />
                 </div>
 
@@ -428,7 +428,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                       tokenId: e.target.value
                     }))}
                     placeholder="0.0.xxxxxx"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input-primary"
                   />
                 </div>
 
@@ -443,7 +443,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                       ...prev,
                       expirationDate: e.target.value
                     }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input-primary"
                   />
                 </div>
               </div>
@@ -458,7 +458,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                       ...prev,
                       addToHedera: e.target.checked
                     }))}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded focus-visible"
                   />
                   <label htmlFor="addToHedera" className="ml-2 block text-sm text-gray-700">
                     Registrar en Hedera Blockchain
@@ -474,7 +474,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                       ...prev,
                       generateQR: e.target.checked
                     }))}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded focus-visible"
                   />
                   <label htmlFor="generateQR" className="ml-2 block text-sm text-gray-700">
                     Generar códigos QR para verificación
@@ -490,7 +490,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                       ...prev,
                       sendEmail: e.target.checked
                     }))}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded focus-visible"
                   />
                   <label htmlFor="sendEmail" className="ml-2 block text-sm text-gray-700">
                     Enviar notificación por email
@@ -502,7 +502,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
             <div className="flex justify-between pt-6">
               <button
                 onClick={() => setCurrentStep(1)}
-                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                className="btn-secondary"
               >
                 ← Volver
               </button>
@@ -510,7 +510,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
               <button
                 onClick={handleGeneratePreview}
                 disabled={!issuanceConfig.institution || isProcessing}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isProcessing ? 'Generando...' : 'Generar Vista Previa →'}
               </button>
@@ -549,7 +549,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
             <div className="flex justify-between pt-6">
               <button
                 onClick={() => setCurrentStep(2)}
-                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                className="btn-secondary hover-lift"
               >
                 ← Atrás
               </button>
@@ -557,7 +557,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
               <button
                 onClick={handleBatchIssuance}
                 disabled={!isConnected || isProcessing}
-                className="bg-green-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 hover-lift"
               >
                 {isProcessing ? (
                   <>

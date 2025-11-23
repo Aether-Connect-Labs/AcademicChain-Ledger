@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom';
 import { useAuth } from './useAuth';
 
 const StepCard = ({ icon, title, description, ctaText, ctaHref }) => (
-  <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+  <div className="card hover-lift">
     <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-2xl mb-4">
       <span>{icon}</span>
     </div>
     <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
     <p className="text-gray-600 mb-4">{description}</p>
-    <Link to={ctaHref} className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+    <Link to={ctaHref} className="inline-flex items-center btn-primary hover-lift">
       <span className="mr-2">🚀</span>
       <span>{ctaText}</span>
     </Link>
@@ -62,7 +62,7 @@ const Welcome = () => {
           />
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 mb-12">
+        <div className="card-gradient mb-12">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Cómo funciona</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex items-start space-x-3">
@@ -97,12 +97,12 @@ const Welcome = () => {
 
         <div className="mt-12 text-center">
           {user?.role === 'admin' ? (
-            <Link to="/admin" className="inline-flex items-center px-6 py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-700">
+            <Link to="/admin" className="inline-flex items-center btn-primary hover-lift">
               <span className="mr-2">⚙️</span>
               <span>Ir al Panel de Administración</span>
             </Link>
           ) : (
-            <Link to="/verify" className="inline-flex items-center px-6 py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-700">
+            <Link to="/verify" className="inline-flex items-center btn-primary hover-lift">
               <span className="mr-2">🔍</span>
               <span>Probar Verificación Ahora</span>
             </Link>

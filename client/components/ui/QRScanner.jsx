@@ -158,7 +158,7 @@ const QRScanner = ({ onScan, isActive = true, className = '' }) => {
             </p>
             <button
               onClick={handleRetry}
-              className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors"
+              className="btn-secondary text-red-600 border-red-300 hover:bg-red-50 hover-lift shadow-soft"
             >
               Reintentar
             </button>
@@ -177,7 +177,7 @@ const QRScanner = ({ onScan, isActive = true, className = '' }) => {
             </p>
             <button
               onClick={handleRetry}
-              className="bg-yellow-600 text-white px-6 py-2 rounded-lg hover:bg-yellow-700 transition-colors"
+              className="btn-secondary text-yellow-700 border-yellow-300 hover:bg-yellow-50 hover-lift shadow-soft"
             >
               Reintentar
             </button>
@@ -237,7 +237,7 @@ const QRScanner = ({ onScan, isActive = true, className = '' }) => {
             {!permissionRequested && (
               <button
                 onClick={requestCameraPermission}
-                className="mt-4 bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700"
+                className="mt-4 btn-primary"
               >
                 Permitir Cámara
               </button>

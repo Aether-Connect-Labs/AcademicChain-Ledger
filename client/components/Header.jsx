@@ -20,6 +20,7 @@ const Header = ({
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [apiConnected, setApiConnected] = useState(null);
 
   // Configuraciones por variante
   const variants = {
@@ -72,9 +73,23 @@ const Header = ({
       }
     };
 
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [isUserMenuOpen]);
+  document.addEventListener('click', handleClickOutside);
+  return () => document.removeEventListener('click', handleClickOutside);
+}, [isUserMenuOpen]);
+
+  useEffect(() => {
+    let API_URL = import.meta.env.VITE_API_URL;
+    if (!API_URL) {
+      setApiConnected(false);
+      return;
+    }
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 5000);
+    fetch(`${API_URL}/api/verification/status`, { signal: controller.signal })
+      .then(r => setApiConnected(r.ok))
+      .catch(() => setApiConnected(false))
+      .finally(() => clearTimeout(id));
+  }, []);
 
   // Navegación principal
   const navigation = [
@@ -251,14 +266,14 @@ const Header = ({
               {!isConnected ? (
                 <button
                   onClick={handleWalletConnect}
-                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg font-medium transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-soft hover-lift"
                 >
                   🔗 Conectar Wallet
                 </button>
               ) : (
                 <button
                   onClick={handleWalletDisconnect}
-                  className="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg font-medium transition-colors"
+                  className="btn-secondary hover-lift text-red-600 border-red-300 hover:bg-red-50"
                 >
                   Desconectar
                 </button>
@@ -270,7 +285,7 @@ const Header = ({
               <div className="relative user-menu">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors hover-lift"
                 >
                   <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
                     {user.name?.charAt(0)?.toUpperCase() || 'U'}
@@ -304,7 +319,7 @@ const Header = ({
                           <Link
                             key={item.name}
                             to={item.href}
-                            className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                            className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors hover-lift"
                           >
                             <span>{item.icon}</span>
                             <span>{item.name}</span>
@@ -317,21 +332,21 @@ const Header = ({
                     <div className="border-t border-gray-100 pt-2">
                       <button
                         onClick={() => handleUserAction('profile')}
-                        className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors w-full text-left"
+                        className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors w-full text-left hover-lift"
                       >
                         <span>👤</span>
                         <span>Mi Perfil</span>
                       </button>
                       <button
                         onClick={() => handleUserAction('settings')}
-                        className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors w-full text-left"
+                        className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors w-full text-left hover-lift"
                       >
                         <span>⚙️</span>
                         <span>Configuración</span>
                       </button>
                       <button
                         onClick={() => handleUserAction('logout')}
-                        className="flex items-center space-x-3 px-4 py-2 text-red-600 hover:bg-red-50 transition-colors w-full text-left border-t border-gray-100 mt-2"
+                        className="flex items-center space-x-3 px-4 py-2 text-red-600 hover:bg-red-50 transition-colors w-full text-left border-t border-gray-100 mt-2 hover-lift"
                       >
                         <span>🚪</span>
                         <span>Cerrar Sesión</span>
@@ -348,7 +363,7 @@ const Header = ({
                     console.log('[DEBUG] Navigating to /students/login');
                     navigate('/students/login');
                   }}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${textClasses} hover:bg-gray-100 hover:text-gray-800`}
+                  className={`btn-ghost ${textClasses} hover:bg-gray-100 hover:text-gray-800`}
                 >
                   🎓 Acceso Alumnos
                 </button>
@@ -357,7 +372,7 @@ const Header = ({
                     console.log('[DEBUG] Navigating to /institution/login');
                     navigate('/institution/login');
                   }}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-5 py-2 rounded-lg font-medium transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-5 py-2 rounded-lg font-medium transition-all shadow-soft hover-lift"
                 >
                   🏫 Acceso Instituciones
                 </button>
@@ -366,7 +381,7 @@ const Header = ({
                     console.log('[DEBUG] Navigating to /register');
                     navigate('/register');
                   }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-medium transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
+                  className="btn-primary hover-lift"
                 >
                   🚀 Comenzar Gratis
                 </button>
@@ -376,7 +391,7 @@ const Header = ({
             {/* Botón menú móvil */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className={`lg:hidden p-2 rounded-lg transition-colors ${textClasses} hover:bg-gray-100`}
+              className={`lg:hidden p-2 rounded-lg transition-colors ${textClasses} hover:bg-gray-100 hover-lift`}
             >
               {isMobileMenuOpen ? (
                 <span className="text-2xl">✕</span>
@@ -401,7 +416,7 @@ const Header = ({
                     block px-4 py-3 rounded-lg font-medium transition-colors
                     ${item.current 
                       ? 'bg-blue-100 text-blue-700' 
-                      : `hover:bg-gray-100 ${textClasses} hover:text-gray-700`
+                      : `hover:bg-gray-100 ${textClasses} hover:text-gray-700 hover-lift`
                     }
                   `}
                 >
@@ -427,6 +442,15 @@ const Header = ({
                 </div>
               )}
 
+              {apiConnected !== null && (
+                <div className="px-4 py-2 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-2 text-sm">
+                    <div className={`w-2 h-2 ${apiConnected ? 'bg-green-500' : 'bg-red-500'} rounded-full animate-pulse`}></div>
+                    <span>{apiConnected ? 'API conectada' : 'API desconectada'}</span>
+                  </div>
+                </div>
+              )}
+
               {/* Auth móvil */}
               {showAuth && !isAuthenticated && (
                 <div className="grid grid-cols-2 gap-3 px-4">
@@ -435,7 +459,7 @@ const Header = ({
                       console.log('[DEBUG] Navigating to /students/login');
                       navigate('/students/login');
                     }}
-                    className="border border-gray-300 text-gray-700 py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+                    className="btn-ghost flex items-center justify-center space-x-2"
                   >
                     <span>🎓</span><span>Alumnos</span>
                   </button>
@@ -444,7 +468,7 @@ const Header = ({
                       console.log('[DEBUG] Navigating to /institution/login');
                       navigate('/institution/login');
                     }}
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 hover-lift shadow-soft"
                   >
                     <span>🏫</span><span>Instituciones</span>
                   </button>
@@ -453,7 +477,7 @@ const Header = ({
                       console.log('[DEBUG] Navigating to /register');
                       navigate('/register');
                     }}
-                    className="col-span-2 bg-blue-600 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+                    className="col-span-2 btn-primary flex items-center justify-center space-x-2 hover-lift"
                   >
                     <span>🚀</span><span>Comenzar Gratis</span>
                   </button>
@@ -465,14 +489,14 @@ const Header = ({
                 {!isConnected ? (
                   <button
                     onClick={handleWalletConnect}
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 rounded-lg font-medium transition-colors"
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 rounded-lg font-medium transition-colors hover-lift shadow-soft"
                   >
                     🔗 Conectar Wallet
                   </button>
                 ) : (
                   <button
                     onClick={handleWalletDisconnect}
-                    className="w-full border border-red-300 text-red-600 py-3 rounded-lg font-medium transition-colors"
+                    className="w-full btn-secondary text-red-600 border-red-300 hover:bg-red-50 hover-lift"
                   >
                     Desconectar Wallet
                   </button>

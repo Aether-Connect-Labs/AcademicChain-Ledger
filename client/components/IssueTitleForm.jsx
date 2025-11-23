@@ -53,7 +53,7 @@ const IssueTitleForm = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
+    <div className="max-w-md mx-auto card">
       <h2 className="text-2xl font-bold mb-6 text-gray-800">Emitir Título Individual</h2>
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
@@ -66,7 +66,7 @@ const IssueTitleForm = () => {
             name="studentName"
             value={formData.studentName}
             onChange={handleChange}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            className="input-primary"
             required
           />
         </div>
@@ -80,7 +80,7 @@ const IssueTitleForm = () => {
             name="courseName"
             value={formData.courseName}
             onChange={handleChange}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            className="input-primary"
             required
           />
         </div>
@@ -94,7 +94,7 @@ const IssueTitleForm = () => {
             name="issueDate"
             value={formData.issueDate}
             onChange={handleChange}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            className="input-primary"
             required
           />
         </div>
@@ -108,21 +108,21 @@ const IssueTitleForm = () => {
             name="grade"
             value={formData.grade}
             onChange={handleChange}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            className="input-primary"
           />
         </div>
         <div className="flex items-center justify-between">
           <button
             type="submit"
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            className="btn-primary hover-lift"
             disabled={isLoading}
           >
             {isLoading ? 'Emitiendo...' : 'Emitir Título'}
           </button>
         </div>
-        {isLoading && <p className="mt-4 text-sm text-blue-600">Cargando...</p>}
-        {error && <p className="mt-4 text-sm text-red-600">Error: {error}</p>}
-        {message && <p className="mt-4 text-sm text-green-600">{message}</p>}
+        {isLoading && <p className="mt-4 text-sm badge-info badge">Cargando...</p>}
+        {error && <p className="mt-4 text-sm badge-error badge">Error: {error}</p>}
+        {message && <p className="mt-4 text-sm badge-success badge">{message}</p>}
       </form>
     </div>
   );

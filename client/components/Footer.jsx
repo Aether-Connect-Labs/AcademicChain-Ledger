@@ -183,17 +183,17 @@ const Footer = ({ variant = 'default' }) => {
               </div>
 
               {/* Newsletter Subscription */}
-              <div className="mb-6">
-                <h4 className="font-semibold text-white mb-3">Newsletter</h4>
+              <div className="mb-6 card">
+                <h4 className="font-semibold text-gray-900 mb-3">Newsletter</h4>
                 <div className="flex space-x-2">
                   <input
                     type="email"
                     placeholder="tu@email.com"
-                    className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="input-primary"
                   />
                   <button
                     onClick={() => handleLinkClick('newsletter_subscribe', 'newsletter')}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                    className="btn-primary hover-lift"
                   >
                     Suscribir
                   </button>
@@ -213,7 +213,7 @@ const Footer = ({ variant = 'default' }) => {
                       <Link
                         to={link.href}
                         onClick={() => handleLinkClick(link.name, section.title.toLowerCase())}
-                        className="flex items-center space-x-2 hover:text-white transition-colors group"
+                        className="flex items-center space-x-2 hover:text-white transition-colors group hover-lift"
                       >
                         <span className="text-sm opacity-75 group-hover:opacity-100">
                           {link.icon}
@@ -246,7 +246,7 @@ const Footer = ({ variant = 'default' }) => {
                     key={link.name}
                     to={link.href}
                     onClick={() => handleLinkClick(link.name, 'legal')}
-                    className="hover:text-white transition-colors"
+                    className="hover:text-white transition-colors hover-lift"
                   >
                     {link.name}
                   </Link>
@@ -265,7 +265,7 @@ const Footer = ({ variant = 'default' }) => {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => handleSocialClick(social.name)}
-                    className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+                    className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-lg flex items-center justify-center transition-all shadow-soft hover-lift"
                     title={social.name}
                   >
                     <span className="text-sm">{social.icon}</span>
@@ -280,15 +280,15 @@ const Footer = ({ variant = 'default' }) => {
               <div className="flex items-center space-x-3">
                 <button
                   onClick={scrollToTop}
-                  className="w-10 h-10 bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+                  className="btn-ghost w-10 h-10 rounded-lg flex items-center justify-center hover-lift shadow-soft"
                   title="Volver arriba"
                 >
-                  <span className="text-white">↑</span>
+                  <span>↑</span>
                 </button>
 
                 <button
                   onClick={() => handleLinkClick('contact', 'action')}
-                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg font-medium transition-all transform hover:scale-105"
+                  className="btn-primary px-4 py-2 rounded-lg font-medium hover-lift shadow-soft"
                 >
                   Contactar
                 </button>
@@ -321,17 +321,17 @@ const Footer = ({ variant = 'default' }) => {
 
             {/* Certificaciones y badges */}
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 bg-white/10 px-3 py-1 rounded-full text-xs">
+              <div className="badge badge-info">
                 <span>🔒</span>
-                <span>SSL Secured</span>
+                <span className="ml-2">SSL Secured</span>
               </div>
-              <div className="flex items-center space-x-2 bg-white/10 px-3 py-1 rounded-full text-xs">
+              <div className="badge badge-info">
                 <span>🌎</span>
-                <span>GDPR Compliant</span>
+                <span className="ml-2">GDPR Compliant</span>
               </div>
-              <div className="flex items-center space-x-2 bg-green-500/20 px-3 py-1 rounded-full text-xs text-green-300">
+              <div className="badge badge-success">
                 <span>🟢</span>
-                <span>System Online</span>
+                <span className="ml-2">System Online</span>
               </div>
             </div>
           </div>
@@ -342,7 +342,7 @@ const Footer = ({ variant = 'default' }) => {
       {isScrolled && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-6 right-6 lg:hidden w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full shadow-lg flex items-center justify-center text-white transition-all transform hover:scale-110 z-50"
+          className="fixed bottom-6 right-6 lg:hidden w-12 h-12 rounded-full shadow-soft flex items-center justify-center transition-all hover-lift z-50 btn-ghost"
         >
           ↑
         </button>

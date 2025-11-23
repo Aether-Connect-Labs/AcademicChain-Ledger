@@ -149,7 +149,7 @@ class ErrorBoundary extends React.Component {
               {showResetButton && (
                 <button
                   onClick={this.resetErrorBoundary}
-                  className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center space-x-2"
+                  className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all shadow-soft hover-lift flex items-center justify-center space-x-2"
                 >
                   <span>🔄</span>
                   <span>Reintentar</span>
@@ -159,7 +159,7 @@ class ErrorBoundary extends React.Component {
               {showReportButton && (
                 <button
                   onClick={this.reportToSentry}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-600 hover:to-cyan-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center space-x-2"
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-600 hover:to-cyan-700 transition-all shadow-soft hover-lift flex items-center justify-center space-x-2"
                 >
                   <span>📧</span>
                   <span>Reportar Error</span>

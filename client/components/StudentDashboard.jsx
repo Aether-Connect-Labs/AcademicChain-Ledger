@@ -9,12 +9,12 @@ const Stat = ({ value, label }) => (
 );
 
 const CredentialItem = ({ title, issuedBy, status }) => (
-  <div className="flex items-center justify-between px-4 py-3 border rounded-xl bg-white">
+  <div className="flex items-center justify-between card">
     <div>
       <div className="font-semibold text-gray-900">{title}</div>
       <div className="text-sm text-gray-500">{issuedBy}</div>
     </div>
-    <div className={`text-sm px-3 py-1 rounded-full ${status === 'verificada' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{status}</div>
+    <div className={`badge ${status === 'verificada' ? 'badge-success' : 'badge-warning'}`}>{status}</div>
   </div>
 );
 
@@ -32,7 +32,7 @@ const StudentDashboard = () => {
         <Stat value="1" label="Pendientes" />
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 mb-8">
+      <div className="card mb-8">
         <h2 className="text-lg font-bold text-gray-900 mb-4">Tus credenciales</h2>
         <div className="space-y-3">
           <CredentialItem title="Título Universitario" issuedBy="Universidad Central" status="verificada" />
@@ -43,13 +43,13 @@ const StudentDashboard = () => {
       <div className="rounded-2xl border border-blue-200 bg-blue-50 p-6">
         <h3 className="text-lg font-semibold text-blue-900 mb-2">Verificación rápida</h3>
         <p className="text-blue-800 mb-4">Escanea tu QR desde la sección Verificar para comprobar al instante.</p>
-        <a href="/verify" className="inline-block bg-blue-600 text-white px-5 py-2 rounded-lg">Ir a Verificar</a>
+        <a href="/verify" className="inline-block btn-primary hover-lift">Ir a Verificar</a>
       </div>
 
-      <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6">
+      <div className="mt-6 card">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestión de credenciales</h3>
         <p className="text-gray-700 mb-4">Consulta tus credenciales emitidas y obtén su QR y link.</p>
-        <a href="/credentials" className="inline-block bg-gray-800 text-white px-5 py-2 rounded-lg">Ver Mis Credenciales</a>
+        <a href="/credentials" className="inline-block btn-secondary hover-lift">Ver Mis Credenciales</a>
       </div>
     </div>
   );

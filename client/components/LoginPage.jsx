@@ -71,7 +71,7 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
                 type="button"
                 onClick={handleGoogle}
                 disabled={isLoading}
-                className="w-full flex items-center justify-center space-x-3 px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50"
+                className="btn-secondary w-full flex items-center justify-center space-x-3 hover-lift shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span>🔵</span>
                 <span>{mode === 'register' ? 'Continuar con Google' : 'Iniciar con Google'}</span>
@@ -94,7 +94,7 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="mt-1 block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                className="input-primary"
                placeholder={userType === 'institution' ? 'tu@institucion.edu' : 'tu@gmail.com'}
               />
             </div>
@@ -109,7 +109,7 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="mt-1 block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                className="input-primary"
                 placeholder="••••••••"
               />
             </div>
@@ -128,7 +128,7 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-lg text-white font-medium bg-gradient-to-r ${currentConfig.gradient} hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-all transform hover:scale-105`}
+                className="btn-primary w-full hover-lift shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (mode === 'register' ? 'Creando...' : 'Iniciando...') : (mode === 'register' ? 'Crear Cuenta' : 'Iniciar Sesión')}
               </button>

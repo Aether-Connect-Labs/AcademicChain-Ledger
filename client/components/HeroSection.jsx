@@ -119,25 +119,17 @@ export const HeroSection = () => {
           <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-16">
             <Link to="/register">
               <motion.div
-                className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-gray-900 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-2xl hover:from-cyan-300 hover:to-blue-400 transition-all duration-300 shadow-2xl shadow-cyan-500/30 overflow-hidden"
-                whileHover={{ 
-                  scale: 1.05,
-                  boxShadow: "0 20px 40px rgba(6, 182, 212, 0.4)"
-                }}
-                whileTap={{ scale: 0.95 }}
+                className="group inline-flex items-center btn-primary px-8 py-4 rounded-2xl text-lg shadow-soft hover-lift"
               >
                 <span className="relative z-10 flex items-center">
                   🚀 {t('hero.cta_primary', 'Comenzar Gratis')}
                 </span>
-                <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </motion.div>
             </Link>
             
             <Link to="/demo">
               <motion.div
-                className="group inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gray-800/50 backdrop-blur-sm border border-gray-600 rounded-2xl hover:bg-gray-700/80 hover:border-gray-500 transition-all duration-300"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                className="group inline-flex items-center justify-center btn-secondary px-8 py-4 rounded-2xl text-lg shadow-soft hover-lift"
               >
                 <span className="flex items-center">
                   📅 {t('hero.cta_secondary', 'Agendar Demo')}
@@ -154,7 +146,7 @@ export const HeroSection = () => {
                 key={stat.label}
                 variants={floatingVariants}
                 animate="floating"
-                className="text-center p-6 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 hover:border-cyan-500/30 transition-all duration-300"
+                className="text-center p-6 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 hover:border-cyan-500/30 transition-all duration-300 hover-lift"
                 whileHover={{ 
                   scale: 1.05,
                   backgroundColor: "rgba(6, 182, 212, 0.1)"

@@ -68,7 +68,7 @@ const UploadExcelForm = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md mt-8">
+    <div className="max-w-md mx-auto card mt-8">
       <h2 className="text-2xl font-bold mb-6 text-gray-800">Subir Excel para Emisión Masiva</h2>
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
@@ -81,7 +81,7 @@ const UploadExcelForm = () => {
             name="tokenId"
             value={tokenId}
             onChange={(e) => setTokenId(e.target.value)}
-            className="block w-full border rounded px-3 py-2 text-gray-700 focus:outline-none focus:shadow-outline"
+            className="input-primary"
             placeholder="0.0.xxxxxx"
             required
           />
@@ -96,21 +96,21 @@ const UploadExcelForm = () => {
             name="excelFile"
             accept=".xlsx, .xls"
             onChange={handleFileChange}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
         </div>
         <div className="flex items-center justify-between">
           <button
             type="submit"
-            className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            className="btn-primary hover-lift disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isLoading}
           >
             {isLoading ? 'Procesando...' : 'Subir y Procesar'}
           </button>
         </div>
-        {isLoading && <p className="mt-4 text-sm text-blue-600">Cargando...</p>}
-        {error && <p className="mt-4 text-sm text-red-600">Error: {error}</p>}
-        {message && <p className="mt-4 text-sm text-gray-600">{message}</p>}
+        {isLoading && <p className="mt-4 text-sm badge-info badge">Cargando...</p>}
+        {error && <p className="mt-4 text-sm badge-error badge">Error: {error}</p>}
+        {message && <p className="mt-4 text-sm badge-success badge">{message}</p>}
         {data && (
           <div className="mt-4 p-4 bg-gray-100 rounded">
             <h3 className="text-lg font-semibold mb-2">Vista Previa de Datos (Primeras 5 filas):</h3>

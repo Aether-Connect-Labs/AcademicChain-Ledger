@@ -98,16 +98,16 @@ const CredentialVerifier = () => {
                 value={tokenIdInput}
                 onChange={(e) => setTokenIdInput(e.target.value)}
                 placeholder="Token ID (ej. 0.0.123456)"
-                className="border rounded-lg px-3 py-2"
+                className="input-primary"
               />
               <input
                 type="text"
                 value={serialInput}
                 onChange={(e) => setSerialInput(e.target.value)}
                 placeholder="Serial Number (ej. 1)"
-                className="border rounded-lg px-3 py-2"
+                className="input-primary"
               />
-              <button type="submit" className="bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+              <button type="submit" className="btn-primary">
                 Verificar manualmente
               </button>
             </form>
@@ -125,7 +125,7 @@ const CredentialVerifier = () => {
 
       case 'success':
         return (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+          <div className="card bg-green-50 border-green-200">
             <div className="flex items-center mb-4">
               <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
                 <span className="text-green-600 text-xl">✓</span>
@@ -159,7 +159,7 @@ const CredentialVerifier = () => {
               </div>
             </div>
 
-            <button onClick={handleReset} className="mt-6 w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
+            <button onClick={handleReset} className="mt-6 w-full btn-primary">
               Verificar Otra Credencial
             </button>
           </div>
@@ -167,7 +167,7 @@ const CredentialVerifier = () => {
 
       case 'error':
         return (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="card bg-red-50 border-red-200">
             <div className="flex items-center mb-4">
               <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
                 <span className="text-red-600 text-xl">✗</span>
@@ -179,8 +179,8 @@ const CredentialVerifier = () => {
             </div>
             <p className="text-gray-700">{state.error || 'Intenta nuevamente.'}</p>
             <div className="mt-4 flex space-x-2">
-              <button onClick={handleRetry} className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Reintentar</button>
-              <button onClick={handleReset} className="bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors">Cancelar</button>
+              <button onClick={handleRetry} className="btn-primary">Reintentar</button>
+              <button onClick={handleReset} className="btn-secondary">Cancelar</button>
             </div>
           </div>
         );
@@ -192,8 +192,8 @@ const CredentialVerifier = () => {
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-4">Verificador de Credenciales</h2>
-      <div className="bg-white rounded-lg shadow p-6">
+      <h2 className="text-2xl font-bold mb-4 gradient-text">Verificador de Credenciales</h2>
+      <div className="card">
         <QRScanner onScan={handleScan} />
         <div className="mt-6">{renderContent()}</div>
       </div>

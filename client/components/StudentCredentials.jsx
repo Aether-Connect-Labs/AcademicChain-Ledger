@@ -6,13 +6,13 @@ import axios from 'axios'; // Importar axios
 const CredentialCard = ({ credential }) => {
   const link = `${window.location.origin}/verify?tokenId=${encodeURIComponent(credential.tokenId)}\u0026serialNumber=${encodeURIComponent(credential.serialNumber)}`;
   return (
-    <div className="border rounded-xl bg-white p-4 space-y-3">
+    <div className="card space-y-3">
       <div className="flex justify-between items-center">
         <div>
           <div className="font-semibold text-gray-900">{credential.title}</div>
           <div className="text-sm text-gray-600">{credential.issuer}</div>
         </div>
-        <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">emitida</span>
+        <span className="badge badge-success text-xs">emitida</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
         <div className="bg-gray-50 p-3 rounded-lg flex items-center justify-center">
@@ -20,7 +20,7 @@ const CredentialCard = ({ credential }) => {
         </div>
         <div>
           <p className="text-sm text-gray-700 break-all">Link: {link}</p>
-          <button onClick={() => navigator.clipboard.writeText(link)} className="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg">Copiar Link</button>
+          <button onClick={() => navigator.clipboard.writeText(link)} className="mt-2 btn-primary">Copiar Link</button>
         </div>
       </div>
     </div>
@@ -71,13 +71,28 @@ const StudentCredentials = () => {
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="Buscar por título o institución"
-          className="w-full border rounded-lg px-3 py-2"
+          className="input-primary"
         />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {isLoading && <p className="text-gray-600">Cargando credenciales...</p>}
-        {error && <p className="text-red-500">Error: {error}</p>}
-        {!isLoading && !error && filtered.length === 0 && (<p className="text-gray-600">No hay credenciales</p>)}
+        {isLoading && (
+          <div className="card">
+            <div className="spinner w-6 h-6 mr-2"></div>
+            <p className="text-gray-600">Cargando credenciales...</p>
+          </div>
+        )}
+        {error && (
+          <div className="card">
+            <p className="badge badge-error">Error</p>
+            <p className="text-red-600 mt-2">{error}</p>
+          </div>
+        )}
+        {!isLoading && !error && filtered.length === 0 && (
+          <div className="card">
+            <p className="badge badge-info">Sin resultados</p>
+            <p className="text-gray-600 mt-2">No hay credenciales</p>
+          </div>
+        )}
         {!isLoading && !error && filtered.length > 0 && filtered.map(c => <CredentialCard key={c.id} credential={c} />)}
       </div>
     </div>

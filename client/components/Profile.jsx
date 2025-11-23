@@ -35,23 +35,23 @@ const Profile = () => {
   return (
     <div className="max-w-xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-4">Mi Perfil</h1>
-      <div className="space-y-4 bg-white p-6 rounded-2xl border">
+      <div className="card space-y-4">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">Nombre</label>
-                  <input value={name} onChange={e => setName(e.target.value)} className="w-full border rounded-lg px-3 py-2" />
+                  <input value={name} onChange={e => setName(e.target.value)} className="input-primary" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">Correo</label>
-                  <input value={email} disabled className="w-full border rounded-lg px-3 py-2 bg-gray-50" />
+                  <input value={email} disabled className="input-primary bg-gray-50" />
                   <p className="text-xs text-gray-500 mt-1">El correo se gestiona desde autenticación.</p>
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">Cuenta Hedera</label>
-                  <input value={hederaAccountId} onChange={e => setHederaAccountId(e.target.value)} className="w-full border rounded-lg px-3 py-2" placeholder="0.0.xxxxxx" />
+                  <input value={hederaAccountId} onChange={e => setHederaAccountId(e.target.value)} className="input-primary" placeholder="0.0.xxxxxx" />
                   <p className="text-xs text-gray-500 mt-1">Conecta tu cuenta Hedera para recibir credenciales.</p>
                 </div>
         <div className="flex justify-end">
-          <button onClick={handleSave} disabled={saving} className="bg-blue-600 text-white px-5 py-2 rounded-lg">
+          <button onClick={handleSave} disabled={saving} className="btn-primary hover-lift">
             {saving ? 'Guardando...' : 'Guardar cambios'}
           </button>
         </div>

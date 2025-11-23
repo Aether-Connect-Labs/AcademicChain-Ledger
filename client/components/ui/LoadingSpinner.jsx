@@ -9,7 +9,7 @@ const sizes = {
 const LoadingSpinner = ({ size = 'md', className = '' }) => {
   const cls = sizes[size] || sizes.md;
   return (
-    <div className={`animate-spin rounded-full border-b-2 border-blue-500 ${cls} ${className}`}></div>
+    <div className={`spinner ${cls} ${className}`}></div>
   );
 };
 

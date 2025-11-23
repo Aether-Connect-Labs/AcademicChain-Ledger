@@ -14,7 +14,7 @@ const HederaStatus = ({ isConnected, accountId, balance, isCompact = false, onCo
         </div>
       )}
       {!isConnected && (
-        <button onClick={onConnect} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs">Conectar</button>
+        <button onClick={onConnect} className="btn-primary text-xs hover-lift">Conectar</button>
       )}
     </div>
   );
