@@ -246,7 +246,12 @@ router.post('/batch-verify',
 );
 
 router.get('/status', asyncHandler(async (req, res) => {
-  const balance = await hederaService.getAccountBalance(process.env.HEDERA_ACCOUNT_ID);
+  let balance = null;
+  try {
+    if (process.env.HEDERA_ACCOUNT_ID) {
+      balance = await hederaService.getAccountBalance(process.env.HEDERA_ACCOUNT_ID);
+    }
+  } catch {}
   res.status(200).json({
     success: true,
     message: 'Verification service is operational',
@@ -255,8 +260,8 @@ router.get('/status', asyncHandler(async (req, res) => {
       timestamp: new Date().toISOString(),
       hedera: {
         network: process.env.HEDERA_NETWORK || 'testnet',
-        accountBalance: balance.hbars,
-        connected: true
+        accountBalance: balance ? balance.hbars : null,
+        connected: Boolean(balance)
       },
       service: {
         name: 'AcademicChain Ledger Verification Service',

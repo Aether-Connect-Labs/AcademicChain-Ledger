@@ -16,6 +16,9 @@ const { ExpressAdapter } = require('@bull-board/express');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const hederaService = require('./services/hederaServices');
+const bcrypt = require('bcryptjs');
+const { v4: uuidv4 } = require('uuid');
+const { User } = require('./models');
 
 const logger = require('./utils/logger');
 const { errorHandler } = require('./middleware/errorHandler');
@@ -85,6 +88,39 @@ app.use(
 );
 
 app.use(passport.initialize());
+
+// Configure Google OAuth strategy only if env vars are present
+try {
+  const hasGoogle = process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET;
+  if (hasGoogle) {
+    const callbackBase = process.env.SERVER_URL || `http://localhost:${PORT}`;
+    passport.use(new GoogleStrategy({
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: `${callbackBase}/api/auth/google/callback`,
+    }, async (accessToken, refreshToken, profile, done) => {
+      try {
+        const email = (profile.emails && profile.emails[0] && profile.emails[0].value || '').toLowerCase();
+        if (!email) return done(new Error('Google profile did not provide an email'));
+        let user = await User.findOne({ email });
+        if (!user) {
+          const salt = await bcrypt.genSalt(10);
+          const hashed = await bcrypt.hash(uuidv4(), salt);
+          user = await User.create({
+            email,
+            password: hashed,
+            name: profile.displayName || (email.split('@')[0] || 'Usuario'),
+            role: 'user',
+            isActive: true,
+          });
+        }
+        return done(null, user);
+      } catch (err) {
+        return done(err);
+      }
+    }));
+  }
+} catch {}
 
 app.use(cookieParser());
 
@@ -208,10 +244,11 @@ app.get('/metrics', protect, authorize(ROLES.ADMIN), async (req, res) => {
 // Rutas de la API
 app.use('/api/auth', authRoutes);
 app.use('/api/nfts', nftRoutes);
-app.use('/api/verify', verificationRoutes);
+app.use('/api/verification', verificationRoutes);
 app.use('/api/universities', universityRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/partners', partnerRoutes);
+app.use('/api/partner', partnerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/credentials', studentRoutes); // Ruta para credenciales de estudiantes
 

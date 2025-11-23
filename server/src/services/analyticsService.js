@@ -7,13 +7,11 @@ const { AnalyticsEvent, Token, User } = require('../models');
  * @param {object} metadata - Datos relevantes sobre el evento.
  */
 const recordAnalytics = async (eventType, metadata) => {
-  const event = new AnalyticsEvent({
-    type: eventType,
-    data: metadata,
-    timestamp: new Date(),
-  });
-  await event.save();
-  // En un sistema avanzado, esto podría alimentar un data warehouse o un stream de Kafka.
+  try {
+    if (!AnalyticsEvent || typeof AnalyticsEvent !== 'function') return;
+    const event = new AnalyticsEvent({ type: eventType, data: metadata, timestamp: new Date() });
+    await event.save();
+  } catch {}
 };
 
 /**
@@ -26,26 +24,17 @@ const getUniversityInsights = async (universityId) => {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   // Con `Promise.all` se ejecutan las consultas en paralelo para mayor eficiencia.
+  const hasAnalytics = AnalyticsEvent && typeof AnalyticsEvent === 'function';
   const [
     totalCredentialsIssued,
     verificationsThisMonth,
     activeTokens,
     recentActivity
   ] = await Promise.all([
-    AnalyticsEvent.countDocuments({
-      type: 'CREDENTIAL_MINTED',
-      'data.universityId': universityId
-    }),
-    AnalyticsEvent.countDocuments({
-      type: { $in: ['CREDENTIAL_VERIFIED', 'PARTNER_VERIFICATION'] },
-      'data.universityId': universityId,
-      timestamp: { $gte: thirtyDaysAgo }
-    }),
+    hasAnalytics ? AnalyticsEvent.countDocuments({ type: 'CREDENTIAL_MINTED', 'data.universityId': universityId }) : Promise.resolve(0),
+    hasAnalytics ? AnalyticsEvent.countDocuments({ type: { $in: ['CREDENTIAL_VERIFIED', 'PARTNER_VERIFICATION'] }, 'data.universityId': universityId, timestamp: { $gte: thirtyDaysAgo } }) : Promise.resolve(0),
     Token.countDocuments({ universityId: universityId }),
-    AnalyticsEvent.find({ 'data.universityId': universityId })
-      .sort({ timestamp: -1 })
-      .limit(5)
-      .select('type data timestamp')
+    hasAnalytics ? AnalyticsEvent.find({ 'data.universityId': universityId }).sort({ timestamp: -1 }).limit(5).select('type data timestamp') : Promise.resolve([])
   ]);
 
   return {

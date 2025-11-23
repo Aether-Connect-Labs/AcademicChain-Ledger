@@ -74,7 +74,13 @@ router.get('/google', (req, res, next) => {
   passport.authenticate('google', { scope: ['profile', 'email'], state })(req, res, next);
 });
 
-router.get('/google/callback',
+router.get('/google/callback', (req, res, next) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    const redirect = (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',')[0] : 'http://localhost:5173');
+    return res.redirect(`${redirect}/login?error=google_not_configured`);
+  }
+  next();
+},
   passport.authenticate('google', { session: false, failureRedirect: (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',')[0] : 'http://localhost:5173') + '/login?error=google' }),
   asyncHandler(async (req, res) => {
     const redirect = req.query.state || (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',')[0] : 'http://localhost:5173');

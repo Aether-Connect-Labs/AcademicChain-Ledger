@@ -1,14 +1,5 @@
 const request = require('supertest');
-const { app, startServer } = require('../src/app');
-let server;
-
-beforeAll(async () =\u003e {
-  server = await startServer();
-});
-
-afterAll(done =\u003e {
-  server.close(done);
-});
+const { app } = require('../src/app');
 
 describe('Verification API', () => {
   test('GET /api/verification/status returns operational', async () => {
