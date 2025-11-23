@@ -1,6 +1,6 @@
 // Logger simple compatible con Vercel (solo console transport)
 const logger = {
-  info: (message, data = {}) =\u003e {
+  info: (message, data = {}) => {
     console.log(JSON.stringify({
       level: 'info',
       timestamp: new Date().toISOString(),
@@ -9,7 +9,7 @@ const logger = {
     }));
   },
   
-  error: (message, error = null, context = {}) =\u003e {
+  error: (message, error = null, context = {}) => {
     console.error(JSON.stringify({
       level: 'error',
       timestamp: new Date().toISOString(),
@@ -23,7 +23,7 @@ const logger = {
     }));
   },
   
-  warn: (message, data = {}) =\u003e {
+  warn: (message, data = {}) => {
     console.warn(JSON.stringify({
       level: 'warn',
       timestamp: new Date().toISOString(),

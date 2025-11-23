@@ -1,5 +1,9 @@
 const IORedis = require('ioredis');
-const { logger } = require('../src/utils/logger');
+const logger = require('../src/utils/logger');
+
+const DISABLE_REDIS = process.env.DISABLE_REDIS === '1' || (
+  !process.env.REDIS_URL && (process.env.NODE_ENV || 'development') !== 'production'
+);
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
@@ -43,7 +47,15 @@ const redisOptions = {
 let connection;
 
 // Detectar si es cluster o standalone
-if (REDIS_CLUSTER_NODES && REDIS_CLUSTER_NODES.length > 0) {
+if (DISABLE_REDIS) {
+  connection = {
+    status: 'disabled',
+    on: () => {},
+    connect: async () => {},
+    info: async () => null,
+  };
+  logger.warn('Redis disabled in development. Queues will be no-op.');
+} else if (REDIS_CLUSTER_NODES && REDIS_CLUSTER_NODES.length > 0) {
   // Redis Cluster mode para alta disponibilidad
   logger.info('Initializing Redis Cluster connection...');
   connection = new IORedis.Cluster(REDIS_CLUSTER_NODES, {
@@ -135,6 +147,9 @@ const isConnected = () => {
 // Helper para obtener estadísticas
 const getStats = async () => {
   try {
+    if (DISABLE_REDIS) {
+      return { status: 'disabled' };
+    }
     if (!isConnected()) {
       return { status: 'disconnected' };
     }

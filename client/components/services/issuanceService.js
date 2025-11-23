@@ -1,4 +1,7 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+let API_BASE_URL = import.meta.env.VITE_API_URL
+if (typeof API_BASE_URL === 'undefined') {
+  API_BASE_URL = ''
+}
 
 export const issuanceService = {
   createCredentialTemplate: (data) => {
@@ -21,13 +24,14 @@ export const issuanceService = {
   issueBulkCredentials: async (payload) => {
     if (API_BASE_URL) {
       const authToken = localStorage.getItem('authToken');
-      const res = await fetch(`${API_BASE_URL}/api/university/issue-bulk`, {
+      const res = await fetch(`${API_BASE_URL}/api/universities/issue-bulk`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('Error en emisión masiva');
-      return res.json();
+      const json = await res.json();
+      return { jobId: json?.data?.jobId || json?.jobId };
     }
     return { jobId: `job_${Date.now()}` };
   }

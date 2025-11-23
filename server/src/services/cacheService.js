@@ -1,5 +1,5 @@
 const redis = require('../../queue/connection');
-const { logger } = require('../utils/logger');
+const logger = require('../utils/logger');
 
 /**
  * Servicio de caché escalable usando Redis

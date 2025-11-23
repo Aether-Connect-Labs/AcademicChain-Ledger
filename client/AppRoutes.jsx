@@ -6,6 +6,7 @@ import LoginPage from './components/LoginPage';
 import AuthCallback from './components/AuthCallback';
 import ProtectedRoute from './components/ProtectedRoute';
 import InstitutionDashboard from './components/InstitutionDashboard';
+import StudentPortal from './components/StudentPortal';
 import ComenzarGratisPage from './components/ComenzarGratisPage';
 
 const AppRoutes = () => {

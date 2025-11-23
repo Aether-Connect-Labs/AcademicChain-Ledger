@@ -1,11 +1,11 @@
 // server/api/index.js - Versión con logging estructurado
-import { connectToDatabase } from '../lib/mongodb';
-import { validateRequest } from '../lib/auth';
-import { rateLimit } from '../lib/rate-limit';
+const { connectToDatabase } = require('./lib/mongodb')
+const { validateRequest } = require('./lib/auth')
+const { rateLimit } = require('./lib/rate-limit')
 
 // Logger estructurado
 const logger = {
-  info: (message, data = {}) =\u003e {
+  info: (message, data = {}) => {
     console.log(JSON.stringify({
       level: 'info',
       timestamp: new Date().toISOString(),
@@ -13,7 +13,7 @@ const logger = {
       ...data
     }));
   },
-  error: (message, error = null, context = {}) =\u003e {
+  error: (message, error = null, context = {}) => {
     console.error(JSON.stringify({
       level: 'error',
       timestamp: new Date().toISOString(),
@@ -26,7 +26,7 @@ const logger = {
       ...context
     }));
   },
-  warn: (message, data = {}) =\u003e {
+  warn: (message, data = {}) => {
     console.warn(JSON.stringify({
       level: 'warn',
       timestamp: new Date().toISOString(),
@@ -41,7 +41,7 @@ const limiter = rateLimit({
   max: 100
 });
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const requestId = Math.random().toString(36).substring(7);
   const startTime = Date.now();
 

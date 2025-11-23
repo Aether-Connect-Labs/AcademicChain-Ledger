@@ -1,12 +1,12 @@
 import React from 'react';
 
-const StudentPortal = () =\u003e {
+const StudentPortal = () => {
   return (
-    \u003cdiv className="container mx-auto p-4"\u003e
-      \u003ch1 className="text-2xl font-bold mb-4"\u003ePortal del Alumno\u003c/h1\u003e
-      \u003cp\u003eBienvenido a tu portal de alumno. Aquí podrás ver tus títulos emitidos.\u003c/p\u003e
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Portal del Alumno</h1>
+      <p>Bienvenido a tu portal de alumno. Aquí podrás ver tus títulos emitidos.</p>
       {/* Aquí se añadirá la lógica para mostrar los títulos del alumno */}
-    \u003c/div\u003e
+    </div>
   );
 };
 

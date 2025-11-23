@@ -17,7 +17,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const hederaService = require('./services/hederaServices');
 
-const { logger } = require('./utils/logger');
+const logger = require('./utils/logger');
 const { errorHandler } = require('./middleware/errorHandler');
 const ipfsService = require('./services/ipfsService');
 const cacheService = require('./services/cacheService');
@@ -42,7 +42,7 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000', 'http://localhost:5173']),
+    origin: (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174']),
     methods: ['GET', 'POST'],
   },
 });
@@ -53,7 +53,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 const clientUrl = process.env.CLIENT_URL;
 
 // Secure CORS Policy
-const whitelist = isProduction ? [clientUrl] : (clientUrl ? clientUrl.split(',') : ['http://localhost:3000', 'http://localhost:5173']);
+const whitelist = isProduction ? [clientUrl] : (clientUrl ? clientUrl.split(',') : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174']);
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -219,3 +219,48 @@ app.use('/api/credentials', studentRoutes); // Ruta para credenciales de estudia
 app.use(errorHandler);
 
 module.exports = { app, server, io };
+
+if (require.main === module) {
+  (async () => {
+    try {
+      const isProd = (process.env.NODE_ENV || 'development') === 'production';
+      if (typeof connectDB === 'function') {
+        if (isProd) {
+          await connectDB();
+        } else {
+          connectDB().catch(err => logger.error('MongoDB async connect failed:', err));
+        }
+      }
+      if (typeof initializeWorkers === 'function') {
+        try {
+          if (isRedisConnected()) {
+            initializeWorkers(io);
+          }
+        } catch {}
+      }
+      server.listen(PORT, () => {
+        if (process.send) process.send('ready');
+      });
+    } catch (err) {
+      const isProd = (process.env.NODE_ENV || 'development') === 'production';
+      if (isProd) {
+        process.exit(1);
+      } else {
+        logger.error('Startup continuing without MongoDB:', err);
+        server.listen(PORT, () => {
+          if (process.send) process.send('ready');
+        });
+      }
+    }
+  })();
+}
+
+io.on('connection', (socket) => {
+  const { token } = socket.handshake.auth || {};
+  socket.on('subscribe-job', (jobId) => {
+    if (jobId) socket.join(String(jobId));
+  });
+  socket.on('unsubscribe-job', (jobId) => {
+    if (jobId) socket.leave(String(jobId));
+  });
+});

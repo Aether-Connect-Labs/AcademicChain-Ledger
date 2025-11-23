@@ -29,7 +29,10 @@ const CredentialVerifier = () => {
 
     try {
       const parsed = JSON.parse(data);
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      let API_URL = import.meta.env.VITE_API_URL
+      if (typeof API_URL === 'undefined') {
+        API_URL = ''
+      }
       const res = await fetch(`${API_URL}/api/verification/verify-credential`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -52,7 +55,10 @@ const CredentialVerifier = () => {
     if (!tokenIdInput || !serialInput || state.status === 'verifying') return;
     setState({ status: 'verifying' });
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      let API_URL = import.meta.env.VITE_API_URL
+      if (typeof API_URL === 'undefined') {
+        API_URL = ''
+      }
       const res = await fetch(`${API_URL}/api/verification/verify-credential`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

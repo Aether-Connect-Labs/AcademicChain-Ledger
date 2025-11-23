@@ -1,6 +1,6 @@
 const { Worker } = require('bullmq');
 const hederaService = require('../services/hederaServices');
-const { logger } = require('../utils/logger');
+const logger = require('../utils/logger');
 const connection = require('../../queue/connection');
 const { ISSUANCE_QUEUE_NAME } = require('../../queue/issuanceQueue');
 
@@ -23,7 +23,7 @@ const initializeWorkers = (io) => {
         successful++;
         const progress = ((index + 1) / credentials.length) * 100;
         await job.updateProgress(progress);
-        io.to(roomId).emit('job-progress', { jobId: job.id, progress });
+        io.to(String(job.id)).emit('job-progress', { jobId: job.id, progress });
       } catch (error) {
         logger.error(`Error minting credential for job ${job.id}:`, error);
         failed++;
@@ -36,12 +36,12 @@ const initializeWorkers = (io) => {
 
   worker.on('completed', (job, result) => {
     logger.info(`Job ${job.id} has completed with result:`, result);
-    io.to(job.data.roomId).emit('job-completed', { jobId: job.id, result });
+    io.to(String(job.id)).emit('job-completed', { jobId: job.id, result });
   });
 
   worker.on('failed', (job, err) => {
     logger.error(`Job ${job.id} has failed with error:`, err.message);
-    io.to(job.data.roomId).emit('job-failed', { jobId: job.id, error: err.message });
+    io.to(String(job.id)).emit('job-failed', { jobId: job.id, error: err.message });
   });
 
   logger.info('✅ Issuance Worker initialized.');

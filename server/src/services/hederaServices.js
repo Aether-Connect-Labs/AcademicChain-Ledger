@@ -22,7 +22,7 @@ const {
   ContractFunctionParameters,
 } = require('@hashgraph/sdk');
 
-const { logger } = require('../utils/logger');
+const logger = require('../utils/logger');
 const { HederaError, BadRequestError, NotFoundError } = require('../utils/errors');
 const ipfsService = require('./ipfsService');
 const axios = require('axios');

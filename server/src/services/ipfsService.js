@@ -1,4 +1,4 @@
-const { logger } = require('../utils/logger');
+const logger = require('../utils/logger');
 const { ServiceUnavailableError } = require('../utils/errors');
 
 let pinataSDK = null;

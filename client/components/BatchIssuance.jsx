@@ -33,7 +33,8 @@ const BatchIssuance = () => {
     addToHedera: true,
     generateQR: true,
     sendEmail: false,
-    template: 'default'
+    template: 'default',
+    tokenId: '0.0.123456'
   });
 
   // Paso 1: Manejo de archivos
@@ -221,8 +222,8 @@ const BatchIssuance = () => {
 
       // Enviar una única solicitud al backend para que encole el trabajo masivo
       const bulkPayload = {
-        credentials: credentials.map(c => c.credential),
-        config: issuanceConfig
+        tokenId: issuanceConfig.tokenId,
+        credentials: credentials.map(c => c.credential)
       };
 
       // Asumimos que issuanceService tiene un método para esto
@@ -411,6 +412,22 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                       institution: e.target.value
                     }))}
                     placeholder="Nombre de la institución"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Token ID
+                  </label>
+                  <input
+                    type="text"
+                    value={issuanceConfig.tokenId}
+                    onChange={(e) => setIssuanceConfig(prev => ({
+                      ...prev,
+                      tokenId: e.target.value
+                    }))}
+                    placeholder="0.0.xxxxxx"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>

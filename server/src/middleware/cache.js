@@ -1,5 +1,5 @@
 const cacheService = require('../services/cacheService');
-const { logger } = require('../utils/logger');
+const logger = require('../utils/logger');
 
 /**
  * Middleware de caché para respuestas HTTP

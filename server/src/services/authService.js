@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
-const { logger } = require('../utils/logger');
+const logger = require('../utils/logger');
 const { BadRequestError, UnauthorizedError } = require('../utils/errors');
 const didService = require('./didService');
 const { User } = require('../models');

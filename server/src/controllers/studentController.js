@@ -1,5 +1,5 @@
 const asyncHandler = require('express-async-handler');
-const Credential = require('../models/credentialModel');
+const { Credential } = require('../models');
 
 // @desc    Get student credentials
 // @route   GET /api/credentials/mine

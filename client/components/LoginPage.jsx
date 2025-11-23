@@ -2,7 +2,10 @@
 import React, { useState } from 'react';
 import { useAuth } from './useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+let API_BASE_URL = import.meta.env.VITE_API_URL
+if (typeof API_BASE_URL === 'undefined') {
+  API_BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:3001'
+}
 
 const LoginPage = ({ userType = 'student', mode = 'login' }) => {
   const [email, setEmail] = useState('');

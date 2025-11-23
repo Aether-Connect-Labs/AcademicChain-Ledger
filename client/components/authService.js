@@ -1,6 +1,9 @@
 // client/services/authService.js
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+let API_BASE_URL = import.meta.env.VITE_API_URL
+if (typeof API_BASE_URL === 'undefined') {
+  API_BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:3001'
+}
 
 const mockApiCall = (data, shouldFail = false, errorMessage = 'Error de red', delay = 600) => {
   return new Promise((resolve, reject) => {

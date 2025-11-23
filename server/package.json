@@ -2,8 +2,8 @@
   "name": "academicchain-server",
   "version": "1.0.0",
   "scripts": {
-    "dev": "pm2 start ecosystem.config.js --no-daemon --env development",
-    "start": "nodemon src/server.js",
+    "dev": "cross-env NODE_ENV=development nodemon src/app.js",
+    "start": "node src/app.js",
     "start:pm2": "pm2 start ecosystem.config.js",
     "start:pm2:prod": "pm2 start ecosystem.config.js --env production",
     "stop:pm2": "pm2 stop ecosystem.config.js",
