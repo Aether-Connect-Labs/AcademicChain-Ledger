@@ -1,5 +1,5 @@
 // client/pages/LoginPage.js
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from './useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 let API_BASE_URL = import.meta.env.VITE_API_URL
@@ -13,6 +13,7 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
   const { login, register, registerInstitution, isLoading, error } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [googleEnabled, setGoogleEnabled] = useState(null);
 
   const from = location.state?.from?.pathname || (userType === 'institution' ? '/admin' : '/');
 
@@ -48,6 +49,18 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
     window.location.href = url;
   };
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/google/enabled`);
+        const data = await res.json();
+        setGoogleEnabled(Boolean(data.enabled));
+      } catch {
+        setGoogleEnabled(false);
+      }
+    })();
+  }, []);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
       <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
@@ -70,12 +83,15 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
               <button
                 type="button"
                 onClick={handleGoogle}
-                disabled={isLoading}
-                className="btn-secondary w-full flex items-center justify-center space-x-3 hover-lift shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading || googleEnabled === false}
+                className={`${googleEnabled === false ? 'btn-ghost border border-gray-200 text-gray-400' : 'btn-secondary'} w-full flex items-center justify-center space-x-3 hover-lift shadow-soft disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <span>🔵</span>
-                <span>{mode === 'register' ? 'Continuar con Google' : 'Iniciar con Google'}</span>
+                <span>{googleEnabled === false ? 'Google no disponible' : (mode === 'register' ? 'Continuar con Google' : 'Iniciar con Google')}</span>
               </button>
+              {googleEnabled === false && (
+                <div className="mt-2 text-xs text-gray-500 text-center">OAuth de Google no está configurado</div>
+              )}
               <div className="flex items-center my-4">
                 <div className="flex-1 h-px bg-gray-200"></div>
                 <span className="px-3 text-gray-400 text-sm">o</span>

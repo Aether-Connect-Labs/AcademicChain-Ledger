@@ -74,6 +74,12 @@ router.get('/google', (req, res, next) => {
   passport.authenticate('google', { scope: ['profile', 'email'], state })(req, res, next);
 });
 
+// Endpoint para comprobar si Google OAuth está habilitado
+router.get('/google/enabled', (req, res) => {
+  const enabled = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+  res.status(200).json({ success: true, enabled });
+});
+
 router.get('/google/callback', (req, res, next) => {
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
     const redirect = (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',')[0] : 'http://localhost:5173');

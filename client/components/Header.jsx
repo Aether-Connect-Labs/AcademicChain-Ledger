@@ -247,7 +247,7 @@ const Header = ({
             <div className="hidden md:flex items-center space-x-3">
               <div className={`flex items-center space-x-2 ${isConnected ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'} px-3 py-1.5 rounded-full text-sm`}>
                 <div className={`w-2 h-2 ${isConnected ? 'bg-green-500' : 'bg-red-500'} rounded-full animate-pulse`}></div>
-                <span>Hedera {network ? `· ${network}` : ''}</span>
+                <span>Hedera {network && network !== 'unknown' ? `· ${network}` : ''}</span>
               </div>
               {isConnected && balance && (
                 <div className="hidden lg:flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm">

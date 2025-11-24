@@ -4,7 +4,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './useAuth';
 import LoadingSpinner from './ui/LoadingSpinner';
 
-const ProtectedRoute = ({ children, requiredRole }) => {
+const ProtectedRoute = ({ children, requiredRole, requiredRoles }) => {
   const { isAuthenticated, user, isLoading } = useAuth();
   const location = useLocation();
 
@@ -16,7 +16,8 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     );
   }
 
-  const userHasRequiredRole = user && requiredRole?.includes(user.role);
+  const roles = requiredRoles || requiredRole;
+  const userHasRequiredRole = roles ? (user && roles.includes(user.role)) : true;
 
   if (!isAuthenticated || !userHasRequiredRole) {
     // Redirige al login, guardando la ubicación actual para volver después
