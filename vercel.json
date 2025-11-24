@@ -1,5 +1,4 @@
 {
-  "outputDirectory": "client/dist",
   "version": 2,
   "builds": [
     {
