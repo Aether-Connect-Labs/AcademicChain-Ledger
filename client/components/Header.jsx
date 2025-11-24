@@ -388,6 +388,15 @@ const Header = ({
               </div>
             ) : null}
 
+            {/* CTA móvil visible */}
+            <div className="lg:hidden mr-2">
+              <button
+                onClick={() => navigate('/login')}
+                className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold shadow-soft hover:bg-blue-700"
+              >
+                Acceso
+              </button>
+            </div>
             {/* Botón menú móvil */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

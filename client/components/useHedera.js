@@ -2,10 +2,7 @@ import { HashConnect } from 'hashconnect';
 import { useState, useCallback, useEffect } from 'react';
 import { useWebSocket } from './useWebSocket';
 import { useAuth } from './useAuth';
-let API_BASE_URL = import.meta.env.VITE_API_URL
-if (typeof API_BASE_URL === 'undefined') {
-  API_BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:3001'
-}
+let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')
 
 export const useHedera = () => {
   const [isConnected, setIsConnected] = useState(false);
