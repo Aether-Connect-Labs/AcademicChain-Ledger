@@ -177,6 +177,29 @@ app.get('/health', async (req, res) => {
   }
 });
 
+app.get('/healthz', async (req, res) => {
+  try {
+    const health = {
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      service: 'AcademicChain Ledger API',
+      version: '1.0.0',
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      memory: {
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+        rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      }
+    };
+
+    res.status(200).json(health);
+  } catch (error) {
+    logger.error('Health check error:', error);
+    res.status(500).json({ status: 'ERROR', error: error.message });
+  }
+});
+
 // Readiness probe - verifica si el servicio está listo para recibir tráfico
 app.get('/ready', async (req, res) => {
   try {

@@ -458,7 +458,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                       ...prev,
                       addToHedera: e.target.checked
                     }))}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded focus-visible"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded focus-visible"
                   />
                   <label htmlFor="addToHedera" className="ml-2 block text-sm text-gray-700">
                     Registrar en Hedera Blockchain
@@ -474,7 +474,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                       ...prev,
                       generateQR: e.target.checked
                     }))}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded focus-visible"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded focus-visible"
                   />
                   <label htmlFor="generateQR" className="ml-2 block text-sm text-gray-700">
                     Generar códigos QR para verificación
