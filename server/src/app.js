@@ -71,6 +71,9 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+// Trust reverse proxy (Render, Vercel, etc.) to set secure cookies and IPs
+app.set('trust proxy', 1);
+
 // Secure HTTP Headers with Helmet
 app.use(
   helmet({
@@ -129,6 +132,15 @@ app.use(compression());
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Rate limiting for API endpoints
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api', limiter);
 
 // Swagger/OpenAPI Setup
 const swaggerOptions = {
