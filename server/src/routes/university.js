@@ -356,6 +356,32 @@ router.get('/tokens', protect, isUniversity, asyncHandler(async (req, res) => {
   });
 }));
 
+router.get('/credentials', protect, isUniversity, asyncHandler(async (req, res) => {
+  const { user } = req;
+  const { Credential } = require('../models');
+  const { tokenId, accountId, limit = 50, page = 1, format, sort = 'desc', sortBy = 'createdAt' } = req.query;
+  const lim = Math.max(1, Math.min(parseInt(limit, 10) || 50, 200));
+  const pg = Math.max(1, parseInt(page, 10) || 1);
+  const query = { universityId: user.id };
+  if (tokenId) query.tokenId = tokenId;
+  if (accountId) query.studentAccountId = accountId;
+  const total = await Credential.countDocuments(query);
+  const sortDir = (String(sort).toLowerCase() === 'asc') ? 1 : -1;
+  const list = await Credential.find(query).sort({ [sortBy]: sortDir }).skip((pg - 1) * lim).limit(lim);
+  if (format === 'csv') {
+    const rows = [['tokenId','serialNumber','ipfsURI','uniqueHash','studentAccountId','createdAt']].concat(
+      list.map(c => [c.tokenId, c.serialNumber, c.ipfsURI, c.uniqueHash, c.studentAccountId || '', (c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt)])
+    );
+    const csv = rows.map(r => r.map(v => typeof v === 'string' && v.includes(',') ? `"${v.replace(/"/g,'""')}"` : (v ?? '')).join(',')).join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="credentials.csv"');
+    return res.status(200).send(csv);
+  }
+  const from = total === 0 ? 0 : ((pg - 1) * lim) + 1;
+  const to = total === 0 ? 0 : Math.min(pg * lim, total);
+  res.status(200).json({ success: true, data: { credentials: list, meta: { total, page: pg, limit: lim, pages: Math.ceil(total / lim), hasMore: (pg * lim) < total, from, to, sort: sortDir === 1 ? 'asc' : 'desc', sortBy } } });
+}));
+
 router.get('/token/:tokenId', protect, isUniversity, 
   [param('tokenId').notEmpty().withMessage('Token ID is required').trim().escape()],
   validate,

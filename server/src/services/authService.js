@@ -8,7 +8,7 @@ const { User } = require('../models');
 
 class AuthService {
   async register(userData) {
-    const { email, password, name, role, universityName, hederaAccountId } = userData;
+    const { email, password, name, role: requestedRole, universityName, hederaAccountId } = userData;
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
@@ -18,6 +18,7 @@ class AuthService {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    const role = requestedRole === 'university' ? 'university' : 'student';
     const user = await User.create({
       email,
       password: hashedPassword,

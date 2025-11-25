@@ -43,7 +43,21 @@ export const authService = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password, userType })
         });
-        if (!res.ok) throw new Error('Login inválido');
+        if (!res.ok) {
+          // En desarrollo, intenta login de propietario para institución
+          if (userType === 'institution') {
+            const preview = await fetch(`${API_BASE_URL}/api/auth/preview-login`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, password })
+            });
+            if (preview.ok) {
+              const data = await preview.json();
+              return data;
+            }
+          }
+          throw new Error('Login inválido');
+        }
         const data = await res.json();
         return data;
       }
@@ -51,17 +65,6 @@ export const authService = {
 
     const forInstitution = userType === 'institution';
     if (forInstitution) {
-      if (email && email.includes('@') && password === 'password') {
-        const user = {
-          id: 'admin-123',
-          name: 'Administrador Principal',
-          email,
-          role: 'admin',
-          permissions: ['view_dashboard', 'bulk_issue', 'view_job_monitor', 'manage_institutions', 'manage_users', 'manage_settings'],
-        };
-        const token = `mock-jwt-token-for-admin-${Date.now()}`;
-        return mockApiCall({ user, token });
-      }
       return mockApiCall(null, true, 'Credenciales inválidas para institución.');
     }
 
@@ -159,6 +162,13 @@ export const authService = {
       }
     } catch {}
 
+    try {
+      const isOwner = (() => { try { return localStorage.getItem('previewOwner') === '1'; } catch { return false; } })();
+      if (isOwner) {
+        return mockApiCall({ id: 'admin-preview', name: 'Propietario', email: 'owner@preview.local', role: 'admin', permissions: ['view_dashboard','bulk_issue','view_job_monitor','manage_institutions','manage_users','manage_settings'] });
+      }
+    } catch {}
+
     if (token && token.startsWith('mock-jwt-token-for-admin')) {
       return mockApiCall({ id: 'admin-123', name: 'Administrador Principal', email: 'admin@academicchain.com', role: 'admin', permissions: ['view_dashboard', 'bulk_issue', 'view_job_monitor', 'manage_institutions', 'manage_users', 'manage_settings'] });
     }
@@ -167,4 +177,16 @@ export const authService = {
     }
     return mockApiCall(null, true, 'Token inválido o expirado.');
   },
+  previewLogin: async (email, password) => {
+    if (!API_BASE_URL) {
+      return mockApiCall(null, true, 'API no disponible');
+    }
+    const res = await fetch(`${API_BASE_URL}/api/auth/preview-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    if (!res.ok) throw new Error('Credenciales inválidas');
+    return res.json();
+  }
 };

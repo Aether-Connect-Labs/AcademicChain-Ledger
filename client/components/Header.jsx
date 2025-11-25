@@ -202,6 +202,9 @@ const Header = ({
 
   return (
     <header className={headerClasses.trim()}>
+      {(import.meta.env.DEV || import.meta.env.VITE_ALLOW_OWNER === '1') && (
+        <div className="w-full bg-secondary-600 text-white text-center text-xs py-1">Modo Propietario activo</div>
+      )}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
           {/* Logo y navegación principal */}
@@ -212,9 +215,13 @@ const Header = ({
               className="flex items-center space-x-3"
               onClick={() => handleNavClick('logo', '/')}
             >
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-lg">AC</span>
-              </div>
+              {import.meta.env.VITE_LOGO_URL ? (
+                <img src={import.meta.env.VITE_LOGO_URL} alt="Logo" className="w-10 h-10 rounded-lg shadow-lg object-contain" />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                  <span className="text-white font-bold text-lg">AC</span>
+                </div>
+              )}
               <div className="hidden sm:block">
                 <h1 className={`text-xl font-bold ${textClasses}`}>AcademicChain</h1>
                 <p className="text-xs opacity-75">Powered by Hedera</p>
@@ -231,7 +238,7 @@ const Header = ({
                   className={`
                     px-4 py-2 rounded-lg font-medium transition-all duration-200
                     ${item.current 
-                      ? 'bg-blue-100 text-blue-700 shadow-sm' 
+                      ? 'bg-primary-100 text-primary-700 shadow-sm' 
                       : `hover:bg-gray-100 ${textClasses} hover:text-gray-700`
                     }
                   `}
@@ -249,8 +256,13 @@ const Header = ({
                 <div className={`w-2 h-2 ${isConnected ? 'bg-green-500' : 'bg-red-500'} rounded-full animate-pulse`}></div>
                 <span>Hedera {network && network !== 'unknown' ? `· ${network}` : ''}</span>
               </div>
+              {(import.meta.env.DEV || import.meta.env.VITE_ALLOW_OWNER === '1') && isAuthenticated && user?.role === 'admin' && (
+                <div className="hidden lg:flex items-center space-x-2 bg-secondary-50 text-secondary-700 px-3 py-1.5 rounded-full text-sm">
+                  <span className="font-semibold">Admin (propietario)</span>
+                </div>
+              )}
               {isConnected && balance && (
-                <div className="hidden lg:flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm">
+                <div className="hidden lg:flex items-center space-x-2 bg-primary-50 text-primary-700 px-3 py-1.5 rounded-full text-sm">
                   <span className="font-mono">{balance.hbars.toFixed(2)} ℏ</span>
                 </div>
               )}

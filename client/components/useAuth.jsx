@@ -1,61 +1,96 @@
 // client/components/useAuth.jsx
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-
-// En un proyecto real, esto estaría en un archivo separado (ej. `api/auth.js`)
 import { useNavigate } from 'react-router-dom';
+import { authService } from './authService';
 
-// 1. Crear el Contexto de Autenticación
 const AuthContext = createContext(null);
 
-// 2. Crear el Proveedor (AuthProvider)
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const allowBypass = import.meta.env.DEV || import.meta.env.VITE_ALLOW_ALL_PAGES === '1';
 
   useEffect(() => {
-    // Simula la verificación de una sesión existente (ej. con un token)
-    // En una app real, aquí harías una llamada a tu backend
-    const checkSession = async () => {
-      // const loggedInUser = await api.getProfile();
-      // if (loggedInUser) setUser(loggedInUser);
-      // Por ahora, asumimos que no hay sesión al iniciar.
-      setIsLoading(false);
+    const init = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+          const profile = await authService.getCurrentUser(token);
+          setUser(profile);
+        } else if (allowBypass && localStorage.getItem('previewOwner') === '1') {
+          setUser({ id: 'preview-owner', email: 'owner@preview.local', name: 'Owner Preview', role: 'admin' });
+        }
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setIsLoading(false);
+      }
     };
-
-    checkSession();
+    init();
   }, []);
 
   const isAuthenticated = !!user;
 
-  // Función de Login
-  const login = useCallback(async (email, password) => {
-    // Simula una llamada a la API
-    console.log('Iniciando sesión con:', email);
-    // En una app real: const userData = await api.login(email, password);
-    // Simulamos una respuesta exitosa con datos de usuario.
-    const userData = { id: '1', email, role: 'admin' }; // Cambia 'admin' por 'student' para probar los roles.
-    setUser(userData);
-    navigate('/dashboard'); // Redirige al dashboard después del login
-  }, [navigate]);
+  const setSession = useCallback(async (token) => {
+    localStorage.setItem('authToken', token);
+    const profile = await authService.getCurrentUser(token);
+    setUser(profile);
+  }, []);
 
-  // Función de Logout
-  const logout = useCallback(() => {
-    // Simula el cierre de sesión
-    // En una app real: await api.logout();
+  const login = useCallback(async (email, password, userType = 'student') => {
+    setError('');
+    try {
+      const { user: u, token } = await authService.login(email, password, userType);
+      localStorage.setItem('authToken', token);
+      setUser(u || (await authService.getCurrentUser(token)));
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    }
+  }, []);
+
+  const register = useCallback(async (email, password) => {
+    setError('');
+    try {
+      const { user: u, token } = await authService.register(email, password);
+      localStorage.setItem('authToken', token);
+      setUser(u || (await authService.getCurrentUser(token)));
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    }
+  }, []);
+
+  const registerInstitution = useCallback(async (email, password) => {
+    setError('');
+    try {
+      const { user: u, token } = await authService.registerInstitution(email, password);
+      localStorage.setItem('authToken', token);
+      setUser(u || (await authService.getCurrentUser(token)));
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    await authService.logout();
+    localStorage.removeItem('authToken');
     setUser(null);
-    navigate('/login'); // Redirige al login después del logout
+    navigate('/login');
   }, [navigate]);
 
-  // El valor que se pasa al Provider.
-  // Usamos useMemo para evitar re-renders innecesarios.
   const value = React.useMemo(
-    () => ({ user, isAuthenticated, isLoading, login, logout }),
-    [user, isAuthenticated, isLoading, login, logout]
+    () => ({ user, isAuthenticated, isLoading, error, login, register, registerInstitution, logout, setSession }),
+    [user, isAuthenticated, isLoading, error, login, register, registerInstitution, logout, setSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// 3. Crear el Hook personalizado (useAuth)
 export const useAuth = () => useContext(AuthContext);

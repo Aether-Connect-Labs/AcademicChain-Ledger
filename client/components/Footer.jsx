@@ -154,9 +154,13 @@ const Footer = ({ variant = 'default' }) => {
             {/* Brand y descripción */}
             <div className="lg:col-span-2">
               <div className="flex items-center space-x-3 mb-6">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">AC</span>
-                </div>
+                {import.meta.env.VITE_LOGO_URL ? (
+                  <img src={import.meta.env.VITE_LOGO_URL} alt="Logo" className="w-10 h-10 rounded-lg object-contain" />
+                ) : (
+                  <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-lg">AC</span>
+                  </div>
+                )}
                 <div>
                   <h3 className="text-xl font-bold text-white">AcademicChain</h3>
                   <p className="text-sm opacity-75">Powered by Hedera</p>

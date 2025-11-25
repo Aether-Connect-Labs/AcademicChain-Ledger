@@ -159,7 +159,7 @@ class ErrorBoundary extends React.Component {
               {showReportButton && (
                 <button
                   onClick={this.reportToSentry}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-600 hover:to-cyan-700 transition-all shadow-soft hover-lift flex items-center justify-center space-x-2"
+                  className="flex-1 bg-gradient-to-r from-secondary-500 to-primary-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-secondary-600 hover:to-primary-700 transition-all shadow-soft hover-lift flex items-center justify-center space-x-2"
                 >
                   <span>📧</span>
                   <span>Reportar Error</span>
@@ -179,11 +179,11 @@ class ErrorBoundary extends React.Component {
             <div className="text-center text-sm text-gray-500 space-y-1">
               <p>Si el problema persiste, contacta a nuestro equipo de soporte.</p>
               <div className="flex justify-center space-x-4 text-xs">
-                <a href="mailto:soporte@academicchain.com" className="text-blue-600 hover:text-blue-700">
+                <a href="mailto:soporte@academicchain.com" className="text-secondary-600 hover:text-secondary-700">
                   ✉️ soporte@academicchain.com
                 </a>
                 <span>•</span>
-                <a href="tel:+1234567890" className="text-blue-600 hover:text-blue-700">
+                <a href="tel:+1234567890" className="text-secondary-600 hover:text-secondary-700">
                   📞 +1 (234) 567-890
                 </a>
               </div>

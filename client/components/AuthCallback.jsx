@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './useAuth';
+import { authService } from './authService';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -10,11 +11,22 @@ const AuthCallback = () => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     if (token && setSession) {
-      setSession(token).then(() => {
-        navigate('/welcome', { replace: true });
-      }).catch(() => {
-        navigate('/login?error=session', { replace: true });
-      });
+      (async () => {
+        try {
+          await setSession(token);
+          const profile = await authService.getCurrentUser(token);
+          const role = profile?.role;
+          if (role === 'admin' || role === 'university') {
+            navigate('/admin', { replace: true });
+          } else if (role === 'student') {
+            navigate('/welcome', { replace: true });
+          } else {
+            navigate('/', { replace: true });
+          }
+        } catch {
+          navigate('/login?error=session', { replace: true });
+        }
+      })();
     } else {
       navigate('/login?error=missing_token', { replace: true });
     }

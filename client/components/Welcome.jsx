@@ -4,7 +4,7 @@ import { useAuth } from './useAuth';
 
 const StepCard = ({ icon, title, description, ctaText, ctaHref }) => (
   <div className="card hover-lift">
-    <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-2xl mb-4">
+    <div className="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-2xl mb-4">
       <span>{icon}</span>
     </div>
     <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
@@ -30,7 +30,7 @@ const Welcome = () => {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-50 text-blue-700 mb-4">
+          <div className="inline-flex items-center px-4 py-2 rounded-full bg-primary-50 text-primary-700 mb-4">
             <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
             <span>Cuenta creada</span>
           </div>
@@ -66,21 +66,21 @@ const Welcome = () => {
           <h2 className="text-xl font-bold text-gray-900 mb-4">Cómo funciona</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex items-start space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-xl">1</div>
+              <div className="w-10 h-10 rounded-xl bg-secondary-100 flex items-center justify-center text-xl">1</div>
               <div>
                 <div className="font-semibold text-gray-900">Emisión</div>
                 <div className="text-gray-600">Se crea un NFT con metadatos verificables y se registra en Hedera.</div>
               </div>
             </div>
             <div className="flex items-start space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-xl">2</div>
+              <div className="w-10 h-10 rounded-xl bg-secondary-100 flex items-center justify-center text-xl">2</div>
               <div>
                 <div className="font-semibold text-gray-900">Distribución</div>
                 <div className="text-gray-600">Se entrega al estudiante con un QR para validación instantánea.</div>
               </div>
             </div>
             <div className="flex items-start space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-xl">3</div>
+              <div className="w-10 h-10 rounded-xl bg-secondary-100 flex items-center justify-center text-xl">3</div>
               <div>
                 <div className="font-semibold text-gray-900">Verificación</div>
                 <div className="text-gray-600">Empresas y terceros verifican autenticidad consultando el consenso.</div>

@@ -31,12 +31,30 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const ownerEmail = import.meta.env.VITE_PREVIEW_OWNER_EMAIL;
+    if (import.meta.env.DEV && ownerEmail && email === ownerEmail) {
+      await handleOwnerPreview();
+      return;
+    }
     const success = mode === 'register' 
-      ? (userType === 'institution' ? await registerInstitution(email, password) : await register(email, password))
+      ? (userType === 'institution' ? false : await register(email, password))
       : await login(email, password, userType);
     if (success) {
       const target = mode === 'register' && userType !== 'institution' ? '/welcome' : from;
       navigate(target, { replace: true });
+    }
+  };
+
+  const handleOwnerPreview = async () => {
+    try {
+      const data = await authService.previewLogin(email, password);
+      if (data?.token) {
+        localStorage.setItem('previewOwner', '1');
+        await setSession(data.token);
+        window.location.replace('/admin');
+      }
+    } catch (e) {
+      alert('Credenciales inválidas para acceso de propietario');
     }
   };
 
@@ -94,8 +112,18 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
                 <span className="px-3 text-gray-400 text-sm">o</span>
                 <div className="flex-1 h-px bg-gray-200"></div>
               </div>
+              {(import.meta.env.DEV || import.meta.env.VITE_ALLOW_OWNER === '1') && (
+                <button type="button" onClick={handleOwnerPreview} className="btn-ghost w-full text-secondary-700 hover-lift">
+                  Entrar como Propietario (desarrollo)
+                </button>
+              )}
             </div>
           )}
+          {userType === 'institution' && mode === 'register' ? (
+            <div className="text-center text-sm text-gray-600">
+              Acceso institucional solo por invitación del administrador.
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -147,6 +175,7 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
               </button>
             </div>
           </form>
+          )}
 
           <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
             {mode !== 'register' ? (

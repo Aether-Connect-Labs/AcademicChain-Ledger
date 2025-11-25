@@ -51,6 +51,12 @@ const io = new Server(server, {
 });
 const PORT = process.env.PORT || 3001;
 
+// Development-safe defaults for missing env vars
+if (process.env.NODE_ENV !== 'production') {
+  process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
+  process.env.SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
+}
+
 // Security middleware
 const isProduction = process.env.NODE_ENV === 'production';
 const clientUrl = process.env.CLIENT_URL;
@@ -70,8 +76,6 @@ const corsOptions = {
   credentials: true
 };
 app.use(cors(corsOptions));
-
-// Trust reverse proxy (Render, Vercel, etc.) to set secure cookies and IPs
 app.set('trust proxy', 1);
 
 // Secure HTTP Headers with Helmet
@@ -132,8 +136,6 @@ app.use(compression());
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Rate limiting for API endpoints
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 300,

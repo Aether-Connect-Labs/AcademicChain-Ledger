@@ -166,18 +166,26 @@ const AdminSidebar = ({
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         {isOpen ? (
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-md">
-              <span className="text-white font-bold text-lg">AC</span>
-            </div>
+            {import.meta.env.VITE_LOGO_URL ? (
+              <img src={import.meta.env.VITE_LOGO_URL} alt="Logo" className="w-10 h-10 rounded-lg object-contain shadow-md" />
+            ) : (
+              <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center shadow-md">
+                <span className="text-white font-bold text-lg">AC</span>
+              </div>
+            )}
             <div>
               <h1 className="text-xl font-bold text-gray-800">AcademicChain</h1>
               <p className="text-xs text-gray-500">Admin Panel</p>
             </div>
           </div>
         ) : (
-          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-md mx-auto">
-            <span className="text-white font-bold text-lg">AC</span>
-          </div>
+          import.meta.env.VITE_LOGO_URL ? (
+            <img src={import.meta.env.VITE_LOGO_URL} alt="Logo" className="w-10 h-10 rounded-lg object-contain shadow-md mx-auto" />
+          ) : (
+            <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center shadow-md mx-auto">
+              <span className="text-white font-bold text-lg">AC</span>
+            </div>
+          )
         )}
         
         {!isMobile && (
