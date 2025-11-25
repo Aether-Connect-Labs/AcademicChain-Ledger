@@ -1,16 +1,28 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+const buildAuthHeaders = () => {
+  try {
+    const token = localStorage.getItem('authToken');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+};
+
 const IssueTitleForm = () => {
   const [formData, setFormData] = useState({
+    tokenId: '0.0.123456',
     studentName: '',
     courseName: '',
     issueDate: '',
     grade: '',
+    recipientAccountId: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [result, setResult] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -25,15 +37,15 @@ const IssueTitleForm = () => {
     try {
       const uniqueHash = `hash-${Date.now()}`;
       const ipfsURI = `ipfs://QmVg...`;
-      const tokenId = '0.0.123456';
+      const tokenId = formData.tokenId.trim();
 
       const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
       if (!API_BASE_URL) {
         setMessage('Título preparado en modo demostración. Configura VITE_API_URL para emitir contra el backend.');
-        setFormData({ studentName: '', courseName: '', issueDate: '', grade: '' });
+        setFormData(prev => ({ ...prev, studentName: '', courseName: '', issueDate: '', grade: '', recipientAccountId: '' }));
         return;
       }
-      const response = await axios.post(`${API_BASE_URL}/api/universities/prepare-issuance`, {
+      const prepareRes = await axios.post(`${API_BASE_URL}/api/universities/prepare-issuance`, {
         tokenId,
         uniqueHash,
         ipfsURI,
@@ -41,10 +53,19 @@ const IssueTitleForm = () => {
         courseName: formData.courseName,
         issueDate: formData.issueDate,
         grade: formData.grade,
-      });
+        recipientAccountId: formData.recipientAccountId || undefined,
+      }, { headers: buildAuthHeaders() });
 
-      setMessage('Título preparado para emisión exitosamente. Transacción ID: ' + response.data.transactionId);
-      setFormData({ studentName: '', courseName: '', issueDate: '', grade: '' });
+      const transactionId = prepareRes.data?.data?.transactionId || prepareRes.data?.transactionId;
+      setMessage(`Preparado. Transacción: ${transactionId}. Ejecutando emisión...`);
+
+      const execRes = await axios.post(`${API_BASE_URL}/api/universities/execute-issuance`, {
+        transactionId,
+      }, { headers: buildAuthHeaders() });
+
+      setResult(execRes.data?.data || execRes.data);
+      setMessage('Título emitido correctamente');
+      setFormData(prev => ({ ...prev, studentName: '', courseName: '', issueDate: '', grade: '', recipientAccountId: '' }));
     } catch (err) {
       setError('Error al emitir el título: ' + (err.response?.data?.message || err.message));
     } finally {
@@ -56,6 +77,20 @@ const IssueTitleForm = () => {
     <div className="max-w-md mx-auto card">
       <h2 className="text-2xl font-bold mb-6 text-gray-800">Emitir Título Individual</h2>
       <form onSubmit={handleSubmit}>
+        <div className="mb-4">
+          <label htmlFor="tokenId" className="block text-gray-700 text-sm font-bold mb-2">
+            Token ID:
+          </label>
+          <input
+            type="text"
+            id="tokenId"
+            name="tokenId"
+            value={formData.tokenId}
+            onChange={handleChange}
+            className="input-primary"
+            required
+          />
+        </div>
         <div className="mb-4">
           <label htmlFor="studentName" className="block text-gray-700 text-sm font-bold mb-2">
             Nombre del Estudiante:
@@ -111,6 +146,20 @@ const IssueTitleForm = () => {
             className="input-primary"
           />
         </div>
+        <div className="mb-6">
+          <label htmlFor="recipientAccountId" className="block text-gray-700 text-sm font-bold mb-2">
+            Cuenta Hedera del Estudiante (opcional):
+          </label>
+          <input
+            type="text"
+            id="recipientAccountId"
+            name="recipientAccountId"
+            value={formData.recipientAccountId}
+            onChange={handleChange}
+            className="input-primary"
+            placeholder="0.0.xxxxxx"
+          />
+        </div>
         <div className="flex items-center justify-between">
           <button
             type="submit"
@@ -123,6 +172,12 @@ const IssueTitleForm = () => {
         {isLoading && <p className="mt-4 text-sm badge-info badge">Cargando...</p>}
         {error && <p className="mt-4 text-sm badge-error badge">Error: {error}</p>}
         {message && <p className="mt-4 text-sm badge-success badge">{message}</p>}
+        {result && (
+          <div className="mt-4 p-4 bg-gray-50 rounded border border-gray-200">
+            <div className="text-sm">Serial: {result?.mint?.serialNumber}</div>
+            <div className="text-sm">TxID: {result?.mint?.transactionId}</div>
+          </div>
+        )}
       </form>
     </div>
   );
