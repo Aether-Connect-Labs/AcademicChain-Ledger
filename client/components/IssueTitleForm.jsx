@@ -10,7 +10,7 @@ const buildAuthHeaders = () => {
   }
 };
 
-const IssueTitleForm = () => {
+const IssueTitleForm = ({ variant = 'degree' }) => {
   const [formData, setFormData] = useState({
     tokenId: '0.0.123456',
     studentName: '',
@@ -50,8 +50,8 @@ const IssueTitleForm = () => {
         uniqueHash,
         ipfsURI,
         studentName: formData.studentName,
-        courseName: formData.courseName,
-        issueDate: formData.issueDate,
+        degree: formData.courseName,
+        graduationDate: formData.issueDate,
         grade: formData.grade,
         recipientAccountId: formData.recipientAccountId || undefined,
       }, { headers: buildAuthHeaders() });
@@ -75,7 +75,7 @@ const IssueTitleForm = () => {
 
   return (
     <div className="max-w-md mx-auto card">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">Emitir Título Individual</h2>
+      <h2 className="text-2xl font-bold mb-6 text-gray-800">{variant === 'certificate' ? 'Emitir Certificado' : (variant === 'diploma' ? 'Emitir Diploma' : 'Emitir Título')}</h2>
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
           <label htmlFor="tokenId" className="block text-gray-700 text-sm font-bold mb-2">
@@ -107,7 +107,7 @@ const IssueTitleForm = () => {
         </div>
         <div className="mb-4">
           <label htmlFor="courseName" className="block text-gray-700 text-sm font-bold mb-2">
-            Nombre del Curso/Título:
+            {variant === 'certificate' ? 'Nombre del Certificado' : (variant === 'diploma' ? 'Nombre del Diploma' : 'Nombre del Título')}
           </label>
           <input
             type="text"
@@ -121,7 +121,7 @@ const IssueTitleForm = () => {
         </div>
         <div className="mb-4">
           <label htmlFor="issueDate" className="block text-gray-700 text-sm font-bold mb-2">
-            Fecha de Emisión:
+            Fecha de Graduación/Emisión:
           </label>
           <input
             type="date"

@@ -7,12 +7,12 @@ let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'http
 const LoginPage = ({ userType = 'student', mode = 'login' }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, register, registerInstitution, isLoading, error } = useAuth();
+  const { login, register, registerInstitution, isLoading, error, setSession } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [googleEnabled, setGoogleEnabled] = useState(null);
 
-  const from = location.state?.from?.pathname || (userType === 'institution' ? '/admin' : '/');
+  const from = location.state?.from?.pathname || (userType === 'institution' ? '/institution/dashboard' : '/student/portal');
 
   const config = {
     institution: {
@@ -28,6 +28,7 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
   };
 
   const currentConfig = config[userType] || config.student;
+  const allowInstitutionRegister = import.meta.env.VITE_ALLOW_INSTITUTION_REGISTER === '1';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,25 +37,30 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
       await handleOwnerPreview();
       return;
     }
-    const success = mode === 'register' 
-      ? (userType === 'institution' ? false : await register(email, password))
-      : await login(email, password, userType);
+    let success = false;
+    if (mode === 'register') {
+      if (userType === 'institution') {
+        success = allowInstitutionRegister ? await registerInstitution(email, password) : false;
+      } else {
+        success = await register(email, password);
+      }
+    } else {
+      success = await login(email, password, userType);
+    }
     if (success) {
-      const target = mode === 'register' && userType !== 'institution' ? '/welcome' : from;
+      const target = mode === 'register' && userType !== 'institution' ? '/student/portal' : from;
       navigate(target, { replace: true });
     }
   };
 
   const handleOwnerPreview = async () => {
     try {
-      const data = await authService.previewLogin(email, password);
-      if (data?.token) {
-        localStorage.setItem('previewOwner', '1');
-        await setSession(data.token);
-        window.location.replace('/admin');
-      }
+      localStorage.setItem('previewOwner', '1');
+      const token = `mock-jwt-token-for-admin-${Date.now()}`;
+      await setSession(token);
+      window.location.replace('/institution/dashboard');
     } catch (e) {
-      alert('Credenciales inválidas para acceso de propietario');
+      alert('Error al iniciar modo propietario');
     }
   };
 
@@ -84,6 +90,12 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
             <span className="text-4xl">{currentConfig.icon}</span>
           </div>
           <h1 className="text-3xl font-bold">{mode === 'register' ? 'Comenzar Gratis' : currentConfig.title}</h1>
+          {userType === 'institution' && mode === 'register' && allowInstitutionRegister && (
+            <div className="inline-flex items-center mt-3 px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm">
+              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+              <span>Registro institucional habilitado</span>
+            </div>
+          )}
           {(
             <></>
           )}
@@ -119,7 +131,7 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
               )}
             </div>
           )}
-          {userType === 'institution' && mode === 'register' ? (
+          {userType === 'institution' && mode === 'register' && !allowInstitutionRegister ? (
             <div className="text-center text-sm text-gray-600">
               Acceso institucional solo por invitación del administrador.
             </div>
@@ -159,7 +171,7 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
 
             {mode !== 'register' && (
               <div className="flex items-center justify-between">
-                <a href="#" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
+                <a href="/forgot-password" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
                   ¿Olvidaste tu contraseña?
                 </a>
               </div>

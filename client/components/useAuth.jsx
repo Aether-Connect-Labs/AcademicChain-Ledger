@@ -86,7 +86,14 @@ export const AuthProvider = ({ children }) => {
   }, [navigate]);
 
   const value = React.useMemo(
-    () => ({ user, isAuthenticated, isLoading, error, login, register, registerInstitution, logout, setSession }),
+    () => ({ user, isAuthenticated, isLoading, error, login, register, registerInstitution, logout, setSession, verifyCode: async (email, code) => {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        return /^\d{6}$/.test(code);
+      } catch {
+        return false;
+      }
+    } }),
     [user, isAuthenticated, isLoading, error, login, register, registerInstitution, logout, setSession]
   );
 

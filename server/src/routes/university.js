@@ -5,7 +5,7 @@ const { protect, isUniversity } = require('../middleware/auth');
 const { validate } = require('../middleware/validator');
 const hederaService = require('../services/hederaServices');
 const logger = require('../utils/logger');
-const { Token, Transaction, Credential } = require('../models');
+const { Token, Transaction, Credential, User } = require('../models');
 const { issuanceQueue, isRedisConnected } = require('../../queue/issuanceQueue');
 const { recordAnalytics, getUniversityInsights } = require('../services/analyticsService');
 const NodeCache = require('node-cache');
@@ -380,6 +380,25 @@ router.get('/credentials', protect, isUniversity, asyncHandler(async (req, res) 
   const from = total === 0 ? 0 : ((pg - 1) * lim) + 1;
   const to = total === 0 ? 0 : Math.min(pg * lim, total);
   res.status(200).json({ success: true, data: { credentials: list, meta: { total, page: pg, limit: lim, pages: Math.ceil(total / lim), hasMore: (pg * lim) < total, from, to, sort: sortDir === 1 ? 'asc' : 'desc', sortBy } } });
+}));
+
+// Catálogo público de instituciones
+router.get('/catalog', asyncHandler(async (req, res) => {
+  const universities = await User.find({ role: 'university', isActive: true }).select('id universityName email createdAt');
+  const ids = universities.map(u => u.id);
+  const tokensByUni = await Token.aggregate([{ $match: { universityId: { $in: ids } } }, { $group: { _id: '$universityId', count: { $sum: 1 } } }]);
+  const credsByUni = await Credential.aggregate([{ $match: { universityId: { $in: ids } } }, { $group: { _id: '$universityId', count: { $sum: 1 } } }]);
+  const tokenMap = Object.fromEntries(tokensByUni.map(t => [t._id, t.count]));
+  const credMap = Object.fromEntries(credsByUni.map(c => [c._id, c.count]));
+  const catalog = universities.map(u => ({
+    id: u.id,
+    name: u.universityName,
+    email: u.email,
+    tokens: tokenMap[u.id] || 0,
+    credentials: credMap[u.id] || 0,
+    since: u.createdAt,
+  }));
+  res.status(200).json({ success: true, data: { universities: catalog } });
 }));
 
 router.get('/token/:tokenId', protect, isUniversity, 

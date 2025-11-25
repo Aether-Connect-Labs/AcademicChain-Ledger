@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAnalytics } from './useAnalytics';
 import { useHedera } from './useHedera';
 import { useAuth } from './useAuth';
+import LoginModal from './LoginModal.jsx';
 
 const Header = ({ 
   variant = 'default',
@@ -20,7 +21,10 @@ const Header = ({
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isEmitMenuOpen, setIsEmitMenuOpen] = useState(false);
   const [apiConnected, setApiConnected] = useState(null);
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [loginUserType, setLoginUserType] = useState('student');
 
   // Configuraciones por variante
   const variants = {
@@ -63,7 +67,18 @@ const Header = ({
   useEffect(() => {
     setIsMobileMenuOpen(false);
     setIsUserMenuOpen(false);
+    setIsEmitMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      const detail = e.detail || {};
+      setLoginUserType(detail.userType || 'student');
+      setLoginModalOpen(true);
+    };
+    window.addEventListener('openLoginModal', handler);
+    return () => window.removeEventListener('openLoginModal', handler);
+  }, []);
 
   // Cerrar menús al hacer click fuera
   useEffect(() => {
@@ -94,18 +109,21 @@ const Header = ({
   // Navegación principal
   const navigation = [
     { name: 'Inicio', href: '/', current: location.pathname === '/' },
-    { name: 'Características', href: '/features', current: location.pathname === '/features' },
-    { name: 'Soluciones', href: '/solutions', current: location.pathname.startsWith('/solutions') },
+    { name: 'Instituciones', href: '/instituciones', current: location.pathname === '/instituciones' },
+    { name: 'Verificar', href: '/verificar', current: location.pathname === '/verificar' },
     { name: 'Precios', href: '/pricing', current: location.pathname === '/pricing' },
     { name: 'Documentación', href: '/docs', current: location.pathname.startsWith('/docs') }
   ];
 
   // Navegación para usuarios autenticados
   const authNavigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: '📊', role: ['student', 'admin', 'institution'] },
-    { name: 'Mis Credenciales', href: '/credentials', icon: '🎓', role: ['student'] },
-    { name: 'Verificar', href: '/verify', icon: '🔍', role: ['employer', 'admin'] },
-    { name: 'Admin', href: '/admin', icon: '⚙️', role: ['admin', 'institution'] },
+    { name: 'Dashboard Institución', href: '/institution/dashboard', icon: '📊', role: ['institution'] },
+    { name: 'Emitir Título', href: '/institution/emitir/titulo', icon: '🎓', role: ['institution'] },
+    { name: 'Emitir Certificado', href: '/institution/emitir/certificado', icon: '📜', role: ['institution'] },
+    { name: 'Emitir Diploma', href: '/institution/emitir/diploma', icon: '🏅', role: ['institution'] },
+    { name: 'Portal Alumno', href: '/student/portal', icon: '🎓', role: ['student'] },
+    { name: 'Verificar', href: '/verificar', icon: '🔍', role: ['student','admin','institution','employer'] },
+    { name: 'Admin', href: '/admin', icon: '⚙️', role: ['admin'] },
     { name: 'API Keys', href: '/api-keys', icon: '🔑', role: ['developer', 'admin'] }
   ];
 
@@ -208,6 +226,7 @@ const Header = ({
   const isOwnerMode = (import.meta.env.DEV || import.meta.env.VITE_ALLOW_OWNER === '1') && (() => { try { return localStorage.getItem('previewOwner') === '1'; } catch { return false; } })();
 
   return (
+    <>
     <header className={headerClasses.trim()}>
       {(import.meta.env.DEV || import.meta.env.VITE_ALLOW_OWNER === '1') && (
         <div className="w-full bg-secondary-600 text-white text-center text-xs py-1">Modo Propietario activo</div>
@@ -299,6 +318,25 @@ const Header = ({
               )}
             </div>
 
+            {isAuthenticated && user?.role === 'institution' && (
+              <div className="relative hidden sm:block">
+                <button
+                  onClick={() => setIsEmitMenuOpen(!isEmitMenuOpen)}
+                  className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-soft hover-lift flex items-center space-x-2"
+                >
+                  <span>Emitir</span>
+                  <span className={`transform transition-transform ${isEmitMenuOpen ? 'rotate-180' : ''}`}>▼</span>
+                </button>
+                {isEmitMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50">
+                    <Link to="/institution/emitir/titulo" className="block px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">🎓 Emitir Título</Link>
+                    <Link to="/institution/emitir/certificado" className="block px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">📜 Emitir Certificado</Link>
+                    <Link to="/institution/emitir/diploma" className="block px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">🏅 Emitir Diploma</Link>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Menú de usuario autenticado */}
             {showAuth && isAuthenticated && user ? (
               <div className="relative user-menu">
@@ -388,8 +426,8 @@ const Header = ({
               <div className="hidden md:flex items-center space-x-3">
                 <button
                   onClick={() => {
-                    console.log('[DEBUG] Navigating to /students/login');
-                    navigate('/students/login');
+                    setLoginUserType('student');
+                    setLoginModalOpen(true);
                   }}
                   className={`btn-ghost ${textClasses} hover:bg-gray-100 hover:text-gray-800`}
                 >
@@ -397,8 +435,8 @@ const Header = ({
                 </button>
                 <button
                   onClick={() => {
-                    console.log('[DEBUG] Navigating to /institution/login');
-                    navigate('/institution/login');
+                    setLoginUserType('institution');
+                    setLoginModalOpen(true);
                   }}
                   className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-5 py-2 rounded-lg font-medium transition-all shadow-soft hover-lift"
                 >
@@ -406,8 +444,10 @@ const Header = ({
                 </button>
                 <button
                   onClick={() => {
-                    console.log('[DEBUG] Navigating to /register');
-                    navigate('/register');
+                    const allowInstitutionRegister = import.meta.env.VITE_ALLOW_INSTITUTION_REGISTER === '1';
+                    const target = allowInstitutionRegister ? '/institution/register' : '/register';
+                    console.log(`[DEBUG] Navigating to ${target}`);
+                    navigate(target);
                   }}
                   className="btn-primary hover-lift"
                 >
@@ -419,7 +459,10 @@ const Header = ({
             {/* CTA móvil visible */}
             <div className="lg:hidden mr-2">
               <button
-                onClick={() => navigate('/login')}
+                onClick={() => {
+                  setLoginUserType('student');
+                  setLoginModalOpen(true);
+                }}
                 className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold shadow-soft hover:bg-blue-700"
               >
                 Acceso
@@ -493,8 +536,8 @@ const Header = ({
                 <div className="grid grid-cols-2 gap-3 px-4">
                   <button
                     onClick={() => {
-                      console.log('[DEBUG] Navigating to /students/login');
-                      navigate('/students/login');
+                      setLoginUserType('student');
+                      setLoginModalOpen(true);
                     }}
                     className="btn-ghost flex items-center justify-center space-x-2"
                   >
@@ -502,8 +545,8 @@ const Header = ({
                   </button>
                   <button
                     onClick={() => {
-                      console.log('[DEBUG] Navigating to /institution/login');
-                      navigate('/institution/login');
+                      setLoginUserType('institution');
+                      setLoginModalOpen(true);
                     }}
                     className="bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 hover-lift shadow-soft"
                   >
@@ -539,11 +582,27 @@ const Header = ({
                   </button>
                 )}
               </div>
+
+              {isAuthenticated && user?.role === 'institution' && (
+                <div className="px-4 space-y-2">
+                  <Link to="/institution/emitir/titulo" className="block px-3 py-2 rounded-lg bg-blue-50 text-blue-700">🎓 Emitir Título</Link>
+                  <Link to="/institution/emitir/certificado" className="block px-3 py-2 rounded-lg bg-blue-50 text-blue-700">📜 Emitir Certificado</Link>
+                  <Link to="/institution/emitir/diploma" className="block px-3 py-2 rounded-lg bg-blue-50 text-blue-700">🏅 Emitir Diploma</Link>
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
     </header>
+    {loginModalOpen && (
+      <LoginModal
+        open={loginModalOpen}
+        userType={loginUserType}
+        onClose={() => setLoginModalOpen(false)}
+      />
+    )}
+    </>
   );
 };
 

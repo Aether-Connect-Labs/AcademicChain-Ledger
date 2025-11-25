@@ -16,10 +16,10 @@ const AuthCallback = () => {
           await setSession(token);
           const profile = await authService.getCurrentUser(token);
           const role = profile?.role;
-          if (role === 'admin' || role === 'university') {
-            navigate('/admin', { replace: true });
+          if (role === 'admin' || role === 'university' || role === 'institution') {
+            navigate('/institution/dashboard', { replace: true });
           } else if (role === 'student') {
-            navigate('/welcome', { replace: true });
+            navigate('/student/portal', { replace: true });
           } else {
             navigate('/', { replace: true });
           }

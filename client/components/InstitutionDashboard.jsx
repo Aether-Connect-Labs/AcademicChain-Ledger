@@ -16,6 +16,9 @@ function InstitutionDashboard() {
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 10, pages: 1, hasMore: false, from: 0, to: 0 });
   const [searchParams, setSearchParams] = useSearchParams();
   const [targetPage, setTargetPage] = useState('');
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [errorStats, setErrorStats] = useState('');
 
   useEffect(() => {
     const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
@@ -58,10 +61,51 @@ function InstitutionDashboard() {
     fetchCreds();
   }, []);
 
+  useEffect(() => {
+    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+    const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const fetchStats = async () => {
+      setLoadingStats(true);
+      setErrorStats('');
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/universities/statistics`, { headers });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setStats(data?.data?.statistics || data?.data || null);
+      } catch (e) {
+        setErrorStats(e.message);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
   return (
     <div className="container-responsive py-10">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-2 gradient-text">Dashboard de la Institución</h1>
       <p className="text-gray-600">Bienvenido al portal de la institución. Aquí podrás emitir títulos y subir archivos Excel.</p>
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="card">
+          <div className="font-semibold">Métricas</div>
+          {loadingStats && <div className="badge badge-info mt-2">Cargando métricas...</div>}
+          {errorStats && <div className="badge badge-error mt-2">{errorStats}</div>}
+          {!loadingStats && !errorStats && (
+            <div className="text-sm text-gray-700 break-words mt-2">
+              {stats ? JSON.stringify(stats) : 'Sin datos'}
+            </div>
+          )}
+        </div>
+        <div className="card">
+          <div className="font-semibold">Total Credenciales</div>
+          <div className="text-2xl mt-2">{meta.total || 0}</div>
+        </div>
+        <div className="card">
+          <div className="font-semibold">Página Actual</div>
+          <div className="text-2xl mt-2">{page}</div>
+        </div>
+      </div>
       <div className="mt-8">
         <IssueTitleForm />
       </div>

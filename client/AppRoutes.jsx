@@ -8,6 +8,12 @@ import ProtectedRoute from './components/ProtectedRoute';
 import InstitutionDashboard from './components/InstitutionDashboard';
 import StudentPortal from './components/StudentPortal';
 import ComenzarGratisPage from './components/ComenzarGratisPage';
+import CreateDegreePage from './components/CreateDegreePage';
+import CreateCertificatePage from './components/CreateCertificatePage';
+import CreateDiplomaPage from './components/CreateDiplomaPage';
+import VerifyCredentialPage from './components/VerifyCredentialPage';
+import InstitutionsPage from './components/InstitutionsPage';
+import ForgotPassword from './components/ForgotPassword';
 
 const AppRoutes = () => {
   return (
@@ -21,13 +27,40 @@ const AppRoutes = () => {
       <Route path="/students/register" element={<Layout><LoginPage userType="student" mode="register" /></Layout>} />
       <Route path="/auth/callback" element={<Layout><AuthCallback /></Layout>} />
       <Route path="/comenzar-gratis" element={<Layout><ComenzarGratisPage /></Layout>} />
+      <Route path="/verificar" element={<Layout><VerifyCredentialPage /></Layout>} />
+      <Route path="/instituciones" element={<Layout><InstitutionsPage /></Layout>} />
+      <Route path="/forgot-password" element={<Layout><ForgotPassword /></Layout>} />
 
       {/* Rutas Protegidas */}
       <Route
         path="/institution/dashboard"
         element={
-          <ProtectedRoute requiredRoles={['institution']}>
+          <ProtectedRoute requiredRoles={['institution','admin']}>
             <Layout><InstitutionDashboard /></Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/institution/emitir/titulo"
+        element={
+          <ProtectedRoute requiredRoles={['institution','admin']}>
+            <Layout><CreateDegreePage /></Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/institution/emitir/certificado"
+        element={
+          <ProtectedRoute requiredRoles={['institution','admin']}>
+            <Layout><CreateCertificatePage /></Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/institution/emitir/diploma"
+        element={
+          <ProtectedRoute requiredRoles={['institution','admin']}>
+            <Layout><CreateDiplomaPage /></Layout>
           </ProtectedRoute>
         }
       />

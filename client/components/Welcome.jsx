@@ -44,21 +44,21 @@ const Welcome = () => {
             title="Verificar una Credencial"
             description="Escanea un código QR o ingresa token y serial para validar en Hedera."
             ctaText="Ir a Verificación"
-            ctaHref="/verify"
+            ctaHref="/verificar"
           />
           <StepCard
             icon="🎓"
             title="Emitir una Demo"
             description="Simula la emisión de una credencial para comprender el flujo completo."
             ctaText="Explorar Emisión"
-            ctaHref="/admin/credentials/bulk"
+            ctaHref="/institution/emitir/certificado"
           />
           <StepCard
             icon="📚"
             title="Conocer la Plataforma"
             description="Revisa las funcionalidades clave y beneficios para tu institución."
             ctaText="Ver Features"
-            ctaHref="/features"
+            ctaHref="/instituciones"
           />
         </div>
 
@@ -97,12 +97,12 @@ const Welcome = () => {
 
         <div className="mt-12 text-center">
           {user?.role === 'admin' ? (
-            <Link to="/admin" className="inline-flex items-center btn-primary hover-lift">
+            <Link to="/institution/dashboard" className="inline-flex items-center btn-primary hover-lift">
               <span className="mr-2">⚙️</span>
               <span>Ir al Panel de Administración</span>
             </Link>
           ) : (
-            <Link to="/verify" className="inline-flex items-center btn-primary hover-lift">
+            <Link to="/verificar" className="inline-flex items-center btn-primary hover-lift">
               <span className="mr-2">🔍</span>
               <span>Probar Verificación Ahora</span>
             </Link>

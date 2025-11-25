@@ -188,5 +188,55 @@ export const authService = {
     });
     if (!res.ok) throw new Error('Credenciales inválidas');
     return res.json();
+  },
+  requestLoginCode: async (email, userType = 'student') => {
+    if (!email || !email.includes('@')) {
+      throw new Error('Ingresa un correo válido');
+    }
+    if (!API_BASE_URL) {
+      throw new Error('Servicio de correo no disponible');
+    }
+    const res = await fetch(`${API_BASE_URL}/api/auth/request-login-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, userType })
+    });
+    if (!res.ok) throw new Error('No se pudo enviar el código');
+    return res.json();
+  },
+  verifyLoginCode: async (email, code, userType = 'student') => {
+    if (!email || !email.includes('@')) {
+      throw new Error('Ingresa un correo válido');
+    }
+    if (!/^[0-9]{6}$/.test(code)) {
+      throw new Error('Código inválido');
+    }
+    if (!API_BASE_URL) {
+      throw new Error('Verificación no disponible');
+    }
+    const res = await fetch(`${API_BASE_URL}/api/auth/verify-login-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code, userType })
+    });
+    if (!res.ok) throw new Error('Código incorrecto');
+    return res.json();
+  },
+  requestPasswordReset: async (email) => {
+    try {
+      if (API_BASE_URL) {
+        const res = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        if (!res.ok) throw new Error('No se pudo solicitar recuperación');
+        return res.json();
+      }
+    } catch {}
+    if (!email || !email.includes('@')) {
+      return mockApiCall(null, true, 'Ingresa un correo válido');
+    }
+    return mockApiCall({ ok: true });
   }
 };

@@ -56,7 +56,7 @@ export const HeroSection = () => {
   const t = (key, defaultValue) => defaultValue;
   
   return (
-    <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-gray-900 via-gray-950 to-black animated-grid-background">
+    <section className="section-padding relative min-h-screen overflow-hidden bg-gradient-to-br from-gray-900 via-gray-950 to-black animated-grid-background">
       {/* Efectos de fondo mejorados */}
       <div className="absolute inset-0">
         {/* Gradientes animados */}
@@ -92,7 +92,7 @@ export const HeroSection = () => {
 
           {/* Título principal con efectos mejorados */}
           <motion.div variants={itemVariants} className="mb-8">
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-extrabold tracking-tight">
+            <h1 className="hero-title text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold tracking-tight">
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-gray-400 block">
                 {t('hero.title.line1', 'El Futuro de las')}
               </span>
@@ -103,13 +103,13 @@ export const HeroSection = () => {
           </motion.div>
 
           {/* Subtítulo mejorado */}
-          <motion.div variants={itemVariants} className="mb-12">
-            <p className="text-xl sm:text-2xl lg:text-3xl text-gray-300 max-w-4xl mx-auto leading-relaxed font-light">
+          <motion.div variants={itemVariants} className="mb-10">
+            <p className="hero-subtitle text-base sm:text-xl lg:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed font-light">
               {t('hero.subtitle', 'Verificación instantánea y segura de títulos y certificados en la blockchain de Hedera.')}
             </p>
             <motion.p 
               variants={itemVariants}
-              className="mt-4 text-lg text-cyan-200/80 max-w-2xl mx-auto"
+              className="mt-3 text-sm sm:text-base text-cyan-200/80 max-w-2xl mx-auto"
             >
               {t('hero.description', 'Únete a la revolución de la educación digital.')}
             </motion.p>

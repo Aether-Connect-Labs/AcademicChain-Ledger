@@ -147,16 +147,25 @@ const CTASection = ({
 
     switch (type) {
       case 'institution':
-        navigate('/institution/login'); // Redirigir al portal de instituciones
+        try {
+          window.dispatchEvent(new CustomEvent('openLoginModal', { detail: { userType: 'institution' } }));
+        } catch {}
         break;
       case 'student':
-        navigate('/students/login'); // Redirigir al portal de alumnos
+        try {
+          window.dispatchEvent(new CustomEvent('openLoginModal', { detail: { userType: 'student' } }));
+        } catch {}
         break;
       case 'demo':
         window.open('https://calendly.com/academicchain/demo', '_blank');
         break;
       case 'free':
-        navigate('/register');
+        try {
+          const allowInstitutionRegister = import.meta.env.VITE_ALLOW_INSTITUTION_REGISTER === '1';
+          navigate(allowInstitutionRegister ? '/institution/register' : '/register');
+        } catch {
+          navigate('/register');
+        }
         break;
       default:
         console.warn(`[DEBUG] Unknown navigation action: ${type}`);
@@ -204,7 +213,7 @@ const CTASection = ({
   return (
     <section 
       ref={ref}
-      className={`${currentVariant.bg} ${currentVariant.text} py-20 lg:py-28 relative overflow-hidden`}
+      className={`section-padding ${currentVariant.bg} ${currentVariant.text} py-16 md:py-20 lg:py-28 relative overflow-hidden`}
     >
       {/* Elementos decorativos de fondo */}
       <div className="absolute inset-0 opacity-10">
