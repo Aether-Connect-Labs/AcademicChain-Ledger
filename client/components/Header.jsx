@@ -177,6 +177,12 @@ const Header = ({
       case 'settings':
         navigate('/settings');
         break;
+      case 'exit-owner':
+        try { localStorage.removeItem('previewOwner'); } catch {}
+        logout();
+        disconnectWallet();
+        navigate('/login');
+        break;
       case 'logout':
         logout();
         disconnectWallet();
@@ -199,6 +205,7 @@ const Header = ({
   const textClasses = `
     ${isScrolled && variant === 'transparent' ? 'text-gray-900' : currentVariant.text}
   `;
+  const isOwnerMode = (import.meta.env.DEV || import.meta.env.VITE_ALLOW_OWNER === '1') && (() => { try { return localStorage.getItem('previewOwner') === '1'; } catch { return false; } })();
 
   return (
     <header className={headerClasses.trim()}>
@@ -356,6 +363,15 @@ const Header = ({
                         <span>⚙️</span>
                         <span>Configuración</span>
                       </button>
+                      {isOwnerMode && (
+                        <button
+                          onClick={() => handleUserAction('exit-owner')}
+                          className="flex items-center space-x-3 px-4 py-2 text-secondary-700 hover:bg-secondary-50 transition-colors w-full text-left hover-lift"
+                        >
+                          <span>🔒</span>
+                          <span>Salir del modo propietario</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => handleUserAction('logout')}
                         className="flex items-center space-x-3 px-4 py-2 text-red-600 hover:bg-red-50 transition-colors w-full text-left border-t border-gray-100 mt-2 hover-lift"
