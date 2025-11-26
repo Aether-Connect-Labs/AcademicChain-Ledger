@@ -21,7 +21,7 @@ function InstitutionDashboard() {
   const [errorStats, setErrorStats] = useState('');
 
   useEffect(() => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
     const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const initialTokenId = searchParams.get('tokenId') || '';
@@ -62,7 +62,7 @@ function InstitutionDashboard() {
   }, []);
 
   useEffect(() => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
     const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const fetchStats = async () => {

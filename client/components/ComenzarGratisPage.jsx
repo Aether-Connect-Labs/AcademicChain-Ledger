@@ -40,7 +40,7 @@ const ComenzarGratisPage = () => {
       </div>
 
       <div className="mt-12 text-center">
-        <a href="/register" className="btn-primary px-8 py-4 text-lg hover-lift">Crear cuenta gratis</a>
+        <a href="/register?next=/student/portal" className="btn-primary px-8 py-4 text-lg hover-lift">Crear cuenta gratis</a>
       </div>
     </div>
   );

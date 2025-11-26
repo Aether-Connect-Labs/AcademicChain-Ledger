@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from './useAuth';
 import { authService } from './authService';
 import { useNavigate, useLocation } from 'react-router-dom';
-let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')
+let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
 
 const LoginPage = ({ userType = 'student', mode = 'login' }) => {
   const [email, setEmail] = useState('');
@@ -72,7 +72,10 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
 
   const handleGoogle = () => {
     const redirectUri = `${window.location.origin}/auth/callback`;
-    const url = `${API_BASE_URL}/api/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}`;
+    const params = new URLSearchParams(location.search);
+    const next = params.get('next') || (userType === 'institution' ? '/institution/dashboard' : '/student/portal');
+    try { localStorage.setItem('postLoginNext', next); } catch {}
+    const url = `${API_BASE_URL}/api/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}&next=${encodeURIComponent(next)}`;
     window.location.href = url;
   };
 
@@ -125,16 +128,6 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
               {googleEnabled === false && (
                 <div className="mt-2 text-xs text-gray-500 text-center">OAuth de Google no está configurado</div>
               )}
-              <div className="flex items-center my-4">
-                <div className="flex-1 h-px bg-gray-200"></div>
-                <span className="px-3 text-gray-400 text-sm">o</span>
-                <div className="flex-1 h-px bg-gray-200"></div>
-              </div>
-              {(import.meta.env.DEV || import.meta.env.VITE_ALLOW_OWNER === '1') && (
-                <button type="button" onClick={handleOwnerPreview} className="btn-ghost w-full text-secondary-700 hover-lift">
-                  Entrar como Propietario (desarrollo)
-                </button>
-              )}
             </div>
           )}
           {userType === 'institution' && mode === 'register' && !allowInstitutionRegister ? (
@@ -142,57 +135,9 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
               Acceso institucional solo por invitación del administrador.
             </div>
           ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Correo Electrónico
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="input-primary"
-               placeholder={userType === 'institution' ? 'tu@institucion.edu' : 'tu@gmail.com'}
-              />
+            <div className="text-center text-sm text-gray-600">
+              Acceso institucional solo por invitación del administrador.
             </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Contraseña
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="input-primary"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-
-            {mode !== 'register' && (
-              <div className="flex items-center justify-between">
-                <a href="/forgot-password" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
-                  ¿Olvidaste tu contraseña?
-                </a>
-              </div>
-            )}
-
-            <div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="btn-primary w-full hover-lift shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (mode === 'register' ? 'Creando...' : 'Iniciando...') : (mode === 'register' ? 'Crear Cuenta' : 'Iniciar Sesión')}
-              </button>
-            </div>
-          </form>
           )}
 
           <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">

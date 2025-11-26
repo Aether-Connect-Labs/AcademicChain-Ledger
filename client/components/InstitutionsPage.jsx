@@ -6,16 +6,50 @@ const InstitutionsPage = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
-    const url = `${API_BASE_URL}/api/universities/catalog`;
-    setLoading(true);
-    fetch(url)
-      .then(async (res) => {
+    const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
+    const url = apiBase ? `${apiBase}/api/universities/catalog` : '';
+
+    const load = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        if (!apiBase) {
+          setItems([
+            { id: 'demo-1', name: 'Demo University', email: 'contact@demo.univ', tokens: 3, credentials: 128, since: new Date().toISOString() },
+            { id: 'demo-2', name: 'Blockchain Institute', email: 'info@block.institute', tokens: 2, credentials: 64, since: new Date().toISOString() },
+          ]);
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(url, { headers: { Accept: 'application/json' } });
+        const contentType = res.headers.get('content-type') || '';
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Error ${res.status}: ${text.slice(0, 120)}`);
+        }
+
+        if (!contentType.includes('application/json')) {
+          const snippet = await res.text();
+          setItems([
+            { id: 'demo-1', name: 'Demo University', email: 'contact@demo.univ', tokens: 3, credentials: 128, since: new Date().toISOString() },
+            { id: 'demo-2', name: 'Blockchain Institute', email: 'info@block.institute', tokens: 2, credentials: 64, since: new Date().toISOString() },
+          ]);
+          setLoading(false);
+          return;
+        }
+
         const data = await res.json();
         setItems(data?.data?.universities || []);
         setLoading(false);
-      })
-      .catch((e) => { setError(e.message); setLoading(false); });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Error al cargar instituciones');
+        setLoading(false);
+      }
+    };
+
+    load();
   }, []);
 
   return (

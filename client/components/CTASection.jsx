@@ -162,9 +162,9 @@ const CTASection = ({
       case 'free':
         try {
           const allowInstitutionRegister = import.meta.env.VITE_ALLOW_INSTITUTION_REGISTER === '1';
-          navigate(allowInstitutionRegister ? '/institution/register' : '/register');
+          navigate(allowInstitutionRegister ? '/institution/register?next=/institution/dashboard' : '/register?next=/student/portal');
         } catch {
-          navigate('/register');
+          navigate('/register?next=/student/portal');
         }
         break;
       default:

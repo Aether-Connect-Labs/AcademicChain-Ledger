@@ -10,19 +10,17 @@ const AuthCallback = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
+    const nextParam = params.get('next');
     if (token && setSession) {
       (async () => {
         try {
           await setSession(token);
           const profile = await authService.getCurrentUser(token);
           const role = profile?.role;
-          if (role === 'admin' || role === 'university' || role === 'institution') {
-            navigate('/institution/dashboard', { replace: true });
-          } else if (role === 'student') {
-            navigate('/student/portal', { replace: true });
-          } else {
-            navigate('/', { replace: true });
-          }
+          let nextLocal = null;
+          try { nextLocal = localStorage.getItem('postLoginNext'); localStorage.removeItem('postLoginNext'); } catch {}
+          const target = nextParam || nextLocal || (role === 'admin' || role === 'university' || role === 'institution' ? '/institution/dashboard' : role === 'student' ? '/student/portal' : '/');
+          navigate(target, { replace: true });
         } catch {
           navigate('/login?error=session', { replace: true });
         }

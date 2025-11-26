@@ -1,6 +1,6 @@
 // client/services/authService.js
 
-let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')
+let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
 
 const mockApiCall = (data, shouldFail = false, errorMessage = 'Error de red', delay = 600) => {
   return new Promise((resolve, reject) => {

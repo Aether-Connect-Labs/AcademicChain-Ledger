@@ -39,7 +39,7 @@ const StudentCredentials = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const API = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+        const API = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
         const res = await axios.get(`${API}/api/credentials/mine`, {
           headers: { Authorization: `Bearer ${token}` },
         });
