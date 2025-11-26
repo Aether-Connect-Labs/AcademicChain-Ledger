@@ -18,13 +18,18 @@ const protect = asyncHandler(async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    let user = await User.findById(decoded.userId);
-    if (!user && process.env.NODE_ENV !== 'production' && decoded && decoded.role === 'admin') {
+    const disableMongo = process.env.DISABLE_MONGO === '1';
+    let user = null;
+    if (!disableMongo) {
+      user = await User.findById(decoded.userId);
+    }
+    if (!user && (process.env.NODE_ENV !== 'production') && (disableMongo || decoded?.role === 'admin')) {
       user = {
-        id: decoded.userId || 'preview-owner',
-        email: decoded.email || 'owner@preview.local',
-        role: 'admin',
+        _id: decoded.userId || decoded.devId || 'preview-user',
+        id: decoded.userId || decoded.devId || 'preview-user',
+        email: decoded.email || 'user@preview.local',
+        role: decoded.role || 'user',
+        hederaAccountId: decoded.hederaAccountId,
         isActive: true,
       };
     }

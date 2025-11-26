@@ -7,6 +7,7 @@ import AuthCallback from './components/AuthCallback';
 import ProtectedRoute from './components/ProtectedRoute';
 import InstitutionDashboard from './components/InstitutionDashboard';
 import StudentPortal from './components/StudentPortal';
+import StudentCredentials from './components/StudentCredentials';
 import ComenzarGratisPage from './components/ComenzarGratisPage';
 import CreateDegreePage from './components/CreateDegreePage';
 import CreateCertificatePage from './components/CreateCertificatePage';
@@ -93,6 +94,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute requiredRoles={['student']}>
             <Layout><StudentPortal /></Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/credentials"
+        element={
+          <ProtectedRoute requiredRoles={['student']}>
+            <Layout><StudentCredentials /></Layout>
           </ProtectedRoute>
         }
       />

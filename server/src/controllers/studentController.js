@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const { Credential } = require('../models');
 const hederaService = require('../services/hederaServices');
+const { isConnected: isMongoConnected } = require('../config/database');
 
 // @desc    Get student credentials
 // @route   GET /api/credentials/mine
@@ -8,6 +9,10 @@ const hederaService = require('../services/hederaServices');
 const getStudentCredentials = asyncHandler(async (req, res) => {
   const hederaAccountId = req.user?.hederaAccountId;
   const userId = req.user?._id;
+  const disableMongo = process.env.DISABLE_MONGO === '1';
+  if (disableMongo || !isMongoConnected()) {
+    return res.status(200).json({ credentials: [] });
+  }
   const query = hederaAccountId
     ? { $or: [ { studentAccountId: hederaAccountId }, { student: userId } ] }
     : { student: userId };

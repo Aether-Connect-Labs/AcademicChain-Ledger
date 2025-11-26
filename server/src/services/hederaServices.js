@@ -152,6 +152,9 @@ class HederaService {
         additionalProofs: metadata.additionalInfo?.proofs || undefined
       }
     };
+    if (metadata.type) {
+      standardizedMetadata.attributes.unshift({ trait_type: "Credential Type", value: metadata.type });
+    }
     let onChainMetadata;
     if (metadata.ipfsURI) {
       onChainMetadata = Buffer.from(metadata.ipfsURI, 'utf8');
