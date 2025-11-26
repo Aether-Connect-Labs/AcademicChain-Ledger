@@ -40,6 +40,7 @@ const qrRoutes = require('./routes/qr');
 const partnerRoutes = require('./routes/partner');
 const adminRoutes = require('./routes/admin');
 const studentRoutes = require('./routes/student');
+const v1Routes = require('./routes/v1');
 
 const app = express();
 const server = createServer(app);
@@ -159,9 +160,18 @@ const swaggerOptions = {
       },
     },
     servers: [{ url: `http://localhost:${PORT}` }],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
   },
   // Apunta a los archivos con anotaciones JSDoc
-  apis: ['./routes/*.js'],
+  apis: ['./routes/**/*.js'],
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
@@ -288,6 +298,7 @@ app.use('/api/partners', partnerRoutes);
 app.use('/api/partner', partnerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/credentials', studentRoutes); // Ruta para credenciales de estudiantes
+app.use('/api/v1', v1Routes);
 
 // Manejo de errores
 app.use(errorHandler);
@@ -297,12 +308,17 @@ module.exports = { app, server, io };
 if (require.main === module) {
   (async () => {
     try {
+      const disableMongo = process.env.DISABLE_MONGO === '1';
       const isProd = (process.env.NODE_ENV || 'development') === 'production';
       if (typeof connectDB === 'function') {
-        if (isProd) {
-          await connectDB();
+        if (!disableMongo) {
+          if (isProd) {
+            await connectDB();
+          } else {
+            connectDB().catch(err => logger.error('MongoDB async connect failed:', err));
+          }
         } else {
-          connectDB().catch(err => logger.error('MongoDB async connect failed:', err));
+          logger.warn('MongoDB disabled by DISABLE_MONGO=1. Running without database.');
         }
       }
       if (typeof initializeWorkers === 'function') {

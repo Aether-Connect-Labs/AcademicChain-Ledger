@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { create as createIpfsClient } from 'ipfs-http-client';
 
 const buildAuthHeaders = () => {
   try {
@@ -23,6 +24,9 @@ const IssueTitleForm = ({ variant = 'degree' }) => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [result, setResult] = useState(null);
+  const [file, setFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [ipfsURI, setIpfsURI] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -36,7 +40,40 @@ const IssueTitleForm = ({ variant = 'degree' }) => {
     setMessage('');
     try {
       const uniqueHash = `hash-${Date.now()}`;
-      const ipfsURI = `ipfs://QmVg...`;
+      let finalIpfsURI = ipfsURI;
+      if (!finalIpfsURI) {
+        if (file) {
+          setIsUploading(true);
+          const pinataJwt = import.meta.env.VITE_PINATA_JWT || '';
+          const pinataApiKey = import.meta.env.VITE_PINATA_API_KEY || '';
+          const pinataSecretKey = import.meta.env.VITE_PINATA_SECRET_KEY || '';
+          if (pinataJwt || (pinataApiKey && pinataSecretKey)) {
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('pinataMetadata', JSON.stringify({ name: file.name }));
+            fd.append('pinataOptions', JSON.stringify({ cidVersion: 1 }));
+            const headers = pinataJwt ? { Authorization: `Bearer ${pinataJwt}` } : { pinata_api_key: pinataApiKey, pinata_secret_api_key: pinataSecretKey };
+            const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', { method: 'POST', headers, body: fd });
+            if (!res.ok) throw new Error('Pinata upload failed');
+            const data = await res.json();
+            finalIpfsURI = `ipfs://${data.IpfsHash}`;
+            setIpfsURI(finalIpfsURI);
+            setIsUploading(false);
+          } else {
+            const endpoint = import.meta.env.VITE_IPFS_ENDPOINT || 'https://ipfs.infura.io:5001/api/v0';
+            const projectId = import.meta.env.VITE_IPFS_PROJECT_ID || '';
+            const projectSecret = import.meta.env.VITE_IPFS_PROJECT_SECRET || '';
+            const authHeader = projectId && projectSecret ? 'Basic ' + btoa(`${projectId}:${projectSecret}`) : undefined;
+            const client = createIpfsClient({ url: endpoint, headers: authHeader ? { Authorization: authHeader } : undefined });
+            const added = await client.add(file);
+            finalIpfsURI = `ipfs://${added.cid.toString()}`;
+            setIpfsURI(finalIpfsURI);
+            setIsUploading(false);
+          }
+        } else {
+          finalIpfsURI = `ipfs://QmVg...`;
+        }
+      }
       const tokenId = formData.tokenId.trim();
 
       const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
@@ -46,9 +83,10 @@ const IssueTitleForm = ({ variant = 'degree' }) => {
         return;
       }
       const prepareRes = await axios.post(`${API_BASE_URL}/api/universities/prepare-issuance`, {
+        type: variant,
         tokenId,
         uniqueHash,
-        ipfsURI,
+        ipfsURI: finalIpfsURI,
         studentName: formData.studentName,
         degree: formData.courseName,
         graduationDate: formData.issueDate,
@@ -66,6 +104,8 @@ const IssueTitleForm = ({ variant = 'degree' }) => {
       setResult(execRes.data?.data || execRes.data);
       setMessage('Título emitido correctamente');
       setFormData(prev => ({ ...prev, studentName: '', courseName: '', issueDate: '', grade: '', recipientAccountId: '' }));
+      setFile(null);
+      setIpfsURI('');
     } catch (err) {
       setError('Error al emitir el título: ' + (err.response?.data?.message || err.message));
     } finally {
@@ -160,16 +200,30 @@ const IssueTitleForm = ({ variant = 'degree' }) => {
             placeholder="0.0.xxxxxx"
           />
         </div>
+        <div className="mb-4">
+          <label htmlFor="credentialFile" className="block text-gray-700 text-sm font-bold mb-2">
+            Archivo de Credencial (PDF/Imagen):
+          </label>
+          <input
+            type="file"
+            id="credentialFile"
+            name="credentialFile"
+            accept=".pdf,image/*"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+          />
+          {ipfsURI && <p className="mt-2 text-xs text-gray-600">IPFS: {ipfsURI}</p>}
+        </div>
         <div className="flex items-center justify-between">
           <button
             type="submit"
             className="btn-primary hover-lift"
-            disabled={isLoading}
+            disabled={isLoading || isUploading}
           >
-            {isLoading ? 'Emitiendo...' : 'Emitir Título'}
+            {isLoading || isUploading ? 'Procesando...' : (variant === 'certificate' ? 'Emitir Certificado' : (variant === 'diploma' ? 'Emitir Diploma' : 'Emitir Título'))}
           </button>
         </div>
-        {isLoading && <p className="mt-4 text-sm badge-info badge">Cargando...</p>}
+        {(isLoading || isUploading) && <p className="mt-4 text-sm badge-info badge">Cargando...</p>}
         {error && <p className="mt-4 text-sm badge-error badge">Error: {error}</p>}
         {message && <p className="mt-4 text-sm badge-success badge">{message}</p>}
         {result && (

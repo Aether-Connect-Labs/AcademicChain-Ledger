@@ -37,6 +37,7 @@ const PartnerSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   contactEmail: { type: String, required: true, unique: true, trim: true, lowercase: true },
   universityId: { type: String, index: true },
+  plan: { type: String, enum: ['free','startup','enterprise'], default: 'enterprise', index: true },
   keyPrefix: { type: String, unique: true, sparse: true, index: true },
   keyHash: { type: String },
   isActive: { type: Boolean, default: true },

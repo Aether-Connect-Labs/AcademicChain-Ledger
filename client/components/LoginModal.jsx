@@ -8,6 +8,7 @@ const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString(
 const LoginModal = ({ open, onClose, userType = 'student' }) => {
   const { login, error, verifyCode } = useAuth();
   const navigate = useNavigate();
+  const allowInstitutionRegister = import.meta.env.VITE_ALLOW_INSTITUTION_REGISTER === '1';
   const [step, setStep] = useState('credentials');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -127,7 +128,15 @@ const LoginModal = ({ open, onClose, userType = 'student' }) => {
       <div className="relative bg-white rounded-2xl shadow-strong w-full max-w-sm sm:max-w-md border border-gray-200">
         <div className="p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 id="login-modal-title" className="text-xl font-bold">Acceso {userType === 'institution' ? 'Instituciones' : 'Alumnos'}</h3>
+            <div className="flex items-center space-x-2">
+              <h3 id="login-modal-title" className="text-xl font-bold">Acceso {userType === 'institution' ? 'Instituciones' : 'Alumnos'}</h3>
+              {userType === 'institution' && allowInstitutionRegister && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs">
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span>
+                  Registro habilitado
+                </span>
+              )}
+            </div>
             <button onClick={onClose} className="btn-ghost">✕</button>
           </div>
 

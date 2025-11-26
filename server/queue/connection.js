@@ -142,7 +142,7 @@ if (process.env.NODE_ENV === 'production') {
 // Helper para verificar estado
 const isConnected = () => {
   if (DISABLE_REDIS) {
-    return true;
+    return false;
   }
   return connection.status === 'ready';
 };

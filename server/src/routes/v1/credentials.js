@@ -1,0 +1,85 @@
+const router = require('express').Router();
+const { body } = require('express-validator');
+const asyncHandler = require('express-async-handler');
+const hederaService = require('../../services/hederaServices');
+const { Token, Credential } = require('../../models');
+const { validate } = require('../../middleware/validator');
+const apiKeyAuth = require('../../middleware/apiKeyAuth');
+const apiRateLimit = require('../../middleware/apiRateLimit');
+
+router.post('/issue', apiKeyAuth, apiRateLimit, [
+  body('tokenId').notEmpty().trim(),
+  body('uniqueHash').notEmpty().trim(),
+  body('ipfsURI').notEmpty().trim(),
+  body('studentName').notEmpty().trim(),
+  body('degree').notEmpty().trim(),
+  body('recipientAccountId').optional().isString(),
+], validate, asyncHandler(async (req, res) => {
+  const { tokenId, uniqueHash, ipfsURI, studentName, degree, recipientAccountId } = req.body;
+  const token = await Token.findOne({ tokenId });
+  if (!token) return res.status(404).json({ success: false, message: 'Token not found' });
+  const mintResult = await hederaService.mintAcademicCredential(tokenId, {
+    uniqueHash,
+    ipfsURI,
+    degree,
+    studentName,
+    university: token.tokenName,
+    recipientAccountId,
+  });
+  let transferResult = null;
+  if (recipientAccountId) {
+    transferResult = await hederaService.transferCredentialToStudent(tokenId, mintResult.serialNumber, recipientAccountId);
+  }
+  await Credential.create({ tokenId, serialNumber: mintResult.serialNumber, universityId: token.universityId, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI });
+  res.status(201).json({ success: true, message: 'Credential issued', data: { mint: mintResult, transfer: transferResult } });
+}));
+
+module.exports = router;
+/**
+ * @swagger
+ * /api/v1/credentials/issue:
+ *   post:
+ *     summary: Emite una credencial con API Key
+ *     tags: [Credentials]
+ *     parameters:
+ *       - in: header
+ *         name: x-api-key
+ *         schema:
+ *           type: string
+ *         required: true
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tokenId:
+ *                 type: string
+ *               uniqueHash:
+ *                 type: string
+ *               ipfsURI:
+ *                 type: string
+ *               studentName:
+ *                 type: string
+ *               degree:
+ *                 type: string
+ *               recipientAccountId:
+ *                 type: string
+*     responses:
+*       201:
+*         description: Credencial emitida
+*         content:
+*           application/json:
+*             examples:
+*               created:
+*                 value:
+*                   success: true
+*                   message: "Credential issued"
+*                   data:
+*                     mint:
+*                       serialNumber: "1"
+*                       transactionId: "0.0.abc-def"
+*                     transfer:
+*                       transactionId: "0.0.xyz"
+ */

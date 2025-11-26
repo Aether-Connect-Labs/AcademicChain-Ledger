@@ -1,6 +1,7 @@
 // client/pages/LoginPage.js
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './useAuth';
+import { authService } from './authService';
 import { useNavigate, useLocation } from 'react-router-dom';
 let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')
 
@@ -33,7 +34,8 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const ownerEmail = import.meta.env.VITE_PREVIEW_OWNER_EMAIL;
-    if (import.meta.env.DEV && ownerEmail && email === ownerEmail) {
+    const ownerPassword = import.meta.env.VITE_PREVIEW_OWNER_PASSWORD;
+    if (ownerEmail && ownerPassword && email === ownerEmail && password === ownerPassword) {
       await handleOwnerPreview();
       return;
     }
@@ -55,12 +57,16 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
 
   const handleOwnerPreview = async () => {
     try {
-      localStorage.setItem('previewOwner', '1');
-      const token = `mock-jwt-token-for-admin-${Date.now()}`;
-      await setSession(token);
-      window.location.replace('/institution/dashboard');
+      const data = await authService.previewLogin(email, password);
+      if (data?.token) {
+        localStorage.setItem('previewOwner', '1');
+        await setSession(data.token);
+        window.location.replace('/institution/dashboard');
+      } else {
+        alert('Credenciales inválidas para acceso de propietario');
+      }
     } catch (e) {
-      alert('Error al iniciar modo propietario');
+      alert('Credenciales inválidas para acceso de propietario');
     }
   };
 

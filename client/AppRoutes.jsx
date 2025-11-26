@@ -14,6 +14,11 @@ import CreateDiplomaPage from './components/CreateDiplomaPage';
 import VerifyCredentialPage from './components/VerifyCredentialPage';
 import InstitutionsPage from './components/InstitutionsPage';
 import ForgotPassword from './components/ForgotPassword';
+import DemoScheduler from './components/DemoScheduler';
+import CreateCredentialsPage from './components/CreateCredentialsPage';
+import BatchIssuance from './components/BatchIssuance';
+import DeveloperPortal from './components/DeveloperPortal';
+import ApiDocsLanding from './components/ApiDocsLanding';
 
 const AppRoutes = () => {
   return (
@@ -29,6 +34,9 @@ const AppRoutes = () => {
       <Route path="/comenzar-gratis" element={<Layout><ComenzarGratisPage /></Layout>} />
       <Route path="/verificar" element={<Layout><VerifyCredentialPage /></Layout>} />
       <Route path="/instituciones" element={<Layout><InstitutionsPage /></Layout>} />
+      <Route path="/developers" element={<Layout><DeveloperPortal /></Layout>} />
+      <Route path="/developers/docs" element={<Layout><ApiDocsLanding /></Layout>} />
+      <Route path="/demo" element={<Layout><DemoScheduler /></Layout>} />
       <Route path="/forgot-password" element={<Layout><ForgotPassword /></Layout>} />
 
       {/* Rutas Protegidas */}
@@ -37,6 +45,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute requiredRoles={['institution','admin']}>
             <Layout><InstitutionDashboard /></Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/institution/crear"
+        element={
+          <ProtectedRoute requiredRoles={['institution','admin']}>
+            <Layout><CreateCredentialsPage /></Layout>
           </ProtectedRoute>
         }
       />
@@ -61,6 +77,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute requiredRoles={['institution','admin']}>
             <Layout><CreateDiplomaPage /></Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/institution/emitir/masivo"
+        element={
+          <ProtectedRoute requiredRoles={['institution','admin']}>
+            <Layout><BatchIssuance /></Layout>
           </ProtectedRoute>
         }
       />

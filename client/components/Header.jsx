@@ -112,15 +112,18 @@ const Header = ({
     { name: 'Instituciones', href: '/instituciones', current: location.pathname === '/instituciones' },
     { name: 'Verificar', href: '/verificar', current: location.pathname === '/verificar' },
     { name: 'Precios', href: '/pricing', current: location.pathname === '/pricing' },
+    { name: 'Agendar Demo', href: '/demo', current: location.pathname === '/demo' },
     { name: 'Documentación', href: '/docs', current: location.pathname.startsWith('/docs') }
   ];
 
   // Navegación para usuarios autenticados
   const authNavigation = [
     { name: 'Dashboard Institución', href: '/institution/dashboard', icon: '📊', role: ['institution'] },
+    { name: 'Crear Credenciales', href: '/institution/crear', icon: '🛠️', role: ['institution'] },
     { name: 'Emitir Título', href: '/institution/emitir/titulo', icon: '🎓', role: ['institution'] },
     { name: 'Emitir Certificado', href: '/institution/emitir/certificado', icon: '📜', role: ['institution'] },
     { name: 'Emitir Diploma', href: '/institution/emitir/diploma', icon: '🏅', role: ['institution'] },
+    { name: 'Carga Masiva', href: '/institution/emitir/masivo', icon: '📦', role: ['institution'] },
     { name: 'Portal Alumno', href: '/student/portal', icon: '🎓', role: ['student'] },
     { name: 'Verificar', href: '/verificar', icon: '🔍', role: ['student','admin','institution','employer'] },
     { name: 'Admin', href: '/admin', icon: '⚙️', role: ['admin'] },
@@ -453,6 +456,12 @@ const Header = ({
                 >
                   🚀 Comenzar Gratis
                 </button>
+                {import.meta.env.VITE_ALLOW_INSTITUTION_REGISTER === '1' && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs">
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span>
+                    Registro inst. habilitado
+                  </span>
+                )}
               </div>
             ) : null}
 
