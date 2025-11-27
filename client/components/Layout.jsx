@@ -44,6 +44,11 @@ const Layout = ({
   const { isConnected } = useHedera();
   const [isLoading, setIsLoading] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [originalTitle] = useState(() => document.title);
+  const [originalFaviconHref, setOriginalFaviconHref] = useState(() => {
+    const link = document.querySelector("link[rel='icon']");
+    return link ? link.getAttribute('href') : null;
+  });
 
   // Track page views
   useEffect(() => {
@@ -82,6 +87,24 @@ const Layout = ({
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const isDemo = location.pathname.startsWith('/demo');
+    if (isDemo) {
+      document.title = `${originalTitle} • DEMO`;
+      const link = document.querySelector("link[rel='icon']");
+      if (link) {
+        if (!originalFaviconHref) setOriginalFaviconHref(link.getAttribute('href'));
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#F59E0B"/><text x="32" y="42" font-size="30" text-anchor="middle" fill="#111827" font-family="Arial, Helvetica, sans-serif">D</text></svg>`;
+        const url = 'data:image/svg+xml;base64,' + btoa(svg);
+        link.setAttribute('href', url);
+      }
+    } else {
+      document.title = originalTitle;
+      const link = document.querySelector("link[rel='icon']");
+      if (link && originalFaviconHref) link.setAttribute('href', originalFaviconHref);
+    }
+  }, [location.pathname, originalTitle, originalFaviconHref]);
 
   // Determinar si es una ruta especial (sin navbar/footer)
   const isSpecialRoute = location.pathname.includes('/auth') || 
@@ -128,6 +151,15 @@ const Layout = ({
             transparent={transparentNavbar}
           />
         </motion.header>
+      )}
+
+      {/* Banner Global de Modo Demo */}
+      {location.pathname.startsWith('/demo') && (
+        <div className="sticky top-0 z-40 w-full">
+          <div className="bg-yellow-100 text-yellow-900 py-2 px-4 text-center text-sm border-b border-yellow-200">
+            Estás visualizando una demostración. Es una simulación: no se guarda información ni se emite en red.
+          </div>
+        </div>
       )}
 
       {/* Loading Overlay */}

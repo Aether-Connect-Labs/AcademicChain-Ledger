@@ -12,7 +12,7 @@ import CredentialPreview from './CredentialPreview';
 import IssuanceSummary from './IssuanceSummary';
 import ErrorReport from './ui/ErrorReport';
 
-const BatchIssuance = () => {
+const BatchIssuance = ({ demo = false }) => {
   const { account, isConnected, executeTransaction } = useHedera();
   const { token } = useAuth(); // Obtener el token de autenticación
   const { socket, isConnected: isSocketConnected } = useWebSocket(token); // Usar el token real
@@ -199,9 +199,11 @@ const BatchIssuance = () => {
 
   // Paso 3: Procesamiento en lote
   const handleBatchIssuance = async () => {
-    if (!isConnected || !account) {
-      alert('Por favor, conecta tu wallet de Hedera primero');
-      return;
+    if (!demo) {
+      if (!isConnected || !account) {
+        alert('Por favor, conecta tu wallet de Hedera primero');
+        return;
+      }
     }
 
     setIsProcessing(true);
@@ -213,6 +215,19 @@ const BatchIssuance = () => {
     };
 
     try {
+      if (demo) {
+        const total = credentials.length || 2;
+        const demoCreds = credentials.length ? credentials : [
+          { id: 'preview_0', credential: issuanceService.createCredentialTemplate({ studentName: 'Alice Demo', degree: 'CS', credentialType: issuanceConfig.credentialType }) },
+          { id: 'preview_1', credential: issuanceService.createCredentialTemplate({ studentName: 'Bob Demo', degree: 'Math', credentialType: issuanceConfig.credentialType }) },
+        ];
+        setCredentials(demoCreds);
+        const summary = { total, successful: total, failed: 0, successRate: 100, duration: 1, status: 'completed' };
+        setProcessResult({ success: true, data: { total, startTime: results.startTime }, summary });
+        setCurrentStep(4);
+        setIsProcessing(false);
+        return;
+      }
       // Track del inicio de la operación
       trackCredentialOperation({
         operation: 'batch_issuance_start',
@@ -556,7 +571,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
               
               <button
                 onClick={handleBatchIssuance}
-                disabled={!isConnected || isProcessing}
+                disabled={(demo ? false : !isConnected) || isProcessing}
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 hover-lift"
               >
                 {isProcessing ? (

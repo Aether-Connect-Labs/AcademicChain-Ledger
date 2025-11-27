@@ -41,7 +41,8 @@ const DemoScheduler = () => {
   const calcomUrl = import.meta.env.VITE_CALCOM_URL;
   const meetUrl = import.meta.env.VITE_DEMO_MEET_URL || 'https://meet.google.com/lookup/academicchain-demo';
   const availabilityUrl = import.meta.env.VITE_DEMO_AVAILABILITY_URL;
-  const bookUrl = import.meta.env.VITE_DEMO_BOOK_URL;
+  const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+  const bookUrl = import.meta.env.VITE_DEMO_BOOK_URL || `${API_BASE_URL}/api/contact/book`;
   const holidaysUrl = import.meta.env.VITE_DEMO_HOLIDAYS_URL;
   const regionOverride = import.meta.env.VITE_DEMO_REGION;
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';

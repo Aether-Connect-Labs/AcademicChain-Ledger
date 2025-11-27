@@ -5,6 +5,9 @@ const ApiDocsLanding = () => {
     <div className="container-responsive py-10">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Documentación de la API</h1>
       <p className="text-gray-600 mb-6">Explora y prueba la API REST v1 de AcademicChain-Ledger.</p>
+      <div className="mb-6">
+        <a href="/demo" className="btn-primary">Agendar Demo</a>
+      </div>
 
       <div className="card p-6 mb-6">
         <div className="font-semibold mb-2">Swagger UI</div>

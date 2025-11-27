@@ -9,6 +9,55 @@ const { User } = require('../models');
 
 const router = express.Router();
 
+// Generación de QR con validación por issuer
+router.get('/qr/generate/:issuerId/:tokenId/:serialNumber',
+  [
+    param('issuerId').notEmpty().withMessage('Issuer ID is required').trim().escape(),
+    param('tokenId').notEmpty().withMessage('Token ID is required').trim().escape(),
+    param('serialNumber').notEmpty().withMessage('Serial number is required').trim().escape(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { issuerId, tokenId, serialNumber } = req.params;
+    const format = (req.query.format || 'svg').toLowerCase();
+    const { Credential } = require('../models');
+    const QRCode = require('qrcode');
+
+    const record = await Credential.findOne({ tokenId, serialNumber, universityId: issuerId });
+    if (!record) {
+      return res.status(404).json({ success: false, message: 'Credential not found for issuer' });
+    }
+
+    const verification = await hederaService.verifyCredential(tokenId, serialNumber);
+    if (!verification?.valid) {
+      return res.status(422).json({ success: false, message: 'Credential not valid on Hedera' });
+    }
+
+    const attrs = verification.credential?.metadata?.attributes || [];
+    const payload = {
+      tokenId,
+      serialNumber,
+      issuerId,
+      issuerName: attrs.find(a => a.trait_type === 'University')?.value || undefined,
+      degree: attrs.find(a => a.trait_type === 'Degree')?.value || undefined,
+      date: attrs.find(a => a.display_type === 'date')?.value || undefined,
+      subjectRef: attrs.find(a => a.trait_type === 'SubjectRef')?.value || undefined,
+      ipfsURI: record.ipfsURI,
+      link: `${req.protocol}://${req.get('host')}/api/verification/verify/${tokenId}/${serialNumber}`,
+      qrVersion: 1,
+    };
+
+    if (format === 'svg') {
+      const svg = await QRCode.toString(JSON.stringify(payload), { type: 'svg', errorCorrectionLevel: 'M' });
+      res.setHeader('Content-Type', 'image/svg+xml');
+      return res.status(200).send(svg);
+    }
+    const png = await QRCode.toBuffer(JSON.stringify(payload), { type: 'png', errorCorrectionLevel: 'M', width: 512 });
+    res.setHeader('Content-Type', 'image/png');
+    return res.status(200).send(png);
+  })
+);
+
 router.post('/verify-credential', 
   [
     body('tokenId').notEmpty().withMessage('Token ID is required').trim().escape(),

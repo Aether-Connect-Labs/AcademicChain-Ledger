@@ -4,7 +4,7 @@ import QRCode from 'react-qr-code';
 import axios from 'axios'; // Importar axios
 
 const CredentialCard = ({ credential }) => {
-  const link = `${window.location.origin}/verify?tokenId=${encodeURIComponent(credential.tokenId)}\u0026serialNumber=${encodeURIComponent(credential.serialNumber)}`;
+  const link = `${window.location.origin}/verificar?tokenId=${encodeURIComponent(credential.tokenId)}\u0026serialNumber=${encodeURIComponent(credential.serialNumber)}`;
   return (
     <div className="card space-y-3">
       <div className="flex justify-between items-center">
@@ -27,7 +27,7 @@ const CredentialCard = ({ credential }) => {
   );
 };
 
-const StudentCredentials = () => {
+const StudentCredentials = ({ demo = false }) => {
   const { token } = useAuth();
   const [credentials, setCredentials] = useState([]);
   const [query, setQuery] = useState('');
@@ -35,6 +35,15 @@ const StudentCredentials = () => {
   const [error, setError] = useState(null); // Estado de error
 
   useEffect(() => {
+    if (demo) {
+      setCredentials([
+        { id: 'demo-st-1', tokenId: '0.0.123456', serialNumber: '1', title: 'Título Profesional', issuer: 'Demo University' },
+        { id: 'demo-st-2', tokenId: '0.0.123456', serialNumber: '2', title: 'Certificado de Curso', issuer: 'Demo University' }
+      ]);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
@@ -53,7 +62,7 @@ const StudentCredentials = () => {
       }
     };
     fetchData();
-  }, [token]);
+  }, [token, demo]);
 
   const filtered = credentials.filter(c =>
     (c.title || '').toLowerCase().includes(query.toLowerCase()) ||

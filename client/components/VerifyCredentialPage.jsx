@@ -6,6 +6,9 @@ const VerifyCredentialPage = () => {
     <div className="container-responsive py-10">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Verificar Credencial</h1>
       <p className="text-gray-600">Escanea un código QR o pega datos para verificar.</p>
+      <div className="mt-4">
+        <a href="/demo" className="btn-primary">Agendar Demo</a>
+      </div>
       <div className="mt-8">
         <CredentialVerifier />
       </div>

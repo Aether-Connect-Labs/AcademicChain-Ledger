@@ -38,13 +38,15 @@ const AppRoutes = () => {
       <Route path="/developers" element={<Layout><DeveloperPortal /></Layout>} />
       <Route path="/developers/docs" element={<Layout><ApiDocsLanding /></Layout>} />
       <Route path="/demo" element={<Layout><DemoScheduler /></Layout>} />
+      <Route path="/demo/institution" element={<Layout><InstitutionDashboard demo /></Layout>} />
+      <Route path="/demo/student" element={<Layout><StudentPortal demo /></Layout>} />
       <Route path="/forgot-password" element={<Layout><ForgotPassword /></Layout>} />
 
       {/* Rutas Protegidas */}
       <Route
         path="/institution/dashboard"
         element={
-          <ProtectedRoute requiredRoles={['institution','admin']}>
+          <ProtectedRoute requiredRoles={['university','institution','admin']}>
             <Layout><InstitutionDashboard /></Layout>
           </ProtectedRoute>
         }
@@ -52,7 +54,7 @@ const AppRoutes = () => {
       <Route
         path="/institution/crear"
         element={
-          <ProtectedRoute requiredRoles={['institution','admin']}>
+          <ProtectedRoute requiredRoles={['university','institution','admin']}>
             <Layout><CreateCredentialsPage /></Layout>
           </ProtectedRoute>
         }
@@ -60,7 +62,7 @@ const AppRoutes = () => {
       <Route
         path="/institution/emitir/titulo"
         element={
-          <ProtectedRoute requiredRoles={['institution','admin']}>
+          <ProtectedRoute requiredRoles={['university','institution','admin']}>
             <Layout><CreateDegreePage /></Layout>
           </ProtectedRoute>
         }
@@ -68,7 +70,7 @@ const AppRoutes = () => {
       <Route
         path="/institution/emitir/certificado"
         element={
-          <ProtectedRoute requiredRoles={['institution','admin']}>
+          <ProtectedRoute requiredRoles={['university','institution','admin']}>
             <Layout><CreateCertificatePage /></Layout>
           </ProtectedRoute>
         }
@@ -76,7 +78,7 @@ const AppRoutes = () => {
       <Route
         path="/institution/emitir/diploma"
         element={
-          <ProtectedRoute requiredRoles={['institution','admin']}>
+          <ProtectedRoute requiredRoles={['university','institution','admin']}>
             <Layout><CreateDiplomaPage /></Layout>
           </ProtectedRoute>
         }
@@ -84,7 +86,7 @@ const AppRoutes = () => {
       <Route
         path="/institution/emitir/masivo"
         element={
-          <ProtectedRoute requiredRoles={['institution','admin']}>
+          <ProtectedRoute requiredRoles={['university','institution','admin']}>
             <Layout><BatchIssuance /></Layout>
           </ProtectedRoute>
         }

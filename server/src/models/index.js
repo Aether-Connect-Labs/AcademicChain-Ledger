@@ -4,6 +4,7 @@ const Transaction = require('./Transaction');
 const Partner = require('./Partner');
 const Developer = require('./Developer');
 const Credential = require('./Credential');
+const Booking = require('./Booking');
 
 const db = {
   User,
@@ -12,6 +13,7 @@ const db = {
   Partner,
   Developer,
   Credential,
+  Booking,
 };
 
 module.exports = db;

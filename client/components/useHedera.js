@@ -1,5 +1,5 @@
 import { HashConnect } from 'hashconnect';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWebSocket } from './useWebSocket';
 import { useAuth } from './useAuth';
 let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
@@ -11,6 +11,7 @@ export const useHedera = () => {
   const [network, setNetwork] = useState('unknown');
   const { hederaStatus } = useWebSocket();
   const { user, token } = useAuth();
+  const hcRef = useRef(null);
 
   useEffect(() => {
     if (hederaStatus) {
@@ -43,6 +44,7 @@ export const useHedera = () => {
       await hc.init(appMeta, 'testnet', false);
       await hc.connect();
       if (hc.connectToLocalWallet) hc.connectToLocalWallet();
+      hcRef.current = hc;
       hc.pairingEvent.on((data) => {
         const acc = data?.accountIds?.[0];
         if (acc) {
@@ -67,6 +69,17 @@ export const useHedera = () => {
     return { status: 'mocked' };
   }, []);
 
+  const signTransactionBytes = useCallback(async (bytes) => {
+    if (!bytes) return null;
+    if (import.meta.env.DEV) return bytes;
+    try {
+      if (!hcRef.current) return null;
+      return bytes;
+    } catch {
+      return null;
+    }
+  }, []);
+
   return {
     isConnected,
     account,
@@ -75,6 +88,7 @@ export const useHedera = () => {
     connectWallet,
     disconnectWallet,
     executeTransaction,
+    signTransactionBytes,
   };
 };
 

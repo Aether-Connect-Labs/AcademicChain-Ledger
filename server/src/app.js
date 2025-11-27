@@ -41,6 +41,7 @@ const partnerRoutes = require('./routes/partner');
 const adminRoutes = require('./routes/admin');
 const studentRoutes = require('./routes/student');
 const v1Routes = require('./routes/v1');
+const contactRoutes = require('./routes/contact');
 
 const app = express();
 const server = createServer(app);
@@ -110,17 +111,41 @@ try {
       try {
         const email = (profile.emails && profile.emails[0] && profile.emails[0].value || '').toLowerCase();
         if (!email) return done(new Error('Google profile did not provide an email'));
+
+        const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
+        const domain = email.split('@')[1] || '';
+        const allowedDomains = String(process.env.INSTITUTION_EMAIL_DOMAINS || '').split(',').map(d => d.trim().toLowerCase()).filter(Boolean);
+
+        const isAdmin = adminEmail && email === adminEmail;
+        const isInstitution = allowedDomains.length > 0 ? allowedDomains.includes(domain) : /\.edu$|\.edu\.|\.ac\./i.test(domain);
+
+        if (!isAdmin && !isInstitution) {
+          return done(new Error('Solo cuentas institucionales pueden acceder'));
+        }
+
         let user = await User.findOne({ email });
         if (!user) {
           const salt = await bcrypt.genSalt(10);
           const hashed = await bcrypt.hash(uuidv4(), salt);
+          const role = isAdmin ? 'admin' : 'university';
+          const universityName = isAdmin ? null : (profile.organizations && profile.organizations[0]?.name) || domain;
           user = await User.create({
             email,
             password: hashed,
             name: profile.displayName || (email.split('@')[0] || 'Usuario'),
-            role: 'user',
+            role,
+            universityName,
             isActive: true,
           });
+        } else {
+          const desiredRole = isAdmin ? 'admin' : 'university';
+          if (user.role !== desiredRole) {
+            user.role = desiredRole;
+          }
+          if (!isAdmin && !user.universityName) {
+            user.universityName = (profile.organizations && profile.organizations[0]?.name) || domain;
+          }
+          await user.save();
         }
         return done(null, user);
       } catch (err) {
@@ -299,6 +324,7 @@ app.use('/api/partner', partnerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/credentials', studentRoutes); // Ruta para credenciales de estudiantes
 app.use('/api/v1', v1Routes);
+app.use('/api/contact', contactRoutes);
 
 // Manejo de errores
 app.use(errorHandler);

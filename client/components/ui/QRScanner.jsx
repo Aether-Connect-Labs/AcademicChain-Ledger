@@ -112,7 +112,11 @@ const QRScanner = ({ onScan, isActive = true, className = '' }) => {
   // Effect principal
   useEffect(() => {
     if (isActive) {
-      initializeScanner();
+      if (!permissionRequested) {
+        requestCameraPermission();
+      } else {
+        initializeScanner();
+      }
     } else {
       cleanupScanner();
     }
@@ -120,7 +124,7 @@ const QRScanner = ({ onScan, isActive = true, className = '' }) => {
     return () => {
       cleanupScanner();
     };
-  }, [isActive, initializeScanner, cleanupScanner]);
+  }, [isActive, initializeScanner, cleanupScanner, permissionRequested, requestCameraPermission]);
 
   // Cambiar cámara
   const handleCameraChange = async (cameraId) => {

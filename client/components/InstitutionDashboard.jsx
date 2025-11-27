@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import IssueTitleForm from './IssueTitleForm';
 import BatchIssuance from './BatchIssuance';
 
-function InstitutionDashboard() {
+function InstitutionDashboard({ demo = false }) {
   const [credentials, setCredentials] = useState([]);
   const [loadingCreds, setLoadingCreds] = useState(false);
   const [errorCreds, setErrorCreds] = useState('');
@@ -21,7 +21,17 @@ function InstitutionDashboard() {
   const [errorStats, setErrorStats] = useState('');
 
   useEffect(() => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
+    if (demo) {
+      const sample = [
+        { id: 'demo-1', tokenId: '0.0.123456', serialNumber: '1', title: 'Título Profesional', issuer: 'Demo University', ipfsURI: 'ipfs://demoCID1', createdAt: new Date().toISOString() },
+        { id: 'demo-2', tokenId: '0.0.123456', serialNumber: '2', title: 'Certificado de Curso', issuer: 'Demo University', ipfsURI: 'ipfs://demoCID2', createdAt: new Date().toISOString() },
+        { id: 'demo-3', tokenId: '0.0.987654', serialNumber: '1', title: 'Diploma de Posgrado', issuer: 'Demo Institute', ipfsURI: 'ipfs://demoCID3', createdAt: new Date().toISOString() }
+      ];
+      setCredentials(sample);
+      setMeta({ total: sample.length, page: 1, limit: 10, pages: 1, hasMore: false, from: 1, to: sample.length });
+      return;
+    }
+    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
     const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const initialTokenId = searchParams.get('tokenId') || '';
@@ -62,7 +72,11 @@ function InstitutionDashboard() {
   }, []);
 
   useEffect(() => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
+    if (demo) {
+      setStats({ totalCredentials: 3, totalStudents: 2, issuedToday: 0 });
+      return;
+    }
+    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
     const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const fetchStats = async () => {
@@ -86,6 +100,7 @@ function InstitutionDashboard() {
     <div className="container-responsive py-10">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-2 gradient-text">Dashboard de la Institución</h1>
       <p className="text-gray-600">Bienvenido al portal de la institución. Aquí podrás emitir títulos y subir archivos Excel.</p>
+      {demo && (<div className="badge badge-info mt-2">Vista demo: todas las acciones de emisión están deshabilitadas</div>)}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="card">
           <div className="font-semibold">Métricas</div>
@@ -107,18 +122,18 @@ function InstitutionDashboard() {
         </div>
       </div>
       <div className="mt-8">
-        <IssueTitleForm />
+        <IssueTitleForm demo={demo} />
       </div>
       <div className="mt-8">
-        <BatchIssuance />
+        <BatchIssuance demo={demo} />
       </div>
       <div className="mt-8">
         <h2 className="text-xl font-bold mb-3">Diplomas y Certificados emitidos</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-          <input value={filterTokenId} onChange={(e) => setFilterTokenId(e.target.value)} placeholder="Filtrar por Token ID" className="input-primary" />
-          <input value={filterAccountId} onChange={(e) => setFilterAccountId(e.target.value)} placeholder="Filtrar por Cuenta Hedera" className="input-primary" />
+          <input value={filterTokenId} onChange={(e) => setFilterTokenId(e.target.value)} placeholder="Filtrar por Token ID" className="input-primary" disabled={demo} />
+          <input value={filterAccountId} onChange={(e) => setFilterAccountId(e.target.value)} placeholder="Filtrar por Cuenta Hedera" className="input-primary" disabled={demo} />
           <div className="flex items-center gap-2">
-            <button className="btn-primary" onClick={() => {
+            <button className="btn-primary" disabled={demo} onClick={() => {
               const params = {};
               if (filterTokenId) params.tokenId = filterTokenId;
               if (filterAccountId) params.accountId = filterAccountId;
@@ -138,8 +153,10 @@ function InstitutionDashboard() {
                 setPage(metaData.page);
                 setLoadingCreds(false);
               }).catch((e) => { setErrorCreds(e.message); setLoadingCreds(false); });
-            }}>Buscar</button>
-            <a className="btn-secondary" target="_blank" rel="noreferrer" href={`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')}/api/universities/credentials?${new URLSearchParams({ ...(filterTokenId ? { tokenId: filterTokenId } : {}), ...(filterAccountId ? { accountId: filterAccountId } : {}), format: 'csv' }).toString()}`}>Exportar CSV</a>
+            }}>
+              Buscar
+            </button>
+            <a className={`btn-secondary ${demo ? 'pointer-events-none opacity-60' : ''}`} target="_blank" rel="noreferrer" href={`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')}/api/universities/credentials?${new URLSearchParams({ ...(filterTokenId ? { tokenId: filterTokenId } : {}), ...(filterAccountId ? { accountId: filterAccountId } : {}), format: 'csv' }).toString()}`}>Exportar CSV</a>
           </div>
         </div>
         {loadingCreds && <div className="badge-info badge">Cargando listado...</div>}
@@ -162,7 +179,7 @@ function InstitutionDashboard() {
                     <td className="px-4 py-2">{c.serialNumber}</td>
                     <td className="px-4 py-2"><a href={c.ipfsURI} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Ver</a></td>
                     <td className="px-4 py-2 space-x-2">
-                      <a className="btn-secondary btn-sm" href={`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')}/api/qr/generate/${c.tokenId}/${c.serialNumber}?format=svg`} target="_blank" rel="noreferrer">QR</a>
+                      <a className="btn-secondary btn-sm" href={`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')}/api/verification/qr/generate/${c.universityId}/${c.tokenId}/${c.serialNumber}?format=svg`} target="_blank" rel="noreferrer">QR</a>
                       <a className="btn-primary btn-sm" href={`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')}/api/verification/credential-history/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Verificar</a>
                     </td>
                   </tr>
@@ -171,7 +188,7 @@ function InstitutionDashboard() {
             </table>
             <div className="flex items-center justify-between p-3 border-t" role="navigation" aria-label="Controles de paginación">
               <div className="flex items-center gap-2">
-                <button aria-label="Primera página" aria-disabled={page <= 1 || loadingCreds} className="btn-secondary btn-sm" disabled={page <= 1 || loadingCreds} onClick={() => {
+                <button aria-label="Primera página" aria-disabled={demo || page <= 1 || loadingCreds} className="btn-secondary btn-sm" disabled={demo || page <= 1 || loadingCreds} onClick={() => {
                   const params = {};
                   if (filterTokenId) params.tokenId = filterTokenId;
                   if (filterAccountId) params.accountId = filterAccountId;
@@ -191,7 +208,7 @@ function InstitutionDashboard() {
                     setLoadingCreds(false);
                   }).catch((e) => { setErrorCreds(e.message); setLoadingCreds(false); });
                 }}>Primera</button>
-                <button aria-label="Página anterior" aria-disabled={page <= 1 || loadingCreds} className="btn-secondary btn-sm" disabled={page <= 1 || loadingCreds} onClick={() => {
+                <button aria-label="Página anterior" aria-disabled={demo || page <= 1 || loadingCreds} className="btn-secondary btn-sm" disabled={demo || page <= 1 || loadingCreds} onClick={() => {
                   const params = {};
                   if (filterTokenId) params.tokenId = filterTokenId;
                   if (filterAccountId) params.accountId = filterAccountId;
@@ -211,7 +228,7 @@ function InstitutionDashboard() {
                     setLoadingCreds(false);
                   }).catch((e) => { setErrorCreds(e.message); setLoadingCreds(false); });
                 }}>Anterior</button>
-                <button aria-label="Página siguiente" aria-disabled={loadingCreds || !meta.hasMore} className="btn-primary btn-sm" disabled={loadingCreds || !meta.hasMore} onClick={() => {
+                <button aria-label="Página siguiente" aria-disabled={demo || loadingCreds || !meta.hasMore} className="btn-primary btn-sm" disabled={demo || loadingCreds || !meta.hasMore} onClick={() => {
                   const params = {};
                   if (filterTokenId) params.tokenId = filterTokenId;
                   if (filterAccountId) params.accountId = filterAccountId;
@@ -231,7 +248,7 @@ function InstitutionDashboard() {
                     setLoadingCreds(false);
                   }).catch((e) => { setErrorCreds(e.message); setLoadingCreds(false); });
                 }}>Siguiente</button>
-                <button aria-label="Última página" aria-disabled={loadingCreds || page >= meta.pages} className="btn-secondary btn-sm" disabled={loadingCreds || page >= meta.pages} onClick={() => {
+                <button aria-label="Última página" aria-disabled={demo || loadingCreds || page >= meta.pages} className="btn-secondary btn-sm" disabled={demo || loadingCreds || page >= meta.pages} onClick={() => {
                   const params = {};
                   if (filterTokenId) params.tokenId = filterTokenId;
                   if (filterAccountId) params.accountId = filterAccountId;
@@ -254,7 +271,7 @@ function InstitutionDashboard() {
               </div>
               <div className="text-sm text-gray-600" role="status" aria-live="polite">Mostrando {meta.from}-{meta.to} de {meta.total} • Página {page} de {meta.pages}</div>
               <div>
-                <select aria-label="Límite por página" className="input-primary" value={limit} onChange={(e) => {
+                <select aria-label="Límite por página" className="input-primary" value={limit} disabled={demo} onChange={(e) => {
                   const newLimit = parseInt(e.target.value, 10) || 10;
                   setLimit(newLimit);
                   const params = {};
@@ -281,7 +298,7 @@ function InstitutionDashboard() {
                   <option value={20}>20</option>
                   <option value={50}>50</option>
                 </select>
-                <select aria-label="Orden" className="input-primary ml-2" value={sort} onChange={(e) => {
+                <select aria-label="Orden" className="input-primary ml-2" value={sort} disabled={demo} onChange={(e) => {
                   const newSort = e.target.value;
                   setSort(newSort);
                   const params = {};
@@ -306,7 +323,7 @@ function InstitutionDashboard() {
                   <option value="desc">Nuevos primero</option>
                   <option value="asc">Antiguos primero</option>
                 </select>
-                <select aria-label="Ordenar por" className="input-primary ml-2" value={sortBy} onChange={(e) => {
+                <select aria-label="Ordenar por" className="input-primary ml-2" value={sortBy} disabled={demo} onChange={(e) => {
                   const newSortBy = e.target.value;
                   setSortBy(newSortBy);
                   const params = {};
@@ -334,7 +351,7 @@ function InstitutionDashboard() {
                   <option value="uniqueHash">Hash</option>
                   <option value="studentAccountId">Cuenta Hedera</option>
                 </select>
-                <input aria-label="Ir a página" className="input-primary ml-2 w-24" type="number" min={1} max={meta.pages || 1} value={targetPage} onChange={(e) => setTargetPage(e.target.value)} placeholder="Ir a" onKeyDown={(e) => {
+                <input aria-label="Ir a página" className="input-primary ml-2 w-24" type="number" min={1} max={meta.pages || 1} value={targetPage} disabled={demo} onChange={(e) => setTargetPage(e.target.value)} placeholder="Ir a" onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     const tp = Number(targetPage);
                     if (!tp || tp < 1 || tp > (meta.pages || 1) || loadingCreds) return;
@@ -358,7 +375,7 @@ function InstitutionDashboard() {
                     }).catch((err) => { setErrorCreds(err.message); setLoadingCreds(false); });
                   }
                 }} />
-                <button aria-label="Ir a página" aria-disabled={loadingCreds || !targetPage || Number(targetPage) < 1 || Number(targetPage) > (meta.pages || 1)} className="btn-secondary ml-1" disabled={loadingCreds || !targetPage || Number(targetPage) < 1 || Number(targetPage) > (meta.pages || 1)} onClick={() => {
+                <button aria-label="Ir a página" aria-disabled={demo || loadingCreds || !targetPage || Number(targetPage) < 1 || Number(targetPage) > (meta.pages || 1)} className="btn-secondary ml-1" disabled={demo || loadingCreds || !targetPage || Number(targetPage) < 1 || Number(targetPage) > (meta.pages || 1)} onClick={() => {
                   const tp = Number(targetPage);
                   const params = {};
                   if (filterTokenId) params.tokenId = filterTokenId;

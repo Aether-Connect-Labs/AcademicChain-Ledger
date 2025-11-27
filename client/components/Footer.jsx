@@ -54,6 +54,8 @@ const Footer = ({ variant = 'default' }) => {
         { name: 'Características', href: '/features', icon: '🚀' },
         { name: 'Portal de Instituciones', href: '/institutions/login', icon: '🏫' },
         { name: 'Portal de Alumnos', href: '/students/login', icon: '🎓' },
+        { name: 'Demo Institución', href: '/demo/institution', icon: '🧪' },
+        { name: 'Demo Alumno', href: '/demo/student', icon: '🧪' },
         { name: 'Para Empleadores', href: '/employers', icon: '💼' },
         { name: 'Precios', href: '/pricing', icon: '💰' },
         { name: 'Casos de Éxito', href: '/case-studies', icon: '📈' }

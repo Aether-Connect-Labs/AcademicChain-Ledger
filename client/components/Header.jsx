@@ -113,6 +113,8 @@ const Header = ({
     { name: 'Verificar', href: '/verificar', current: location.pathname === '/verificar' },
     { name: 'Precios', href: '/pricing', current: location.pathname === '/pricing' },
     { name: 'Agendar Demo', href: '/demo', current: location.pathname === '/demo' },
+    { name: 'Demo Institución', href: '/demo/institution', current: location.pathname === '/demo/institution' },
+    { name: 'Demo Alumno', href: '/demo/student', current: location.pathname === '/demo/student' },
     { name: 'Documentación', href: '/docs', current: location.pathname.startsWith('/docs') }
   ];
 

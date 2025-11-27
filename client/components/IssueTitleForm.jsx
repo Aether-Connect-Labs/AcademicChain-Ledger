@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { create as createIpfsClient } from 'ipfs-http-client';
 
@@ -11,7 +11,7 @@ const buildAuthHeaders = () => {
   }
 };
 
-const IssueTitleForm = ({ variant = 'degree' }) => {
+const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
   const [formData, setFormData] = useState({
     tokenId: '0.0.123456',
     studentName: '',
@@ -27,6 +27,29 @@ const IssueTitleForm = ({ variant = 'degree' }) => {
   const [file, setFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [ipfsURI, setIpfsURI] = useState('');
+  const [tokens, setTokens] = useState([]);
+  const [loadingTokens, setLoadingTokens] = useState(false);
+  const [tokenFetchError, setTokenFetchError] = useState('');
+
+  useEffect(() => {
+    if (demo) return;
+    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+    if (!API_BASE_URL) return;
+    setLoadingTokens(true);
+    setTokenFetchError('');
+    fetch(`${API_BASE_URL}/api/universities/tokens`, { headers: buildAuthHeaders() })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const list = data?.data?.tokens || [];
+        setTokens(list);
+        if (list.length > 0 && !formData.tokenId) {
+          setFormData(prev => ({ ...prev, tokenId: list[0].tokenId }));
+        }
+      })
+      .catch((e) => setTokenFetchError(e.message))
+      .finally(() => setLoadingTokens(false));
+  }, [demo]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -42,7 +65,7 @@ const IssueTitleForm = ({ variant = 'degree' }) => {
       const uniqueHash = `hash-${Date.now()}`;
       let finalIpfsURI = ipfsURI;
       if (!finalIpfsURI) {
-        if (file) {
+        if (file && !demo) {
           setIsUploading(true);
           const pinataJwt = import.meta.env.VITE_PINATA_JWT || '';
           const pinataApiKey = import.meta.env.VITE_PINATA_API_KEY || '';
@@ -75,8 +98,23 @@ const IssueTitleForm = ({ variant = 'degree' }) => {
         }
       }
       const tokenId = formData.tokenId.trim();
-
-      const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
+      if (demo) {
+        const demoResult = {
+          mint: {
+            serialNumber: Math.floor(Math.random() * 1000) + 1,
+            transactionId: `demo-tx-${Date.now()}`,
+            tokenId,
+            ipfsURI: finalIpfsURI,
+          }
+        };
+        setResult(demoResult);
+        setMessage('Título emitido correctamente (modo demo)');
+        setFormData(prev => ({ ...prev, studentName: '', courseName: '', issueDate: '', grade: '', recipientAccountId: '' }));
+        setFile(null);
+        setIpfsURI('');
+        return;
+      }
+      const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
       if (!API_BASE_URL) {
         setMessage('Título preparado en modo demostración. Configura VITE_API_URL para emitir contra el backend.');
         setFormData(prev => ({ ...prev, studentName: '', courseName: '', issueDate: '', grade: '', recipientAccountId: '' }));
@@ -116,20 +154,47 @@ const IssueTitleForm = ({ variant = 'degree' }) => {
   return (
     <div className="max-w-md mx-auto card">
       <h2 className="text-2xl font-bold mb-6 text-gray-800">{variant === 'certificate' ? 'Emitir Certificado' : (variant === 'diploma' ? 'Emitir Diploma' : 'Emitir Título')}</h2>
+      {demo && (<div className="badge badge-info mb-4">Emisión en modo demostración</div>)}
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
           <label htmlFor="tokenId" className="block text-gray-700 text-sm font-bold mb-2">
             Token ID:
           </label>
-          <input
-            type="text"
-            id="tokenId"
-            name="tokenId"
-            value={formData.tokenId}
-            onChange={handleChange}
-            className="input-primary"
-            required
-          />
+          {tokens.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <select
+                id="tokenIdSelect"
+                value={formData.tokenId}
+                onChange={(e) => setFormData(prev => ({ ...prev, tokenId: e.target.value }))}
+                className="input-primary"
+              >
+                {tokens.map((t) => (
+                  <option key={t.id || t.tokenId} value={t.tokenId}>{t.tokenName || t.tokenId} ({t.tokenId})</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                id="tokenId"
+                name="tokenId"
+                value={formData.tokenId}
+                onChange={handleChange}
+                className="input-primary"
+                placeholder="Escribir manualmente"
+              />
+            </div>
+          ) : (
+            <input
+              type="text"
+              id="tokenId"
+              name="tokenId"
+              value={formData.tokenId}
+              onChange={handleChange}
+              className="input-primary"
+              required
+            />
+          )}
+          {loadingTokens && (<div className="mt-2 text-xs text-gray-500">Cargando tokens…</div>)}
+          {tokenFetchError && (<div className="mt-2 text-xs text-red-600">No se pudieron cargar los tokens ({tokenFetchError})</div>)}
         </div>
         <div className="mb-4">
           <label htmlFor="studentName" className="block text-gray-700 text-sm font-bold mb-2">
