@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import IssueTitleForm from './IssueTitleForm';
 import BatchIssuance from './BatchIssuance';
+import DocumentViewer from './ui/DocumentViewer';
 
 function InstitutionDashboard({ demo = false }) {
   const [credentials, setCredentials] = useState([]);
@@ -19,6 +20,22 @@ function InstitutionDashboard({ demo = false }) {
   const [stats, setStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [errorStats, setErrorStats] = useState('');
+  const [tokenName, setTokenName] = useState('');
+  const [tokenSymbol, setTokenSymbol] = useState('');
+  const [tokenMemo, setTokenMemo] = useState('');
+  const [creatingToken, setCreatingToken] = useState(false);
+  const [tokenMessage, setTokenMessage] = useState('');
+  const [tokenError, setTokenError] = useState('');
+  const [verifyTokenId, setVerifyTokenId] = useState('');
+  const [verifySerial, setVerifySerial] = useState('');
+  const [docOpen, setDocOpen] = useState(false);
+  const [docUrl, setDocUrl] = useState('');
+  const toGateway = (uri) => {
+    if (!uri) return '';
+    const gw = import.meta.env.VITE_IPFS_GATEWAY || 'https://ipfs.io/ipfs/';
+    if (uri.startsWith('ipfs://')) return gw + uri.replace('ipfs://','');
+    return uri;
+  };
 
   useEffect(() => {
     if (demo) {
@@ -69,7 +86,44 @@ function InstitutionDashboard({ demo = false }) {
       }
     };
     fetchCreds();
-  }, []);
+  }, [demo, searchParams]);
+
+  const handleCreateToken = async () => {
+    setCreatingToken(true);
+    setTokenError('');
+    setTokenMessage('');
+    try {
+      if (demo) {
+        setTokenMessage('Creación simulada en modo demo');
+        return;
+      }
+      const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+      const jwt = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
+      if (!API_BASE_URL || !jwt) throw new Error('API no disponible o sesión inválida');
+      const res = await fetch(`${API_BASE_URL}/api/universities/create-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+        body: JSON.stringify({ tokenName, tokenSymbol, tokenMemo: tokenMemo || undefined })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      setTokenMessage(`Token creado: ${data?.data?.tokenId || data?.data?.token?.tokenId || 'ok'}`);
+      setTokenName('');
+      setTokenSymbol('');
+      setTokenMemo('');
+    } catch (e) {
+      setTokenError(e.message);
+    } finally {
+      setCreatingToken(false);
+    }
+  };
+
+  const handleOpenVerification = () => {
+    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+    if (!verifyTokenId || !verifySerial) return;
+    const url = `${API_BASE_URL}/api/verification/verify/${encodeURIComponent(verifyTokenId)}/${encodeURIComponent(verifySerial)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
   useEffect(() => {
     if (demo) {
@@ -94,7 +148,7 @@ function InstitutionDashboard({ demo = false }) {
       }
     };
     fetchStats();
-  }, []);
+  }, [demo]);
 
   return (
     <div className="container-responsive py-10">
@@ -119,6 +173,34 @@ function InstitutionDashboard({ demo = false }) {
         <div className="card">
           <div className="font-semibold">Página Actual</div>
           <div className="text-2xl mt-2">{page}</div>
+        </div>
+      </div>
+      <div className="mt-8">
+        <div className="card">
+          <div className="font-semibold mb-3">Crear Token Académico (HTS)</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input className="input-primary" placeholder="Nombre del Token" value={tokenName} onChange={(e) => setTokenName(e.target.value)} disabled={creatingToken || demo} />
+            <input className="input-primary" placeholder="Símbolo (p.ej. ACAD)" value={tokenSymbol} onChange={(e) => setTokenSymbol(e.target.value)} disabled={creatingToken || demo} />
+            <input className="input-primary" placeholder="Memo (opcional)" value={tokenMemo} onChange={(e) => setTokenMemo(e.target.value)} disabled={creatingToken || demo} />
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <button className="btn-primary" disabled={creatingToken || demo || !tokenName || !tokenSymbol} onClick={handleCreateToken}>
+              {creatingToken ? 'Creando...' : 'Crear Token HTS'}
+            </button>
+            {tokenMessage && <div className="badge badge-success">{tokenMessage}</div>}
+            {tokenError && <div className="badge badge-error">{tokenError}</div>}
+          </div>
+        </div>
+      </div>
+      <div className="mt-8">
+        <div className="card">
+          <div className="font-semibold mb-3">Verificar Credencial (Hedera + XRP)</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input className="input-primary" placeholder="Token ID (p.ej. 0.0.x)" value={verifyTokenId} onChange={(e) => setVerifyTokenId(e.target.value)} />
+            <input className="input-primary" placeholder="Serial Number" value={verifySerial} onChange={(e) => setVerifySerial(e.target.value)} />
+            <button className="btn-primary" onClick={handleOpenVerification} disabled={!verifyTokenId || !verifySerial}>Abrir Verificación</button>
+          </div>
+          <div className="text-xs text-gray-500 mt-2">Se abrirá una página con el estado en Hedera y el anclaje XRP.</div>
         </div>
       </div>
       <div className="mt-8">
@@ -169,6 +251,7 @@ function InstitutionDashboard({ demo = false }) {
                   <th className="px-4 py-2 text-left">Token</th>
                   <th className="px-4 py-2 text-left">Serial</th>
                   <th className="px-4 py-2 text-left">IPFS</th>
+                  <th className="px-4 py-2 text-left">XRP Tx</th>
                   <th className="px-4 py-2 text-left">Acciones</th>
                 </tr>
               </thead>
@@ -177,10 +260,12 @@ function InstitutionDashboard({ demo = false }) {
                   <tr key={`${c.tokenId}-${c.serialNumber}`} className="border-t text-sm">
                     <td className="px-4 py-2">{c.tokenId}</td>
                     <td className="px-4 py-2">{c.serialNumber}</td>
-                    <td className="px-4 py-2"><a href={c.ipfsURI} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Ver</a></td>
+                    <td className="px-4 py-2"><button className="btn-secondary btn-sm" onClick={() => { setDocUrl(toGateway(c.ipfsURI)); setDocOpen(true); }}>Ver</button></td>
+                    <td className="px-4 py-2">{c.xrpAnchor?.xrpTxHash ? <a href={`https://testnet.xrplexplorer.com/tx/${c.xrpAnchor.xrpTxHash}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{c.xrpAnchor.xrpTxHash.slice(0, 8)}...</a> : 'N/A'}</td>
                     <td className="px-4 py-2 space-x-2">
                       <a className="btn-secondary btn-sm" href={`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')}/api/verification/qr/generate/${c.universityId}/${c.tokenId}/${c.serialNumber}?format=svg`} target="_blank" rel="noreferrer">QR</a>
                       <a className="btn-primary btn-sm" href={`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')}/api/verification/credential-history/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Verificar</a>
+                      <a className="btn-primary btn-sm" href={`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')}/api/verification/verify/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Dual (Hedera+XRP)</a>
                     </td>
                   </tr>
                 ))}
@@ -403,6 +488,7 @@ function InstitutionDashboard({ demo = false }) {
         {!loadingCreds && credentials.length === 0 && (
           <div className="badge badge-info">Aún no hay credenciales emitidas</div>
         )}
+        <DocumentViewer open={docOpen} src={docUrl} title="Documento" onClose={() => setDocOpen(false)} />
       </div>
     </div>
   );

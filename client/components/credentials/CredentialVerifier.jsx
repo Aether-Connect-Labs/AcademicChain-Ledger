@@ -1,11 +1,19 @@
 import { useState, useCallback } from 'react';
 import QRScanner from '../ui/QRScanner.jsx';
+import DocumentViewer from '../ui/DocumentViewer';
 
 const CredentialVerifier = () => {
   const [state, setState] = useState({ status: 'idle' });
   const [scanCount, setScanCount] = useState(0);
   const [tokenIdInput, setTokenIdInput] = useState('');
   const [serialInput, setSerialInput] = useState('');
+  const [docOpen, setDocOpen] = useState(false);
+  const toGateway = (uri) => {
+    if (!uri) return '';
+    const gw = import.meta.env.VITE_IPFS_GATEWAY || 'https://ipfs.io/ipfs/';
+    if (uri.startsWith('ipfs://')) return gw + uri.replace('ipfs://','');
+    return uri;
+  };
 
   const validateQRData = (data) => {
     try {
@@ -159,9 +167,14 @@ const CredentialVerifier = () => {
               </div>
             </div>
 
-            <button onClick={handleReset} className="mt-6 w-full btn-primary">
-              Verificar Otra Credencial
-            </button>
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button onClick={handleReset} className="btn-primary">
+                Verificar Otra Credencial
+              </button>
+              <button onClick={() => setDocOpen(true)} className="btn-secondary" disabled={!toGateway(state.data?.ipfsURI)}>
+                Ver documento
+              </button>
+            </div>
           </div>
         );
 
@@ -198,6 +211,7 @@ const CredentialVerifier = () => {
         <div className="mt-6">{renderContent()}</div>
       </div>
       <p className="text-xs text-gray-400 mt-4">Escaneos realizados: {scanCount}</p>
+      <DocumentViewer open={docOpen} src={toGateway(state.data?.ipfsURI)} title="Documento" onClose={() => setDocOpen(false)} />
     </div>
   );
 };

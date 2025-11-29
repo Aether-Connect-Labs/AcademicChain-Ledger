@@ -16,6 +16,7 @@ const { ExpressAdapter } = require('@bull-board/express');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const hederaService = require('./services/hederaServices');
+const xrpService = require('./services/xrpService');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { User } = require('./models');
@@ -44,10 +45,11 @@ const v1Routes = require('./routes/v1');
 const contactRoutes = require('./routes/contact');
 
 const app = express();
+const testing = (process.env.NODE_ENV || '').toLowerCase() === 'test';
 const server = createServer(app);
-const io = new Server(server, {
+const io = testing ? { on: () => {} } : new Server(server, {
   cors: {
-    origin: (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174']),
+    origin: (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174'])),
     methods: ['GET', 'POST'],
   },
 });
@@ -61,7 +63,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Security middleware
 const isProduction = process.env.NODE_ENV === 'production';
-const clientUrl = process.env.CLIENT_URL;
+const clientUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.CORS_ORIGIN;
 
 // Secure CORS Policy
 const whitelist = isProduction ? [clientUrl] : (clientUrl ? clientUrl.split(',') : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174']);
@@ -184,7 +186,7 @@ const swaggerOptions = {
         email: 'support@academicchain-ledger.com',
       },
     },
-    servers: [{ url: `http://localhost:${PORT}` }],
+    servers: [{ url: process.env.SERVER_URL || process.env.BASE_URL || `http://localhost:${PORT}` }],
     components: {
       securitySchemes: {
         bearerAuth: {
@@ -216,7 +218,8 @@ app.get('/health', async (req, res) => {
         used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
         rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
-      }
+      },
+      xrpl: { enabled: typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false, network: xrpService.network || 'disabled' }
     };
 
     res.status(200).json(health);
@@ -239,7 +242,8 @@ app.get('/healthz', async (req, res) => {
         used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
         rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
-      }
+      },
+      xrpl: { enabled: typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false, network: xrpService.network || 'disabled' }
     };
 
     res.status(200).json(health);
@@ -260,6 +264,7 @@ app.get('/ready', async (req, res) => {
         mongo: isMongoConnected(),
         redis: isRedisConnected(),
         server: true,
+        xrpl: typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false,
       }
     };
 
@@ -347,6 +352,8 @@ if (require.main === module) {
           logger.warn('MongoDB disabled by DISABLE_MONGO=1. Running without database.');
         }
       }
+      try { await hederaService.connect(); } catch {}
+      try { await xrpService.connect(); } catch {}
       if (typeof initializeWorkers === 'function') {
         try {
           if (isRedisConnected()) {
@@ -371,12 +378,22 @@ if (require.main === module) {
   })();
 }
 
-io.on('connection', (socket) => {
-  const { token } = socket.handshake.auth || {};
-  socket.on('subscribe-job', (jobId) => {
-    if (jobId) socket.join(String(jobId));
+if (!testing && io && typeof io.on === 'function') {
+  io.on('connection', (socket) => {
+    const { token } = socket.handshake.auth || {};
+    socket.on('subscribe-job', (jobId) => {
+      if (jobId) socket.join(String(jobId));
+    });
+    socket.on('unsubscribe-job', (jobId) => {
+      if (jobId) socket.leave(String(jobId));
+    });
   });
-  socket.on('unsubscribe-job', (jobId) => {
-    if (jobId) socket.leave(String(jobId));
-  });
-});
+}
+
+// Request timeout configurable
+try {
+  const timeoutMs = parseInt(process.env.REQUEST_TIMEOUT || '0', 10);
+  if (timeoutMs > 0 && !testing) {
+    server.setTimeout(timeoutMs);
+  }
+} catch {}

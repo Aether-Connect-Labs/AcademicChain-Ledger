@@ -5,6 +5,11 @@ const { User } = require('../models');
 const ROLES = require('../config/roles');
 const { body, param } = require('express-validator');
 const { validate } = require('../middleware/validator');
+const monitoringService = require('../services/monitoringService');
+const recoveryService = require('../services/recoveryService');
+const { query } = require('express-validator');
+const hederaService = require('../services/hederaServices');
+const xrpService = require('../services/xrpService');
 
 const router = express.Router();
 
@@ -19,6 +24,62 @@ router.use(protect, authorize(ROLES.ADMIN));
 router.get('/users', asyncHandler(async (req, res) => {
   const users = await User.find({}).sort({ createdAt: -1 });
   res.status(200).json({ success: true, data: users });
+}));
+
+router.get('/metrics', asyncHandler(async (req, res) => {
+  const list = await monitoringService.list(req.query.limit);
+  res.status(200).json({ success: true, data: list });
+}));
+
+router.post('/metrics/snapshot', asyncHandler(async (req, res) => {
+  const doc = await monitoringService.snapshot();
+  res.status(201).json({ success: true, data: doc });
+}));
+
+router.post('/recovery/backup',
+  [ body('dir').optional().isString() ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { dir } = req.body || {};
+    const result = await recoveryService.backup(dir || process.env.BACKUP_DIR);
+    res.status(201).json({ success: true, data: result });
+  })
+);
+
+router.post('/recovery/restore',
+  [ body('dir').notEmpty().isString().withMessage('dir is required') ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { dir } = req.body;
+    const result = await recoveryService.restore(dir);
+    res.status(200).json({ success: true, data: result });
+  })
+);
+
+router.get('/hedera/balance',
+  [ query('accountId').optional().isString() ],
+  validate,
+  asyncHandler(async (req, res) => {
+    await hederaService.connect();
+    const accountId = req.query.accountId || req.user.hederaAccountId;
+    if (!accountId) {
+      return res.status(400).json({ success: false, message: 'accountId requerido o vincula hederaAccountId al usuario' });
+    }
+    const bal = await hederaService.getAccountBalance(accountId);
+    res.status(200).json({ success: true, data: bal });
+  })
+);
+
+router.get('/xrp/status', asyncHandler(async (req, res) => {
+  try { await xrpService.connect(); } catch {}
+  const enabled = typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false;
+  res.status(200).json({ success: true, data: { enabled, network: xrpService.network || 'disabled' } });
+}));
+
+router.get('/xrp/balance', asyncHandler(async (req, res) => {
+  try { await xrpService.connect(); } catch {}
+  const data = await xrpService.getBalance();
+  res.status(200).json({ success: true, data });
 }));
 
 /**

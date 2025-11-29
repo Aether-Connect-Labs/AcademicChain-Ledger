@@ -1,11 +1,10 @@
 // src/components/layout/Footer.js
 import React, { useState, useEffect } from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAnalytics } from './useAnalytics';
 import { useHedera } from './useHedera';
 
 const Footer = ({ variant = 'default' }) => {
-  const location = useLocation();
   const { trackButtonClick } = useAnalytics();
   const { isConnected, account, network } = useHedera();
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());

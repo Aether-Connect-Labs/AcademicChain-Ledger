@@ -5,6 +5,7 @@ const { protect, authorize } = require('../middleware/auth');
 const partnerAuth = require('../middleware/partnerAuth');
 const { validate } = require('../middleware/validator');
 const hederaService = require('../services/hederaServices');
+const xrpService = require('../services/xrpService');
 const partnerService = require('../services/partnerService');
 const logger = require('../utils/logger');
 const ROLES = require('../config/roles');
@@ -108,6 +109,15 @@ router.post('/institution/mint',
         uniqueHash: req.body.uniqueHash,
         ipfsURI: req.body.ipfsURI,
       });
+      try {
+        await xrpService.connect();
+        await xrpService.anchor({
+          certificateHash: req.body.uniqueHash,
+          hederaTokenId: req.body.tokenId,
+          serialNumber,
+          timestamp: new Date().toISOString(),
+        });
+      } catch {}
       return res.status(201).json({ success: true, message: 'Credential minted successfully (mock)', data: { mint: { serialNumber, transactionId: 'tx-mock' }, transfer: null } });
     }
     if (!partner.permissions || !partner.permissions.includes('mint_credential')) {
@@ -153,6 +163,15 @@ router.post('/institution/mint',
       uniqueHash,
       ipfsURI,
     });
+    try {
+      await xrpService.connect();
+      await xrpService.anchor({
+        certificateHash: uniqueHash,
+        hederaTokenId: tokenId,
+        serialNumber: mintResult.serialNumber,
+        timestamp: new Date().toISOString(),
+      });
+    } catch {}
     res.status(201).json({ success: true, message: 'Credential minted successfully', data: { mint: mintResult, transfer: transferResult } });
   })
 );

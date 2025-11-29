@@ -24,7 +24,7 @@ export const issuanceService = {
   issueBulkCredentials: async (payload) => {
     if (API_BASE_URL) {
       const authToken = localStorage.getItem('authToken');
-      const res = await fetch(`${API_BASE_URL}/api/universities/issue-bulk`, {
+      const res = await fetch(`${API_BASE_URL}/api/universities/batch-issue`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
         body: JSON.stringify(payload),

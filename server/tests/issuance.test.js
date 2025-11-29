@@ -9,6 +9,11 @@ jest.mock('../src/services/hederaServices', () => ({
   getAccountBalance: jest.fn(async () => ({ hbars: '100.0', tokens: '{}' })),
   transferCredentialToStudent: jest.fn(async () => ({ transactionId: 'transfer-tx' })),
 }));
+jest.mock('../src/services/xrpService', () => ({
+  isEnabled: () => false,
+  connect: jest.fn(async () => {}),
+  anchor: jest.fn(async () => ({})),
+}));
 
 const mockUser = { id: 'u1', role: 'university', universityName: 'Test University', hederaAccountId: '0.0.7174400', email: 'uni@test.com' };
 let mockTxRecord = null;
@@ -22,7 +27,11 @@ jest.mock('../src/models', () => ({
     findById: jest.fn(async () => mockTxRecord),
   },
   Credential: {
-    create: jest.fn(async (obj) => { createdCreds.push({ ...obj, createdAt: new Date().toISOString() }); return obj; }),
+    create: jest.fn(async (obj) => { 
+      const doc = { ...obj, createdAt: new Date().toISOString(), toObject: function() { return { ...this }; } };
+      createdCreds.push(doc); 
+      return doc; 
+    }),
     find: jest.fn((query) => ({
       sort: jest.fn(() => ({
         skip: jest.fn((s) => ({

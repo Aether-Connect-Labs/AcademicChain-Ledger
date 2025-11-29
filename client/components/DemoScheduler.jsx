@@ -36,7 +36,7 @@ const buildIcs = ({ title, description, start, end, location }) => {
 };
 
 const DemoScheduler = () => {
-  const { trackButtonClick, trackFormSubmission, trackPageView } = useAnalytics();
+  const { trackFormSubmission, trackPageView } = useAnalytics();
   const calendlyUrl = import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com/academicchain/demo';
   const calcomUrl = import.meta.env.VITE_CALCOM_URL;
   const meetUrl = import.meta.env.VITE_DEMO_MEET_URL || 'https://meet.google.com/lookup/academicchain-demo';
@@ -55,9 +55,8 @@ const DemoScheduler = () => {
 
   useEffect(() => {
     trackPageView({ page: 'demo_scheduler', tz });
-  }, [tz]);
+  }, [tz, trackPageView]);
 
-  const [availability, setAvailability] = useState(null);
   const [daysFromApi, setDaysFromApi] = useState([]);
   const [timesForDay, setTimesForDay] = useState([]);
   const [loadingAvail, setLoadingAvail] = useState(false);
@@ -89,7 +88,6 @@ const DemoScheduler = () => {
       try {
         const res = await fetch(availabilityUrl);
         const data = await res.json();
-        setAvailability(data || {});
         const list = Array.isArray(data?.days) ? data.days : [];
         const parsedDays = list.map((item) => {
           const d = new Date(item.date);
@@ -152,7 +150,7 @@ const DemoScheduler = () => {
     return out;
   }, [daysFromApi]);
 
-  const defaultTimes = ['10:00', '12:00', '15:00', '17:00'];
+  const defaultTimes = useMemo(() => ['10:00', '12:00', '15:00', '17:00'], []);
   useEffect(() => {
     if (!selectedDate) { setTimesForDay([]); return; }
     const isHoliday = holidaysSet.has(ymd(selectedDate));
@@ -166,7 +164,7 @@ const DemoScheduler = () => {
       }
     }
     setTimesForDay(defaultTimes);
-  }, [selectedDate, daysFromApi, holidaysSet]);
+  }, [selectedDate, daysFromApi, holidaysSet, defaultTimes]);
 
   const canBook = selectedDate && selectedTime && name && email && org && /@/.test(email);
 

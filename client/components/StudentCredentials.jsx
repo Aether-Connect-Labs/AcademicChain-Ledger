@@ -2,9 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from './useAuth';
 import QRCode from 'react-qr-code';
 import axios from 'axios'; // Importar axios
+import DocumentViewer from './ui/DocumentViewer';
 
 const CredentialCard = ({ credential }) => {
   const link = `${window.location.origin}/verificar?tokenId=${encodeURIComponent(credential.tokenId)}\u0026serialNumber=${encodeURIComponent(credential.serialNumber)}`;
+  const [docOpen, setDocOpen] = useState(false);
+  const toGateway = (uri) => {
+    if (!uri) return '';
+    const gw = import.meta.env.VITE_IPFS_GATEWAY || 'https://ipfs.io/ipfs/';
+    if (uri.startsWith('ipfs://')) return gw + uri.replace('ipfs://','');
+    return uri;
+  };
+  const docUrl = toGateway(credential.ipfsURI);
   return (
     <div className="card space-y-3">
       <div className="flex justify-between items-center">
@@ -21,8 +30,12 @@ const CredentialCard = ({ credential }) => {
         <div>
           <p className="text-sm text-gray-700 break-all">Link: {link}</p>
           <button onClick={() => navigator.clipboard.writeText(link)} className="mt-2 btn-primary">Copiar Link</button>
+          <div className="mt-3">
+            <button className="btn-secondary" onClick={() => setDocOpen(true)} disabled={!docUrl}>Ver documento</button>
+          </div>
         </div>
       </div>
+      <DocumentViewer open={docOpen} src={docUrl} title={credential.title || 'Documento'} onClose={() => setDocOpen(false)} />
     </div>
   );
 };

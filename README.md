@@ -13,7 +13,7 @@ Plataforma para emitir y verificar credenciales académicas utilizando Hedera Ha
 ## 🏁 Inicio Rápido (Paso a paso)
 
 ### 1) Prerrequisitos
-- Node.js 18+
+- Node.js 22.x
 - npm
 - Git
 - Docker Desktop (recomendado para MongoDB y Redis)
@@ -311,8 +311,8 @@ npm run docker:up
 npm run dev
 ```
 
-La aplicación estará disponible en `http://localhost:3001` (o el puerto que hayas configurado).
-Con este cambio, tu `README.md` ahora tiene una guía de instalación limpia, profesional y precisa para cualquier persona que quiera usar tu proyecto.
+Frontend: `http://localhost:5173` (Vite puede cambiar a `http://localhost:5174`)
+API backend: `http://localhost:3001`
 
 <!--
 [PROMPT_SUGGESTION]¿Puedes añadir una sección de "Estructura del Proyecto" al README para explicar las carpetas `server`, `client` y `contracts`?[/PROMPT_SUGGESTION]
@@ -394,7 +394,8 @@ npm run docker:up
 npm run dev
 ```
 
-La aplicación estará disponible en `http://localhost:3001` (o el puerto que hayas configurado).
+Frontend: `http://localhost:5173` (Vite puede cambiar a `http://localhost:5174`)
+API backend: `http://localhost:3001`
 -Sigue estos pasos para configurar y ejecutar el proyecto en tu entorno de desarrollo local.
 -### 1. Prerrequisitos
 -Asegúrate de tener instalado el siguiente software en tu sistema:
@@ -440,3 +441,186 @@ Con estos cambios, cualquier desarrollador (incluido tú) solo necesitará segui
 [PROMPT_SUGGESTION]¿Puedes añadir una sección de "Estructura del Proyecto" al README para explicar las carpetas `server`, `client` y `contracts`?[/PROMPT_SUGGESTION]
 [PROMPT_SUGGESTION]¿Cómo puedo hacer que el script `setup-env.js` oculte la entrada de la clave privada de Hedera?[/PROMPT_SUGGESTION]
 -->
+## 🔗 XRP + Hedera (Dual Ledger)
+
+- Anclaje secundario opcional en XRP Ledger para prueba de existencia y verificación cruzada.
+- El flujo en Hedera no se interrumpe: si XRPL no está habilitado o falla, la emisión/verificación en Hedera sigue funcionando.
+
+### Variables de entorno (server/.env)
+- `XRPL_ENABLE=1` o `XRPL_ENABLED=true` para habilitar.
+- `XRPL_NETWORK=testnet|mainnet` (por defecto `testnet`).
+- `XRPL_SEED=<seed_de_la_wallet>` o `XRPL_SECRET=<secret>`.
+- `XRPL_ADDRESS=<cuenta_opcional>` si quieres fijar la cuenta explícitamente.
+- `XRP_ANCHOR_FEE=0.000001` monto mínimo en XRP para el anclaje.
+- `XRP_BACKUP_WALLET=<destino_opcional>` si quieres enviar el pago/memo a una billetera backup.
+
+### Cómo funciona
+- Emisión:
+  - Tras mintear la credencial en Hedera, se ejecuta el anclaje en XRPL mediante un pago con `Memo` que incluye `certificateHash`, `hederaTokenId`, `serialNumber` y `timestamp`.
+  - Referencia: `server/src/services/xrpService.js:42-85`.
+- Verificación API:
+  - Las rutas de verificación enriquecen la respuesta con `xrpAnchor` si existe.
+  - Referencias: `server/src/routes/verification.js:55`, `server/src/routes/verification.js:224`, y HTML con enlace a XRPL explorer `server/src/routes/verification.js:198-206`.
+- Panel Admin:
+  - Endpoints: `GET /api/admin/xrp/balance` y `GET /api/admin/hedera/balance`.
+  - Referencia: `server/src/routes/admin.js:59-83`.
+- Cliente (UI):
+  - Sidebar Admin muestra estado/red/dirección/balance de XRP y balance API de Hedera.
+  - Referencias: `client/components/AdminSidebar.jsx:19`, `client/components/AdminSidebar.jsx:56-85`, `client/components/AdminSidebar.jsx:275-291`.
+  - Emisión masiva muestra ancla XRP por fila y enlace de verificación dual.
+  - Referencias: `client/components/BatchIssuance.jsx:16-48`, `client/components/BatchIssuance.jsx:690-719`.
+
+### Pasos para habilitar y probar
+- Configura variables en `server/.env`:
+  - `XRPL_ENABLE=1`
+  - `XRPL_NETWORK=testnet`
+  - `XRPL_SEED=<seed_testnet>`
+  - `XRP_ANCHOR_FEE=0.000001`
+- Inicia servicios y app:
+  - `docker compose -f docker-compose-services.yml up -d`
+  - `npm run dev`
+- Verificación por API:
+  - `POST /api/verification/verify-credential` con `{ tokenId, serialNumber }` → respuesta incluye `data.xrpAnchor` cuando hay ancla.
+  - `GET /api/verification/verify/:tokenId/:serialNumber` con `Accept: text/html` → muestra HTML con enlaces a Hashscan y XRPL.
+- Verificación por UI:
+  - En el Admin Sidebar confirma estado/red/Balance XRP.
+  - En Emisión Masiva, al finalizar, verifica cada fila con “Dual (Hedera+XRP)”.
+
+### Comandos útiles (Windows PowerShell)
+```powershell
+[Environment]::SetEnvironmentVariable('XRPL_ENABLE','1','User')
+[Environment]::SetEnvironmentVariable('XRPL_NETWORK','testnet','User')
+[Environment]::SetEnvironmentVariable('XRPL_SEED','<seed_testnet>','User')
+[Environment]::SetEnvironmentVariable('XRP_ANCHOR_FEE','0.000001','User')
+```
+
+### Monitorización
+- `GET /health`, `GET /healthz` y `GET /ready` incluyen estado XRPL.
+- En el Dashboard de institución puedes abrir la verificación web (Hedera + XRP).
+
+## 🔄 Flujo Dual Ledger: Hedera + XRP
+
+### Diagrama de Secuencia
+```
+1. [Universidad] → [AcademicChain API]
+   │
+   ├── Emisión de Credencial:
+   │   ├── 1. Hedera HTS: Mint NFT con metadata completa
+   │   ├── 2. Generar Hash único de la credencial
+   │   └── 3. XRP Ledger: Anclar hash + referencias
+   │
+   ├── Verificación:
+   │   ├── ✅ Hedera: Validar NFT y datos completos
+   │   └── ✅ XRP: Verificar proof de existencia
+   │
+   └── Recuperación:
+       ├── Hedera primario: Datos completos
+       └── XRP secundario: Proof de backup
+```
+
+### Flujo Detallado
+
+#### Emisión de Credencial
+```javascript
+// 1) HEDERA (Primary - datos completos)
+const tokenId = '0.0.123456';
+const metadata = {
+  university: 'Universidad Nacional',
+  degree: 'Computer Science',
+  studentId: 'student_001',
+  graduationDate: '2024-01-15',
+  uniqueHash: 'sha256_demo_abc123', // requerido para anclaje y consistencia
+  ipfsURI: 'ipfs://<CID>'
+};
+const hederaResult = await hederaService.mintAcademicCredential(tokenId, metadata);
+// { serialNumber, transactionId }
+
+// 2) XRP (Secondary - proof de existencia)
+const xrpResult = await xrpService.anchor({
+  certificateHash: metadata.uniqueHash,
+  hederaTokenId: tokenId,
+  serialNumber: hederaResult.serialNumber,
+  timestamp: new Date().toISOString()
+});
+// { xrpTxHash, network, status, ... }
+
+// 3) Respuesta Dual
+return {
+  hedera: {
+    transactionId: hederaResult.transactionId,
+    tokenId,
+    serialNumber: hederaResult.serialNumber,
+    explorerUrl: `https://hashscan.io/${process.env.HEDERA_NETWORK || 'testnet'}/token/${tokenId}`
+  },
+  xrp: {
+    transactionHash: xrpResult.xrpTxHash,
+    explorerUrl: xrpResult.xrpTxHash ? `https://testnet.xrplexplorer.com/tx/${xrpResult.xrpTxHash}` : null
+  }
+};
+```
+
+#### Verificación Dual
+```javascript
+// Verificación paralela en ambos ledgers
+const hederaVerification = await hederaService.verifyCredential(tokenId, serialNumber);
+const xrpAnchor = await xrpService.getByTokenSerial(tokenId, serialNumber);
+const xrpExists = !!xrpAnchor;
+
+return {
+  valid: hederaVerification.valid && xrpExists,
+  credential: hederaVerification.credential,
+  verification: {
+    hedera: {
+      valid: hederaVerification.valid,
+      explorerUrl: `https://hashscan.io/${process.env.HEDERA_NETWORK || 'testnet'}/token/${tokenId}`
+    },
+    xrp: {
+      anchored: xrpExists,
+      txHash: xrpAnchor?.xrpTxHash || null,
+      explorerUrl: xrpAnchor?.xrpTxHash ? `https://testnet.xrplexplorer.com/tx/${xrpAnchor.xrpTxHash}` : null
+    }
+  },
+  securityLevel: hederaVerification.valid && xrpExists ? 'ENTERPRISE_DUAL' : 'STANDARD'
+};
+```
+
+#### Escenarios de Recuperación
+```
+Caso 1: Hedera disponible, XRP disponible
+✅ Estado óptimo — Verificación dual completa
+• Hedera: Datos completos + validación
+• XRP: Proof de existencia + timestamp
+
+Caso 2: Hedera temporalmente no disponible
+⚠️ Estado degradado — Verificación vía XRP
+• XRP: Proof de que la credencial existió
+• Timestamp de emisión verificable
+• Recuperación completa cuando Hedera regrese
+
+Caso 3: Fallo de comunicación
+🔄 Recovery automático
+• Servicios de recuperación y scripts disponibles
+• Migración masiva para re-sincronización
+• Consistency checks periódicos
+```
+
+### Métricas del Sistema Dual
+```bash
+# Estado del sistema
+curl https://academicchain-ledger-b2lu.onrender.com/health
+
+# Ejemplo (campo XRPL incluido)
+{
+  "status": "OK",
+  "environment": "production",
+  "xrpl": { "enabled": true, "network": "testnet" },
+  "timestamp": "2025-01-15T02:00:00Z"
+}
+```
+
+### Monitoreo y Alertas
+- Health checks periódicos (`/health`, `/healthz`, `/ready`).
+- Scripts de consistencia y migración:
+  - `node server/src/scripts/consistencyCheck.js`
+  - `node server/src/scripts/massMigration.js`
+- Métricas del sistema: `GET /metrics` (requiere rol admin).

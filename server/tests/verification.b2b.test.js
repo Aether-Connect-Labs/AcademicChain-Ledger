@@ -24,8 +24,6 @@ jest.mock('../src/workers', () => ({
 }));
 const request = require('supertest');
 jest.mock('../src/services/hederaServices', () => ({
-  __esModule: true,
-  default: {},
   verifyCredential: jest.fn(async (tokenId, serialNumber) => ({
     valid: true,
     onChain: true,
@@ -37,6 +35,15 @@ jest.mock('../src/services/hederaServices', () => ({
     },
   })),
   getAccountBalance: jest.fn(async () => ({ hbars: 100 })),
+}));
+jest.mock('../src/services/xrpService', () => ({
+  isEnabled: () => false,
+  connect: jest.fn(async () => {}),
+  anchor: jest.fn(async () => ({})),
+}));
+jest.mock('../src/models', () => ({
+  User: { findOne: jest.fn(async () => null) },
+  Credential: { findOne: jest.fn(async () => null) },
 }));
 
 const { app } = require('../src/app');

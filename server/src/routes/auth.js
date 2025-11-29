@@ -19,8 +19,15 @@ router.post('/register',
   validate,
   asyncHandler(async (req, res) => {
     const payload = { ...req.body, role: 'student', universityName: null };
-    await authService.register(payload, res);
-    res.status(201).json({ success: true, message: 'User registered and logged in successfully' });
+    const { token, user } = await authService.register(payload);
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+    res.status(201).json({ success: true, token, user });
   })
 );
 
@@ -37,8 +44,15 @@ router.post('/institutions/register',
   validate,
   asyncHandler(async (req, res) => {
     const payload = { ...req.body, role: 'university' };
-    await authService.register(payload, res);
-    res.status(201).json({ success: true, message: 'Institution registered successfully' });
+    const { token, user } = await authService.register(payload);
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+    res.status(201).json({ success: true, token, user });
   })
 );
 
@@ -49,8 +63,8 @@ router.post('/login',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    await authService.login(req.body, res);
-    res.status(200).json({ "success": true, "message": 'Logged in successfully' });
+    const { token, user } = await authService.login(req.body, res);
+    res.status(200).json({ success: true, token, user });
   })
 );
 

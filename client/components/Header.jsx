@@ -141,20 +141,7 @@ const Header = ({
     });
   };
 
-  const handleAuthAction = (action) => {
-    trackButtonClick({
-      buttonType: 'auth_action',
-      action: action,
-      section: 'header'
-    });
-
-    if (action === 'login') {
-      console.log('[DEBUG] Navigating to /login');
-      navigate('/login');
-    } else if (action === 'register') {
-      navigate('/register');
-    }
-  };
+  
 
   const handleWalletConnect = async () => {
     try {

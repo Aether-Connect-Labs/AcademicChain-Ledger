@@ -7,8 +7,12 @@ import AuthCallback from './components/AuthCallback';
 import ProtectedRoute from './components/ProtectedRoute';
 import InstitutionDashboard from './components/InstitutionDashboard';
 import StudentPortal from './components/StudentPortal';
-import StudentCredentials from './components/StudentCredentials';
 import ComenzarGratisPage from './components/ComenzarGratisPage';
+import AdminLayout from './components/AdminLayout';
+import AdminDashboard from './components/AdminDashboard';
+import BatchIssuancePage from './components/BatchIssuancePage';
+import CredentialVerifier from './components/credentials/CredentialVerifier';
+import Welcome from './components/Welcome';
 import CreateDegreePage from './components/CreateDegreePage';
 import CreateCertificatePage from './components/CreateCertificatePage';
 import CreateDiplomaPage from './components/CreateDiplomaPage';
@@ -33,6 +37,8 @@ const AppRoutes = () => {
       <Route path="/students/register" element={<Layout><LoginPage userType="student" mode="register" /></Layout>} />
       <Route path="/auth/callback" element={<Layout><AuthCallback /></Layout>} />
       <Route path="/comenzar-gratis" element={<Layout><ComenzarGratisPage /></Layout>} />
+      <Route path="/welcome" element={<Layout><Welcome /></Layout>} />
+      <Route path="/verify" element={<Layout><CredentialVerifier /></Layout>} />
       <Route path="/verificar" element={<Layout><VerifyCredentialPage /></Layout>} />
       <Route path="/instituciones" element={<Layout><InstitutionsPage /></Layout>} />
       <Route path="/developers" element={<Layout><DeveloperPortal /></Layout>} />
@@ -92,6 +98,14 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/institution/dashboard"
+        element={
+          <ProtectedRoute requiredRoles={['institution']}>
+            <Layout><InstitutionDashboard /></Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/student/portal"
         element={
           <ProtectedRoute requiredRoles={['student']}>
@@ -100,10 +114,18 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/credentials"
+        path="/admin"
         element={
-          <ProtectedRoute requiredRoles={['student']}>
-            <Layout><StudentCredentials /></Layout>
+          <ProtectedRoute requiredRoles={['admin','institution','university']}>
+            <AdminLayout><AdminDashboard /></AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/credentials/bulk"
+        element={
+          <ProtectedRoute requiredRoles={['admin','institution','university']}>
+            <AdminLayout><BatchIssuancePage /></AdminLayout>
           </ProtectedRoute>
         }
       />

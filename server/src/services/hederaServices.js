@@ -41,7 +41,15 @@ class HederaService {
         return false;
       }
       this.operatorId = AccountId.fromString(process.env.HEDERA_ACCOUNT_ID);
-      this.operatorKey = PrivateKey.fromString(process.env.HEDERA_PRIVATE_KEY.replace(/^0x/, ''));
+      const pkEnv = String(process.env.HEDERA_PRIVATE_KEY || '').trim();
+      let parsedKey = null;
+      try {
+        parsedKey = PrivateKey.fromString(pkEnv);
+      } catch (e) {
+        const hex = pkEnv.replace(/^0x/, '');
+        parsedKey = PrivateKey.fromStringRaw(hex);
+      }
+      this.operatorKey = parsedKey;
       const network = process.env.HEDERA_NETWORK || 'testnet';
       this.client = network === 'mainnet' ? Client.forMainnet() : Client.forTestnet();
       this.client.setOperator(this.operatorId, this.operatorKey);

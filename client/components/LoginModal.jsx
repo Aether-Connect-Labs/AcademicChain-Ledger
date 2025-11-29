@@ -13,7 +13,7 @@ const LoginModal = ({ open, onClose, userType = 'student' }) => {
   }, [open]);
 
   useEffect(() => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
+    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
     (async () => {
       try {
         if (!API_BASE_URL) {
@@ -30,7 +30,7 @@ const LoginModal = ({ open, onClose, userType = 'student' }) => {
   }, []);
 
   const handleGoogle = () => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
+    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
     const redirectUri = `${window.location.origin}/auth/callback`;
     const params = new URLSearchParams(window.location.search);
     const next = params.get('next') || (userType === 'institution' ? '/institution/dashboard' : '/student/portal');

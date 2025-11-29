@@ -1,5 +1,5 @@
 // src/components/layout/AdminSidebar.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useHedera } from './useHedera';
 import { useAuth } from './useAuth';
@@ -16,11 +16,16 @@ const AdminSidebar = ({
   const { account, balance, isConnected, connectWallet } = useHedera();
   const { user, logout } = useAuth(); // Obtenemos la navegación del hook
   const [activeSubmenu, setActiveSubmenu] = useState(null);
+  const API_BASE_URL = useMemo(() => (import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')), []);
+  const [xrpInfo, setXrpInfo] = useState({ enabled: false, network: 'disabled', address: null, balance: null });
+  const [loadingXrp, setLoadingXrp] = useState(false);
+  const [errorXrp, setErrorXrp] = useState('');
+  const [hederaApiBalance, setHederaApiBalance] = useState(null);
 
   // TODO: La lógica de `navigationSections` y `hasPermission` debería venir del backend
   // o estar definida en un servicio de configuración de roles.
   // Por ahora, se define un mock para que el componente renderice.
-  const navigationSections = [
+  const navigationSections = useMemo(() => ([
     {
       title: 'Principal',
       items: [
@@ -28,7 +33,7 @@ const AdminSidebar = ({
         { id: 'bulk_issuance', name: 'Emisión Masiva', path: '/admin/credentials/bulk', icon: '📦', permission: 'issue_credentials' },
       ]
     }
-  ];
+  ]), []);
   const hasPermission = (permission) => {
     return true; // Mock: permitir todo por ahora
   };
@@ -47,6 +52,37 @@ const AdminSidebar = ({
       setActiveSubmenu(parent ? parent.id : activeItem.id);
     }
   }, [location.pathname, navigationSections]);
+
+  useEffect(() => {
+    const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    setLoadingXrp(true);
+    setErrorXrp('');
+    (async () => {
+      try {
+        const resBal = await fetch(`${API_BASE_URL}/api/admin/xrp/balance`, { headers });
+        if (resBal.ok) {
+          const dataBal = await resBal.json();
+          const d = dataBal?.data || {};
+          setXrpInfo({ enabled: Boolean(d.enabled), network: d.network || 'unknown', address: d.address || null, balance: d.balance ?? null });
+        } else {
+          setErrorXrp(`HTTP ${resBal.status}`);
+        }
+      } catch (e) {
+        setErrorXrp(e.message);
+      } finally {
+        setLoadingXrp(false);
+      }
+      try {
+        const resH = await fetch(`${API_BASE_URL}/api/admin/hedera/balance`, { headers });
+        if (resH.ok) {
+          const dataH = await resH.json();
+          const hb = dataH?.data?.hbars;
+          if (typeof hb === 'number') setHederaApiBalance(hb);
+        }
+      } catch {}
+    })();
+  }, [API_BASE_URL]);
 
   // Manejar navegación
   const handleNavigation = (path) => {
@@ -234,6 +270,43 @@ const AdminSidebar = ({
           {isOpen && isConnected && balance && (
             <div className="mt-2 text-xs text-gray-600 bg-gray-100 p-2 rounded-md">
               Balance: <span className="font-mono">{balance.hbars.toFixed(3)} ℏ</span>
+            </div>
+          )}
+          {isOpen && hederaApiBalance != null && (
+            <div className="mt-2 text-xs text-gray-600 bg-primary-50 p-2 rounded-md border border-primary-200">
+              Balance API: <span className="font-mono">{hederaApiBalance.toFixed(3)} ℏ</span>
+            </div>
+          )}
+        </div>
+
+        {/* Estado de XRP */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${xrpInfo.enabled ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+            {isOpen && (
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-semibold ${xrpInfo.enabled ? 'text-green-800' : 'text-gray-800'}`}>XRP Ledger</p>
+                <p className="text-xs text-gray-500">{xrpInfo.network}</p>
+              </div>
+            )}
+          </div>
+          {isOpen && xrpInfo.enabled && (
+            <div className="mt-2 text-xs text-gray-600 bg-gray-100 p-2 rounded-md space-y-1">
+              {xrpInfo.address && (
+                <div>
+                  Dirección: <span className="font-mono">{xrpInfo.address}</span>
+                </div>
+              )}
+              {typeof xrpInfo.balance === 'number' && (
+                <div>
+                  Balance: <span className="font-mono">{xrpInfo.balance.toFixed(6)} XRP</span>
+                </div>
+              )}
+            </div>
+          )}
+          {isOpen && !xrpInfo.enabled && (
+            <div className="mt-2 text-xs text-gray-600 bg-yellow-50 p-2 rounded-md border border-yellow-200">
+              {loadingXrp ? 'Cargando estado de XRP...' : (errorXrp ? `Error: ${errorXrp}` : 'XRP deshabilitado')}
             </div>
           )}
         </div>

@@ -5,6 +5,8 @@ const Partner = require('./Partner');
 const Developer = require('./Developer');
 const Credential = require('./Credential');
 const Booking = require('./Booking');
+const XrpAnchor = require('./XrpAnchor');
+const SystemMetrics = require('./SystemMetrics');
 
 const db = {
   User,
@@ -14,6 +16,8 @@ const db = {
   Developer,
   Credential,
   Booking,
+  XrpAnchor,
+  SystemMetrics,
 };
 
 module.exports = db;

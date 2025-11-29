@@ -1,5 +1,5 @@
 // QRScanner JSX
-import { Html5QrcodeScanner, Html5QrcodeScanType } from 'html5-qrcode';
+import { Html5QrcodeScanner, Html5QrcodeScanType, Html5Qrcode } from 'html5-qrcode';
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 const QRScanner = ({ onScan, isActive = true, className = '' }) => {
@@ -13,10 +13,10 @@ const QRScanner = ({ onScan, isActive = true, className = '' }) => {
   // Obtener cámaras disponibles
   const getCameras = useCallback(async () => {
     try {
-      const devices = await Html5QrcodeScanner.listCameras();
-      const cameras = devices.map(device => ({
+      const devices = await Html5Qrcode.getCameras();
+      const cameras = (devices || []).map((device, idx) => ({
         id: device.id,
-        label: device.label || `Cámara ${devices.indexOf(device) + 1}`
+        label: device.label || `Cámara ${idx + 1}`
       }));
       setAvailableCameras(cameras);
       if (cameras.length > 0 && !selectedCamera) {
@@ -45,12 +45,10 @@ const QRScanner = ({ onScan, isActive = true, className = '' }) => {
         fps: 10,
         qrbox: { width: 250, height: 250 },
         aspectRatio: 1.0,
-        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_QR_CODE],
-        videoConstraints: {
-          deviceId: selectedCamera || undefined,
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
+        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+        videoConstraints: selectedCamera
+          ? { deviceId: { exact: selectedCamera }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
       };
 
       scannerRef.current = new Html5QrcodeScanner(scannerElementId, config, false);

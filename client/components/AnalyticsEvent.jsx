@@ -47,8 +47,8 @@ class AnalyticsEvent {
       language: navigator.language,
       platform: navigator.platform,
       screen: {
-        width: screen.width,
-        height: screen.height
+        width: (typeof window !== 'undefined' && window.screen) ? window.screen.width : undefined,
+        height: (typeof window !== 'undefined' && window.screen) ? window.screen.height : undefined
       },
       viewport: {
         width: window.innerWidth,

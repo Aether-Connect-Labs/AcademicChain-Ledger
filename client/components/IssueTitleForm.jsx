@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useHedera } from './useHedera';
 import axios from 'axios';
 import { create as createIpfsClient } from 'ipfs-http-client';
 
@@ -30,6 +31,7 @@ const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
   const [tokens, setTokens] = useState([]);
   const [loadingTokens, setLoadingTokens] = useState(false);
   const [tokenFetchError, setTokenFetchError] = useState('');
+  const { isConnected, connectWallet, signTransactionBytes } = useHedera();
 
   useEffect(() => {
     if (demo) return;
@@ -49,7 +51,7 @@ const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
       })
       .catch((e) => setTokenFetchError(e.message))
       .finally(() => setLoadingTokens(false));
-  }, [demo]);
+  }, [demo, formData.tokenId]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -133,17 +135,31 @@ const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
       }, { headers: buildAuthHeaders() });
 
       const transactionId = prepareRes.data?.data?.transactionId || prepareRes.data?.transactionId;
-      setMessage(`Preparado. Transacción: ${transactionId}. Ejecutando emisión...`);
-
-      const execRes = await axios.post(`${API_BASE_URL}/api/universities/execute-issuance`, {
-        transactionId,
-      }, { headers: buildAuthHeaders() });
-
-      setResult(execRes.data?.data || execRes.data);
-      setMessage('Título emitido correctamente');
-      setFormData(prev => ({ ...prev, studentName: '', courseName: '', issueDate: '', grade: '', recipientAccountId: '' }));
-      setFile(null);
-      setIpfsURI('');
+      const paymentBytes = prepareRes.data?.data?.paymentTransactionBytes || prepareRes.data?.paymentTransactionBytes;
+      if (paymentBytes) {
+        if (!isConnected) {
+          await connectWallet();
+        }
+        const signed = await signTransactionBytes(paymentBytes);
+        const execRes = await axios.post(`${API_BASE_URL}/api/universities/execute-issuance`, {
+          transactionId,
+          signedPaymentTransactionBytes: signed,
+        }, { headers: buildAuthHeaders() });
+        setResult(execRes.data?.data || execRes.data);
+        setMessage('Título emitido correctamente');
+        setFormData(prev => ({ ...prev, studentName: '', courseName: '', issueDate: '', grade: '', recipientAccountId: '' }));
+        setFile(null);
+        setIpfsURI('');
+      } else {
+        const execRes = await axios.post(`${API_BASE_URL}/api/universities/execute-issuance`, {
+          transactionId,
+        }, { headers: buildAuthHeaders() });
+        setResult(execRes.data?.data || execRes.data);
+        setMessage('Título emitido correctamente');
+        setFormData(prev => ({ ...prev, studentName: '', courseName: '', issueDate: '', grade: '', recipientAccountId: '' }));
+        setFile(null);
+        setIpfsURI('');
+      }
     } catch (err) {
       setError('Error al emitir el título: ' + (err.response?.data?.message || err.message));
     } finally {

@@ -45,11 +45,20 @@ export const useHedera = () => {
       await hc.connect();
       if (hc.connectToLocalWallet) hc.connectToLocalWallet();
       hcRef.current = hc;
-      hc.pairingEvent.on((data) => {
+      hc.pairingEvent.on(async (data) => {
         const acc = data?.accountIds?.[0];
         if (acc) {
           setAccount({ accountId: acc });
           setIsConnected(true);
+          try {
+            if (token) {
+              await fetch(`${API_BASE_URL}/api/auth/me`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ hederaAccountId: acc })
+              });
+            }
+          } catch {}
         }
       });
       return true;
@@ -57,7 +66,7 @@ export const useHedera = () => {
       setIsConnected(false);
       return false;
     }
-  }, [user]);
+  }, [user, token]);
 
   const disconnectWallet = useCallback(() => {
     setIsConnected(false);

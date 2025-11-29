@@ -7,6 +7,7 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -15,9 +16,10 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const init = async () => {
       try {
-        const token = localStorage.getItem('authToken');
-        if (token) {
-          const profile = await authService.getCurrentUser(token);
+        const existingToken = localStorage.getItem('authToken');
+        if (existingToken) {
+          setToken(existingToken);
+          const profile = await authService.getCurrentUser(existingToken);
           setUser(profile);
         } else if (allowBypass && localStorage.getItem('previewOwner') === '1') {
           setUser({ id: 'preview-owner', email: 'owner@preview.local', name: 'Owner Preview', role: 'admin' });
@@ -29,22 +31,24 @@ export const AuthProvider = ({ children }) => {
       }
     };
     init();
-  }, []);
+  }, [allowBypass]);
 
   const isAuthenticated = !!user;
 
-  const setSession = useCallback(async (token) => {
-    localStorage.setItem('authToken', token);
-    const profile = await authService.getCurrentUser(token);
+  const setSession = useCallback(async (t) => {
+    localStorage.setItem('authToken', t);
+    setToken(t);
+    const profile = await authService.getCurrentUser(t);
     setUser(profile);
   }, []);
 
   const login = useCallback(async (email, password, userType = 'student') => {
     setError('');
     try {
-      const { user: u, token } = await authService.login(email, password, userType);
-      localStorage.setItem('authToken', token);
-      setUser(u || (await authService.getCurrentUser(token)));
+      const { user: u, token: t } = await authService.login(email, password, userType);
+      localStorage.setItem('authToken', t);
+      setToken(t);
+      setUser(u || (await authService.getCurrentUser(t)));
       return true;
     } catch (e) {
       setError(e.message);
@@ -55,9 +59,10 @@ export const AuthProvider = ({ children }) => {
   const register = useCallback(async (email, password) => {
     setError('');
     try {
-      const { user: u, token } = await authService.register(email, password);
-      localStorage.setItem('authToken', token);
-      setUser(u || (await authService.getCurrentUser(token)));
+      const { user: u, token: t } = await authService.register(email, password);
+      localStorage.setItem('authToken', t);
+      setToken(t);
+      setUser(u || (await authService.getCurrentUser(t)));
       return true;
     } catch (e) {
       setError(e.message);
@@ -68,9 +73,10 @@ export const AuthProvider = ({ children }) => {
   const registerInstitution = useCallback(async (email, password) => {
     setError('');
     try {
-      const { user: u, token } = await authService.registerInstitution(email, password);
-      localStorage.setItem('authToken', token);
-      setUser(u || (await authService.getCurrentUser(token)));
+      const { user: u, token: t } = await authService.registerInstitution(email, password);
+      localStorage.setItem('authToken', t);
+      setToken(t);
+      setUser(u || (await authService.getCurrentUser(t)));
       return true;
     } catch (e) {
       setError(e.message);
@@ -81,12 +87,13 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(async () => {
     await authService.logout();
     localStorage.removeItem('authToken');
+    setToken('');
     setUser(null);
     navigate('/login');
   }, [navigate]);
 
   const value = React.useMemo(
-    () => ({ user, isAuthenticated, isLoading, error, login, register, registerInstitution, logout, setSession, verifyCode: async (email, code) => {
+    () => ({ user, token, isAuthenticated, isLoading, error, login, register, registerInstitution, logout, setSession, verifyCode: async (email, code) => {
       try {
         await new Promise(resolve => setTimeout(resolve, 300));
         return /^\d{6}$/.test(code);
@@ -94,7 +101,7 @@ export const AuthProvider = ({ children }) => {
         return false;
       }
     } }),
-    [user, isAuthenticated, isLoading, error, login, register, registerInstitution, logout, setSession]
+    [user, token, isAuthenticated, isLoading, error, login, register, registerInstitution, logout, setSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

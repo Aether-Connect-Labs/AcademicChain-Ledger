@@ -36,7 +36,9 @@ class AuthService {
 
     logger.info(`👤 New user registered: ${email} (${role})`);
 
-    return this.generateToken(user);
+    const token = this.generateToken(user);
+    const profile = this.getUserProfile(user);
+    return { token, user: profile };
   }
 
   async login(credentials, res) {
@@ -62,6 +64,8 @@ class AuthService {
       maxAge: 24 * 60 * 60 * 1000, // 1 day
       path: '/',
     });
+    const profile = this.getUserProfile(user);
+    return { token, user: profile };
   }
 
   generateToken(user) {

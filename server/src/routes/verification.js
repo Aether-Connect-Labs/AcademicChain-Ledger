@@ -2,6 +2,7 @@ const express = require('express');
 const { body, param } = require('express-validator');
 const asyncHandler = require('express-async-handler');
 const hederaService = require('../services/hederaServices');
+const xrpService = require('../services/xrpService');
 const logger = require('../utils/logger');
 const { validate } = require('../middleware/validator');
 const { recordAnalytics } = require('../services/analyticsService');
@@ -77,6 +78,16 @@ router.post('/verify-credential',
       });
     }
     const result = await hederaService.verifyCredential(tokenId, serialNumber);
+    let xrp = null;
+    try {
+      await xrpService.connect();
+      const cred = await require('../models').Credential.findOne({ tokenId, serialNumber });
+      if (cred) {
+        xrp = await xrpService.getByHash(cred.uniqueHash);
+      } else {
+        xrp = await xrpService.getByTokenSerial(tokenId, serialNumber);
+      }
+    } catch {}
     logger.info(`🔍 Credential verification requested: ${tokenId}:${serialNumber}`);
 
     if (result.valid && result.credential?.metadata?.attributes?.university) {
@@ -90,11 +101,7 @@ router.post('/verify-credential',
       }
     }
 
-    res.status(200).json({
-      success: true,
-      message: result.valid ? 'Credential is valid' : 'Credential is invalid',
-      data: result
-    });
+    res.status(200).json({ success: true, message: result.valid ? 'Credential is valid' : 'Credential is invalid', data: { ...result, xrpAnchor: xrp } });
   })
 );
 
@@ -151,6 +158,16 @@ router.get('/verify/:tokenId/:serialNumber',
       return res.status(200).json({ success: true, message: 'Credential is valid', data: result });
     }
     const result = await hederaService.verifyCredential(tokenId, serialNumber);
+    let xrp = null;
+    try {
+      await xrpService.connect();
+      const cred = await require('../models').Credential.findOne({ tokenId, serialNumber });
+      if (cred) {
+        xrp = await xrpService.getByHash(cred.uniqueHash);
+      } else {
+        xrp = await xrpService.getByTokenSerial(tokenId, serialNumber);
+      }
+    } catch {}
     logger.info(`🔍 Credential verification via URL: ${tokenId}:${serialNumber}`);
 
     if (result.valid && result.credential?.metadata?.attributes?.university) {
@@ -226,6 +243,17 @@ router.get('/verify/:tokenId/:serialNumber',
                   <span class="label">Serial Number:</span>
                   <span class="value">${result.credential.serialNumber}</span>
                 </div>
+                <div class="field">
+                  <span class="label">XRP Anchor Tx:</span>
+                  <span class="value">${xrp?.xrpTxHash || 'N/A'}</span>
+                </div>
+                <div class="field">
+                  <span class="label">Explorers:</span>
+                  <span class="value">
+                    <a href="https://hashscan.io/${process.env.HEDERA_NETWORK || 'testnet'}/token/${tokenId}" target="_blank">Hashscan</a>
+                    ${xrp?.xrpTxHash ? ` | <a href=\"https://testnet.xrplexplorer.com/tx/${xrp.xrpTxHash}\" target=\"_blank\">XRPL Explorer</a>` : ''}
+                  </span>
+                </div>
               </div>
             ` : ''}
 
@@ -242,11 +270,7 @@ router.get('/verify/:tokenId/:serialNumber',
       return res.send(html);
     }
 
-    res.status(200).json({
-      success: true,
-      message: result.valid ? 'Credential is valid' : 'Credential is invalid',
-      data: result
-    });
+    res.status(200).json({ success: true, message: result.valid ? 'Credential is valid' : 'Credential is invalid', data: { ...result, xrpAnchor: xrp } });
   })
 );
 

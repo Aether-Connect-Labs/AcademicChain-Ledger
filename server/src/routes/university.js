@@ -4,6 +4,7 @@ const asyncHandler = require('express-async-handler');
 const { protect, isUniversity } = require('../middleware/auth');
 const { validate } = require('../middleware/validator');
 const hederaService = require('../services/hederaServices');
+const xrpService = require('../services/xrpService');
 const logger = require('../utils/logger');
 const { Token, Transaction, Credential, User } = require('../models');
 const { issuanceQueue, isRedisConnected } = require('../../queue/issuanceQueue');
@@ -214,6 +215,18 @@ router.post('/execute-issuance', protect, isUniversity,
         );
       }
 
+      try {
+        await xrpService.connect();
+        await xrpService.anchor({
+          certificateHash: credentialData.uniqueHash,
+          hederaTokenId: credentialData.tokenId,
+          serialNumber: mintResult.serialNumber,
+          hederaTopicId: credentialData.hederaTopicId,
+          hederaSequence: credentialData.hederaSequence,
+          timestamp: new Date().toISOString(),
+        });
+      } catch {}
+
       await recordAnalytics('CREDENTIAL_MINTED', {
         universityId: user.id,
         universityName: user.universityName,
@@ -295,6 +308,18 @@ router.post('/issue-bulk', protect, isUniversity,
             ipfsURI: credentialData.ipfsURI,
           });
 
+          try {
+            await xrpService.connect();
+            await xrpService.anchor({
+              certificateHash: credentialData.uniqueHash,
+              hederaTokenId: tokenId,
+              serialNumber: mintResult.serialNumber,
+              hederaTopicId: credentialData.hederaTopicId,
+              hederaSequence: credentialData.hederaSequence,
+              timestamp: new Date().toISOString(),
+            });
+          } catch {}
+
           await recordAnalytics('CREDENTIAL_MINTED', {
             universityId: user.id,
             universityName: user.universityName,
@@ -358,7 +383,7 @@ router.get('/tokens', protect, isUniversity, asyncHandler(async (req, res) => {
 
 router.get('/credentials', protect, isUniversity, asyncHandler(async (req, res) => {
   const { user } = req;
-  const { Credential } = require('../models');
+  const { Credential, XrpAnchor } = require('../models');
   const { tokenId, accountId, limit = 50, page = 1, format, sort = 'desc', sortBy = 'createdAt' } = req.query;
   const lim = Math.max(1, Math.min(parseInt(limit, 10) || 50, 200));
   const pg = Math.max(1, parseInt(page, 10) || 1);
@@ -379,7 +404,17 @@ router.get('/credentials', protect, isUniversity, asyncHandler(async (req, res) 
   }
   const from = total === 0 ? 0 : ((pg - 1) * lim) + 1;
   const to = total === 0 ? 0 : Math.min(pg * lim, total);
-  res.status(200).json({ success: true, data: { credentials: list, meta: { total, page: pg, limit: lim, pages: Math.ceil(total / lim), hasMore: (pg * lim) < total, from, to, sort: sortDir === 1 ? 'asc' : 'desc', sortBy } } });
+  const withAnchors = await Promise.all(list.map(async (c) => {
+    try {
+      const a = await XrpAnchor.findOne({ hederaTokenId: c.tokenId, serialNumber: c.serialNumber }).sort({ createdAt: -1 });
+      const o = c.toObject();
+      o.xrpAnchor = a ? { xrpTxHash: a.xrpTxHash, network: a.network } : null;
+      return o;
+    } catch {
+      return c.toObject();
+    }
+  }));
+  res.status(200).json({ success: true, data: { credentials: withAnchors, meta: { total, page: pg, limit: lim, pages: Math.ceil(total / lim), hasMore: (pg * lim) < total, from, to, sort: sortDir === 1 ? 'asc' : 'desc', sortBy } } });
 }));
 
 // Catálogo público de instituciones
