@@ -10,6 +10,7 @@ const recoveryService = require('../services/recoveryService');
 const { query } = require('express-validator');
 const hederaService = require('../services/hederaServices');
 const xrpService = require('../services/xrpService');
+const partnerService = require('../services/partnerService');
 
 const router = express.Router();
 
@@ -153,7 +154,12 @@ router.post('/approve-institution/:id',
     user.role = ROLES.UNIVERSITY;
     user.isActive = true;
     await user.save();
-    res.status(200).json({ success: true, message: 'Institution approved', data: { id: user.id, role: user.role } });
+    const displayName = user.universityName || user.name || `Institution_${user.id}`;
+    const issued = await partnerService.generateApiKey(displayName);
+    issued.partner.universityId = user.id;
+    issued.partner.permissions = Array.from(new Set([...(issued.partner.permissions||[]), 'verify_credential', 'mint_credential']));
+    await issued.partner.save();
+    res.status(200).json({ success: true, message: 'Institution approved', data: { id: user.id, role: user.role, partnerId: issued.partner.id, partnerApiKey: issued.apiKey } });
   })
 );
 

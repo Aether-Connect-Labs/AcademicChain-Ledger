@@ -111,12 +111,13 @@ router.post('/institution/mint',
       });
       try {
         await xrpService.connect();
-        await xrpService.anchor({
+        const anchorDoc = await xrpService.anchor({
           certificateHash: req.body.uniqueHash,
           hederaTokenId: req.body.tokenId,
           serialNumber,
           timestamp: new Date().toISOString(),
         });
+        return res.status(201).json({ success: true, message: 'Credential minted successfully (mock)', data: { mint: { serialNumber, transactionId: 'tx-mock' }, transfer: null, xrplAnchor: { txHash: anchorDoc?.xrpTxHash || null, ledgerIndex: anchorDoc?.ledgerIndex || null, status: anchorDoc?.status || 'mock', network: anchorDoc?.network || xrpService.network } } });
       } catch {}
       return res.status(201).json({ success: true, message: 'Credential minted successfully (mock)', data: { mint: { serialNumber, transactionId: 'tx-mock' }, transfer: null } });
     }
@@ -165,12 +166,13 @@ router.post('/institution/mint',
     });
     try {
       await xrpService.connect();
-      await xrpService.anchor({
+      const anchorDoc = await xrpService.anchor({
         certificateHash: uniqueHash,
         hederaTokenId: tokenId,
         serialNumber: mintResult.serialNumber,
         timestamp: new Date().toISOString(),
       });
+      return res.status(201).json({ success: true, message: 'Credential minted successfully', data: { mint: mintResult, transfer: transferResult, xrplAnchor: { txHash: anchorDoc?.xrpTxHash || null, ledgerIndex: anchorDoc?.ledgerIndex || null, status: anchorDoc?.status || 'completed', network: anchorDoc?.network || xrpService.network } } });
     } catch {}
     res.status(201).json({ success: true, message: 'Credential minted successfully', data: { mint: mintResult, transfer: transferResult } });
   })
@@ -181,38 +183,50 @@ router.post('/institution/mint',
  * @desc    Create an academic token for the linked university (via API key).
  * @access  Private (Institution via API key)
  */
-router.post('/institution/create-token',
-  partnerAuth,
-  [
-    body('tokenName').notEmpty().withMessage('Token name is required'),
-    body('tokenSymbol').notEmpty().withMessage('Token symbol is required'),
-    body('tokenMemo').optional().isString(),
-  ],
-  validate,
-  asyncHandler(async (req, res) => {
-    const partner = req.partner;
-    const { tokenName, tokenSymbol, tokenMemo } = req.body;
-    if (!partner.universityId) {
-      return res.status(400).json({ success: false, message: 'Partner is not linked to a universityId.' });
-    }
-    const universityUser = await User.findById(partner.universityId);
-    if (!universityUser || !universityUser.hederaAccountId) {
-      return res.status(400).json({ success: false, message: 'Linked university lacks Hedera account configuration.' });
-    }
-    if (req.query.mock === '1' && process.env.NODE_ENV !== 'production') {
-      const tokenId = '0.0.mocktoken';
-      await Token.create({ tokenId, tokenName, tokenSymbol, universityId: partner.universityId });
-      return res.status(201).json({ success: true, message: 'Academic token created successfully (mock)', data: { tokenId, transactionId: 'tx-mock' } });
-    }
-    const result = await hederaService.createAcademicToken({
-      tokenName: `${universityUser.universityName} - ${tokenName}`,
-      tokenSymbol,
-      tokenMemo: tokenMemo || `Academic credential from ${universityUser.universityName}`,
-      treasuryAccountId: universityUser.hederaAccountId,
-    });
-    await Token.create({ tokenId: result.tokenId, tokenName, tokenSymbol, universityId: partner.universityId });
-    res.status(201).json({ success: true, message: 'Academic token created successfully', data: result });
-  })
-);
+  router.post('/institution/create-token',
+    partnerAuth,
+    [
+      body('tokenName').notEmpty().withMessage('Token name is required'),
+      body('tokenSymbol').notEmpty().withMessage('Token symbol is required'),
+      body('tokenMemo').optional().isString(),
+    ],
+    validate,
+    asyncHandler(async (req, res) => {
+      const partner = req.partner;
+      const { tokenName, tokenSymbol, tokenMemo } = req.body;
+      if (!partner.universityId) {
+        return res.status(400).json({ success: false, message: 'Partner is not linked to a universityId.' });
+      }
+      const universityUser = await User.findById(partner.universityId);
+      if (!universityUser || !universityUser.hederaAccountId) {
+        return res.status(400).json({ success: false, message: 'Linked university lacks Hedera account configuration.' });
+      }
+      if (req.query.mock === '1' && process.env.NODE_ENV !== 'production') {
+        const tokenId = '0.0.mocktoken';
+        await Token.create({ tokenId, tokenName, tokenSymbol, universityId: partner.universityId });
+        return res.status(201).json({ success: true, message: 'Academic token created successfully (mock)', data: { tokenId, transactionId: 'tx-mock' } });
+      }
+      const result = await hederaService.createAcademicToken({
+        tokenName: `${universityUser.universityName} - ${tokenName}`,
+        tokenSymbol,
+        tokenMemo: tokenMemo || `Academic credential from ${universityUser.universityName}`,
+        treasuryAccountId: universityUser.hederaAccountId,
+      });
+      await Token.create({ tokenId: result.tokenId, tokenName, tokenSymbol, universityId: partner.universityId });
+      res.status(201).json({ success: true, message: 'Academic token created successfully', data: result });
+    })
+  );
 
-module.exports = router;
+  router.get('/institution/tokens',
+    partnerAuth,
+    asyncHandler(async (req, res) => {
+      const partner = req.partner;
+      if (!partner.universityId) {
+        return res.status(400).json({ success: false, message: 'Partner is not linked to a universityId.' });
+      }
+      const list = await Token.find({ universityId: partner.universityId }).sort({ createdAt: -1 });
+      res.status(200).json({ success: true, data: list });
+    })
+  );
+
+ module.exports = router;

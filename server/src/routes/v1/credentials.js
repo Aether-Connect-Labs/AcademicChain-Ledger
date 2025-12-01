@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { body } = require('express-validator');
 const asyncHandler = require('express-async-handler');
 const hederaService = require('../../services/hederaServices');
+const xrpService = require('../../services/xrpService');
 const { Token, Credential } = require('../../models');
 const { validate } = require('../../middleware/validator');
 const apiKeyAuth = require('../../middleware/apiKeyAuth');
@@ -16,22 +17,37 @@ router.post('/issue', apiKeyAuth, apiRateLimit, [
   body('recipientAccountId').optional().isString(),
 ], validate, asyncHandler(async (req, res) => {
   const { tokenId, uniqueHash, ipfsURI, studentName, degree, recipientAccountId } = req.body;
-  const token = await Token.findOne({ tokenId });
-  if (!token) return res.status(404).json({ success: false, message: 'Token not found' });
+  let token = await Token.findOne({ tokenId });
+  if (!token && String(process.env.ALLOW_V1_TOKEN_AUTO_CREATE).toLowerCase() === 'true') {
+    const name = `AcademicChain - ${degree || 'Credential'}`;
+    const created = await hederaService.createAcademicToken({ tokenName: name, tokenSymbol: `AC-${(degree||'EDU').slice(0,4).toUpperCase()}`, tokenMemo: `Auto-created for v1 issuance`, treasuryAccountId: process.env.HEDERA_ACCOUNT_ID || null });
+    token = await Token.create({ tokenId: created.tokenId, tokenName: name, tokenSymbol: `AC-${(degree||'EDU').slice(0,4).toUpperCase()}` });
+  }
+  const universityLabel = token?.tokenName || 'AcademicChain';
   const mintResult = await hederaService.mintAcademicCredential(tokenId, {
     uniqueHash,
     ipfsURI,
     degree,
     studentName,
-    university: token.tokenName,
+    university: universityLabel,
     recipientAccountId,
   });
   let transferResult = null;
   if (recipientAccountId) {
     transferResult = await hederaService.transferCredentialToStudent(tokenId, mintResult.serialNumber, recipientAccountId);
   }
-  await Credential.create({ tokenId, serialNumber: mintResult.serialNumber, universityId: token.universityId, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI });
-  res.status(201).json({ success: true, message: 'Credential issued', data: { mint: mintResult, transfer: transferResult } });
+  await Credential.create({ tokenId, serialNumber: mintResult.serialNumber, universityId: token?.universityId || null, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI });
+  let xrplAnchor = null;
+  try {
+    await xrpService.connect();
+    xrplAnchor = await xrpService.anchor({
+      certificateHash: uniqueHash,
+      hederaTokenId: tokenId,
+      serialNumber: mintResult.serialNumber,
+      timestamp: new Date().toISOString(),
+    });
+  } catch {}
+  res.status(201).json({ success: true, message: 'Credential issued', data: { mint: mintResult, transfer: transferResult, xrplAnchor: xrplAnchor ? { txHash: xrplAnchor.xrpTxHash || null, ledgerIndex: xrplAnchor.ledgerIndex || null, status: xrplAnchor.status || 'completed', network: xrplAnchor.network || xrpService.network } : undefined } });
 }));
 
 module.exports = router;

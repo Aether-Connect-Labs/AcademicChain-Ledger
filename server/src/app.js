@@ -49,7 +49,7 @@ const testing = (process.env.NODE_ENV || '').toLowerCase() === 'test';
 const server = createServer(app);
 const io = testing ? { on: () => {} } : new Server(server, {
   cors: {
-    origin: (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174'])),
+    origin: (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:4173', 'http://localhost:4174'])),
     methods: ['GET', 'POST'],
   },
 });
@@ -69,7 +69,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 const clientUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.CORS_ORIGIN;
 
 // Secure CORS Policy
-const whitelist = isProduction ? [clientUrl] : (clientUrl ? clientUrl.split(',') : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174']);
+const whitelist = isProduction ? [clientUrl] : (clientUrl ? clientUrl.split(',') : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:4173', 'http://localhost:4174']);
 
 const corsOptions = {
   origin: function (origin, callback) {
