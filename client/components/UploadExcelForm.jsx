@@ -22,12 +22,12 @@ const UploadExcelForm = () => {
     setError('');
     setMessage('');
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
+    const API_BASE_URL = import.meta.env.VITE_API_URL;
       if (!API_BASE_URL) {
         setMessage('Emisión masiva simulada en modo demostración. Configura VITE_API_URL para enviar al backend.');
         return;
       }
-      const response = await axios.post(`${API_BASE_URL}/api/universities/issue-bulk`, { tokenId, credentials: excelData });
+      const response = await axios.post(`${API_BASE_URL}/api/universities/batch-issue`, { tokenId, credentials: excelData });
       setMessage('Emisión masiva iniciada exitosamente. Revisa el estado en el dashboard.');
       console.log('Backend Response:', response.data);
     } catch (err) {

@@ -1,19 +1,15 @@
 // client/pages/LoginPage.js
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './useAuth';
-import { authService } from './authService';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
 
 const LoginPage = ({ userType = 'student', mode = 'login' }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const { login, register, registerInstitution, isLoading, error, setSession } = useAuth();
-  const navigate = useNavigate();
+  const { isLoading } = useAuth();
   const location = useLocation();
   const [googleEnabled, setGoogleEnabled] = useState(null);
 
-  const from = location.state?.from?.pathname || (userType === 'institution' ? '/institution/dashboard' : '/student/portal');
+  
 
   const config = {
     institution: {
@@ -31,44 +27,7 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
   const currentConfig = config[userType] || config.student;
   const allowInstitutionRegister = import.meta.env.VITE_ALLOW_INSTITUTION_REGISTER === '1';
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const ownerEmail = import.meta.env.VITE_PREVIEW_OWNER_EMAIL;
-    const ownerPassword = import.meta.env.VITE_PREVIEW_OWNER_PASSWORD;
-    if (ownerEmail && ownerPassword && email === ownerEmail && password === ownerPassword) {
-      await handleOwnerPreview();
-      return;
-    }
-    let success = false;
-    if (mode === 'register') {
-      if (userType === 'institution') {
-        success = allowInstitutionRegister ? await registerInstitution(email, password) : false;
-      } else {
-        success = await register(email, password);
-      }
-    } else {
-      success = await login(email, password, userType);
-    }
-    if (success) {
-      const target = mode === 'register' && userType !== 'institution' ? '/student/portal' : from;
-      navigate(target, { replace: true });
-    }
-  };
-
-  const handleOwnerPreview = async () => {
-    try {
-      const data = await authService.previewLogin(email, password);
-      if (data?.token) {
-        localStorage.setItem('previewOwner', '1');
-        await setSession(data.token);
-        window.location.replace('/institution/dashboard');
-      } else {
-        alert('Credenciales inválidas para acceso de propietario');
-      }
-    } catch (e) {
-      alert('Credenciales inválidas para acceso de propietario');
-    }
-  };
+  
 
   const handleGoogle = () => {
     const redirectUri = `${window.location.origin}/auth/callback`;

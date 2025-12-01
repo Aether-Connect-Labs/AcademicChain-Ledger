@@ -6,7 +6,7 @@ const InstitutionsPage = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+  const API = import.meta.env.VITE_API_URL;
     const url = `${apiBase}/api/universities/catalog`;
 
     const load = async () => {
@@ -22,7 +22,7 @@ const InstitutionsPage = () => {
         }
 
         if (!contentType.includes('application/json')) {
-          const snippet = await res.text();
+          await res.text();
           setItems([
             { id: 'demo-1', name: 'Demo University', email: 'contact@demo.univ', tokens: 3, credentials: 128, since: new Date().toISOString() },
             { id: 'demo-2', name: 'Blockchain Institute', email: 'info@block.institute', tokens: 2, credentials: 64, since: new Date().toISOString() },

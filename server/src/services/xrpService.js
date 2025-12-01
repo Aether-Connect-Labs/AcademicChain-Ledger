@@ -63,9 +63,13 @@ class XrpService {
       hederaTopicId: base.hederaTopicId,
       hederaSequence: base.hederaSequence,
       timestamp: base.timestamp.toISOString(),
+      title: data.title || null,
+      issuer: data.issuer || null,
+      format: 'ACAD@1.0'
     });
     const memoDataHex = Buffer.from(memoJson, 'utf8').toString('hex').toUpperCase();
     const memoTypeHex = Buffer.from('ACAD', 'utf8').toString('hex').toUpperCase();
+    const memoFormatHex = Buffer.from('application/json', 'utf8').toString('hex').toUpperCase();
     const feeXrp = parseFloat(process.env.XRP_ANCHOR_FEE || '0.000001');
     const drops = Math.max(1, Math.round(feeXrp * 1_000_000));
     const dest = process.env.XRP_BACKUP_WALLET || wallet.address;
@@ -74,7 +78,7 @@ class XrpService {
       Account: wallet.address,
       Destination: dest,
       Amount: String(drops),
-      Memos: [{ Memo: { MemoType: memoTypeHex, MemoData: memoDataHex } }],
+      Memos: [{ Memo: { MemoType: memoTypeHex, MemoFormat: memoFormatHex, MemoData: memoDataHex } }],
     };
     const prepared = await this.client.autofill(tx);
     const signed = wallet.sign(prepared);

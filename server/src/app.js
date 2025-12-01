@@ -56,7 +56,10 @@ const io = testing ? { on: () => {} } : new Server(server, {
 const PORT = process.env.PORT || 3001;
 
 // Development-safe defaults for missing env vars
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV === 'test') {
+  process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
+  process.env.SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
+} else if (process.env.NODE_ENV !== 'production') {
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
   process.env.SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
 }
@@ -104,7 +107,7 @@ app.use(passport.initialize());
 try {
   const hasGoogle = process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET;
   if (hasGoogle) {
-    const callbackBase = process.env.SERVER_URL || `http://localhost:${PORT}`;
+  const callbackBase = process.env.RENDER_EXTERNAL_URL || process.env.SERVER_URL || `http://localhost:${PORT}`;
     passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -119,17 +122,13 @@ try {
         const allowedDomains = String(process.env.INSTITUTION_EMAIL_DOMAINS || '').split(',').map(d => d.trim().toLowerCase()).filter(Boolean);
 
         const isAdmin = adminEmail && email === adminEmail;
-        const isInstitution = allowedDomains.length > 0 ? allowedDomains.includes(domain) : /\.edu$|\.edu\.|\.ac\./i.test(domain);
-
-        if (!isAdmin && !isInstitution) {
-          return done(new Error('Solo cuentas institucionales pueden acceder'));
-        }
+        const isInstitution = allowedDomains.length > 0 ? allowedDomains.includes(domain) : true;
 
         let user = await User.findOne({ email });
         if (!user) {
           const salt = await bcrypt.genSalt(10);
           const hashed = await bcrypt.hash(uuidv4(), salt);
-          const role = isAdmin ? 'admin' : 'university';
+          const role = isAdmin ? 'admin' : 'pending_university';
           const universityName = isAdmin ? null : (profile.organizations && profile.organizations[0]?.name) || domain;
           user = await User.create({
             email,
@@ -140,7 +139,7 @@ try {
             isActive: true,
           });
         } else {
-          const desiredRole = isAdmin ? 'admin' : 'university';
+          const desiredRole = isAdmin ? 'admin' : 'pending_university';
           if (user.role !== desiredRole) {
             user.role = desiredRole;
           }

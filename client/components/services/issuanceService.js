@@ -1,7 +1,4 @@
 let API_BASE_URL = import.meta.env.VITE_API_URL
-if (typeof API_BASE_URL === 'undefined') {
-  API_BASE_URL = ''
-}
 
 export const issuanceService = {
   createCredentialTemplate: (data) => {

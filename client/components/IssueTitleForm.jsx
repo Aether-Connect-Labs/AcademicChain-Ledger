@@ -35,7 +35,7 @@ const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
 
   useEffect(() => {
     if (demo) return;
-    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+    const API_BASE_URL = import.meta.env.VITE_API_URL;
     if (!API_BASE_URL) return;
     setLoadingTokens(true);
     setTokenFetchError('');
@@ -116,7 +116,7 @@ const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
         setIpfsURI('');
         return;
       }
-      const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+    const API_BASE_URL = import.meta.env.VITE_API_URL;
       if (!API_BASE_URL) {
         setMessage('Título preparado en modo demostración. Configura VITE_API_URL para emitir contra el backend.');
         setFormData(prev => ({ ...prev, studentName: '', courseName: '', issueDate: '', grade: '', recipientAccountId: '' }));

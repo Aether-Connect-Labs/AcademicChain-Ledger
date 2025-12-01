@@ -129,6 +129,31 @@ class HederaService {
     };
   }
 
+  async createPaymentToken(tokenData) {
+    if (!tokenData || !tokenData.tokenName || !tokenData.tokenSymbol) {
+      throw new BadRequestError('tokenName and tokenSymbol are required');
+    }
+    const transaction = new TokenCreateTransaction()
+      .setTokenName(tokenData.tokenName)
+      .setTokenSymbol(tokenData.tokenSymbol)
+      .setTokenMemo(tokenData.tokenMemo || 'Payment token (Fungible)')
+      .setTokenType(TokenType.FungibleCommon)
+      .setSupplyType(TokenSupplyType.Infinite)
+      .setDecimals(typeof tokenData.decimals === 'number' ? tokenData.decimals : 6)
+      .setInitialSupply(typeof tokenData.initialSupply === 'number' ? tokenData.initialSupply : 0)
+      .setTreasuryAccountId(tokenData.treasuryAccountId ? AccountId.fromString(tokenData.treasuryAccountId) : this.operatorId)
+      .setAdminKey(this.operatorKey.publicKey)
+      .setSupplyKey(this.operatorKey.publicKey)
+      .setFreezeDefault(false);
+    const { receipt } = await this._executeTransaction(transaction);
+    const tokenId = receipt.tokenId;
+    logger.info(`✅ Payment token created: ${tokenId}`);
+    return {
+      tokenId: tokenId.toString(),
+      transactionId: receipt.transactionId.toString(),
+    };
+  }
+
   async mintAcademicCredential(tokenId, metadata) {
     if (!tokenId || !metadata) {
       throw new BadRequestError('tokenId and metadata are required');
@@ -142,8 +167,9 @@ class HederaService {
       .update(`${metadata.studentId || ''}|${metadata.degree || ''}|${metadata.university || ''}|${metadata.graduationDate || ''}`)
       .digest('hex');
 
+    const displayName = metadata.studentName ? `${metadata.degree} - ${metadata.studentName} - ${metadata.university}` : `${metadata.degree} - ${metadata.university}`;
     const standardizedMetadata = {
-      name: `${metadata.degree} - ${metadata.university}`,
+      name: displayName,
       description: `Credencial académica verificable emitida por ${metadata.university}.`,
       image: "ipfs://QmY9n55aG4f3g2h1j0kLmnOpQrStUvWxYzAbCdEfGhIjKl",
       type: "application/json",
@@ -157,6 +183,11 @@ class HederaService {
       properties: {
         issuedDate: new Date().toISOString(),
         schemaVersion: "1.0",
+        title: displayName,
+        issuer: metadata.university,
+        issuerAccountId: process.env.HEDERA_ACCOUNT_ID || null,
+        vc_ready: "true",
+        vc_schema: "https://schema.org/EducationalOccupationalCredential",
         additionalProofs: metadata.additionalInfo?.proofs || undefined
       }
     };

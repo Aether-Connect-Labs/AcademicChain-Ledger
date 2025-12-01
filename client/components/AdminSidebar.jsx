@@ -16,7 +16,7 @@ const AdminSidebar = ({
   const { account, balance, isConnected, connectWallet } = useHedera();
   const { user, logout } = useAuth(); // Obtenemos la navegación del hook
   const [activeSubmenu, setActiveSubmenu] = useState(null);
-  const API_BASE_URL = useMemo(() => (import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')), []);
+  const API_BASE_URL = useMemo(() => (import.meta.env.VITE_API_URL), []);
   const [xrpInfo, setXrpInfo] = useState({ enabled: false, network: 'disabled', address: null, balance: null });
   const [loadingXrp, setLoadingXrp] = useState(false);
   const [errorXrp, setErrorXrp] = useState('');

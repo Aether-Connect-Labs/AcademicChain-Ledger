@@ -88,6 +88,97 @@ router.post('/create-token', protect, isUniversity,
   })
 );
 
+router.post('/create-payment-token', protect, isUniversity,
+  [
+    body('tokenName').notEmpty().withMessage('Token name is required').trim().escape(),
+    body('tokenSymbol').notEmpty().withMessage('Token symbol is required').trim().escape(),
+    body('tokenMemo').optional().isString().trim().escape(),
+    body('decimals').optional().isInt({ min: 0, max: 18 }),
+    body('initialSupply').optional().isInt({ min: 0 }),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { tokenName, tokenSymbol, tokenMemo, decimals, initialSupply } = req.body;
+    const { user } = req;
+
+    const existingToken = await Token.findOne({ tokenSymbol, universityId: user.id });
+    if (existingToken) {
+      return res.status(409).json({ success: false, message: `Token symbol '${tokenSymbol}' already exists for your university.` });
+    }
+
+    const result = await hederaService.createPaymentToken({
+      tokenName: `${user.universityName} - ${tokenName}`,
+      tokenSymbol,
+      tokenMemo: tokenMemo || `Payment token for ${user.universityName}`,
+      treasuryAccountId: user.hederaAccountId || null,
+      decimals,
+      initialSupply,
+    });
+
+    const dbToken = await Token.create({
+      tokenId: result.tokenId,
+      tokenName,
+      tokenSymbol,
+      universityId: user.id,
+    });
+
+    logger.info(`💳 Payment token created by ${user.universityName}: ${result.tokenId}`);
+    res.status(201).json({
+      success: true,
+      message: 'Payment token created successfully',
+      data: result,
+    });
+  })
+);
+
+router.post('/issue-credential', protect, isUniversity,
+  [
+    body('tokenId').notEmpty().trim().escape(),
+    body('uniqueHash').notEmpty().trim().escape(),
+    body('ipfsURI').notEmpty().trim(),
+    body('degree').optional().isString().trim(),
+    body('studentName').optional().isString().trim(),
+    body('graduationDate').optional().isString().trim(),
+    body('recipientAccountId').optional().isString().trim(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { tokenId, uniqueHash, ipfsURI, recipientAccountId, degree, studentName, graduationDate } = req.body;
+    const { user } = req;
+    const network = process.env.HEDERA_NETWORK || 'testnet';
+    try {
+      await hederaService.requestCredentialOnChain(uniqueHash, ipfsURI, recipientAccountId || '0.0.0');
+      const mint = await hederaService.mintAcademicCredential(tokenId, {
+        tokenId,
+        uniqueHash,
+        ipfsURI,
+        degree,
+        studentName,
+        graduationDate,
+        university: user.universityName,
+      });
+      await Credential.create({ tokenId, serialNumber: mint.serialNumber, universityId: user.id, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI });
+      let transfer = null;
+      if (recipientAccountId) {
+        transfer = await hederaService.transferCredentialToStudent(tokenId, mint.serialNumber, recipientAccountId);
+      }
+      let xrp = null;
+      try {
+        await xrpService.connect();
+        const anchorTitle = studentName ? `${degree || 'Credential'} - ${studentName} - ${user.universityName}` : `${degree || 'Credential'} - ${user.universityName}`;
+        const a = await xrpService.anchor({ certificateHash: uniqueHash, hederaTokenId: tokenId, serialNumber: mint.serialNumber, timestamp: new Date().toISOString(), title: anchorTitle, issuer: user.universityName });
+        xrp = a;
+      } catch {}
+      const nftId = `${tokenId}-${mint.serialNumber}`;
+      const hashscanUrl = `https://hashscan.io/${network}/nft/${nftId}`;
+      const xrplUrl = xrp?.xrpTxHash ? `https://testnet.xrpl.org/transactions/${xrp.xrpTxHash}` : null;
+      res.status(201).json({ success: true, data: { nftId, hashscanUrl, mintTxId: mint.transactionId, xrpTxHash: xrp?.xrpTxHash || null, xrplUrl, transfer } });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  })
+);
+
 router.post('/prepare-issuance', protect, isUniversity, 
   [
     body('tokenId').notEmpty().withMessage('Token ID is required').trim().escape(),
@@ -96,44 +187,49 @@ router.post('/prepare-issuance', protect, isUniversity,
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { user } = req;
-    const { tokenId, ...credentialData } = req.body;
-    const MINT_FEE = 100000000;
-    const PAYMENT_TOKEN_ID = process.env.PAYMENT_TOKEN_ID;
+    try {
+      const { user } = req;
+      const { tokenId, ...credentialData } = req.body;
+      const MINT_FEE = 100000000;
+      const PAYMENT_TOKEN_ID = process.env.PAYMENT_TOKEN_ID;
 
-    const token = await Token.findOne({ tokenId, universityId: user.id });
-    if (!token) {
-      return res.status(403).json({ success: false, message: 'Forbidden: You do not own this token.' });
-    }
-
-    const transactionRecord = await Transaction.create({
-      universityId: user.id,
-      type: 'CREDENTIAL_ISSUANCE',
-      status: 'PENDING_PAYMENT',
-      credentialData: req.body,
-    });
-
-    let transactionBytes = null;
-    if (PAYMENT_TOKEN_ID && user.hederaAccountId && MINT_FEE > 0) {
-      transactionBytes = await hederaService.prepareServiceChargeTransaction(
-        user.hederaAccountId,
-        process.env.HEDERA_ACCOUNT_ID,
-        MINT_FEE,
-        PAYMENT_TOKEN_ID
-      );
-    } else {
-      transactionRecord.status = 'PENDING_ISSUANCE';
-      await transactionRecord.save();
-    }
-    
-    res.status(200).json({
-      success: true,
-      message: 'Issuance prepared. Please sign the payment transaction if required.',
-      data: {
-        transactionId: transactionRecord.id,
-        paymentTransactionBytes: transactionBytes,
+      const token = await Token.findOne({ tokenId, universityId: user.id });
+      if (!token) {
+        return res.status(403).json({ success: false, message: 'Forbidden: You do not own this token.' });
       }
-    });
+
+      const transactionRecord = await Transaction.create({
+        universityId: user.id,
+        type: 'CREDENTIAL_ISSUANCE',
+        status: 'PENDING_PAYMENT',
+        credentialData: req.body,
+      });
+
+      let transactionBytes = null;
+      if (PAYMENT_TOKEN_ID && user.hederaAccountId && MINT_FEE > 0) {
+        transactionBytes = await hederaService.prepareServiceChargeTransaction(
+          user.hederaAccountId,
+          process.env.HEDERA_ACCOUNT_ID,
+          MINT_FEE,
+          PAYMENT_TOKEN_ID
+        );
+      } else {
+        transactionRecord.status = 'PENDING_ISSUANCE';
+        await transactionRecord.save();
+      }
+      
+      res.status(200).json({
+        success: true,
+        message: 'Issuance prepared. Please sign the payment transaction if required.',
+        data: {
+          transactionId: transactionRecord.id,
+          paymentTransactionBytes: transactionBytes,
+        }
+      });
+    } catch (e) {
+      console.error('DEBUG prepare-issuance error', e);
+      throw e;
+    }
   })
 );
 
@@ -217,6 +313,7 @@ router.post('/execute-issuance', protect, isUniversity,
 
       try {
         await xrpService.connect();
+        const anchorTitle = credentialData.studentName ? `${credentialData.degree} - ${credentialData.studentName} - ${user.universityName}` : `${credentialData.degree || 'Credential'} - ${user.universityName}`;
         await xrpService.anchor({
           certificateHash: credentialData.uniqueHash,
           hederaTokenId: credentialData.tokenId,
@@ -224,6 +321,8 @@ router.post('/execute-issuance', protect, isUniversity,
           hederaTopicId: credentialData.hederaTopicId,
           hederaSequence: credentialData.hederaSequence,
           timestamp: new Date().toISOString(),
+          title: anchorTitle,
+          issuer: user.universityName,
         });
       } catch {}
 

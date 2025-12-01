@@ -2,7 +2,8 @@ import { HashConnect } from 'hashconnect';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWebSocket } from './useWebSocket';
 import { useAuth } from './useAuth';
-let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
+let API_BASE_URL = import.meta.env.VITE_API_URL
+const HEDERA_NETWORK = (import.meta.env.VITE_HEDERA_NETWORK || (import.meta.env.PROD ? 'mainnet' : 'testnet'))
 
 export const useHedera = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -41,7 +42,7 @@ export const useHedera = () => {
     try {
       const hc = new HashConnect();
       const appMeta = { name: 'AcademicChain', description: 'Ledger de credenciales', icon: window.location.origin + '/favicon.svg' };
-      await hc.init(appMeta, 'testnet', false);
+      await hc.init(appMeta, HEDERA_NETWORK, false);
       await hc.connect();
       if (hc.connectToLocalWallet) hc.connectToLocalWallet();
       hcRef.current = hc;

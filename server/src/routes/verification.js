@@ -4,6 +4,7 @@ const asyncHandler = require('express-async-handler');
 const hederaService = require('../services/hederaServices');
 const xrpService = require('../services/xrpService');
 const logger = require('../utils/logger');
+const rateLimit = require('express-rate-limit');
 const { validate } = require('../middleware/validator');
 const { recordAnalytics } = require('../services/analyticsService');
 const { User } = require('../models');
@@ -11,8 +12,10 @@ const { User } = require('../models');
 const router = express.Router();
 
 // Generación de QR con validación por issuer
+const qrLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
 router.get('/qr/generate/:issuerId/:tokenId/:serialNumber',
   [
+    qrLimiter,
     param('issuerId').notEmpty().withMessage('Issuer ID is required').trim().escape(),
     param('tokenId').notEmpty().withMessage('Token ID is required').trim().escape(),
     param('serialNumber').notEmpty().withMessage('Serial number is required').trim().escape(),
@@ -21,6 +24,8 @@ router.get('/qr/generate/:issuerId/:tokenId/:serialNumber',
   asyncHandler(async (req, res) => {
     const { issuerId, tokenId, serialNumber } = req.params;
     const format = (req.query.format || 'svg').toLowerCase();
+    const widthParam = parseInt(req.query.width, 10);
+    const pngWidth = Number.isFinite(widthParam) ? Math.max(128, Math.min(widthParam, 2048)) : 512;
     const { Credential } = require('../models');
     const QRCode = require('qrcode');
 
@@ -53,7 +58,7 @@ router.get('/qr/generate/:issuerId/:tokenId/:serialNumber',
       res.setHeader('Content-Type', 'image/svg+xml');
       return res.status(200).send(svg);
     }
-    const png = await QRCode.toBuffer(JSON.stringify(payload), { type: 'png', errorCorrectionLevel: 'M', width: 512 });
+    const png = await QRCode.toBuffer(JSON.stringify(payload), { type: 'png', errorCorrectionLevel: 'M', width: pngWidth });
     res.setHeader('Content-Type', 'image/png');
     return res.status(200).send(png);
   })
@@ -376,3 +381,24 @@ router.get('/credential-history/:tokenId/:serialNumber',
 );
 
 module.exports = router;
+router.get('/verify/:nftId', asyncHandler(async (req, res) => {
+  const { nftId } = req.params;
+  const parts = String(nftId).split('-');
+  if (parts.length < 2) {
+    return res.status(400).json({ success: false, message: 'Invalid nftId format' });
+  }
+  const tokenId = parts.slice(0, -1).join('-');
+  const serialNumber = parts.slice(-1)[0];
+  try {
+    await hederaService.connect();
+    const result = await hederaService.verifyCredential(tokenId, serialNumber);
+    let xrp = null;
+    try { await xrpService.connect(); xrp = await xrpService.getByTokenSerial(tokenId, serialNumber); } catch {}
+    const network = process.env.HEDERA_NETWORK || 'testnet';
+    const hashscan = `https://hashscan.io/${network}/nft/${tokenId}-${serialNumber}`;
+    const xrpl = xrp?.xrpTxHash ? `https://testnet.xrpl.org/transactions/${xrp.xrpTxHash}` : null;
+    return res.status(200).json({ success: true, data: { valid: true, credential: { hedera: result.credential, xrpl: xrp || null }, verificationUrls: { hashscan, xrpl } } });
+  } catch (error) {
+    return res.status(404).json({ success: false, message: 'Credential not found or invalid' });
+  }
+}));

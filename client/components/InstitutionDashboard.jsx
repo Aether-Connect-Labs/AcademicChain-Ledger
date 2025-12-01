@@ -30,6 +30,17 @@ function InstitutionDashboard({ demo = false }) {
   const [verifySerial, setVerifySerial] = useState('');
   const [docOpen, setDocOpen] = useState(false);
   const [docUrl, setDocUrl] = useState('');
+  const [qrPreviewOpen, setQrPreviewOpen] = useState(false);
+  const [qrPreviewUrl, setQrPreviewUrl] = useState('');
+  const [qrTokenId, setQrTokenId] = useState('');
+  const [qrSerial, setQrSerial] = useState('');
+  const [qrIssuerId, setQrIssuerId] = useState('');
+  const [qrPngSize, setQrPngSize] = useState(512);
+  const [qrCopyMsg, setQrCopyMsg] = useState('');
+  const [qrMeta, setQrMeta] = useState(null);
+  const [qrMetaLoading, setQrMetaLoading] = useState(false);
+  const [qrIpfsURI, setQrIpfsURI] = useState('');
+  const [qrTxId, setQrTxId] = useState('');
   const toGateway = (uri) => {
     if (!uri) return '';
     const gw = import.meta.env.VITE_IPFS_GATEWAY || 'https://ipfs.io/ipfs/';
@@ -48,7 +59,7 @@ function InstitutionDashboard({ demo = false }) {
       setMeta({ total: sample.length, page: 1, limit: 10, pages: 1, hasMore: false, from: 1, to: sample.length });
       return;
     }
-    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+    const API_BASE_URL = import.meta.env.VITE_API_URL;
     const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const initialTokenId = searchParams.get('tokenId') || '';
@@ -97,7 +108,7 @@ function InstitutionDashboard({ demo = false }) {
         setTokenMessage('Creación simulada en modo demo');
         return;
       }
-      const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+      const API_BASE_URL = import.meta.env.VITE_API_URL;
       const jwt = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
       if (!API_BASE_URL || !jwt) throw new Error('API no disponible o sesión inválida');
       const res = await fetch(`${API_BASE_URL}/api/universities/create-token`, {
@@ -119,7 +130,7 @@ function InstitutionDashboard({ demo = false }) {
   };
 
   const handleOpenVerification = () => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+    const API_BASE_URL = import.meta.env.VITE_API_URL;
     if (!verifyTokenId || !verifySerial) return;
     const url = `${API_BASE_URL}/api/verification/verify/${encodeURIComponent(verifyTokenId)}/${encodeURIComponent(verifySerial)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -130,7 +141,7 @@ function InstitutionDashboard({ demo = false }) {
       setStats({ totalCredentials: 3, totalStudents: 2, issuedToday: 0 });
       return;
     }
-    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+    const API_BASE_URL = import.meta.env.VITE_API_URL;
     const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const fetchStats = async () => {
@@ -149,6 +160,37 @@ function InstitutionDashboard({ demo = false }) {
     };
     fetchStats();
   }, [demo]);
+
+  useEffect(() => {
+    if (!qrPreviewOpen) return;
+    try {
+      const u = new URL(qrPreviewUrl);
+      if (u.searchParams.get('format') === 'png') {
+        u.searchParams.set('width', String(qrPngSize));
+        setQrPreviewUrl(u.toString());
+      }
+    } catch {}
+  }, [qrPngSize, qrPreviewOpen, qrPreviewUrl]);
+
+  useEffect(() => {
+    if (!qrPreviewOpen || !qrTokenId || !qrSerial) return;
+    const base = import.meta.env.VITE_API_URL;
+    const url = `${base}/api/verification/credential-history/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}`;
+    setQrMetaLoading(true);
+    setQrMeta(null);
+    fetch(url).then(async (res) => {
+      const data = await res.json();
+      setQrMeta(data?.data?.credential || null);
+      try {
+        const cred = data?.data?.credential || null;
+        const attrs = cred?.metadata?.attributes || [];
+        const txAttr = attrs.find(a => a.trait_type === 'TransactionId' || a.trait_type === 'TxId');
+        const tx = data?.data?.transactionId || cred?.transactionId || cred?.metadata?.transactionId || txAttr?.value || '';
+        setQrTxId(tx || '');
+      } catch { setQrTxId(''); }
+      setQrMetaLoading(false);
+    }).catch(() => { setQrMetaLoading(false); });
+  }, [qrPreviewOpen, qrTokenId, qrSerial]);
 
   return (
     <div className="container-responsive py-10">
@@ -263,9 +305,28 @@ function InstitutionDashboard({ demo = false }) {
                     <td className="px-4 py-2"><button className="btn-secondary btn-sm" onClick={() => { setDocUrl(toGateway(c.ipfsURI)); setDocOpen(true); }}>Ver</button></td>
                     <td className="px-4 py-2">{c.xrpAnchor?.xrpTxHash ? <a href={`https://testnet.xrplexplorer.com/tx/${c.xrpAnchor.xrpTxHash}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{c.xrpAnchor.xrpTxHash.slice(0, 8)}...</a> : 'N/A'}</td>
                     <td className="px-4 py-2 space-x-2">
-                      <a className="btn-secondary btn-sm" href={`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')}/api/verification/qr/generate/${c.universityId}/${c.tokenId}/${c.serialNumber}?format=svg`} target="_blank" rel="noreferrer">QR</a>
-                      <a className="btn-primary btn-sm" href={`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')}/api/verification/credential-history/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Verificar</a>
-                      <a className="btn-primary btn-sm" href={`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')}/api/verification/verify/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Dual (Hedera+XRP)</a>
+                      <button className="btn-secondary btn-sm" disabled={demo} onClick={() => {
+                        const base = import.meta.env.VITE_API_URL;
+                        const u = `${base}/api/verification/qr/generate/${c.universityId}/${c.tokenId}/${c.serialNumber}?format=svg`;
+                        setQrPreviewUrl(u);
+                        setQrTokenId(c.tokenId);
+                        setQrSerial(String(c.serialNumber));
+                        setQrIssuerId(String(c.universityId || ''));
+                        setQrIpfsURI(c.ipfsURI || '');
+                        setQrPreviewOpen(true);
+                      }}>QR (SVG)</button>
+                      <button className="btn-secondary btn-sm" disabled={demo} onClick={() => {
+                        const base = import.meta.env.VITE_API_URL;
+                        const u = `${base}/api/verification/qr/generate/${c.universityId}/${c.tokenId}/${c.serialNumber}?format=png&width=${qrPngSize}`;
+                        setQrPreviewUrl(u);
+                        setQrTokenId(c.tokenId);
+                        setQrSerial(String(c.serialNumber));
+                        setQrIssuerId(String(c.universityId || ''));
+                        setQrIpfsURI(c.ipfsURI || '');
+                        setQrPreviewOpen(true);
+                      }}>QR (PNG)</button>
+                      <a className="btn-primary btn-sm" href={`${import.meta.env.VITE_API_URL}/api/verification/credential-history/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Verificar</a>
+                      <a className="btn-primary btn-sm" href={`${import.meta.env.VITE_API_URL}/api/verification/verify/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Dual (Hedera+XRP)</a>
                     </td>
                   </tr>
                 ))}
@@ -277,7 +338,7 @@ function InstitutionDashboard({ demo = false }) {
                   const params = {};
                   if (filterTokenId) params.tokenId = filterTokenId;
                   if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const API_BASE_URL = import.meta.env.VITE_API_URL;
                   const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
                   const headers = token ? { Authorization: `Bearer ${token}` } : {};
                   const q = new URLSearchParams({ page: 1, limit, sort, sortBy, ...params }).toString();
@@ -489,6 +550,121 @@ function InstitutionDashboard({ demo = false }) {
           <div className="badge badge-info">Aún no hay credenciales emitidas</div>
         )}
         <DocumentViewer open={docOpen} src={docUrl} title="Documento" onClose={() => setDocOpen(false)} />
+        {qrPreviewOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setQrPreviewOpen(false)} />
+            <div className="relative bg-white rounded-2xl shadow-strong w-full max-w-lg border border-gray-200 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="font-bold">Código QR</div>
+                <button className="btn-ghost" onClick={() => setQrPreviewOpen(false)}>✕</button>
+              </div>
+            <div className="flex justify-center">
+              <img alt="QR" src={qrPreviewUrl} className="max-w-full" />
+            </div>
+              <div className="mt-4 text-xs text-gray-600">{qrTokenId} • {qrSerial}</div>
+              <div className="mt-2 flex items-center gap-2">
+                <label className="text-sm text-gray-700">Tamaño PNG</label>
+                <select className="input-primary" value={qrPngSize} onChange={(e) => setQrPngSize(parseInt(e.target.value, 10) || 512)}>
+                  <option value={256}>256</option>
+                  <option value={512}>512</option>
+                  <option value={1024}>1024</option>
+                </select>
+                <input className="input-primary w-24" type="number" min={128} max={2048} value={qrPngSize} onChange={(e) => {
+                  const v = parseInt(e.target.value || '512', 10) || 512;
+                  setQrPngSize(Math.max(128, Math.min(v, 2048)));
+                }} />
+              </div>
+              <div className="mt-4 flex items-center justify-between">
+                <a className="btn-secondary" href={qrPreviewUrl} target="_blank" rel="noreferrer">Abrir en pestaña</a>
+                <button className="btn-primary" disabled={demo} onClick={async () => {
+                  const base = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const svg = `${base}/api/verification/qr/generate/${encodeURIComponent(qrIssuerId)}/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}?format=svg`;
+                  try {
+                    const res = await fetch(svg);
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `qr-${qrTokenId}-${qrSerial}.svg`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  } catch {}
+                }}>Descargar SVG</button>
+                <button className="btn-primary" disabled={demo} onClick={async () => {
+                  const base = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const png = `${base}/api/verification/qr/generate/${encodeURIComponent(qrIssuerId)}/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}?format=png&width=${encodeURIComponent(qrPngSize)}`;
+                  try {
+                    const res = await fetch(png);
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `qr-${qrTokenId}-${qrSerial}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  } catch {}
+                }}>Descargar PNG</button>
+                <button className="btn-secondary" onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(qrPreviewUrl);
+                    setQrCopyMsg('Link de QR copiado');
+                    setTimeout(() => setQrCopyMsg(''), 1500);
+                  } catch {}
+                }}>Copiar enlace QR</button>
+                <button className="btn-secondary" onClick={async () => {
+                  const base = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const verifyLink = `${base}/api/verification/verify/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}`;
+                  const text = `QR: ${qrPreviewUrl}\nVerificación: ${verifyLink}`;
+                  try {
+                    await navigator.clipboard.writeText(text);
+                    setQrCopyMsg('Enlaces QR y verificación copiados');
+                    setTimeout(() => setQrCopyMsg(''), 1500);
+                  } catch {}
+                }}>Copiar ambos enlaces</button>
+                {(() => {
+                  const base = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const link = `${base}/api/verification/verify/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}`;
+                  return (
+                    <div className="flex items-center gap-2">
+                      <a className="btn-primary" href={link} target="_blank" rel="noreferrer">Verificar</a>
+                      <button className="btn-secondary" onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(link);
+                          setQrCopyMsg('Link de verificación copiado');
+                          setTimeout(() => setQrCopyMsg(''), 1500);
+                        } catch {}
+                      }}>Copiar enlace verificación</button>
+                    </div>
+                  );
+                })()}
+              </div>
+                {qrCopyMsg && (<div className="mt-2 text-xs text-green-700 bg-green-100 border border-green-300 px-3 py-2 rounded">{qrCopyMsg}</div>)}
+              <div className="mt-3 text-sm text-gray-700">
+                {qrMetaLoading ? (
+                  <div className="badge badge-info">Cargando detalles...</div>
+                ) : qrMeta ? (
+                  <div className="space-y-1">
+                    <div>Universidad: {(qrMeta.metadata?.attributes || []).find(a => a.trait_type === 'University')?.value || 'N/A'}</div>
+                    <div>Programa: {(qrMeta.metadata?.attributes || []).find(a => a.trait_type === 'Degree')?.value || 'N/A'}</div>
+                    <div>Fecha: {(qrMeta.metadata?.attributes || []).find(a => a.display_type === 'date')?.value || 'N/A'}</div>
+                    <div>SubjectRef: {(qrMeta.metadata?.attributes || []).find(a => a.trait_type === 'SubjectRef')?.value || 'N/A'}</div>
+                    <div>Transacción: {qrTxId ? (
+                      <span className="inline-flex items-center gap-2">
+                        <a className="text-blue-600 hover:underline" href={`https://hashscan.io/mainnet/transaction/${encodeURIComponent(qrTxId)}`} target="_blank" rel="noreferrer">{qrTxId}</a>
+                        <button className="btn-ghost btn-xs" onClick={async () => { try { await navigator.clipboard.writeText(qrTxId); setQrCopyMsg('TransactionId copiado'); setTimeout(() => setQrCopyMsg(''), 1500); } catch {} }}>Copiar</button>
+                      </span>
+                    ) : 'N/A'}</div>
+                    <div>IPFS: {qrIpfsURI ? (<a className="text-blue-600 hover:underline" href={toGateway(qrIpfsURI)} target="_blank" rel="noreferrer">{toGateway(qrIpfsURI)}</a>) : 'N/A'}</div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

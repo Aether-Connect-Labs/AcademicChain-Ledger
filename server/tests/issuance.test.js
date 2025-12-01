@@ -1,4 +1,5 @@
 process.env.NODE_ENV = 'test';
+process.env.DISABLE_MONGO = '1';
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 
@@ -47,7 +48,7 @@ jest.mock('../src/models', () => ({
 
 const { app } = require('../src/app');
 
-const makeToken = () => jwt.sign({ userId: mockUser.id }, process.env.JWT_SECRET || 'test-secret');
+const makeToken = () => jwt.sign({ userId: mockUser.id, role: 'university' }, process.env.JWT_SECRET || 'test-secret');
 
 describe('Credential issuance', () => {
   test('prepare-issuance returns transactionId without payment', async () => {

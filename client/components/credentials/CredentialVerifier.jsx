@@ -49,7 +49,7 @@ const CredentialVerifier = () => {
       });
       const payload = await res.json();
       if (payload.success && payload.data?.valid && payload.data?.credential) {
-        setState({ status: 'success', data: payload.data.credential });
+        setState({ status: 'success', data: payload.data.credential, xrpAnchor: payload.data.xrpAnchor || null });
       } else {
         throw new Error('Credencial inválida');
       }
@@ -76,7 +76,7 @@ const CredentialVerifier = () => {
       });
       const payload = await res.json();
       if (payload.success && payload.data?.valid && payload.data?.credential) {
-        setState({ status: 'success', data: payload.data.credential });
+        setState({ status: 'success', data: payload.data.credential, xrpAnchor: payload.data.xrpAnchor || null });
       } else {
         throw new Error('Credencial inválida');
       }
@@ -164,6 +164,14 @@ const CredentialVerifier = () => {
               <div className="flex justify-between">
                 <span className="font-medium text-gray-700">ID Transacción:</span>
                 <span className="text-blue-600 text-sm font-mono">{state.data?.transactionId?.slice(0, 8)}...</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium text-gray-700">XRP Anchor:</span>
+                <span className="text-gray-900">
+                  {state.xrpAnchor?.xrpTxHash ? (
+                    <a className="text-blue-600 hover:underline" href={`https://livenet.xrpl.org/transactions/${encodeURIComponent(state.xrpAnchor.xrpTxHash)}`} target="_blank" rel="noreferrer">{state.xrpAnchor.xrpTxHash.slice(0, 10)}...</a>
+                  ) : 'N/A'}
+                </span>
               </div>
             </div>
 

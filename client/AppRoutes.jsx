@@ -10,6 +10,9 @@ import StudentPortal from './components/StudentPortal';
 import ComenzarGratisPage from './components/ComenzarGratisPage';
 import AdminLayout from './components/AdminLayout';
 import AdminDashboard from './components/AdminDashboard';
+import PendingInstitutions from './components/PendingInstitutions';
+import ApprovedInstitutions from './components/ApprovedInstitutions';
+import AdminPanel from './components/AdminPanel';
 import BatchIssuancePage from './components/BatchIssuancePage';
 import CredentialVerifier from './components/credentials/CredentialVerifier';
 import Welcome from './components/Welcome';
@@ -118,6 +121,30 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute requiredRoles={['admin','institution','university']}>
             <AdminLayout><AdminDashboard /></AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/panel"
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <AdminPanel />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/institutions"
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <AdminLayout><PendingInstitutions /></AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/institutions/approved"
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <AdminLayout><ApprovedInstitutions /></AdminLayout>
           </ProtectedRoute>
         }
       />

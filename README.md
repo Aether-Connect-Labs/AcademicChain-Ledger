@@ -6,6 +6,7 @@ Plataforma para emitir y verificar credenciales académicas utilizando Hedera Ha
 - Registro inmutable de credenciales (Hedera Hashgraph)
 - Almacenamiento descentralizado (Pinata/IPFS)
 - Autenticación segura (JWT)
+- Anclaje opcional en XRP Ledger (XRPL)
 - Arquitectura Node.js lista para Docker
 
 ---
@@ -35,11 +36,18 @@ node setup-env.js
     - `MONGODB_URI=mongodb://localhost:27017/academicchain`
     - `REDIS_URL=redis://localhost:6379` (opcional en desarrollo)
     - `CLIENT_URL=http://localhost:5173`
+    - `HEDERA_NETWORK=testnet|mainnet`
+    - `HEDERA_ACCOUNT_ID=0.0.<ID>`
+    - `HEDERA_PRIVATE_KEY=<CLAVE_PRIVADA>`
+    - `XRPL_ENABLED=true|false`
+    - `XRPL_NETWORK=testnet|mainnet`
+    - `XRPL_SEED=<SEED_O_SECRET_DE_LA_WALLET_DEL_SERVICIO>`
   - En `client/.env.local`:
     - `VITE_API_URL=http://localhost:3001`
     - `VITE_WS_URL=http://localhost:3001`
     - `VITE_ALLOW_OWNER=1`
     - `VITE_PREVIEW_OWNER_EMAIL=<correo_del_propietario>`
+    - `VITE_HEDERA_NETWORK=testnet|mainnet`
   - En `server/.env` (solo desarrollo):
     - `PREVIEW_OWNER_EMAIL=<correo_del_propietario>`
     - `PREVIEW_OWNER_PASSWORD=<contraseña_del_propietario>`
@@ -73,6 +81,16 @@ npm run dev
 - Emisión individual: en el dashboard, usa “Emitir Título”
 - Emisión masiva: en el dashboard, usa “Subir Excel”, indicando el `Token ID`
 - Progreso de trabajos: se actualiza en tiempo real vía WebSocket
+
+### 🔗 Conexión de Wallets
+- Hedera (HashPack):
+  - Instala la extensión HashPack.
+  - En el frontend, pulsa “Conectar Wallet”. La red usada es `VITE_HEDERA_NETWORK`.
+  - Asegúrate de tener HBAR suficientes para mint/transfer HTS.
+- XRP (XRPL):
+  - Si `XRPL_ENABLED=true`, el servidor anclará cada emisión con un pago mínimo y Memo JSON.
+  - Variables: `XRPL_NETWORK`, `XRPL_SEED`.
+  - Más adelante se puede habilitar firma por usuario con XUMM (requiere SDK/endpoint adicional).
 
 #### Comandos de verificación (Windows PowerShell)
 ```powershell
@@ -207,250 +225,130 @@ curl -s -X GET 'http://localhost:3001/api/universities/credentials?format=csv&ac
   -o credentials_account_serial.csv
 ```
 
-### 7) Problemas comunes
-- Errores de conexión a MongoDB: asegúrate de que el contenedor de Mongo esté corriendo (`docker ps`) o ajusta `MONGODB_URI`
-- WebSocket bloqueado por CORS: verifica `CLIENT_URL` en `server/.env` incluye el puerto del frontend
-- Vite cambia a `5174`: actualiza `CLIENT_URL` y abre el frontend en el nuevo puerto
- - Redis no disponible (`ECONNREFUSED 127.0.0.1:6379`): levanta Redis con `docker compose -f docker-compose-services.yml up -d` o usa `REDIS_URL` de Redis Cloud. En desarrollo, las colas se deshabilitan automáticamente si Redis no está disponible.
- - Puerto `3001` en uso (`EADDRINUSE`): cierra procesos previos del backend y vuelve a ejecutar `npm run server:dev` o `npm run dev` en una única terminal.
- - Docker no instalado/activo: usa MongoDB Atlas y Redis Cloud ajustando `MONGODB_URI` y `REDIS_URL` en `server/.env`.
-
----
-
-## 📂 Estructura del Proyecto
-- `server/`: API Node.js (Express, Socket.io, BullMQ)
-- `client/`: Frontend React (Vite)
-- `contracts/`: Contratos y scripts relacionados
-- `docker-compose*.yml`: Servicios de MongoDB y Redis
-
 ## 🔧 Scripts útiles
-- `npm run dev`: inicia cliente y servidor en paralelo
-- `npm run server:dev`: inicia solo el backend
 - `npm run client:dev`: inicia solo el frontend
-- `npm run docker:up`: levanta Mongo/Redis con Docker
-- `npm run test`: ejecuta los tests (client y server)
 
-## 🛡️ Ambiente y seguridad
-- `.env` y secretos no se commitean
-- No expongas claves privadas en logs o código
+## 🚀 Emisión en Render (Producción)
 
-## 📦 Despliegue
-- Vercel configurado para frontend y API serverless (`deployment/README.md`)
+- Base de la API: `https://academicchain-ledger-b2lu.onrender.com`
+- Salud del servicio: `GET /health`, `GET /ready`
+- Autenticación:
+  - Email/Password: `POST /api/auth/register` y `POST /api/auth/login`
+  - Google OAuth: `GET /api/auth/google?redirect_uri=<CLIENT_URL>`; tras login, el API redirige con `token`
+- Emisión individual:
+  - Preparar: `POST /api/universities/prepare-issuance` con `tokenId`, `uniqueHash`, `ipfsURI` y opcional `recipientAccountId`
+  - Ejecutar: `POST /api/universities/execute-issuance` con `transactionId`
+- Verificación en la red:
+  - Hedera (HashScan testnet): `https://hashscan.io/testnet/token/{tokenId}`, `https://hashscan.io/testnet/nft/{tokenId}-{serialNumber}`, `https://hashscan.io/testnet/transaction/{transactionId}`
+  - XRPL (testnet|mainnet): `https://testnet.xrpl.org/transactions/{xrpTxHash}` o `https://livenet.xrpl.org/transactions/{xrpTxHash}`
 
-AcademicChain Ledger es una plataforma diseñada para la gestión y verificación de credenciales académicas utilizando tecnología blockchain y descentralizada. Este sistema proporciona una forma segura, inmutable y transparente de emitir, almacenar y compartir logros académicos.
-
-## ✨ Características Principales
-
-- **Registro Inmutable**: Utiliza Hedera Hashgraph para registrar credenciales de forma segura.
-- **Almacenamiento Descentralizado**: Guarda los documentos asociados en la red de Pinata (IPFS).
-- **Autenticación Segura**: Implementa JWT para la gestión de sesiones y protección de rutas.
-- **Arquitectura Escalable**: Construido sobre Node.js y preparado para funcionar con contenedores de Docker.
-
----
-
-## 🚀 Guía de Instalación y Puesta en Marcha
-
-Sigue estos pasos para configurar y ejecutar el proyecto en tu entorno de desarrollo local.
-
-### 1. Prerrequisitos
-
-Asegúrate de tener instalado el siguiente software en tu sistema:
-
-- **Node.js**: Versión 18.x o superior.
-- **npm**: Gestor de paquetes de Node.js (generalmente se instala con Node.js).
-- **Git**: Para clonar el repositorio.
-- **Docker**: Para gestionar los servicios de base de datos y caché.
-
-### 2. Clonar el Repositorio
-
-Abre tu terminal y clona el repositorio del proyecto en tu máquina local.
+### Ejemplo cURL (Producción)
 
 ```bash
-git clone <URL-DEL-REPOSITORIO>
-cd AcademicChain-Ledger
+API="https://academicchain-ledger-b2lu.onrender.com"
+
+# Login (email/password)
+TOKEN=$(curl -s -X POST "$API/api/auth/login" \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"<tu_email>","password":"<tu_password>"}' | jq -r '.token')
+
+# Crear token académico (si no tienes uno todavía)
+curl -s -X POST "$API/api/universities/create-token" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"tokenName":"Demo Credential","tokenSymbol":"DEMO_'$(date +%s)'","tokenMemo":"Demo issuance token"}'
+
+# Preparar emisión
+curl -s -X POST "$API/api/universities/prepare-issuance" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"tokenId":"0.0.<TOKEN_ID>","uniqueHash":"DEMO-'$(uuidgen)'","ipfsURI":"ipfs://<CID>"}'
+
+# Ejecutar emisión
+curl -s -X POST "$API/api/universities/execute-issuance" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"transactionId":"<TRANSACTION_ID>"}'
+
+# Verificar credencial por API
+curl -s "$API/api/verification/verify/0.0.<TOKEN_ID>/<SERIAL_NUMBER>"
+
+# Listar credenciales y ver el anclaje XRPL (xrpTxHash)
+curl -s "$API/api/universities/credentials?tokenId=0.0.<TOKEN_ID>&page=1&limit=10&sort=desc" \
+  -H "Authorization: Bearer $TOKEN" | jq '.'
+
+### Variables Render recomendadas
+- Backend (Service):
+  - `NODE_ENV=production`
+  - `RENDER_EXTERNAL_URL=https://<tu-api>.onrender.com`
+  - `SERVER_URL=https://<tu-api>.onrender.com`
+  - `CLIENT_URL=https://<tu-web>.onrender.com`
+  - `JWT_SECRET=<secreto>`
+  - `MONGODB_URI=<cadena>`
+  - `HEDERA_NETWORK=mainnet` y credenciales de operador (`HEDERA_ACCOUNT_ID`, `HEDERA_PRIVATE_KEY`)
+  - `XRPL_ENABLED=true` (si deseas anclaje), `XRPL_NETWORK=mainnet`, `XRPL_SEED=<seed del servicio>`
+- Frontend (Static):
+  - `VITE_API_URL=https://<tu-api>.onrender.com`
+  - `VITE_HEDERA_NETWORK=mainnet`
 ```
 
-### 3. Instalar Dependencias
+### Notas de Producción
+- `PAYMENT_TOKEN_ID` es opcional. Si no se define, el flujo usa la ruta sin cobro.
+- `ipfsURI` debe apuntar a un CID válido de un JSON HIP‑412 para que la verificación recupere metadata desde IPFS.
+- El anclaje XRPL incluye `MemoType=ACAD` y `MemoData` con `certificateHash`, `hederaTokenId`, `serialNumber`, `timestamp`.
+- Para CSV de auditoría en producción, usa los mismos endpoints con `format=csv` y tu `Authorization`.
 
-Instala todas las dependencias del proyecto definidas en el archivo `package.json`.
+## 📈 Plan de Validación y Verificación Dual
 
-```bash
-npm install
+### PRIORIDAD 1: Prueba en Testnet
+
+- Objetivo: validar experiencia end‑to‑end en práctica.
+- Checklist:
+  - [ ] Ejecutar `POST /api/universities/issue-credential` para un título de prueba
+  - [ ] Confirmar respuesta con `nftId`, `hashscanUrl`, `xrpTxHash`, `xrplUrl`
+  - [ ] Verificación en HashScan del `nftId` (name, properties.title, issuer, issue_date)
+  - [ ] Verificación en XRPL del `xrpTxHash` (Memo ACAD, certificateHash, serialNumber, issuer)
+  - [ ] `GET /api/verification/verify/{tokenId}/{serialNumber}` o `GET /api/verification/verify/{nftId}` con URLs de verificación
+
+### PRIORIDAD 2: Flujo de Verificación para Reclutadores (3 Pasos)
+
+- Paso 1: Obtén el ID del título (ej. `0.0.12345-789` o QR)
+- Paso 2: Visita `tudominio.com/verify` e ingresa el ID
+- Paso 3: Confirma autenticidad
+  - ✅ Éxito: nombre del graduado, título, fecha, universidad y botones HashScan/XRPL
+  - ❌ Fallo: “Credencial no encontrada o inválida”
+  - Contacto: `verificaciones@tudominio.com`
+
+### PRIORIDAD 3: Camino a Verifiable Credentials (VCs)
+
+- Fase 1 (Ahora): añadir en HIP‑412
+  - `properties.vc_ready = "true"`
+  - `properties.vc_schema = "https://schema.org/EducationalOccupationalCredential"`
+- Fase 2: endpoint de transformación
+  - `POST /api/vc/issue/{nftId}` → VC firmado con DID, compatible hacia atrás
+- Fase 3: Portabilidad SSI
+  - Integración con wallets SSI y verificación offline
+
+### Plantilla Sprint
+
+```markdown
+## OBJETIVO SPRINT: Validación End-to-End
+- [ ] Emitir 3 títulos de prueba en Testnet
+- [ ] Completar checklist de verificación dual
+- [ ] Documentar flujo de 3 pasos para reclutadores
+- [ ] Corregir cualquier discrepancia encontrada
+
+## CRITERIOS DE ACEPTACIÓN:
+- Un reclutador técnico puede verificar un título en < 60 segundos
+- Los datos entre Hedera y XRPL son consistentes
+- La UI de verificación es intuitiva para no técnicos
 ```
 
-### 4. Configurar las Variables de Entorno
-
-El proyecto incluye un script interactivo para configurar todas las credenciales y secretos necesarios. Antes de ejecutarlo, asegúrate de tener a mano la siguiente información:
-
-- Tu **Hedera Account ID** y **Private Key**.
-- Tu **Pinata API Key** y **Secret Key**.
-- La **URI de conexión** a tu base de datos MongoDB Atlas.
-- La **URI de conexión** a tu instancia de Redis Cloud.
-
-Ahora, ejecuta el script de configuración:
-
-```bash
-node setup-env.js
-```
-
-El script te guiará, generará los secretos de seguridad y creará un archivo `.env` en la raíz del proyecto. Este archivo es ignorado por Git para proteger tus credenciales.
-
-### 5. Iniciar los Servicios con Docker
-
-El proyecto utiliza Docker para orquestar los servicios necesarios como la base de datos. Ejecuta el siguiente comando para levantar los contenedores:
-
-```bash
-npm run docker:up
-```
-
-### 6. Ejecutar la Aplicación
-
-¡Todo está listo! Ahora puedes iniciar el servidor de desarrollo.
-
-```bash
-npm run dev
-```
-
-Frontend: `http://localhost:5173` (Vite puede cambiar a `http://localhost:5174`)
-API backend: `http://localhost:3001`
-
-<!--
-[PROMPT_SUGGESTION]¿Puedes añadir una sección de "Estructura del Proyecto" al README para explicar las carpetas `server`, `client` y `contracts`?[/PROMPT_SUGGESTION]
-[PROMPT_SUGGESTION]¿Cómo puedo mejorar el script `setup-env.js` para que oculte la entrada de la clave privada?[/PROMPT_SUGGESTION]
--->
-# 🎓 AcademicChain Ledger
-
-AcademicChain Ledger es una plataforma diseñada para la gestión y verificación de credenciales académicas utilizando tecnología blockchain y descentralizada. Este sistema proporciona una forma segura, inmutable y transparente de emitir, almacenar y compartir logros académicos.
-
-## ✨ Características Principales
-
-- **Registro Inmutable**: Utiliza Hedera Hashgraph para registrar credenciales de forma segura.
-- **Almacenamiento Descentralizado**: Guarda los documentos asociados en la red de Pinata (IPFS).
-- **Autenticación Segura**: Implementa JWT para la gestión de sesiones y protección de rutas.
-- **Arquitectura Escalable**: Construido sobre Node.js y preparado para funcionar con contenedores de Docker.
-
----
-
-## 🚀 Guía de Instalación y Puesta en Marcha
-
-Sigue estos pasos para configurar y ejecutar el proyecto en tu entorno de desarrollo local.
-
-### 1. Prerrequisitos
-
-Asegúrate de tener instalado el siguiente software en tu sistema:
-
-- **Node.js**: Versión 18.x o superior.
-- **npm**: Gestor de paquetes de Node.js (generalmente se instala con Node.js).
-- **Git**: Para clonar el repositorio.
-- **Docker**: Para gestionar los servicios de base de datos y caché.
-
-### 2. Clonar el Repositorio
-
-Abre tu terminal y clona el repositorio del proyecto en tu máquina local.
-
-```bash
-git clone <URL-DEL-REPOSITORIO>
-cd AcademicChain-Ledger
-```
-
-### 3. Instalar Dependencias
-
-Instala todas las dependencias del proyecto.
-
-```bash
-npm install
-```
-
-### 4. Configurar las Variables de Entorno
-
-El proyecto incluye un script interactivo para configurar todas las credenciales y secretos necesarios. Antes de ejecutarlo, asegúrate de tener a mano la siguiente información:
-
-- Tu **Hedera Account ID** y **Private Key**.
-- Tu **Pinata API Key** y **Secret Key**.
-- La **URI de conexión** a tu base de datos MongoDB Atlas.
-- La **URI de conexión** a tu instancia de Redis Cloud.
-
-Ahora, ejecuta el script de configuración:
-
-```bash
-node setup-env.js
-```
-
-El script te guiará, generará los secretos de seguridad y creará un archivo `.env` en la raíz del proyecto. Este archivo es ignorado por Git para proteger tus credenciales.
-
-### 5. Iniciar los Servicios con Docker
-
-El proyecto utiliza Docker para orquestar los servicios necesarios como la base de datos. Ejecuta el siguiente comando para levantar los contenedores:
-
-```bash
-npm run docker:up
-```
-
-### 6. Ejecutar la Aplicación
-
-¡Todo está listo! Ahora puedes iniciar el servidor de desarrollo.
-
-```bash
-npm run dev
-```
-
-Frontend: `http://localhost:5173` (Vite puede cambiar a `http://localhost:5174`)
-API backend: `http://localhost:3001`
--Sigue estos pasos para configurar y ejecutar el proyecto en tu entorno de desarrollo local.
--### 1. Prerrequisitos
--Asegúrate de tener instalado el siguiente software en tu sistema:
--- Node.js: Versión 18.x o superior. -- npm: Gestor de paquetes de Node.js (generalmente se instala con Node.js). -- Git: Para clonar el repositorio. -- Docker: Para gestionar los servicios de base de datos y caché.
--### 2. Clonar el Repositorio
--Abre tu terminal y clona el repositorio del proyecto en tu máquina local.
--bash -git clone <URL-DEL-REPOSITORIO> -cd AcademicChain-Ledger -
--### 3. Instalar Dependencias
--Instala todas las dependencias del proyecto definidas en el archivo package.json.
--bash -npm install -
--### 4. Configurar las Variables de Entorno
--El proyecto incluye un script interactivo para configurar todas las credenciales y secretos necesarios. Antes de ejecutarlo, asegúrate de tener a mano la siguiente información:
--- Tu Hedera Account ID y Private Key. -- Tu Pinata API Key y Secret Key. -- La URI de conexión a tu base de datos MongoDB Atlas. -- La URI de conexión a tu instancia de Redis Cloud.
--Ahora, ejecuta el script de configuración:
--bash -node setup-env.js -
--El script te guiará, generará los secretos de seguridad y creará un archivo .env en la raíz del proyecto. Este archivo es ignorado por Git para proteger tus credenciales.
--### 5. Iniciar los Servicios con Docker
--El proyecto utiliza Docker para orquestar los servicios necesarios como la base de datos. Ejecuta el siguiente comando para levantar los contenedores:
--bash -npm run docker:up -
--### 6. Ejecutar la Aplicación
--¡Todo está listo! Ahora puedes iniciar el servidor de desarrollo.
--bash -npm run dev -
--La aplicación estará disponible en http://localhost:3001 (o el puerto que hayas configurado). + +La aplicación web estará disponible en la URL de tu cliente (por ejemplo, http://localhost:5173), mientras que la API se ejecutará en el puerto definido en tu archivo .env (por ejemplo, http://localhost:3001).
-
-
-Con este cambio, tu `README.md` ahora tiene una guía de instalación limpia, profesional y precisa para cualquier persona que quiera usar tu proyecto.
-
-<!--
-[PROMPT_SUGGESTION]¿Puedes añadir una sección de "Estructura del Proyecto" al README para explicar las carpetas `server`, `client` y `contracts`?[/PROMPT_SUGGESTION]
-[PROMPT_SUGGESTION]¿Cómo puedo mejorar el script `setup-env.js` para que oculte la entrada de la clave privada?[/PROMPT_SUGGESTION]
--->
-
-Con estos cambios, cualquier desarrollador (incluido tú) solo necesitará seguir los nuevos y sencillos pasos del `README` para tener todo el entorno funcionando sin problemas.
-
-<!--
-[PROMPT_SUGGESTION]¿Puedes añadir una sección de "Estructura del Proyecto" al README para explicar las carpetas `server`, `client` y `contracts`?[/PROMPT_SUGGESTION]
-[PROMPT_SUGGESTION]¿Cómo puedo hacer que el script `setup-env.js` oculte la entrada de la clave privada de Hedera?[/PROMPT_SUGGESTION]
--->
-
-Con estos cambios, cualquier desarrollador (incluido tú) solo necesitará seguir los nuevos y sencillos pasos del `README` para tener todo el entorno funcionando sin problemas.
-
-<!--
-[PROMPT_SUGGESTION]¿Puedes añadir una sección de "Estructura del Proyecto" al README para explicar las carpetas `server`, `client` y `contracts`?[/PROMPT_SUGGESTION]
-[PROMPT_SUGGESTION]¿Cómo puedo hacer que el script `setup-env.js` oculte la entrada de la clave privada de Hedera?[/PROMPT_SUGGESTION]
--->
 ## 🔗 XRP + Hedera (Dual Ledger)
 
-- Anclaje secundario opcional en XRP Ledger para prueba de existencia y verificación cruzada.
-- El flujo en Hedera no se interrumpe: si XRPL no está habilitado o falla, la emisión/verificación en Hedera sigue funcionando.
 
 ### Variables de entorno (server/.env)
-- `XRPL_ENABLE=1` o `XRPL_ENABLED=true` para habilitar.
-- `XRPL_NETWORK=testnet|mainnet` (por defecto `testnet`).
-- `XRPL_SEED=<seed_de_la_wallet>` o `XRPL_SECRET=<secret>`.
-- `XRPL_ADDRESS=<cuenta_opcional>` si quieres fijar la cuenta explícitamente.
+- `XRPL_ENABLE=1` o `XRPL_ENABLED=true` para habilitar la funcionalidad.
 - `XRP_ANCHOR_FEE=0.000001` monto mínimo en XRP para el anclaje.
 - `XRP_BACKUP_WALLET=<destino_opcional>` si quieres enviar el pago/memo a una billetera backup.
 
@@ -561,7 +459,7 @@ return {
 
 #### Verificación Dual
 ```javascript
-// Verificación paralela en ambos ledgers
+// Verificación paralela en ambos libros contables
 const hederaVerification = await hederaService.verifyCredential(tokenId, serialNumber);
 const xrpAnchor = await xrpService.getByTokenSerial(tokenId, serialNumber);
 const xrpExists = !!xrpAnchor;

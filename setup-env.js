@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const crypto = require('crypto');
+const readline = require('readline');
 const { exec, spawn } = require('child_process');
 
 console.log('🎓 AcademicChain Ledger - Configuración Automática\n');

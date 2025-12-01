@@ -25,7 +25,7 @@ const XrpAnchorCell = ({ tokenId, serialNumber }) => {
       try {
         setLoading(true);
         setError('');
-        const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+        const API_BASE_URL = import.meta.env.VITE_API_URL;
         const res = await fetch(`${API_BASE_URL}/api/verification/verify/${tokenId}/${serialNumber}`, { headers: { Accept: 'application/json' } });
         const data = await res.json();
         const x = data?.data?.xrpAnchor;
@@ -98,7 +98,7 @@ const BatchIssuance = ({ demo = false }) => {
   }, [processResult, issuanceConfig]);
 
   const handleExportCsv = useCallback(() => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+    const API_BASE_URL = import.meta.env.VITE_API_URL;
     const items = getResultItems();
     if (!items.length) return;
     const rows = [['tokenId','serialNumber','verificationUrl','source']].concat(
@@ -259,6 +259,10 @@ const BatchIssuance = ({ demo = false }) => {
             progress: 100,
             successful: data.result?.data?.successful?.length || 0,
             failed: data.result?.data?.failed?.length || 0,
+            dualOk: (() => {
+              const succ = Array.isArray(data.result?.data?.successful) ? data.result.data.successful : [];
+              return succ.filter(s => s?.xrpAnchor?.xrpTxHash).length;
+            })(),
             duration: data.duration,
           },
           // Guardar los resultados detallados para el reporte
@@ -279,7 +283,7 @@ const BatchIssuance = ({ demo = false }) => {
   }, [socket, processResult?.data?.masterJobId]);
 
   useEffect(() => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+    const API_BASE_URL = import.meta.env.VITE_API_URL;
     const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const masterJobId = processResult?.data?.masterJobId;
@@ -305,6 +309,10 @@ const BatchIssuance = ({ demo = false }) => {
             progress: typeof prog === 'number' ? prog : prev.summary?.progress || 0,
             successful: Array.isArray(result?.data?.successful) ? result.data.successful.length : (prev.summary?.successful || 0),
             failed: Array.isArray(result?.data?.failed) ? result.data.failed.length : (prev.summary?.failed || 0),
+            dualOk: (() => {
+              const succ = Array.isArray(result?.data?.successful) ? result.data.successful : [];
+              return succ.filter(s => s?.xrpAnchor?.xrpTxHash).length;
+            })(),
           },
           data: result?.data ? { ...prev.data, ...result.data } : prev.data,
         }));
@@ -358,7 +366,7 @@ const BatchIssuance = ({ demo = false }) => {
       }
 
       if (preSignPayments) {
-        const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+        const API_BASE_URL = import.meta.env.VITE_API_URL;
         const headers = (() => { try { const t = localStorage.getItem('authToken'); return t ? { Authorization: `Bearer ${t}` } : {}; } catch { return {}; } })();
         const prepared = [];
         for (const item of credentials) {
