@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './Header';
 import Footer from './Footer';
@@ -7,6 +7,7 @@ import LoadingSpinner from './ui/LoadingSpinner';
 import { useAnalytics } from './useAnalytics';
 import ErrorBoundary from './ErrorBoundary';
 import { useHedera } from './useHedera';
+import { useAuth } from './useAuth';
 
 // Variantes de animación para transiciones de página
 const pageVariants = {
@@ -42,10 +43,11 @@ const Layout = ({
   const location = useLocation();
   const { trackPageView } = useAnalytics();
   const { isConnected } = useHedera();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [originalTitle] = useState(() => document.title);
-  const [originalFaviconHref, setOriginalFaviconHref] = useState(() => {
+  const [originalFaviconHref] = useState(() => {
     const link = document.querySelector("link[rel='icon']");
     return link ? link.getAttribute('href') : null;
   });
@@ -89,21 +91,9 @@ const Layout = ({
   }, [location.pathname]);
 
   useEffect(() => {
-    const isDemo = location.pathname.startsWith('/demo');
-    if (isDemo) {
-      document.title = `${originalTitle} • DEMO`;
-      const link = document.querySelector("link[rel='icon']");
-      if (link) {
-        if (!originalFaviconHref) setOriginalFaviconHref(link.getAttribute('href'));
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#F59E0B"/><text x="32" y="42" font-size="30" text-anchor="middle" fill="#111827" font-family="Arial, Helvetica, sans-serif">D</text></svg>`;
-        const url = 'data:image/svg+xml;base64,' + btoa(svg);
-        link.setAttribute('href', url);
-      }
-    } else {
-      document.title = originalTitle;
-      const link = document.querySelector("link[rel='icon']");
-      if (link && originalFaviconHref) link.setAttribute('href', originalFaviconHref);
-    }
+    document.title = originalTitle;
+    const link = document.querySelector("link[rel='icon']");
+    if (link && originalFaviconHref) link.setAttribute('href', originalFaviconHref);
   }, [location.pathname, originalTitle, originalFaviconHref]);
 
   // Determinar si es una ruta especial (sin navbar/footer)
@@ -140,6 +130,18 @@ const Layout = ({
         </div>
       </div>
 
+      {(!showNavbar || isSpecialRoute) && user?.role === 'pending_university' && (
+        <div className="w-full bg-yellow-100 border-b border-yellow-200">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-2 text-yellow-900 text-sm flex items-center justify-between">
+            <span className="flex items-center gap-2"><span>⏳</span>Tu institución está en revisión</span>
+            <div className="flex items-center gap-2">
+              <Link to="/institution/pending" className="btn-secondary">Ver estado</Link>
+              <a href={`mailto:${import.meta.env.VITE_SUPPORT_EMAIL || 'soporte@tu-institucion.edu'}`} className="btn-ghost text-yellow-900">Soporte</a>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Navbar condicional */}
       {showNavbar && !isSpecialRoute && (
         <motion.header
@@ -153,14 +155,7 @@ const Layout = ({
         </motion.header>
       )}
 
-      {/* Banner Global de Modo Demo */}
-      {location.pathname.startsWith('/demo') && (
-        <div className="sticky top-0 z-40 w-full">
-          <div className="bg-yellow-100 text-yellow-900 py-2 px-4 text-center text-sm border-b border-yellow-200">
-            Estás visualizando una demostración. Es una simulación: no se guarda información ni se emite en red.
-          </div>
-        </div>
-      )}
+      {/* Banner Demo eliminado */}
 
       {/* Loading Overlay */}
       <AnimatePresence mode="wait">
