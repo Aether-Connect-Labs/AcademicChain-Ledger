@@ -117,14 +117,14 @@ const Header = ({
 
   // Navegación para usuarios autenticados
   const authNavigation = [
-    { name: 'Dashboard Institución', href: '/institution/dashboard', icon: '📊', role: ['institution'] },
-    { name: 'Crear Credenciales', href: '/institution/crear', icon: '🛠️', role: ['institution'] },
-    { name: 'Emitir Título', href: '/institution/emitir/titulo', icon: '🎓', role: ['institution'] },
-    { name: 'Emitir Certificado', href: '/institution/emitir/certificado', icon: '📜', role: ['institution'] },
-    { name: 'Emitir Diploma', href: '/institution/emitir/diploma', icon: '🏅', role: ['institution'] },
-    { name: 'Carga Masiva', href: '/institution/emitir/masivo', icon: '📦', role: ['institution'] },
+    { name: 'Dashboard Institución', href: '/institution/dashboard', icon: '📊', role: ['institution','university','admin'] },
+    { name: 'Crear Credenciales', href: '/institution/crear', icon: '🛠️', role: ['institution','university','admin'] },
+    { name: 'Emitir Título', href: '/institution/emitir/titulo', icon: '🎓', role: ['institution','university','admin'] },
+    { name: 'Emitir Certificado', href: '/institution/emitir/certificado', icon: '📜', role: ['institution','university','admin'] },
+    { name: 'Emitir Diploma', href: '/institution/emitir/diploma', icon: '🏅', role: ['institution','university','admin'] },
+    { name: 'Carga Masiva', href: '/institution/emitir/masivo', icon: '📦', role: ['institution','university','admin'] },
     { name: 'Portal Alumno', href: '/student/portal', icon: '🎓', role: ['student'] },
-    { name: 'Verificar', href: '/verificar', icon: '🔍', role: ['student','admin','institution','employer'] },
+    { name: 'Verificar', href: '/verificar', icon: '🔍', role: ['student','admin','institution','university','employer'] },
     { name: 'Admin', href: '/admin', icon: '⚙️', role: ['admin'] },
     { name: 'API Keys', href: '/api-keys', icon: '🔑', role: ['developer', 'admin'] }
   ];
@@ -321,7 +321,7 @@ const Header = ({
               )}
             </div>
 
-            {isAuthenticated && user?.role === 'institution' && (
+            {isAuthenticated && ['institution','university','admin'].includes(user?.role) && (
               <div className="relative hidden sm:block">
                 <button
                   onClick={() => setIsEmitMenuOpen(!isEmitMenuOpen)}
@@ -592,7 +592,7 @@ const Header = ({
                 )}
               </div>
 
-              {isAuthenticated && user?.role === 'institution' && (
+              {isAuthenticated && ['institution','university','admin'].includes(user?.role) && (
                 <div className="px-4 space-y-2">
                   <Link to="/institution/emitir/titulo" className="block px-3 py-2 rounded-lg bg-blue-50 text-blue-700">🎓 Emitir Título</Link>
                   <Link to="/institution/emitir/certificado" className="block px-3 py-2 rounded-lg bg-blue-50 text-blue-700">📜 Emitir Certificado</Link>

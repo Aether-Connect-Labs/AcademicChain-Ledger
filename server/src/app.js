@@ -137,7 +137,8 @@ try {
         const allowedDomains = String(process.env.INSTITUTION_EMAIL_DOMAINS || '').split(',').map(d => d.trim().toLowerCase()).filter(Boolean);
 
         const isAdmin = adminEmail && email === adminEmail;
-        const isInstitution = allowedDomains.length > 0 && allowedDomains.includes(domain);
+        const allowInstitutionFallback = String(process.env.ALLOW_INSTITUTION_FALLBACK || '0') === '1';
+        const isInstitution = allowedDomains.length > 0 ? allowedDomains.includes(domain) : allowInstitutionFallback;
 
         let user = await User.findOne({ email });
         if (!user) {
