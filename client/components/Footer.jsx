@@ -164,7 +164,7 @@ const Footer = ({ variant = 'default' }) => {
                 )}
                 <div>
                   <h3 className="text-xl font-bold text-white">AcademicChain</h3>
-                  <p className="text-sm opacity-75">Powered by Hedera</p>
+                  <p className="text-sm opacity-75">Powered by Hedera + XRP Ledger</p>
                 </div>
               </div>
               
@@ -302,45 +302,53 @@ const Footer = ({ variant = 'default' }) => {
           </div>
         </div>
 
-        {/* Badges de tecnología y partners */}
-        <div className="py-6 border-t border-gray-700">
-          <div className="flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
-            {/* Tecnologías */}
-            <div className="flex items-center space-x-6 text-sm opacity-75">
-              <span>Powered by:</span>
-              <div className="flex items-center space-x-4">
-                <span className="flex items-center space-x-2">
-                  <span>⚡</span>
-                  <span>Hedera Hashgraph</span>
-                </span>
-                <span className="flex items-center space-x-2">
-                  <span>🔗</span>
-                  <span>Blockchain</span>
-                </span>
-                <span className="flex items-center space-x-2">
-                  <span>🌱</span>
-                  <span>Carbon Negative</span>
-                </span>
-              </div>
-            </div>
+            {/* Badges de tecnología y partners */}
+            <div className="py-6 border-t border-gray-700">
+              <div className="flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
+                {/* Tecnologías */}
+                <div className="flex items-center space-x-3 text-sm opacity-90">
+                  <span className="mr-2">Powered by:</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">
+                      <span>⚡</span>
+                      <span className="font-medium">Hedera Hashgraph</span>
+                    </span>
+                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">
+                      <span>💠</span>
+                      <span className="font-medium">XRP Ledger</span>
+                    </span>
+                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">
+                      <span>📦</span>
+                      <span className="font-medium">IPFS</span>
+                    </span>
+                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">
+                      <span>🌱</span>
+                      <span className="font-medium">Carbon Negative</span>
+                    </span>
+                  </div>
+                </div>
 
             {/* Certificaciones y badges */}
-            <div className="flex items-center space-x-4">
-              <div className="badge badge-info">
-                <span>🔒</span>
-                <span className="ml-2">SSL Secured</span>
-              </div>
-              <div className="badge badge-info">
-                <span>🌎</span>
-                <span className="ml-2">GDPR Compliant</span>
-              </div>
-              <div className="badge badge-success">
-                <span>🟢</span>
-                <span className="ml-2">System Online</span>
+                <div className="flex items-center space-x-2">
+                  <div className="badge badge-info flex items-center gap-2">
+                    <span>🔒</span>
+                    <span>SSL Secured</span>
+                  </div>
+                  <div className="badge badge-info flex items-center gap-2">
+                    <span>🌎</span>
+                    <span>GDPR Compliant</span>
+                  </div>
+                  <div className="badge badge-success flex items-center gap-2">
+                    <span>🟢</span>
+                    <span>System Online</span>
+                  </div>
+                  <div className="badge badge-info flex items-center gap-2">
+                    <span>💠</span>
+                    <span>XRPL Anchored</span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
       </div>
 
       {/* Botón flotante de scroll to top (solo en móvil) */}

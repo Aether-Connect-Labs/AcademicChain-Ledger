@@ -1,6 +1,38 @@
 # 🎓 AcademicChain Ledger
 
-Plataforma para emitir y verificar credenciales académicas utilizando Hedera Hashgraph e IPFS.
+## Propuesta de Valor
+Solución end-to-end para emisión y verificación de credenciales académicas en blockchain. Combina la velocidad y bajo costo de Hedera con la seguridad y descentralización de XRP para ofrecer verificación en segundos y costos mínimos.
+
+## Para audiencias menos técnicas (inversores, clientes)
+### Problema
+Las credenciales académicas falsas cuestan miles de millones anualmente; la verificación manual es lenta y costosa.
+### Solución
+Plataforma blockchain que transforma títulos universitarios en certificados digitales inalterables y verificables instantáneamente.
+### ¿Cómo funciona?
+1. Las instituciones emiten títulos como activos digitales únicos (NFTs) con metadatos inmutables.
+2. Los estudiantes reciben un QR/URL vinculado a su credencial.
+3. Cualquier empleador escanea el QR y verifica su autenticidad en segundos.
+### Ventajas clave
+- Verificación instantánea (segundos vs días/semanas).
+- Imposible de falsificar (tecnología blockchain).
+- Costo mínimo por emisión (< $0.01 en algunas redes).
+- Auditoría pública transparente.
+- Experiencia sin fricción para todos los usuarios.
+
+## Para audiencias técnicas (developers)
+### Tecnologías principales
+![Hedera](https://img.shields.io/badge/Hedera-Hashgraph-blue) ![XRP](https://img.shields.io/badge/XRP-Ledger-purple) ![IPFS](https://img.shields.io/badge/IPFS-Descentralizado-green) ![Node.js](https://img.shields.io/badge/Node.js-Express-yellow) ![React](https://img.shields.io/badge/React-Vite-red)
+
+### Características principales
+- Emisión tokenizada: Conversión de títulos/certificados en NFTs con metadatos inmutables (HIP‑412).
+- Verificación dual: Validación on-chain vía QR/URL consultando Hedera y XRP.
+- Flujo completo: Autenticación OAuth → Dashboard institución → Emisión individual/masiva → Verificación pública.
+- Arquitectura dual: Hedera para NFTs; XRP para auditoría cruzada y resiliencia.
+- Gestión multi‑rol: Paneles diferenciados para admin, instituciones y estudiantes.
+- Infraestructura robusta: IPFS, CSP endurecido, herramientas de auditoría y exportación CSV.
+
+### Diagrama de arquitectura
+Consulta la sección `🔄 Flujo Dual Ledger: Hedera + XRP` más abajo para ver el diagrama de secuencia y el flujo detallado.
 
 ## ✨ Características
 - Registro inmutable de credenciales (Hedera Hashgraph)
