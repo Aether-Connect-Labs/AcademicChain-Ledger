@@ -112,9 +112,6 @@ const Header = ({
     { name: 'Instituciones', href: '/instituciones', current: location.pathname === '/instituciones' },
     { name: 'Verificar', href: '/verificar', current: location.pathname === '/verificar' },
     { name: 'Precios', href: '/pricing', current: location.pathname === '/pricing' },
-    { name: 'Agendar Demo', href: '/demo', current: location.pathname === '/demo' },
-    { name: 'Demo Institución', href: '/demo/institution', current: location.pathname === '/demo/institution' },
-    { name: 'Demo Alumno', href: '/demo/student', current: location.pathname === '/demo/student' },
     { name: 'Documentación', href: '/docs', current: location.pathname.startsWith('/docs') }
   ];
 
@@ -205,11 +202,12 @@ const Header = ({
 
   // Clases dinámicas basadas en estado
   const headerClasses = `
-    ${currentVariant.bg} 
-    ${currentVariant.border} 
+    ${currentVariant.bg}
+    ${currentVariant.border}
     ${sticky ? 'sticky top-0 z-50 transition-all duration-300' : ''}
     ${isScrolled ? currentVariant.scrolled : ''}
     ${transparent && !isScrolled ? 'bg-transparent border-transparent' : ''}
+    w-full overflow-x-hidden
   `;
 
   const textClasses = `
@@ -242,12 +240,12 @@ const Header = ({
               )}
               <div className="hidden sm:block">
                 <h1 className={`text-xl font-bold ${textClasses}`}>AcademicChain</h1>
-                <p className="text-xs opacity-75">Powered by Hedera</p>
+                <p className="text-xs opacity-75">Powered by Hedera + XRP Ledger</p>
               </div>
             </Link>
 
             {/* Navegación desktop */}
-            <nav className="hidden lg:flex items-center space-x-1">
+            <nav className="hidden xl:flex items-center space-x-1">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
@@ -268,8 +266,8 @@ const Header = ({
           </div>
 
           {/* Lado derecho - Acciones */}
-          <div className="flex items-center space-x-4">
-            <div className="hidden md:flex items-center space-x-3">
+          <div className="flex items-center sm:space-x-2 xl:space-x-4 flex-shrink-0">
+            <div className="hidden md:flex items-center space-x-2 xl:space-x-3">
               <div className={`flex items-center space-x-2 ${isConnected ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'} px-3 py-1.5 rounded-full text-sm`}>
                 <div className={`w-2 h-2 ${isConnected ? 'bg-green-500' : 'bg-red-500'} rounded-full animate-pulse`}></div>
                 <span>Hedera {network && network !== 'unknown' ? `· ${network}` : ''}</span>
@@ -285,7 +283,7 @@ const Header = ({
                 </div>
               )}
               {isConnected && account && (
-                <div className="hidden xl:flex items-center space-x-2 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-sm">
+                <div className="hidden 2xl:flex items-center space-x-2 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-sm">
                   <span className="font-mono text-xs">{account.accountId}</span>
                 </div>
               )}

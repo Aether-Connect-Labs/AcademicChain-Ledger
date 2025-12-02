@@ -151,7 +151,7 @@ const Footer = ({ variant = 'default' }) => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Sección principal */}
         <div className="py-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-8 lg:gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 md:gap-8 lg:gap-12">
             {/* Brand y descripción */}
             <div className="lg:col-span-2">
               <div className="flex items-center space-x-3 mb-6">
@@ -245,7 +245,7 @@ const Footer = ({ variant = 'default' }) => {
                 © {currentYear} AcademicChain by Aether Connect Labs. Todos los derechos reservados.
               </span>
               
-              <div className="flex flex-wrap justify-center gap-4">
+              <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
                 {legalLinks.map((link) => (
                   <Link
                     key={link.name}
@@ -260,9 +260,9 @@ const Footer = ({ variant = 'default' }) => {
             </div>
 
             {/* Redes sociales y botones de acción */}
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-4 sm:space-x-6">
               {/* Redes sociales */}
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3 sm:space-x-4">
                 {socialLinks.map((social) => (
                   <a
                     key={social.name}
@@ -270,7 +270,7 @@ const Footer = ({ variant = 'default' }) => {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => handleSocialClick(social.name)}
-                    className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-lg flex items-center justify-center transition-all shadow-soft hover-lift"
+                    className="w-9 h-9 sm:w-10 sm:h-10 bg-white/10 hover:bg-white/20 rounded-lg flex items-center justify-center transition-all shadow-soft hover-lift"
                     title={social.name}
                   >
                     <span className="text-sm">{social.icon}</span>
@@ -279,13 +279,13 @@ const Footer = ({ variant = 'default' }) => {
               </div>
 
               {/* Separador */}
-              <div className="h-6 w-px bg-gray-600"></div>
+              <div className="hidden sm:block h-6 w-px bg-gray-600"></div>
 
               {/* Botones de acción */}
               <div className="flex items-center space-x-3">
                 <button
                   onClick={scrollToTop}
-                  className="btn-ghost w-10 h-10 rounded-lg flex items-center justify-center hover-lift shadow-soft"
+                  className="btn-ghost w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center hover-lift shadow-soft"
                   title="Volver arriba"
                 >
                   <span>↑</span>
@@ -304,9 +304,9 @@ const Footer = ({ variant = 'default' }) => {
 
             {/* Badges de tecnología y partners */}
             <div className="py-6 border-t border-gray-700">
-              <div className="flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
+          <div className="flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
                 {/* Tecnologías */}
-                <div className="flex items-center space-x-3 text-sm opacity-90">
+                <div className="flex items-center flex-wrap gap-2 text-sm opacity-90">
                   <span className="mr-2">Powered by:</span>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">
@@ -329,7 +329,7 @@ const Footer = ({ variant = 'default' }) => {
                 </div>
 
             {/* Certificaciones y badges */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center flex-wrap gap-2 sm:gap-3">
                   <div className="badge badge-info flex items-center gap-2">
                     <span>🔒</span>
                     <span>SSL Secured</span>

@@ -196,7 +196,7 @@ function InstitutionDashboard({ demo = false }) {
     <div className="container-responsive py-10">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-2 gradient-text">Dashboard de la Institución</h1>
       <p className="text-gray-600">Bienvenido al portal de la institución. Aquí podrás emitir títulos y subir archivos Excel.</p>
-      {demo && (<div className="badge badge-info mt-2">Vista demo: todas las acciones de emisión están deshabilitadas</div>)}
+      {/* Modo demo deshabilitado */}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="card">
           <div className="font-semibold">Métricas</div>
@@ -226,7 +226,7 @@ function InstitutionDashboard({ demo = false }) {
             <input className="input-primary" placeholder="Memo (opcional)" value={tokenMemo} onChange={(e) => setTokenMemo(e.target.value)} disabled={creatingToken || demo} />
           </div>
           <div className="mt-3 flex items-center gap-2">
-            <button className="btn-primary" disabled={creatingToken || demo || !tokenName || !tokenSymbol} onClick={handleCreateToken}>
+            <button className="btn-primary btn-lg" disabled={creatingToken || demo || !tokenName || !tokenSymbol} onClick={handleCreateToken}>
               {creatingToken ? 'Creando...' : 'Crear Token HTS'}
             </button>
             {tokenMessage && <div className="badge badge-success">{tokenMessage}</div>}
@@ -240,7 +240,7 @@ function InstitutionDashboard({ demo = false }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <input className="input-primary" placeholder="Token ID (p.ej. 0.0.x)" value={verifyTokenId} onChange={(e) => setVerifyTokenId(e.target.value)} />
             <input className="input-primary" placeholder="Serial Number" value={verifySerial} onChange={(e) => setVerifySerial(e.target.value)} />
-            <button className="btn-primary" onClick={handleOpenVerification} disabled={!verifyTokenId || !verifySerial}>Abrir Verificación</button>
+            <button className="btn-primary btn-lg" onClick={handleOpenVerification} disabled={!verifyTokenId || !verifySerial}>Abrir Verificación</button>
           </div>
           <div className="text-xs text-gray-500 mt-2">Se abrirá una página con el estado en Hedera y el anclaje XRP.</div>
         </div>
@@ -261,7 +261,7 @@ function InstitutionDashboard({ demo = false }) {
               const params = {};
               if (filterTokenId) params.tokenId = filterTokenId;
               if (filterAccountId) params.accountId = filterAccountId;
-              const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+              const API_BASE_URL = import.meta.env.VITE_API_URL;
               const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
               const headers = token ? { Authorization: `Bearer ${token}` } : {};
               const q = new URLSearchParams({ page: 1, limit, sort, sortBy, ...params }).toString();
@@ -280,14 +280,15 @@ function InstitutionDashboard({ demo = false }) {
             }}>
               Buscar
             </button>
-            <a className={`btn-secondary ${demo ? 'pointer-events-none opacity-60' : ''}`} target="_blank" rel="noreferrer" href={`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001')}/api/universities/credentials?${new URLSearchParams({ ...(filterTokenId ? { tokenId: filterTokenId } : {}), ...(filterAccountId ? { accountId: filterAccountId } : {}), format: 'csv' }).toString()}`}>Exportar CSV</a>
+            <a className={`btn-secondary ${demo ? 'pointer-events-none opacity-60' : ''}`} target="_blank" rel="noreferrer" href={`${import.meta.env.VITE_API_URL}/api/universities/credentials?${new URLSearchParams({ ...(filterTokenId ? { tokenId: filterTokenId } : {}), ...(filterAccountId ? { accountId: filterAccountId } : {}), format: 'csv' }).toString()}`}>Exportar CSV</a>
           </div>
         </div>
         {loadingCreds && <div className="badge-info badge">Cargando listado...</div>}
         {errorCreds && <div className="badge-error badge">{errorCreds}</div>}
         {!loadingCreds && credentials.length > 0 && (
-          <div className="overflow-x-auto bg-white rounded-lg shadow-soft">
-            <table className="min-w-full">
+          <div>
+            <div className="hidden md:block overflow-x-auto bg-white rounded-lg shadow-soft">
+              <table className="min-w-full">
               <thead>
                 <tr className="bg-gray-50 text-gray-700 text-sm">
                   <th className="px-4 py-2 text-left">Token</th>
@@ -331,7 +332,40 @@ function InstitutionDashboard({ demo = false }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
+            <div className="md:hidden space-y-3">
+              {credentials.map((c) => (
+                <div key={`${c.tokenId}-${c.serialNumber}`} className="credential-card">
+                  <div className="flex items-center justify-between">
+                    <div className="font-mono text-sm truncate max-w-[60%]">{c.tokenId}</div>
+                    <div className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">#{c.serialNumber}</div>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-600 break-all">
+                    {c.xrpAnchor?.xrpTxHash ? (
+                      <a href={`https://testnet.xrplexplorer.com/tx/${c.xrpAnchor.xrpTxHash}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">XRPL {c.xrpAnchor.xrpTxHash.slice(0, 8)}...</a>
+                    ) : (
+                      <span>XRPL N/A</span>
+                    )}
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button className="btn-secondary btn-sm" onClick={() => { setDocUrl(toGateway(c.ipfsURI)); setDocOpen(true); }}>Ver Documento</button>
+                    <button className="btn-secondary btn-sm" disabled={demo} onClick={() => {
+                      const base = import.meta.env.VITE_API_URL;
+                      const u = `${base}/api/verification/qr/generate/${c.universityId}/${c.tokenId}/${c.serialNumber}?format=png&width=${qrPngSize}`;
+                      setQrPreviewUrl(u);
+                      setQrTokenId(c.tokenId);
+                      setQrSerial(String(c.serialNumber));
+                      setQrIssuerId(String(c.universityId || ''));
+                      setQrIpfsURI(c.ipfsURI || '');
+                      setQrPreviewOpen(true);
+                    }}>QR</button>
+                    <a className="btn-primary btn-sm" href={`${import.meta.env.VITE_API_URL}/api/verification/credential-history/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Verificar</a>
+                    <a className="btn-primary btn-sm" href={`${import.meta.env.VITE_API_URL}/api/verification/verify/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Dual</a>
+                  </div>
+                </div>
+              ))}
+            </div>
             <div className="flex items-center justify-between p-3 border-t" role="navigation" aria-label="Controles de paginación">
               <div className="flex items-center gap-2">
                 <button aria-label="Primera página" aria-disabled={demo || page <= 1 || loadingCreds} className="btn-secondary btn-sm" disabled={demo || page <= 1 || loadingCreds} onClick={() => {
@@ -358,7 +392,7 @@ function InstitutionDashboard({ demo = false }) {
                   const params = {};
                   if (filterTokenId) params.tokenId = filterTokenId;
                   if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const API_BASE_URL = import.meta.env.VITE_API_URL;
                   const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
                   const headers = token ? { Authorization: `Bearer ${token}` } : {};
                   const q = new URLSearchParams({ page: page - 1, limit, sort, sortBy, ...params }).toString();
@@ -378,7 +412,7 @@ function InstitutionDashboard({ demo = false }) {
                   const params = {};
                   if (filterTokenId) params.tokenId = filterTokenId;
                   if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const API_BASE_URL = import.meta.env.VITE_API_URL;
                   const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
                   const headers = token ? { Authorization: `Bearer ${token}` } : {};
                   const q = new URLSearchParams({ page: page + 1, limit, sort, sortBy, ...params }).toString();
@@ -398,7 +432,7 @@ function InstitutionDashboard({ demo = false }) {
                   const params = {};
                   if (filterTokenId) params.tokenId = filterTokenId;
                   if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const API_BASE_URL = import.meta.env.VITE_API_URL;
                   const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
                   const headers = token ? { Authorization: `Bearer ${token}` } : {};
                   const q = new URLSearchParams({ page: meta.pages, limit, sort, sortBy, ...params }).toString();
@@ -423,7 +457,7 @@ function InstitutionDashboard({ demo = false }) {
                   const params = {};
                   if (filterTokenId) params.tokenId = filterTokenId;
                   if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const API_BASE_URL = import.meta.env.VITE_API_URL;
                   const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
                   const headers = token ? { Authorization: `Bearer ${token}` } : {};
                   const q = new URLSearchParams({ page: 1, limit: newLimit, sort, sortBy, ...params }).toString();
@@ -450,7 +484,7 @@ function InstitutionDashboard({ demo = false }) {
                   const params = {};
                   if (filterTokenId) params.tokenId = filterTokenId;
                   if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const API_BASE_URL = import.meta.env.VITE_API_URL;
                   const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
                   const headers = token ? { Authorization: `Bearer ${token}` } : {};
                   const q = new URLSearchParams({ page: 1, limit, sort: newSort, sortBy, ...params }).toString();
@@ -475,7 +509,7 @@ function InstitutionDashboard({ demo = false }) {
                   const params = {};
                   if (filterTokenId) params.tokenId = filterTokenId;
                   if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const API_BASE_URL = import.meta.env.VITE_API_URL;
                   const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
                   const headers = token ? { Authorization: `Bearer ${token}` } : {};
                   const q = new URLSearchParams({ page: 1, limit, sort, sortBy: newSortBy, ...params }).toString();
@@ -504,7 +538,7 @@ function InstitutionDashboard({ demo = false }) {
                     const params = {};
                     if (filterTokenId) params.tokenId = filterTokenId;
                     if (filterAccountId) params.accountId = filterAccountId;
-                    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                    const API_BASE_URL = import.meta.env.VITE_API_URL;
                     const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
                     const headers = token ? { Authorization: `Bearer ${token}` } : {};
                     const q = new URLSearchParams({ page: tp, limit, sort, sortBy, ...params }).toString();
@@ -526,7 +560,7 @@ function InstitutionDashboard({ demo = false }) {
                   const params = {};
                   if (filterTokenId) params.tokenId = filterTokenId;
                   if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const API_BASE_URL = import.meta.env.VITE_API_URL;
                   const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
                   const headers = token ? { Authorization: `Bearer ${token}` } : {};
                   const q = new URLSearchParams({ page: tp, limit, sort, sortBy, ...params }).toString();
@@ -577,7 +611,7 @@ function InstitutionDashboard({ demo = false }) {
               <div className="mt-4 flex items-center justify-between">
                 <a className="btn-secondary" href={qrPreviewUrl} target="_blank" rel="noreferrer">Abrir en pestaña</a>
                 <button className="btn-primary" disabled={demo} onClick={async () => {
-                  const base = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const base = import.meta.env.VITE_API_URL;
                   const svg = `${base}/api/verification/qr/generate/${encodeURIComponent(qrIssuerId)}/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}?format=svg`;
                   try {
                     const res = await fetch(svg);
@@ -593,7 +627,7 @@ function InstitutionDashboard({ demo = false }) {
                   } catch {}
                 }}>Descargar SVG</button>
                 <button className="btn-primary" disabled={demo} onClick={async () => {
-                  const base = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const base = import.meta.env.VITE_API_URL;
                   const png = `${base}/api/verification/qr/generate/${encodeURIComponent(qrIssuerId)}/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}?format=png&width=${encodeURIComponent(qrPngSize)}`;
                   try {
                     const res = await fetch(png);
@@ -616,7 +650,7 @@ function InstitutionDashboard({ demo = false }) {
                   } catch {}
                 }}>Copiar enlace QR</button>
                 <button className="btn-secondary" onClick={async () => {
-                  const base = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const base = import.meta.env.VITE_API_URL;
                   const verifyLink = `${base}/api/verification/verify/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}`;
                   const text = `QR: ${qrPreviewUrl}\nVerificación: ${verifyLink}`;
                   try {
@@ -626,7 +660,7 @@ function InstitutionDashboard({ demo = false }) {
                   } catch {}
                 }}>Copiar ambos enlaces</button>
                 {(() => {
-                  const base = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+                  const base = import.meta.env.VITE_API_URL;
                   const link = `${base}/api/verification/verify/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}`;
                   return (
                     <div className="flex items-center gap-2">

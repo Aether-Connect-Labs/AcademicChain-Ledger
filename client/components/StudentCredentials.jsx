@@ -24,14 +24,17 @@ const CredentialCard = ({ credential }) => {
         <span className="badge badge-success text-xs">emitida</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-        <div className="bg-gray-50 p-3 rounded-lg flex items-center justify-center">
-          <QRCode value={link} size={128} />
+        <div className="bg-gray-50 p-2 sm:p-3 rounded-lg flex items-center justify-center">
+          <QRCode value={link} size={110} />
         </div>
         <div>
-          <p className="text-sm text-gray-700 break-all">Link: {link}</p>
-          <button onClick={() => navigator.clipboard.writeText(link)} className="mt-2 btn-primary">Copiar Link</button>
-          <div className="mt-3">
-            <button className="btn-secondary" onClick={() => setDocOpen(true)} disabled={!docUrl}>Ver documento</button>
+          <div className="text-sm text-gray-700 break-all">
+            <span className="font-medium">Link:</span>
+            <a className="ml-1 text-blue-600 hover:underline break-all" href={link} target="_blank" rel="noreferrer">{link}</a>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button onClick={() => navigator.clipboard.writeText(link)} className="btn-primary btn-sm">Copiar Link</button>
+            <button className="btn-secondary btn-sm" onClick={() => setDocOpen(true)} disabled={!docUrl}>Ver documento</button>
           </div>
         </div>
       </div>
@@ -61,7 +64,7 @@ const StudentCredentials = ({ demo = false }) => {
       setIsLoading(true);
       setError(null);
       try {
-        const API = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
+        const API = import.meta.env.VITE_API_URL;
         const res = await axios.get(`${API}/api/credentials/mine`, {
           headers: { Authorization: `Bearer ${token}` },
         });

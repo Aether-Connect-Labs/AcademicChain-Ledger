@@ -169,7 +169,14 @@ const CredentialVerifier = () => {
                 <span className="font-medium text-gray-700">XRP Anchor:</span>
                 <span className="text-gray-900">
                   {state.xrpAnchor?.xrpTxHash ? (
-                    <a className="text-blue-600 hover:underline" href={`https://livenet.xrpl.org/transactions/${encodeURIComponent(state.xrpAnchor.xrpTxHash)}`} target="_blank" rel="noreferrer">{state.xrpAnchor.xrpTxHash.slice(0, 10)}...</a>
+                    <a
+                      className="text-blue-600 hover:underline"
+                      href={`${(state.xrpAnchor.network||'testnet').includes('live') ? 'https://livenet.xrpl.org/transactions/' : 'https://testnet.xrpl.org/transactions/'}${encodeURIComponent(state.xrpAnchor.xrpTxHash)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {state.xrpAnchor.xrpTxHash.slice(0, 10)}...
+                    </a>
                   ) : 'N/A'}
                 </span>
               </div>
@@ -188,20 +195,44 @@ const CredentialVerifier = () => {
 
       case 'error':
         return (
-          <div className="card bg-red-50 border-red-200">
-            <div className="flex items-center mb-4">
-              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
-                <span className="text-red-600 text-xl">✗</span>
+          <div className="space-y-4">
+            <div className="card bg-red-50 border-red-200">
+              <div className="flex items-center mb-4">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
+                  <span className="text-red-600 text-xl">✗</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-red-800 text-lg">Error en Verificación</h3>
+                  <p className="text-red-600 text-sm">No se pudo validar la credencial</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-red-800 text-lg">Error en Verificación</h3>
-                <p className="text-red-600 text-sm">No se pudo validar la credencial</p>
+              <p className="text-gray-700">{state.error || 'Intenta nuevamente.'}</p>
+              <div className="mt-4 flex space-x-2">
+                <button onClick={handleRetry} className="btn-primary btn-sm">Reintentar</button>
+                <button onClick={handleReset} className="btn-secondary btn-sm">Cancelar</button>
               </div>
             </div>
-            <p className="text-gray-700">{state.error || 'Intenta nuevamente.'}</p>
-            <div className="mt-4 flex space-x-2">
-              <button onClick={handleRetry} className="btn-primary">Reintentar</button>
-              <button onClick={handleReset} className="btn-secondary">Cancelar</button>
+
+            <div className="card">
+              <h3 className="font-semibold mb-2">Verificación Manual</h3>
+              <form onSubmit={handleSubmitManual} className="grid grid-cols-1 gap-3 max-w-md mx-auto">
+                <input
+                  type="text"
+                  value={tokenIdInput}
+                  onChange={(e) => setTokenIdInput(e.target.value)}
+                  placeholder="Token ID (ej. 0.0.123456)"
+                  className="input-primary"
+                />
+                <input
+                  type="text"
+                  value={serialInput}
+                  onChange={(e) => setSerialInput(e.target.value)}
+                  placeholder="Serial Number (ej. 1)"
+                  className="input-primary"
+                />
+                <button type="submit" className="btn-primary btn-lg">Abrir Verificación</button>
+              </form>
+              <p className="text-xs text-gray-500 mt-2">Se abrirá una página con el estado en Hedera y el anclaje XRP.</p>
             </div>
           </div>
         );
@@ -215,7 +246,9 @@ const CredentialVerifier = () => {
     <div className="max-w-2xl mx-auto p-6">
       <h2 className="text-2xl font-bold mb-4 gradient-text">Verificador de Credenciales</h2>
       <div className="card">
-        <QRScanner onScan={handleScan} />
+        <div className="max-w-full overflow-hidden">
+          <QRScanner onScan={handleScan} onError={(msg) => setState({ status: 'error', error: msg })} />
+        </div>
         <div className="mt-6">{renderContent()}</div>
       </div>
       <p className="text-xs text-gray-400 mt-4">Escaneos realizados: {scanCount}</p>
