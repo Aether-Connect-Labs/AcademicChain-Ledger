@@ -31,6 +31,7 @@ const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
   const [tokens, setTokens] = useState([]);
   const [loadingTokens, setLoadingTokens] = useState(false);
   const [tokenFetchError, setTokenFetchError] = useState('');
+  const [didAutoCreate, setDidAutoCreate] = useState(false);
   const { isConnected, connectWallet, signTransactionBytes } = useHedera();
 
   useEffect(() => {
@@ -44,14 +45,37 @@ const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const list = data?.data?.tokens || [];
+        const university = data?.data?.university || '';
         setTokens(list);
         if (list.length > 0 && !formData.tokenId) {
           setFormData(prev => ({ ...prev, tokenId: list[0].tokenId }));
+        } else if (list.length === 0 && !didAutoCreate && String(import.meta.env.VITE_AUTO_CREATE_DEFAULT_TOKEN || '0') === '1') {
+          try {
+            const uniAbbr = (university || 'ACAD').replace(/[^A-Za-z]/g, '').slice(0,4).toUpperCase() || 'ACAD';
+            const tokenName = university ? `${university} Credenciales` : 'Credenciales Académicas';
+            const tokenSymbol = `${uniAbbr}CRED`;
+            const resCreate = await fetch(`${API_BASE_URL}/api/universities/create-token`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...buildAuthHeaders() },
+              body: JSON.stringify({ tokenName, tokenSymbol })
+            });
+            const created = await resCreate.json();
+            if (resCreate.ok) {
+              const newTokenId = created?.data?.tokenId || created?.data?.token?.tokenId;
+              setDidAutoCreate(true);
+              const res2 = await fetch(`${API_BASE_URL}/api/universities/tokens`, { headers: buildAuthHeaders() });
+              const data2 = await res2.json();
+              const list2 = data2?.data?.tokens || [];
+              setTokens(list2);
+              if (list2.length > 0) setFormData(prev => ({ ...prev, tokenId: list2[0].tokenId }));
+              if (!list2.length && newTokenId) setFormData(prev => ({ ...prev, tokenId: newTokenId }));
+            }
+          } catch {}
         }
       })
       .catch((e) => setTokenFetchError(e.message))
       .finally(() => setLoadingTokens(false));
-  }, [demo, formData.tokenId]);
+  }, [demo, formData.tokenId, didAutoCreate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -118,7 +142,7 @@ const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
       }
     const API_BASE_URL = import.meta.env.VITE_API_URL;
       if (!API_BASE_URL) {
-        setMessage('Título preparado en modo demostración. Configura VITE_API_URL para emitir contra el backend.');
+        setMessage('API no disponible en desarrollo. Configura VITE_API_URL para emitir contra el backend.');
         setFormData(prev => ({ ...prev, studentName: '', courseName: '', issueDate: '', grade: '', recipientAccountId: '' }));
         return;
       }
