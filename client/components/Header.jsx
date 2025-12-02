@@ -214,12 +214,25 @@ const Header = ({
     ${isScrolled && variant === 'transparent' ? 'text-gray-900' : currentVariant.text}
   `;
   const isOwnerMode = (import.meta.env.DEV || import.meta.env.VITE_ALLOW_OWNER === '1') && (() => { try { return localStorage.getItem('previewOwner') === '1'; } catch { return false; } })();
+  const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL || 'soporte@tu-institucion.edu';
 
   return (
     <>
     <header className={headerClasses.trim()}>
       {(import.meta.env.DEV || import.meta.env.VITE_ALLOW_OWNER === '1') && (
         <div className="w-full bg-secondary-600 text-white text-center text-xs py-1">Modo Propietario activo</div>
+      )}
+      {isAuthenticated && user?.role === 'pending_university' && (
+        <div className="w-full bg-yellow-100 border-b border-yellow-200">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-2 text-yellow-900 text-sm flex items-center justify-between">
+            <span className="flex items-center gap-2"><span>⏳</span>Tu institución está en revisión</span>
+            <div className="flex items-center gap-2">
+              <Link to="/institution/pending" className="btn-secondary">Ver estado</Link>
+              <a href={`mailto:${supportEmail}`} className="btn-ghost text-yellow-900">Soporte</a>
+              <Link to="/login" className="btn-ghost text-yellow-900">Cerrar sesión</Link>
+            </div>
+          </div>
+        </div>
       )}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
