@@ -22,11 +22,11 @@ import CreateDiplomaPage from './components/CreateDiplomaPage';
 import VerifyCredentialPage from './components/VerifyCredentialPage';
 import InstitutionsPage from './components/InstitutionsPage';
 import ForgotPassword from './components/ForgotPassword';
-import DemoScheduler from './components/DemoScheduler';
 import CreateCredentialsPage from './components/CreateCredentialsPage';
 import BatchIssuance from './components/BatchIssuance';
 import DeveloperPortal from './components/DeveloperPortal';
 import ApiDocsLanding from './components/ApiDocsLanding';
+import PendingApproval from './components/PendingApproval';
 
 const AppRoutes = () => {
   return (
@@ -46,12 +46,18 @@ const AppRoutes = () => {
       <Route path="/instituciones" element={<Layout><InstitutionsPage /></Layout>} />
       <Route path="/developers" element={<Layout><DeveloperPortal /></Layout>} />
       <Route path="/developers/docs" element={<Layout><ApiDocsLanding /></Layout>} />
-      <Route path="/demo" element={<Layout><DemoScheduler /></Layout>} />
-      <Route path="/demo/institution" element={<Layout><InstitutionDashboard demo /></Layout>} />
-      <Route path="/demo/student" element={<Layout><StudentPortal demo /></Layout>} />
+      {/* Rutas demo eliminadas para entorno operacional */}
       <Route path="/forgot-password" element={<Layout><ForgotPassword /></Layout>} />
 
       {/* Rutas Protegidas */}
+      <Route
+        path="/institution/pending"
+        element={
+          <ProtectedRoute requiredRoles={["pending_university"]}>
+            <Layout><PendingApproval /></Layout>
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/institution/dashboard"
         element={

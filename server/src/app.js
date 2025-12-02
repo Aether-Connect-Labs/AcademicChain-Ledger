@@ -68,17 +68,29 @@ if (process.env.NODE_ENV === 'test') {
 const isProduction = process.env.NODE_ENV === 'production';
 const clientUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.CORS_ORIGIN;
 
-// Secure CORS Policy
-const whitelist = isProduction ? [clientUrl] : (clientUrl ? clientUrl.split(',') : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:4173', 'http://localhost:4174']);
+// Secure CORS Policy (resiliente para Render)
+const defaultOrigins = ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:4173', 'http://localhost:4174'];
+const configuredOrigins = clientUrl ? clientUrl.split(',').map(o => o.trim()).filter(Boolean) : [];
+const extraOrigins = [process.env.RENDER_EXTERNAL_URL, process.env.SERVER_URL, process.env.BASE_URL].map(o => (o || '').trim()).filter(Boolean);
+const whitelist = Array.from(new Set([...
+  (configuredOrigins.length ? configuredOrigins : defaultOrigins),
+  ...extraOrigins
+]));
 
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || whitelist.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    if (!origin) {
+      return callback(null, true);
     }
+    if (!whitelist.length) {
+      // Fallback: allow when no whitelist configured (prevents hard failures in production)
+      return callback(null, true);
+    }
+    if (whitelist.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true
 };
@@ -91,11 +103,14 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "https://accounts.google.com"], // Allow scripts from self and Google
-        frameSrc: ["'self'", "https://accounts.google.com"], // Allow frames from self and Google for OAuth
-        connectSrc: ["'self'"],
-        imgSrc: ["'self'", "data:"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'", "https://accounts.google.com"],
+        frameSrc: ["'self'", "https://accounts.google.com"],
+        connectSrc: ["'self'", ...whitelist],
+        imgSrc: ["'self'", "data:", "https:", "blob:"],
+        mediaSrc: ["'self'", "data:", "blob:"],
+        workerSrc: ["'self'", "blob:"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
       },
     },
   })
@@ -122,14 +137,14 @@ try {
         const allowedDomains = String(process.env.INSTITUTION_EMAIL_DOMAINS || '').split(',').map(d => d.trim().toLowerCase()).filter(Boolean);
 
         const isAdmin = adminEmail && email === adminEmail;
-        const isInstitution = allowedDomains.length > 0 ? allowedDomains.includes(domain) : true;
+        const isInstitution = allowedDomains.length > 0 && allowedDomains.includes(domain);
 
         let user = await User.findOne({ email });
         if (!user) {
           const salt = await bcrypt.genSalt(10);
           const hashed = await bcrypt.hash(uuidv4(), salt);
-          const role = isAdmin ? 'admin' : 'pending_university';
-          const universityName = isAdmin ? null : (profile.organizations && profile.organizations[0]?.name) || domain;
+          const role = isAdmin ? 'admin' : (isInstitution ? 'university' : 'student');
+          const universityName = isAdmin ? null : (isInstitution ? ((profile.organizations && profile.organizations[0]?.name) || domain) : null);
           user = await User.create({
             email,
             password: hashed,
@@ -139,11 +154,11 @@ try {
             isActive: true,
           });
         } else {
-          const desiredRole = isAdmin ? 'admin' : 'pending_university';
+          const desiredRole = isAdmin ? 'admin' : (isInstitution ? 'university' : 'student');
           if (user.role !== desiredRole) {
             user.role = desiredRole;
           }
-          if (!isAdmin && !user.universityName) {
+          if (!isAdmin && isInstitution && !user.universityName) {
             user.universityName = (profile.organizations && profile.organizations[0]?.name) || domain;
           }
           await user.save();

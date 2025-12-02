@@ -19,7 +19,15 @@ const AuthCallback = () => {
           const role = profile?.role;
           let nextLocal = null;
           try { nextLocal = localStorage.getItem('postLoginNext'); localStorage.removeItem('postLoginNext'); } catch {}
-          const target = nextParam || nextLocal || (role === 'admin' || role === 'university' || role === 'institution' ? '/institution/dashboard' : role === 'student' ? '/student/portal' : '/');
+          const target = nextParam || nextLocal || (
+            role === 'admin' || role === 'university' || role === 'institution'
+              ? '/institution/dashboard'
+              : role === 'pending_university'
+                ? '/institution/pending'
+                : role === 'student'
+                  ? '/student/portal'
+                  : '/'
+          );
           navigate(target, { replace: true });
         } catch {
           navigate('/login?error=session', { replace: true });
