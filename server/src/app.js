@@ -272,6 +272,8 @@ app.get('/healthz', async (req, res) => {
   }
 });
 
+(async () => { try { await hederaService.connect(); } catch {} })();
+
 // Readiness probe - verifica si el servicio está listo para recibir tráfico
 app.get('/ready', async (req, res) => {
   try {

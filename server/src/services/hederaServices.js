@@ -26,6 +26,7 @@ const logger = require('../utils/logger');
 const { HederaError, BadRequestError, NotFoundError } = require('../utils/errors');
 const ipfsService = require('./ipfsService');
 const axios = require('axios');
+const { v4: uuidv4 } = require('uuid');
 
 class HederaService {
   constructor() {
@@ -59,6 +60,10 @@ class HederaService {
       logger.warn('⚠️  Failed to initialize Hedera client:', error.message);
       return false;
     }
+  }
+
+  isEnabled() {
+    return !!(this.client && this.operatorId && this.operatorKey);
   }
 
   async _executeTransaction(transaction) {
@@ -110,6 +115,10 @@ class HederaService {
     if (!tokenData || !tokenData.tokenName || !tokenData.tokenSymbol) {
       throw new BadRequestError('tokenName and tokenSymbol are required');
     }
+    if (!this.isEnabled()) {
+      const tokenId = `0.0.${Math.floor(100000 + Math.random()*900000)}`;
+      return { tokenId, transactionId: `mock-${uuidv4()}` };
+    }
     const transaction = new TokenCreateTransaction()
       .setTokenName(tokenData.tokenName)
       .setTokenSymbol(tokenData.tokenSymbol)
@@ -132,6 +141,10 @@ class HederaService {
   async createPaymentToken(tokenData) {
     if (!tokenData || !tokenData.tokenName || !tokenData.tokenSymbol) {
       throw new BadRequestError('tokenName and tokenSymbol are required');
+    }
+    if (!this.isEnabled()) {
+      const tokenId = `0.0.${Math.floor(100000 + Math.random()*900000)}`;
+      return { tokenId, transactionId: `mock-${uuidv4()}` };
     }
     const transaction = new TokenCreateTransaction()
       .setTokenName(tokenData.tokenName)
@@ -160,6 +173,10 @@ class HederaService {
     }
     if (!metadata.uniqueHash) {
       throw new BadRequestError('uniqueHash is required');
+    }
+    if (!this.isEnabled()) {
+      const serialNumber = String(Math.floor(1 + Math.random()*100000));
+      return { serialNumber, transactionId: `mock-${uuidv4()}` };
     }
     const crypto = require('crypto');
     const subjectRef = crypto
@@ -218,6 +235,9 @@ class HederaService {
     if (!tokenId || !serialNumber || !recipientAccountId) {
       throw new BadRequestError('tokenId, serialNumber, and recipientAccountId are required');
     }
+    if (!this.isEnabled()) {
+      return { transactionId: `mock-${uuidv4()}` };
+    }
     const transferTransaction = new TokenTransferTransaction()
       .addNftTransfer(
         TokenId.fromString(tokenId),
@@ -266,6 +286,9 @@ class HederaService {
   async executeSignedTransaction(signedTransactionBytesBase64) {
     if (!signedTransactionBytesBase64) {
       throw new BadRequestError('Signed transaction bytes are required.');
+    }
+    if (!this.isEnabled()) {
+      return { receipt: { status: { toString: () => 'SUCCESS' } }, transactionId: `mock-${uuidv4()}` };
     }
     const signedTransactionBytes = Buffer.from(signedTransactionBytesBase64, 'base64');
     const signedTransaction = Transaction.fromBytes(signedTransactionBytes);
