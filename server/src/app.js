@@ -83,6 +83,10 @@ const corsOptions = {
     if (!origin) {
       return callback(null, true);
     }
+    // In non-production, allow any origin to avoid blocking local development
+    if (!isProduction) {
+      return callback(null, true);
+    }
     if (!whitelist.length) {
       // Fallback: allow when no whitelist configured (prevents hard failures in production)
       return callback(null, true);
@@ -136,9 +140,9 @@ try {
         const domain = email.split('@')[1] || '';
         const allowedDomains = String(process.env.INSTITUTION_EMAIL_DOMAINS || '').split(',').map(d => d.trim().toLowerCase()).filter(Boolean);
 
-        const isAdmin = adminEmail && email === adminEmail;
-        const allowInstitutionFallback = String(process.env.ALLOW_INSTITUTION_FALLBACK || '0') === '1';
-        const isInstitution = allowedDomains.length > 0 ? allowedDomains.includes(domain) : allowInstitutionFallback;
+          const isAdmin = adminEmail && email === adminEmail;
+          const allowInstitutionFallback = String(process.env.ALLOW_INSTITUTION_FALLBACK || '0') === '1' || !isProduction;
+          const isInstitution = allowedDomains.length > 0 ? allowedDomains.includes(domain) : allowInstitutionFallback;
 
         let user = await User.findOne({ email });
         if (!user) {

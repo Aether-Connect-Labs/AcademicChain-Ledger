@@ -147,7 +147,10 @@ router.post('/issue-credential', protect, isUniversity,
     const { user } = req;
     const network = process.env.HEDERA_NETWORK || 'testnet';
     try {
-      await hederaService.requestCredentialOnChain(uniqueHash, ipfsURI, recipientAccountId || '0.0.0');
+      const enableOnChain = String(process.env.ENABLE_ONCHAIN_VALIDATION || '1') === '1';
+      if (enableOnChain) {
+        await hederaService.requestCredentialOnChain(uniqueHash, ipfsURI, recipientAccountId || '0.0.0');
+      }
       const mint = await hederaService.mintAcademicCredential(tokenId, {
         tokenId,
         uniqueHash,
@@ -256,12 +259,15 @@ router.post('/execute-issuance', protect, isUniversity,
     try {
       const { credentialData } = transaction;
 
-      // 1. On-chain validation via Smart Contract
-      await hederaService.requestCredentialOnChain(
-        credentialData.uniqueHash,
-        credentialData.ipfsURI,
-        credentialData.recipientAccountId || '0.0.0' // Use a placeholder if no student account
-      );
+      // 1. On-chain validation via Smart Contract (optional)
+      const enableOnChain = String(process.env.ENABLE_ONCHAIN_VALIDATION || '1') === '1';
+      if (enableOnChain) {
+        await hederaService.requestCredentialOnChain(
+          credentialData.uniqueHash,
+          credentialData.ipfsURI,
+          credentialData.recipientAccountId || '0.0.0'
+        );
+      }
 
       // 2. Process payment if required
       if (signedPaymentTransactionBytes) {
@@ -518,6 +524,10 @@ router.get('/credentials', protect, isUniversity, asyncHandler(async (req, res) 
 
 // Catálogo público de instituciones
 router.get('/catalog', asyncHandler(async (req, res) => {
+  const disableMongo = process.env.DISABLE_MONGO === '1';
+  if (disableMongo) {
+    return res.status(200).json({ success: true, data: { universities: [] } });
+  }
   const universities = await User.find({ role: 'university', isActive: true }).select('id universityName email createdAt');
   const ids = universities.map(u => u.id);
   const tokensByUni = await Token.aggregate([{ $match: { universityId: { $in: ids } } }, { $group: { _id: '$universityId', count: { $sum: 1 } } }]);

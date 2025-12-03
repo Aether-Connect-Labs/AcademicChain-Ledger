@@ -106,14 +106,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/institution/dashboard"
-        element={
-          <ProtectedRoute requiredRoles={['institution']}>
-            <Layout><InstitutionDashboard /></Layout>
-          </ProtectedRoute>
-        }
-      />
+      
       <Route
         path="/student/portal"
         element={
