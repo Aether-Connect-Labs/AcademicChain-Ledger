@@ -4,6 +4,14 @@ const asyncHandler = require('express-async-handler');
 const hederaService = require('../../services/hederaServices');
 const xrpService = require('../../services/xrpService');
 const { Token, Credential } = require('../../models');
+const { isConnected: isMongoConnected } = require('../../config/database');
+const useMem = () => {
+  const isTest = (process.env.NODE_ENV || '').toLowerCase() === 'test';
+  // In tests, prefer mocked models. In dev without DB, use in-memory.
+  if (isTest) return false;
+  return (process.env.DISABLE_MONGO === '1' || !isMongoConnected());
+};
+const mem = { tokens: [], credentials: [] };
 const { validate } = require('../../middleware/validator');
 const apiKeyAuth = require('../../middleware/apiKeyAuth');
 const apiRateLimit = require('../../middleware/apiRateLimit');
@@ -17,11 +25,16 @@ router.post('/issue', apiKeyAuth, apiRateLimit, [
   body('recipientAccountId').optional().isString(),
 ], validate, asyncHandler(async (req, res) => {
   const { tokenId, uniqueHash, ipfsURI, studentName, degree, recipientAccountId } = req.body;
-  let token = await Token.findOne({ tokenId });
+  let token = useMem() ? mem.tokens.find(t => t.tokenId === tokenId) : await Token.findOne({ tokenId });
   if (!token && String(process.env.ALLOW_V1_TOKEN_AUTO_CREATE).toLowerCase() === 'true') {
     const name = `AcademicChain - ${degree || 'Credential'}`;
     const created = await hederaService.createAcademicToken({ tokenName: name, tokenSymbol: `AC-${(degree||'EDU').slice(0,4).toUpperCase()}`, tokenMemo: `Auto-created for v1 issuance`, treasuryAccountId: process.env.HEDERA_ACCOUNT_ID || null });
-    token = await Token.create({ tokenId: created.tokenId, tokenName: name, tokenSymbol: `AC-${(degree||'EDU').slice(0,4).toUpperCase()}` });
+    if (useMem()) {
+      token = { tokenId: created.tokenId, tokenName: name, tokenSymbol: `AC-${(degree||'EDU').slice(0,4).toUpperCase()}` };
+      mem.tokens.push(token);
+    } else {
+      token = await Token.create({ tokenId: created.tokenId, tokenName: name, tokenSymbol: `AC-${(degree||'EDU').slice(0,4).toUpperCase()}` });
+    }
   }
   const universityLabel = token?.tokenName || 'AcademicChain';
   const mintResult = await hederaService.mintAcademicCredential(tokenId, {
@@ -36,7 +49,11 @@ router.post('/issue', apiKeyAuth, apiRateLimit, [
   if (recipientAccountId) {
     transferResult = await hederaService.transferCredentialToStudent(tokenId, mintResult.serialNumber, recipientAccountId);
   }
-  await Credential.create({ tokenId, serialNumber: mintResult.serialNumber, universityId: token?.universityId || null, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI });
+  if (useMem()) {
+    mem.credentials.push({ tokenId, serialNumber: mintResult.serialNumber, universityId: token?.universityId || null, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI, createdAt: new Date() });
+  } else {
+    await Credential.create({ tokenId, serialNumber: mintResult.serialNumber, universityId: token?.universityId || null, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI });
+  }
   let xrplAnchor = null;
   try {
     await xrpService.connect();

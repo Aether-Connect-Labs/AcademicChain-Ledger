@@ -7,11 +7,21 @@ const hederaService = require('../services/hederaServices');
 const xrpService = require('../services/xrpService');
 const logger = require('../utils/logger');
 const { Token, Transaction, Credential, User } = require('../models');
+const { isConnected: isMongoConnected } = require('../config/database');
 const { issuanceQueue, isRedisConnected } = require('../../queue/issuanceQueue');
 const { recordAnalytics, getUniversityInsights } = require('../services/analyticsService');
 const NodeCache = require('node-cache');
 
 const balanceCache = new NodeCache({ stdTTL: 300 });
+const useMem = () => {
+  const isTest = (process.env.NODE_ENV || '').toLowerCase() === 'test';
+  if (isTest) return false;
+  return (process.env.DISABLE_MONGO === '1' || !isMongoConnected());
+};
+const memStore = {
+  tokens: [],
+  credentials: [],
+};
 
 const router = express.Router();
 
@@ -72,12 +82,13 @@ router.post('/create-token', protect, isUniversity,
       treasuryAccountId: user.hederaAccountId || null,
     });
 
-    const dbToken = await Token.create({
-      tokenId: result.tokenId,
-      tokenName,
-      tokenSymbol,
-      universityId: user.id,
-    });
+    try {
+      if (!useMem()) {
+        await Token.create({ tokenId: result.tokenId, tokenName, tokenSymbol, universityId: user.id });
+      } else {
+        memStore.tokens.push({ tokenId: result.tokenId, tokenName, tokenSymbol, universityId: user.id, createdAt: new Date() });
+      }
+    } catch {}
 
     logger.info(`🎓 Academic token created by ${user.universityName}: ${result.tokenId}`);
     res.status(201).json({
@@ -115,12 +126,13 @@ router.post('/create-payment-token', protect, isUniversity,
       initialSupply,
     });
 
-    const dbToken = await Token.create({
-      tokenId: result.tokenId,
-      tokenName,
-      tokenSymbol,
-      universityId: user.id,
-    });
+    try {
+      if (!useMem()) {
+        await Token.create({ tokenId: result.tokenId, tokenName, tokenSymbol, universityId: user.id });
+      } else {
+        memStore.tokens.push({ tokenId: result.tokenId, tokenName, tokenSymbol, universityId: user.id, createdAt: new Date() });
+      }
+    } catch {}
 
     logger.info(`💳 Payment token created by ${user.universityName}: ${result.tokenId}`);
     res.status(201).json({
@@ -160,7 +172,13 @@ router.post('/issue-credential', protect, isUniversity,
         graduationDate,
         university: user.universityName,
       });
-      await Credential.create({ tokenId, serialNumber: mint.serialNumber, universityId: user.id, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI });
+      try {
+        if (!useMem()) {
+          await Credential.create({ tokenId, serialNumber: mint.serialNumber, universityId: user.id, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI });
+        } else {
+          memStore.credentials.push({ tokenId, serialNumber: mint.serialNumber, universityId: user.id, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI, createdAt: new Date() });
+        }
+      } catch {}
       let transfer = null;
       if (recipientAccountId) {
         transfer = await hederaService.transferCredentialToStudent(tokenId, mint.serialNumber, recipientAccountId);
@@ -298,14 +316,28 @@ router.post('/execute-issuance', protect, isUniversity,
       await transaction.save();
 
       // 4. Save credential record to local DB
-      await Credential.create({
-        tokenId: credentialData.tokenId,
-        serialNumber: mintResult.serialNumber,
-        universityId: user.id,
-        studentAccountId: credentialData.recipientAccountId || null,
-        uniqueHash: credentialData.uniqueHash,
-        ipfsURI: credentialData.ipfsURI,
-      });
+      try {
+        if (!useMem()) {
+          await Credential.create({
+            tokenId: credentialData.tokenId,
+            serialNumber: mintResult.serialNumber,
+            universityId: user.id,
+            studentAccountId: credentialData.recipientAccountId || null,
+            uniqueHash: credentialData.uniqueHash,
+            ipfsURI: credentialData.ipfsURI,
+          });
+        } else {
+          memStore.credentials.push({
+            tokenId: credentialData.tokenId,
+            serialNumber: mintResult.serialNumber,
+            universityId: user.id,
+            studentAccountId: credentialData.recipientAccountId || null,
+            uniqueHash: credentialData.uniqueHash,
+            ipfsURI: credentialData.ipfsURI,
+            createdAt: new Date(),
+          });
+        }
+      } catch {}
 
       // 5. Transfer to student if applicable
       let transferResult = null;
@@ -475,7 +507,7 @@ router.post('/revoke-credential', protect, isUniversity,
 router.get('/tokens', protect, isUniversity, asyncHandler(async (req, res) => {
   const { user } = req;
 
-  const tokens = await Token.find({ universityId: user.id }).sort({ createdAt: -1 });
+  const tokens = useMem() ? memStore.tokens.filter(t => t.universityId === user.id).sort((a,b)=> b.createdAt - a.createdAt) : await Token.find({ universityId: user.id }).sort({ createdAt: -1 });
 
   res.status(200).json({
     success: true,
@@ -495,9 +527,21 @@ router.get('/credentials', protect, isUniversity, asyncHandler(async (req, res) 
   const query = { universityId: user.id };
   if (tokenId) query.tokenId = tokenId;
   if (accountId) query.studentAccountId = accountId;
-  const total = await Credential.countDocuments(query);
   const sortDir = (String(sort).toLowerCase() === 'asc') ? 1 : -1;
-  const list = await Credential.find(query).sort({ [sortBy]: sortDir }).skip((pg - 1) * lim).limit(lim);
+  const list = useMem()
+    ? memStore.credentials.filter(c => (
+      c.universityId === user.id &&
+      (!tokenId || c.tokenId === tokenId) &&
+      (!accountId || c.studentAccountId === accountId)
+    )).sort((a,b)=> sortDir === 1 ? (a[sortBy] > b[sortBy] ? 1 : -1) : (a[sortBy] < b[sortBy] ? 1 : -1)).slice((pg - 1) * lim, ((pg - 1) * lim) + lim)
+    : await Credential.find(query).sort({ [sortBy]: sortDir }).skip((pg - 1) * lim).limit(lim);
+  const total = useMem()
+    ? memStore.credentials.filter(c => (
+      c.universityId === user.id &&
+      (!tokenId || c.tokenId === tokenId) &&
+      (!accountId || c.studentAccountId === accountId)
+    )).length
+    : await Credential.countDocuments(query);
   if (format === 'csv') {
     const rows = [['tokenId','serialNumber','ipfsURI','uniqueHash','studentAccountId','createdAt']].concat(
       list.map(c => [c.tokenId, c.serialNumber, c.ipfsURI, c.uniqueHash, c.studentAccountId || '', (c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt)])
@@ -509,16 +553,18 @@ router.get('/credentials', protect, isUniversity, asyncHandler(async (req, res) 
   }
   const from = total === 0 ? 0 : ((pg - 1) * lim) + 1;
   const to = total === 0 ? 0 : Math.min(pg * lim, total);
-  const withAnchors = await Promise.all(list.map(async (c) => {
-    try {
-      const a = await XrpAnchor.findOne({ hederaTokenId: c.tokenId, serialNumber: c.serialNumber }).sort({ createdAt: -1 });
-      const o = c.toObject();
-      o.xrpAnchor = a ? { xrpTxHash: a.xrpTxHash, network: a.network } : null;
-      return o;
-    } catch {
-      return c.toObject();
-    }
-  }));
+  const withAnchors = useMem()
+    ? list.map(c => ({ ...c, xrpAnchor: null }))
+    : await Promise.all(list.map(async (c) => {
+        try {
+          const a = await XrpAnchor.findOne({ hederaTokenId: c.tokenId, serialNumber: c.serialNumber }).sort({ createdAt: -1 });
+          const o = c.toObject();
+          o.xrpAnchor = a ? { xrpTxHash: a.xrpTxHash, network: a.network } : null;
+          return o;
+        } catch {
+          return c.toObject();
+        }
+      }));
   res.status(200).json({ success: true, data: { credentials: withAnchors, meta: { total, page: pg, limit: lim, pages: Math.ceil(total / lim), hasMore: (pg * lim) < total, from, to, sort: sortDir === 1 ? 'asc' : 'desc', sortBy } } });
 }));
 
