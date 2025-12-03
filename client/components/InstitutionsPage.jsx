@@ -6,8 +6,8 @@ const InstitutionsPage = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-  const API = import.meta.env.VITE_API_URL;
-    const url = `${apiBase}/api/universities/catalog`;
+    const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+    const url = `${API_BASE_URL}/api/universities/catalog`;
 
     const load = async () => {
       setLoading(true);
