@@ -45,8 +45,10 @@ const AppRoutes = () => {
       <Route path="/verificar" element={<Layout><VerifyCredentialPage /></Layout>} />
       <Route path="/instituciones" element={<Layout><InstitutionsPage /></Layout>} />
       <Route path="/developers" element={<Layout><DeveloperPortal /></Layout>} />
-      <Route path="/developers/docs" element={<Layout><ApiDocsLanding /></Layout>} />
-      {/* Rutas demo eliminadas para entorno operacional */}
+  <Route path="/developers/docs" element={<Layout><ApiDocsLanding /></Layout>} />
+      {/* Rutas públicas de demo */}
+      <Route path="/demo/institution" element={<Layout><InstitutionDashboard demo={true} /></Layout>} />
+      <Route path="/demo/student" element={<Layout><StudentPortal demo={true} /></Layout>} />
       <Route path="/forgot-password" element={<Layout><ForgotPassword /></Layout>} />
 
       {/* Rutas Protegidas */}

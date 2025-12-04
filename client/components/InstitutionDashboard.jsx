@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import QRCode from 'react-qr-code';
 import { useSearchParams } from 'react-router-dom';
 import IssueTitleForm from './IssueTitleForm';
 import BatchIssuance from './BatchIssuance';
@@ -41,6 +42,16 @@ function InstitutionDashboard({ demo = false }) {
   const [qrMetaLoading, setQrMetaLoading] = useState(false);
   const [qrIpfsURI, setQrIpfsURI] = useState('');
   const [qrTxId, setQrTxId] = useState('');
+  const [demoTokenId, setDemoTokenId] = useState('');
+  const [demoUniqueHash, setDemoUniqueHash] = useState('');
+  const [demoIpfsURI, setDemoIpfsURI] = useState('ipfs://QmDemoCid');
+  const [demoRecipientAccountId, setDemoRecipientAccountId] = useState('');
+  const [demoIssuanceMsg, setDemoIssuanceMsg] = useState('');
+  const [demoIssuanceErr, setDemoIssuanceErr] = useState('');
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoIssued, setDemoIssued] = useState([]);
+  const [demoPinMsg, setDemoPinMsg] = useState('');
+  const [demoPinErr, setDemoPinErr] = useState('');
   const toGateway = (uri) => {
     if (!uri) return '';
     const gw = import.meta.env.VITE_IPFS_GATEWAY || 'https://ipfs.io/ipfs/';
@@ -105,7 +116,14 @@ function InstitutionDashboard({ demo = false }) {
     setTokenMessage('');
     try {
       if (demo) {
-        setTokenMessage('Creación simulada en modo demo');
+        const API_BASE_URL = import.meta.env.VITE_API_URL;
+        const res = await fetch(`${API_BASE_URL}/api/demo/create-token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tokenName, tokenSymbol: tokenSymbol || undefined }) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+        const tid = data?.data?.tokenId || data?.data?.token?.tokenId || '';
+        setTokenMessage(`Token demo creado: ${tid}`);
+        setDemoTokenId(tid);
+        setTokenName(''); setTokenSymbol(''); setTokenMemo('');
         return;
       }
       const API_BASE_URL = import.meta.env.VITE_API_URL;
@@ -126,6 +144,34 @@ function InstitutionDashboard({ demo = false }) {
       setTokenError(e.message);
     } finally {
       setCreatingToken(false);
+    }
+  };
+
+  const handleDemoIssuance = async () => {
+    if (!demo) return;
+    setDemoLoading(true); setDemoIssuanceErr(''); setDemoIssuanceMsg('');
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL;
+      const payload = {
+        tokenId: demoTokenId || filterTokenId || tokenName || '0.0.0',
+        uniqueHash: demoUniqueHash || Math.random().toString(36).slice(2),
+        ipfsURI: demoIpfsURI,
+        recipientAccountId: demoRecipientAccountId || undefined,
+        degree: tokenMemo || undefined,
+        studentName: undefined,
+      };
+      const res = await fetch(`${API_BASE_URL}/api/demo/issue-credential`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      const url = data?.data?.hashscanUrl || '';
+      const nftId = data?.data?.nftId || '';
+      setDemoIssuanceMsg(`Emitido en testnet: ${nftId}`);
+      setDemoIssued(prev => [{ nftId, tokenId: payload.tokenId, serialNumber: nftId.split('-').pop(), ipfsURI: payload.ipfsURI, hashscanUrl: url, createdAt: new Date().toISOString() }, ...prev].slice(0, 10));
+      if (url) window.open(url, '_blank');
+    } catch (e) {
+      setDemoIssuanceErr(e.message);
+    } finally {
+      setDemoLoading(false);
     }
   };
 
@@ -196,7 +242,108 @@ function InstitutionDashboard({ demo = false }) {
     <div className="container-responsive py-10">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-2 gradient-text">Dashboard de la Institución</h1>
       <p className="text-gray-600">Bienvenido al portal de la institución. Aquí podrás emitir títulos y subir archivos Excel.</p>
-      {/* Modo demo deshabilitado */}
+      {demo && (
+        <div className="mt-6 grid grid-cols-1 gap-4">
+          <div className="card p-4">
+            <div className="font-semibold mb-2">Modo Demo (Testnet)</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm">Token demo</label>
+                <div className="flex gap-2 mt-1">
+                  <input value={demoTokenId} onChange={e => setDemoTokenId(e.target.value)} placeholder="0.0.xxxxxx" className="input" />
+                  <button className="btn-secondary" disabled={creatingToken} onClick={handleCreateToken}>Crear token demo</button>
+                </div>
+                {tokenMessage && <div className="text-green-700 text-sm mt-1">{tokenMessage}</div>}
+                {tokenError && <div className="text-red-600 text-sm mt-1">{tokenError}</div>}
+              </div>
+              <div>
+                <label className="text-sm">Unique Hash</label>
+                <div className="flex gap-2 mt-1">
+                  <input value={demoUniqueHash} onChange={e => setDemoUniqueHash(e.target.value)} placeholder="hash único" className="input" />
+                  <button type="button" className="btn-secondary" onClick={() => setDemoUniqueHash(Math.random().toString(36).slice(2))}>Generar</button>
+                </div>
+                <label className="text-sm mt-3">IPFS URI</label>
+                <div className="flex gap-2 mt-1">
+                  <input value={demoIpfsURI} onChange={e => setDemoIpfsURI(e.target.value)} placeholder="ipfs://CID o URL" className="input" />
+                  <button type="button" className="btn-secondary" onClick={() => setDemoIpfsURI('ipfs://QmDemoCid')}>Usar CID de ejemplo</button>
+                  <button type="button" className="btn-secondary" onClick={() => setDemoIpfsURI('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf')}>Usar PDF de ejemplo</button>
+                </div>
+                <label className="text-sm mt-3">Recipient AccountId (opcional)</label>
+                <input value={demoRecipientAccountId} onChange={e => setDemoRecipientAccountId(e.target.value)} placeholder="0.0.account" className="input mt-1" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <button className="btn-primary" disabled={demoLoading || !demoTokenId || !demoIpfsURI} onClick={handleDemoIssuance}>Emitir en testnet</button>
+              {demoIssuanceMsg && <div className="text-green-700 text-sm mt-2">{demoIssuanceMsg}</div>}
+              {demoIssuanceErr && <div className="text-red-600 text-sm mt-2">{demoIssuanceErr}</div>}
+            </div>
+            <div className="mt-3">
+              <button className="btn-secondary" onClick={async () => {
+                setDemoPinMsg(''); setDemoPinErr('');
+                try {
+                  const API_BASE_URL = import.meta.env.VITE_API_URL;
+                  const res = await fetch(`${API_BASE_URL}/api/demo/pin-credential`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ degree: tokenMemo || 'Demo Degree', studentName: 'Demo Student', tokenId: demoTokenId || undefined, uniqueHash: demoUniqueHash || undefined })
+                  });
+                  const data = await res.json();
+                  if (!res.ok || !data.success) throw new Error(data.message || `HTTP ${res.status}`);
+                  setDemoIpfsURI(data?.data?.ipfsURI || '');
+                  setDemoPinMsg(data?.data?.pinned ? 'Documento demo creado en IPFS' : 'Usando documento de ejemplo');
+                } catch (e) {
+                  setDemoPinErr(e.message);
+                }
+              }}>Generar documento demo (IPFS)</button>
+              {demoPinMsg && <div className="text-green-700 text-sm mt-2">{demoPinMsg}</div>}
+              {demoPinErr && <div className="text-red-600 text-sm mt-2">{demoPinErr}</div>}
+            </div>
+          </div>
+          {demoIssued.length > 0 && (
+            <div className="mt-6">
+              <div className="font-semibold mb-2">Últimas credenciales emitidas (demo)</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {demoIssued.map(item => {
+                  const link = `${window.location.origin}/verificar?tokenId=${encodeURIComponent(item.tokenId)}&serialNumber=${encodeURIComponent(item.serialNumber)}`;
+                  return (
+                    <div key={item.nftId} className="card">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <div className="text-sm text-gray-700">{item.nftId}</div>
+                          <div className="text-xs text-gray-500">{item.createdAt}</div>
+                        </div>
+                        <span className="badge badge-success text-xs">emitida</span>
+                      </div>
+                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                        <div className="bg-gray-50 p-2 rounded-lg flex items-center justify-center">
+                          <QRCode value={link} size={110} />
+                        </div>
+                        <div className="text-sm break-all">
+                          <div>
+                            <span className="font-medium">Verificación:</span>
+                            <a href={link} target="_blank" rel="noreferrer" className="ml-1 text-blue-600 hover:underline">{link}</a>
+                          </div>
+                          <div className="mt-2">
+                            {(item.ipfsURI || '').startsWith('ipfs://') ? (
+                              <span className="badge badge-success">IPFS</span>
+                            ) : (
+                              <span className="badge badge-info">Demo PDF</span>
+                            )}
+                          </div>
+                          <div className="mt-2 flex gap-2">
+                            <button className="btn-secondary btn-sm" onClick={() => navigator.clipboard.writeText(link)}>Copiar Link</button>
+                            <a className="btn-primary btn-sm" href={item.hashscanUrl} target="_blank" rel="noreferrer">Ver en HashScan</a>
+                            <a className="btn-secondary btn-sm" href={toGateway(item.ipfsURI)} target="_blank" rel="noreferrer">Ver documento</a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="card">
           <div className="font-semibold">Métricas</div>

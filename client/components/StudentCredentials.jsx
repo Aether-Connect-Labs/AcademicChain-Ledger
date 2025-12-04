@@ -32,6 +32,13 @@ const CredentialCard = ({ credential }) => {
             <span className="font-medium">Link:</span>
             <a className="ml-1 text-blue-600 hover:underline break-all" href={link} target="_blank" rel="noreferrer">{link}</a>
           </div>
+          <div className="mt-2">
+            {(credential.ipfsURI || '').startsWith('ipfs://') ? (
+              <span className="badge badge-success">IPFS</span>
+            ) : (
+              <span className="badge badge-info">Demo PDF</span>
+            )}
+          </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button onClick={() => navigator.clipboard.writeText(link)} className="btn-primary btn-sm">Copiar Link</button>
             <button className="btn-secondary btn-sm" onClick={() => setDocOpen(true)} disabled={!docUrl}>Ver documento</button>
@@ -51,24 +58,19 @@ const StudentCredentials = ({ demo = false }) => {
   const [error, setError] = useState(null); // Estado de error
 
   useEffect(() => {
-    if (demo) {
-      setCredentials([
-        { id: 'demo-st-1', tokenId: '0.0.123456', serialNumber: '1', title: 'Título Profesional', issuer: 'Demo University' },
-        { id: 'demo-st-2', tokenId: '0.0.123456', serialNumber: '2', title: 'Certificado de Curso', issuer: 'Demo University' }
-      ]);
-      setIsLoading(false);
-      setError(null);
-      return;
-    }
+    const API = import.meta.env.VITE_API_URL;
+    let intervalId;
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const API = import.meta.env.VITE_API_URL;
-        const res = await axios.get(`${API}/api/credentials/mine`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setCredentials(res.data.credentials || []);
+        if (demo) {
+          const r = await axios.get(`${API}/api/demo/credentials`);
+          setCredentials(r.data?.data || []);
+        } else {
+          const res = await axios.get(`${API}/api/credentials/mine`, { headers: { Authorization: `Bearer ${token}` } });
+          setCredentials(res.data.credentials || []);
+        }
       } catch (e) {
         console.error("Error fetching student credentials:", e);
         setError("Error al cargar las credenciales. Por favor, inténtalo de nuevo más tarde.");
@@ -78,6 +80,10 @@ const StudentCredentials = ({ demo = false }) => {
       }
     };
     fetchData();
+    if (demo) {
+      intervalId = setInterval(fetchData, 10000);
+    }
+    return () => { if (intervalId) clearInterval(intervalId); };
   }, [token, demo]);
 
   const filtered = credentials.filter(c =>
@@ -88,6 +94,16 @@ const StudentCredentials = ({ demo = false }) => {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-4">Mis Credenciales</h1>
+      {demo && (
+        <div className="mb-4 flex items-center gap-3">
+          <span className="badge badge-info">Modo demo (auto-actualiza cada 10s)</span>
+          <button className="btn-secondary btn-sm" onClick={() => {
+            const API = import.meta.env.VITE_API_URL;
+            setIsLoading(true);
+            axios.get(`${API}/api/demo/credentials`).then(r => setCredentials(r.data?.data || [])).catch(() => {}).finally(() => setIsLoading(false));
+          }}>Actualizar ahora</button>
+        </div>
+      )}
       <div className="mb-6">
         <input
           value={query}

@@ -90,6 +90,18 @@ const Layout = ({
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
+  // Scroll a ancla (#hash) cuando está presente
+  useEffect(() => {
+    const hash = location.hash;
+    if (hash && hash.startsWith('#')) {
+      const id = hash.slice(1);
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [location.hash]);
+
   useEffect(() => {
     document.title = originalTitle;
     const link = document.querySelector("link[rel='icon']");

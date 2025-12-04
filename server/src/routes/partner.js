@@ -109,17 +109,21 @@ router.post('/institution/mint',
         uniqueHash: req.body.uniqueHash,
         ipfsURI: req.body.ipfsURI,
       });
-      try {
-        await xrpService.connect();
-        const anchorDoc = await xrpService.anchor({
-          certificateHash: req.body.uniqueHash,
-          hederaTokenId: req.body.tokenId,
-          serialNumber,
-          timestamp: new Date().toISOString(),
-        });
-        return res.status(201).json({ success: true, message: 'Credential minted successfully (mock)', data: { mint: { serialNumber, transactionId: 'tx-mock' }, transfer: null, xrplAnchor: { txHash: anchorDoc?.xrpTxHash || null, ledgerIndex: anchorDoc?.ledgerIndex || null, status: anchorDoc?.status || 'mock', network: anchorDoc?.network || xrpService.network } } });
-      } catch {}
-      return res.status(201).json({ success: true, message: 'Credential minted successfully (mock)', data: { mint: { serialNumber, transactionId: 'tx-mock' }, transfer: null } });
+      let xrp = null;
+      const enableXrp = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
+      if (enableXrp) {
+        try {
+          await xrpService.connect();
+          const anchorDoc = await xrpService.anchor({
+            certificateHash: req.body.uniqueHash,
+            hederaTokenId: req.body.tokenId,
+            serialNumber,
+            timestamp: new Date().toISOString(),
+          });
+          xrp = anchorDoc;
+        } catch {}
+      }
+      return res.status(201).json({ success: true, message: 'Credential minted successfully (mock)', data: { mint: { serialNumber, transactionId: 'tx-mock' }, transfer: null, xrpTxHash: xrp?.xrpTxHash || null } });
     }
     if (!partner.permissions || !partner.permissions.includes('mint_credential')) {
       return res.status(403).json({ success: false, message: 'Forbidden: Partner lacks mint_credential permission.' });
@@ -164,17 +168,21 @@ router.post('/institution/mint',
       uniqueHash,
       ipfsURI,
     });
-    try {
-      await xrpService.connect();
-      const anchorDoc = await xrpService.anchor({
-        certificateHash: uniqueHash,
-        hederaTokenId: tokenId,
-        serialNumber: mintResult.serialNumber,
-        timestamp: new Date().toISOString(),
-      });
-      return res.status(201).json({ success: true, message: 'Credential minted successfully', data: { mint: mintResult, transfer: transferResult, xrplAnchor: { txHash: anchorDoc?.xrpTxHash || null, ledgerIndex: anchorDoc?.ledgerIndex || null, status: anchorDoc?.status || 'completed', network: anchorDoc?.network || xrpService.network } } });
-    } catch {}
-    res.status(201).json({ success: true, message: 'Credential minted successfully', data: { mint: mintResult, transfer: transferResult } });
+    let xrp = null;
+    const enableXrp2 = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
+    if (enableXrp2) {
+      try {
+        await xrpService.connect();
+        const anchorDoc = await xrpService.anchor({
+          certificateHash: uniqueHash,
+          hederaTokenId: tokenId,
+          serialNumber: mintResult.serialNumber,
+          timestamp: new Date().toISOString(),
+        });
+        xrp = anchorDoc;
+      } catch {}
+    }
+    res.status(201).json({ success: true, message: 'Credential minted successfully', data: { mint: mintResult, transfer: transferResult, xrpTxHash: xrp?.xrpTxHash || null } });
   })
 );
 

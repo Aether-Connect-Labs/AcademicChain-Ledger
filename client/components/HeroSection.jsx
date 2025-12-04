@@ -117,7 +117,7 @@ export const HeroSection = () => {
 
           {/* Botones CTA mejorados */}
           <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-16">
-            <Link to="/comenzar-gratis">
+            <Link to="/#demo">
               <motion.div
                 className="group inline-flex items-center btn-primary px-8 py-4 rounded-2xl text-lg shadow-soft hover-lift"
               >

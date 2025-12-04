@@ -43,6 +43,7 @@ const adminRoutes = require('./routes/admin');
 const studentRoutes = require('./routes/student');
 const v1Routes = require('./routes/v1');
 const contactRoutes = require('./routes/contact');
+const demoRoutes = require('./routes/demo');
 
 const app = express();
 const testing = (process.env.NODE_ENV || '').toLowerCase() === 'test';
@@ -351,6 +352,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/credentials', studentRoutes); // Ruta para credenciales de estudiantes
 app.use('/api/v1', v1Routes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/demo', demoRoutes);
 
 // Manejo de errores
 app.use(errorHandler);

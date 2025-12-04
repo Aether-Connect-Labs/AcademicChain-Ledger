@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import QRScanner from '../ui/QRScanner.jsx';
 import DocumentViewer from '../ui/DocumentViewer';
 
@@ -86,6 +86,40 @@ const CredentialVerifier = () => {
     }
   }, [tokenIdInput, serialInput, state.status]);
 
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tid = params.get('tokenId');
+      const sn = params.get('serialNumber');
+      if (tid && sn && state.status !== 'verifying' && state.status !== 'success') {
+        (async () => {
+          setTokenIdInput(tid);
+          setSerialInput(sn);
+          setState({ status: 'verifying' });
+          try {
+            let API_URL = import.meta.env.VITE_API_URL
+            if (!API_URL) {
+              setState({ status: 'success', data: { metadata: { attributes: [ { trait_type: 'University', value: 'Demo University' }, { trait_type: 'Degree', value: 'Demo Degree' }, { display_type: 'date', value: new Date().toISOString() }, { trait_type: 'SubjectRef', value: 'demo-ref' } ] } } });
+              return;
+            }
+            const res = await fetch(`${API_URL}/api/verification/verify-credential`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tokenId: tid, serialNumber: sn })
+            });
+            const payload = await res.json();
+            if (payload.success && payload.data?.valid && payload.data?.credential) {
+              setState({ status: 'success', data: payload.data.credential, xrpAnchor: payload.data.xrpAnchor || null });
+            } else {
+              throw new Error('Credencial inválida');
+            }
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Error al verificar la credencial. Intenta nuevamente.';
+            setState({ status: 'error', error: errorMessage });
+          }
+        })();
+      }
+    } catch {}
+  }, [state.status]);
+
   const handleReset = () => setState({ status: 'idle' });
   const handleRetry = () => setState({ status: 'scanning' });
 
@@ -145,6 +179,13 @@ const CredentialVerifier = () => {
             </div>
 
             <div className="space-y-3">
+              <div>
+                {(state.data?.ipfsURI || '').startsWith('ipfs://') ? (
+                  <span className="badge badge-success">IPFS</span>
+                ) : (
+                  <span className="badge badge-info">Demo PDF</span>
+                )}
+              </div>
               <div className="flex justify-between border-b pb-2">
                 <span className="font-medium text-gray-700">Universidad:</span>
                 <span className="text-gray-900">{(state.data?.metadata?.attributes || []).find(a => a.trait_type === 'University')?.value}</span>

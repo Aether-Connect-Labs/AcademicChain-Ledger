@@ -447,10 +447,7 @@ const Header = ({
                 </button>
                 <button
                   onClick={() => {
-                    const allowInstitutionRegister = import.meta.env.VITE_ALLOW_INSTITUTION_REGISTER === '1';
-                    const target = allowInstitutionRegister ? '/institution/register?next=/institution/dashboard' : '/register?next=/student/portal';
-                    console.log(`[DEBUG] Navigating to ${target}`);
-                    navigate(target);
+                    navigate('/#demo');
                   }}
                   className="btn-primary hover-lift"
                 >

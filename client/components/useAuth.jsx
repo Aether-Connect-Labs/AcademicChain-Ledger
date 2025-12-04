@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
           setToken(existingToken);
           const profile = await authService.getCurrentUser(existingToken);
           setUser(profile);
-        } else if (allowBypass && localStorage.getItem('previewOwner') === '1') {
+        } else if (import.meta.env.DEV && localStorage.getItem('previewOwner') === '1') {
           setUser({ id: 'preview-owner', email: 'owner@preview.local', name: 'Owner Preview', role: 'admin' });
         }
       } catch (e) {
