@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    versioning-strategy: "auto"
+
+  - package-ecosystem: "npm"
+    directory: "/server"
+    schedule:
+      interval: "daily"
+
+  - package-ecosystem: "npm"
+    directory: "/client"
+    schedule:
+      interval: "daily"
