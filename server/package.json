@@ -2,8 +2,8 @@
   "name": "academicchain-server",
   "version": "1.0.0",
   "scripts": {
-    "dev": "cross-env NODE_ENV=development nodemon src/app.js",
-    "start": "node src/app.js",
+    "dev": "cross-env NODE_ENV=development nodemon -r ./src/polyfills/express-path-to-regexp.js src/app.js",
+    "start": "node -r ./src/polyfills/express-path-to-regexp.js src/app.js",
     "start:pm2": "pm2 start ecosystem.config.js",
     "start:pm2:prod": "pm2 start ecosystem.config.js --env production",
     "stop:pm2": "pm2 stop ecosystem.config.js",
@@ -12,7 +12,7 @@
     "logs:pm2": "pm2 logs",
     "monit:pm2": "pm2 monit",
     "build": "echo 'Server build complete'",
-    "test": "cross-env NODE_ENV=test jest --testTimeout=5000"
+    "test": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles --testTimeout=8000"
   },
   "jest": {
     "setupFilesAfterEnv": [

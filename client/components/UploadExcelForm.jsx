@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
+import { readSafe, sheetToSanitizedJSON } from './utils/xlsxSanitizer.js';
 import axios from 'axios'; // Importar axios
 
 const UploadExcelForm = () => {
@@ -49,10 +50,8 @@ const UploadExcelForm = () => {
     reader.onload = async (event) => {
       try {
         const binaryStr = event.target.result;
-        const workbook = XLSX.read(binaryStr, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet);
+        const { ws } = readSafe(binaryStr);
+        const json = sheetToSanitizedJSON(ws);
         setData(json);
         setMessage('Archivo cargado y procesado exitosamente. Se simulará la emisión masiva.');
         console.log('Datos del Excel:', json);
