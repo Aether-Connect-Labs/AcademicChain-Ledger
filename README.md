@@ -553,4 +553,67 @@ curl https://academicchain-ledger-b2lu.onrender.com/health
 - Scripts de consistencia y migración:
   - `node server/src/scripts/consistencyCheck.js`
   - `node server/src/scripts/massMigration.js`
-- Métricas del sistema: `GET /metrics` (requiere rol admin).
+- Métricas del sistema: `GET /metrics` (Prometheus) y `GET /metrics/json` (admin).
+
+## 🛡️ Robustez y Monitorización Mejorada
+
+### Socket.io con reconexión inteligente
+- Reconexión con backoff exponencial y fallback a polling si el WS falla.
+- Reporte de estado de conexión del dashboard al backend (`POST /metrics/connection`).
+- Heartbeat configurable con `SOCKET_HEARTBEAT_TIMEOUT_MS`.
+- Referencia de UI: `client/components/RateDashboard.jsx`.
+
+### Runtime Health Monitor (servicios críticos)
+- Servicios monitorizados: MongoDB, Redis, Hedera, XRPL, Rate Oracle.
+- Emite eventos por WebSocket: `health:update` y alertas `system:alert`.
+- Umbral de degradación configurable: `RUNTIME_DEGRADE_THRESHOLD_MS`.
+- Intervalos configurables: `RUNTIME_MONITOR_INTERVAL_MS`, `RUNTIME_HEALTH_EMIT_INTERVAL_MS`.
+- Forzar chequeo sin caché del oráculo: `RUNTIME_RATE_CHECK_NOCACHE=1`.
+- Endpoint detallado (admin): `GET /api/admin/health/detailed`.
+- Implementación: `server/src/middleware/runtimeHealth.js`.
+
+### Timeouts configurables (prioridad por entorno)
+- Variables soportadas:
+  - `RATE_ORACLE_TIMEOUT_MS`, `HEDERA_TIMEOUT_MS`, `XRPL_TIMEOUT_MS`, `REDIS_TIMEOUT_MS`, `MONGO_TIMEOUT_MS`, `EXTERNAL_API_TIMEOUT_MS`, `SOCKET_HEARTBEAT_TIMEOUT_MS`, `API_REQUEST_TIMEOUT_MS`.
+- Prioridad: variable de entorno > defaults por `NODE_ENV` (development/production).
+- Helpers disponibles: `TimeoutManager.createAbortSignal`, `TimeoutManager.fetchWithTimeout`, `TimeoutManager.promiseWithTimeout`.
+- Implementación: `server/src/utils/timeoutConfig.js`.
+
+### Códigos de error estandarizados
+- Respuestas JSON uniformes vía middleware de errores.
+- Códigos principales: `API_VALID_001`, `RATE_CONN_001`, `RATE_TIMEOUT_001`, `HEDERA_CONN_001`, `XRPL_CONN_001`, etc.
+- Uso recomendado: `throw createError('RATE_TIMEOUT_001', 'Rate oracle timeout', 504)`.
+- Referencias: `server/src/utils/errorCodes.js` y `docs/ERROR_CODES.md`.
+
+### Rutas del sistema (admin)
+- `GET /api/system/timeouts`: muestra valores efectivos de timeouts.
+- `GET /api/system/error-codes`: lista de códigos de error disponibles.
+
+### Readiness y salud
+- `/ready` valida Mongo/Redis (si no están deshabilitados), XRPL (si está habilitado) y frescura del Rate Oracle.
+- El oráculo se considera fresco si `ageSeconds <= 3900` (≈1h + tolerancia).
+- Referencia: `server/src/app.js`.
+
+### Métricas Prometheus extendidas
+- `GET /metrics` expone:
+  - `xrphbar_service_health`, `xrphbar_service_latency_seconds`, `xrphbar_hedera_balance_hbars`.
+  - `xrphbar_rate_source_status` (Binance/Coinbase/Kraken/HederaMirror).
+  - `xrphbar_error_total` (connection/timeout/validation).
+  - `xrphbar_operation_duration_seconds` (rate_fetch/hedera_transfer/xrpl_payment).
+- Implementación: `server/src/services/metricsService.js` y `server/src/routes/metrics.js`.
+
+### Comandos rápidos (PowerShell)
+```powershell
+# Readiness
+Invoke-RestMethod -Uri 'http://localhost:3001/ready' | ConvertTo-Json -Compress
+
+# Métricas (Prometheus)
+Invoke-RestMethod -Uri 'http://localhost:3001/metrics' | Select-Object -First 20
+
+# Timeouts efectivos (admin)
+$token = '<Bearer JWT admin>'
+Invoke-RestMethod -Uri 'http://localhost:3001/api/system/timeouts' -Headers @{ Authorization = "Bearer $token" } | ConvertTo-Json -Compress
+
+# Códigos de error (admin)
+Invoke-RestMethod -Uri 'http://localhost:3001/api/system/error-codes' -Headers @{ Authorization = "Bearer $token" } | ConvertTo-Json -Compress
+```
