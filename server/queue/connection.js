@@ -132,11 +132,16 @@ connection.on('end', () => {
   logger.warn('⚠️  Redis connection ended');
 });
 
-// Conectar cuando el módulo se carga (solo producción)
-if (process.env.NODE_ENV === 'production') {
-  connection.connect().catch((err) => {
-    logger.error('Failed to connect to Redis:', err);
-  });
+// Conectar cuando el módulo se carga
+if (!DISABLE_REDIS) {
+  // En producción ya conectamos; en desarrollo conectamos proactivamente si REDIS_URL está definido
+  try {
+    connection.connect().catch((err) => {
+      logger.error('Failed to connect to Redis:', err);
+    });
+  } catch (e) {
+    logger.error('Redis connect init error:', e);
+  }
 }
 
 // Helper para verificar estado
