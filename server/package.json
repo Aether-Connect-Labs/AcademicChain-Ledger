@@ -12,7 +12,13 @@
     "logs:pm2": "pm2 logs",
     "monit:pm2": "pm2 monit",
     "build": "echo 'Server build complete'",
-    "test": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles --testTimeout=8000"
+    "test": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles --testTimeout=8000",
+    "audit:view": "powershell -NoProfile -Command \"Get-ChildItem -Path logs -Filter 'combined-*.log' | Sort-Object LastWriteTime -Descending | Select-Object -First 1 | ForEach-Object { Get-Content -Path $_.FullName -Tail 200 }\"",
+    "audit:errors": "powershell -NoProfile -Command \"Get-ChildItem -Path logs -Filter 'combined-*.log' | Sort-Object LastWriteTime -Descending | Select-Object -First 1 | ForEach-Object { Select-String -Path $_.FullName -Pattern 'error' }\"",
+    "audit:setup-cron": "node -e \"console.log('Winston rotación diaria habilitada (zippedArchive, maxFiles=14d). No se requiere cron adicional.');\"",
+    "metrics:init": "node scripts/init-metrics.js",
+    "metrics:aggregate-daily": "node scripts/aggregate-daily.js",
+    "metrics:generate-test": "node scripts/generate-test-metrics.js"
   },
   "jest": {
     "setupFilesAfterEnv": [
@@ -32,6 +38,7 @@
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
+    "exceljs": "^4.4.0",
     "express": "^4.18.2",
     "express-async-handler": "^1.2.0",
     "express-rate-limit": "^7.1.5",
