@@ -45,6 +45,11 @@ const UploadExcelForm = () => {
       setMessage('Por favor, selecciona un archivo Excel.');
       return;
     }
+    const MAX_FILE_BYTES = 10 * 1024 * 1024;
+    if (file.size && file.size > MAX_FILE_BYTES) {
+      setError('El archivo excede el límite de 10MB.');
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = async (event) => {

@@ -1,6 +1,6 @@
 export default class AdminAPI {
   static base() {
-    const base = import.meta.env?.VITE_API_URL || '';
+    const base = import.meta.env?.VITE_API_URL || (import.meta.env?.DEV ? 'http://localhost:3001' : '');
     return base ? base.replace(/\/$/, '') : '';
   }
 

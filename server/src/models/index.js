@@ -7,6 +7,7 @@ const Credential = require('./Credential');
 const Booking = require('./Booking');
 const XrpAnchor = require('./XrpAnchor');
 const SystemMetrics = require('./SystemMetrics');
+const ExchangeRate = require('./ExchangeRate');
 
 const db = {
   User,
@@ -18,6 +19,7 @@ const db = {
   Booking,
   XrpAnchor,
   SystemMetrics,
+  ExchangeRate,
 };
 
 module.exports = db;

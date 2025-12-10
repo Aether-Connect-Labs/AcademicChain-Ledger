@@ -1,4 +1,4 @@
-let API_BASE_URL = import.meta.env.VITE_API_URL
+let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
 
 export const issuanceService = {
   createCredentialTemplate: (data) => {

@@ -83,6 +83,44 @@ router.get('/xrp/balance', asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data });
 }));
 
+router.get('/health/detailed', asyncHandler(async (req, res) => {
+  const alerts = await require('../services/cacheService').get('alerts:system:list') || [];
+  const svc = await require('../services/cacheService').mget([
+    'metrics:svc_health:mongodb',
+    'metrics:svc_health:redis',
+    'metrics:svc_health:hedera',
+    'metrics:svc_health:xrpl',
+    'metrics:svc_health:rate_oracle',
+    'metrics:svc_latency_ms:mongodb',
+    'metrics:svc_latency_ms:redis',
+    'metrics:svc_latency_ms:hedera',
+    'metrics:svc_latency_ms:xrpl',
+    'metrics:svc_latency_ms:rate_oracle',
+    'metrics:hedera_balance_hbars'
+  ]);
+  const rateHealth = await require('../services/rateOracle').health();
+  const recommendations = [];
+  const mapSvc = (name) => ({ healthy: !!svc[`metrics:svc_health:${name}`], latencyMs: Number(svc[`metrics:svc_latency_ms:${name}`] || 0) });
+  for (const name of ['mongodb','redis','hedera','xrpl','rate_oracle']) {
+    const d = mapSvc(name);
+    if (!d.healthy) recommendations.push(`check ${name} connectivity`);
+    else if (d.latencyMs > parseInt(process.env.RUNTIME_DEGRADE_THRESHOLD_MS || '5000', 10)) recommendations.push(`increase ${name} timeout or investigate latency`);
+  }
+  res.status(200).json({
+    success: true,
+    timestamp: new Date().toISOString(),
+    services: {
+      mongodb: mapSvc('mongodb'),
+      redis: mapSvc('redis'),
+      hedera: { ...mapSvc('hedera'), balanceHbars: Number(svc['metrics:hedera_balance_hbars'] || 0) },
+      xrpl: mapSvc('xrpl'),
+      rate_oracle: { ...mapSvc('rate_oracle'), ageSeconds: rateHealth.ageSeconds, sources: rateHealth.sourcesActive }
+    },
+    alerts,
+    recommendations
+  });
+}));
+
 router.get('/institutions/stats', asyncHandler(async (req, res) => {
   try {
     const disableMongo = process.env.DISABLE_MONGO === '1';

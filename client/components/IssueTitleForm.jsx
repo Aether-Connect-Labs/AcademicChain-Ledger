@@ -24,6 +24,10 @@ const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('AUTO');
+  const [xrpIntent, setXrpIntent] = useState(null);
+  const [pendingTxId, setPendingTxId] = useState('');
+  const [xrpTxHash, setXrpTxHash] = useState('');
   const [result, setResult] = useState(null);
   const [file, setFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -156,10 +160,18 @@ const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
         graduationDate: formData.issueDate,
         grade: formData.grade,
         recipientAccountId: formData.recipientAccountId || undefined,
+        paymentMethod: paymentMethod === 'XRP' ? 'XRP' : undefined,
       }, { headers: buildAuthHeaders() });
 
       const transactionId = prepareRes.data?.data?.transactionId || prepareRes.data?.transactionId;
       const paymentBytes = prepareRes.data?.data?.paymentTransactionBytes || prepareRes.data?.paymentTransactionBytes;
+      const xrpPaymentIntent = prepareRes.data?.data?.xrpPaymentIntent || prepareRes.data?.xrpPaymentIntent;
+      if (xrpPaymentIntent) {
+        setPendingTxId(transactionId);
+        setXrpIntent(xrpPaymentIntent);
+        setMessage('Intención de pago XRP creada. Realiza el pago y pega el hash.');
+        return;
+      }
       if (paymentBytes) {
         if (!isConnected) {
           await connectWallet();
@@ -191,11 +203,50 @@ const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
     }
   };
 
+  const finalizeWithXrp = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      if (!pendingTxId || !xrpTxHash) {
+        setError('Falta transactionId o xrpTxHash');
+        return;
+      }
+      if (!/^[A-Fa-f0-9]{64}$/.test(xrpTxHash)) {
+        setError('Formato de hash XRPL inválido (hex de 64 caracteres)');
+        return;
+      }
+      const API_BASE_URL = import.meta.env.VITE_API_URL;
+      const execRes = await axios.post(`${API_BASE_URL}/api/universities/execute-issuance`, {
+        transactionId: pendingTxId,
+        xrpTxHash,
+      }, { headers: buildAuthHeaders() });
+      setResult(execRes.data?.data || execRes.data);
+      setMessage('Título emitido correctamente');
+      setFormData(prev => ({ ...prev, studentName: '', courseName: '', issueDate: '', grade: '', recipientAccountId: '' }));
+      setFile(null);
+      setIpfsURI('');
+      setXrpIntent(null);
+      setXrpTxHash('');
+      setPendingTxId('');
+    } catch (err) {
+      setError('Error al finalizar con XRP: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-md mx-auto card">
       <h2 className="text-2xl font-bold mb-6 text-gray-800">{variant === 'certificate' ? 'Emitir Certificado' : (variant === 'diploma' ? 'Emitir Diploma' : 'Emitir Título')}</h2>
       {demo && (<div className="badge badge-info mb-4">Emisión en modo demostración</div>)}
       <form onSubmit={handleSubmit}>
+        <div className="mb-4">
+          <label className="block text-gray-700 text-sm font-bold mb-2">Método de Pago</label>
+          <select value={paymentMethod} onChange={(e)=>setPaymentMethod(e.target.value)} className="input-primary">
+            <option value="AUTO">Automático (Hedera/None)</option>
+            <option value="XRP">XRP</option>
+          </select>
+        </div>
         <div className="mb-4">
           <label htmlFor="tokenId" className="block text-gray-700 text-sm font-bold mb-2">
             Token ID:
@@ -338,6 +389,20 @@ const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
           </div>
         )}
       </form>
+      {xrpIntent && (
+        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded">
+          <div className="font-semibold mb-2">Paga en XRP y pega el hash</div>
+          <div className="text-sm mb-2">Red: {xrpIntent.network}</div>
+          <div className="text-sm mb-2">Destino: <span className="font-mono">{xrpIntent.destination}</span></div>
+          <div className="text-sm mb-2">Monto (drops): {xrpIntent.amountDrops}</div>
+          <div className="text-sm mb-2">Memo (hex): <span className="font-mono break-all">{xrpIntent.memoHex}</span></div>
+          <div className="mt-3">
+            <label className="block text-gray-700 text-sm font-bold mb-2">XRPL Tx Hash</label>
+            <input type="text" className="input-primary" placeholder="Introduce el hash de la transacción en XRPL" value={xrpTxHash} onChange={(e)=>setXrpTxHash(e.target.value)} />
+          </div>
+          <button className="btn btn-primary mt-3" onClick={finalizeWithXrp} disabled={isLoading || !xrpTxHash}>Finalizar emisión</button>
+        </div>
+      )}
     </div>
   );
 };

@@ -69,11 +69,14 @@ const BatchIssuance = ({ demo = false }) => {
     generateQR: true,
     sendEmail: false,
     template: 'default',
-    tokenId: '0.0.123456'
+    tokenId: '0.0.123456',
+    paymentMethod: 'AUTO'
   });
   const [preSignPayments, setPreSignPayments] = useState(true);
   const [pollError, setPollError] = useState('');
   const [isPolling, setIsPolling] = useState(false);
+  const [xrpBatchIntents, setXrpBatchIntents] = useState([]);
+  const [xrpBatchHashes, setXrpBatchHashes] = useState({});
   const getResultItems = useCallback(() => {
     const items = [];
     const prepared = Array.isArray(processResult?.data?.prepared) ? processResult.data.prepared : [];
@@ -198,7 +201,8 @@ const BatchIssuance = ({ demo = false }) => {
           credential,
           rawData: row,
           status: 'pending',
-          errors: []
+          errors: [],
+          paymentMethod: issuanceConfig.paymentMethod || 'AUTO'
         };
       });
 
@@ -381,21 +385,29 @@ const BatchIssuance = ({ demo = false }) => {
             degree: item.credential?.subject?.degree || 'Degree',
             graduationDate: new Date().toISOString().slice(0, 10),
             recipientAccountId: item.credential?.recipientAccountId || undefined,
+            paymentMethod: item.paymentMethod === 'XRP' ? 'XRP' : undefined,
           };
           const prepRes = await axios.post(`${API_BASE_URL}/api/universities/prepare-issuance`, payload, { headers });
           const transactionId = prepRes.data?.data?.transactionId || prepRes.data?.transactionId;
           const paymentBytes = prepRes.data?.data?.paymentTransactionBytes || prepRes.data?.paymentTransactionBytes;
+          const xrpPaymentIntent = prepRes.data?.data?.xrpPaymentIntent || prepRes.data?.xrpPaymentIntent;
           let execRes;
-          if (paymentBytes) {
+          if (xrpPaymentIntent) {
+            prepared.push({ transactionId, xrpPaymentIntent });
+          } else if (paymentBytes) {
             const signed = await signTransactionBytes(paymentBytes);
             execRes = await axios.post(`${API_BASE_URL}/api/universities/execute-issuance`, { transactionId, signedPaymentTransactionBytes: signed }, { headers });
           } else {
             execRes = await axios.post(`${API_BASE_URL}/api/universities/execute-issuance`, { transactionId }, { headers });
           }
-          prepared.push(execRes.data?.data || execRes.data);
+          if (execRes) prepared.push(execRes.data?.data || execRes.data);
         }
+        const hasXrp = prepared.some(p => p && p.xrpPaymentIntent);
         const total = prepared.length;
-        const summary = { total, successful: total, failed: 0, successRate: 100, duration: Math.round((Date.now() - results.startTime) / 1000), status: 'completed' };
+        const summary = hasXrp 
+          ? { total, successful: 0, failed: 0, successRate: 0, duration: Math.round((Date.now() - results.startTime) / 1000), status: 'awaiting_xrp' }
+          : { total, successful: total, failed: 0, successRate: 100, duration: Math.round((Date.now() - results.startTime) / 1000), status: 'completed' };
+        if (hasXrp) setXrpBatchIntents(prepared.filter(p => p && p.xrpPaymentIntent));
         setProcessResult({ success: true, data: { total, startTime: results.startTime, prepared }, summary });
         setCurrentStep(4);
         setIsProcessing(false);
@@ -634,6 +646,18 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                   </label>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
+                  <select
+                    value={issuanceConfig.paymentMethod}
+                    onChange={(e) => setIssuanceConfig(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    className="input-primary"
+                  >
+                    <option value="AUTO">Automático (Hedera/None)</option>
+                    <option value="XRP">XRP</option>
+                  </select>
+                </div>
+
                 <div className="flex items-center">
                   <input
                     type="checkbox"
@@ -701,11 +725,26 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-h-96 overflow-y-auto p-2">
               {credentials.slice(0, 6).map((credential, index) => (
-                <CredentialPreview
-                  key={credential.id}
-                  credential={credential.credential}
-                  index={index}
-                />
+                <div key={credential.id} className="space-y-2">
+                  <CredentialPreview
+                    credential={credential.credential}
+                    index={index}
+                  />
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-700">Pago:</label>
+                    <select
+                      value={credential.paymentMethod || 'AUTO'}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCredentials(prev => prev.map((c, i) => i === index ? { ...c, paymentMethod: val } : c));
+                      }}
+                      className="input-primary"
+                    >
+                      <option value="AUTO">AUTO</option>
+                      <option value="XRP">XRP</option>
+                    </select>
+                  </div>
+                </div>
               ))}
             </div>
 
@@ -833,6 +872,77 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                     setPollError(e.message);
                   }
                 }}>Actualizar ahora</button>
+              </div>
+            )}
+
+            {processResult?.summary?.status === 'awaiting_xrp' && (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-800 font-semibold">Pagos XRP requeridos para completar la emisión</p>
+                <div className="mt-3 overflow-x-auto bg-white rounded border">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-700">
+                        <th className="px-3 py-2 text-left">TxID</th>
+                        <th className="px-3 py-2 text-left">Destino</th>
+                        <th className="px-3 py-2 text-left">Drops</th>
+                        <th className="px-3 py-2 text-left">Memo Hex</th>
+                        <th className="px-3 py-2 text-left">XRPL Tx Hash</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {xrpBatchIntents.map((it, idx) => (
+                        <tr key={`${it.transactionId}-${idx}`} className="border-t">
+                          <td className="px-3 py-2 font-mono">{it.transactionId}</td>
+                          <td className="px-3 py-2 font-mono break-all">{it.xrpPaymentIntent.destination}</td>
+                          <td className="px-3 py-2">{it.xrpPaymentIntent.amountDrops}</td>
+                          <td className="px-3 py-2 font-mono break-all">{it.xrpPaymentIntent.memoHex}</td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="text"
+                              className="input-primary w-full"
+                              placeholder="Introduce hash de XRPL"
+                              value={xrpBatchHashes[it.transactionId] || ''}
+                              onChange={(e) => setXrpBatchHashes(prev => ({ ...prev, [it.transactionId]: e.target.value }))}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <button
+                  className="btn-primary mt-3"
+                  onClick={async () => {
+                    try {
+                      const API_BASE_URL = import.meta.env.VITE_API_URL;
+                      const headers = (() => { try { const t = localStorage.getItem('authToken'); return t ? { Authorization: `Bearer ${t}` } : {}; } catch { return {}; } })();
+                      const results = [];
+                      const invalids = [];
+                      for (const it of xrpBatchIntents) {
+                        const h = xrpBatchHashes[it.transactionId];
+                        if (!h) continue;
+                        if (!/^[A-Fa-f0-9]{64}$/.test(h)) {
+                          invalids.push(it.transactionId);
+                          continue;
+                        }
+                        const execRes = await axios.post(`${API_BASE_URL}/api/universities/execute-issuance`, { transactionId: it.transactionId, xrpTxHash: h }, { headers });
+                        results.push(execRes.data?.data || execRes.data);
+                      }
+                      if (invalids.length) {
+                        setPollError(`Hash XRPL inválido para ${invalids.length} transacción(es): ${invalids.join(', ')}`);
+                      }
+                      setProcessResult(prev => ({
+                        ...prev,
+                        data: { ...prev.data, prepared: results },
+                        summary: { ...prev.summary, status: 'completed', successful: results.length, failed: 0, successRate: 100 }
+                      }));
+                      setXrpBatchIntents([]);
+                      setXrpBatchHashes({});
+                    } catch (e) {
+                      setPollError(e.message);
+                    }
+                  }}
+                >Finalizar lote con XRP</button>
               </div>
             )}
             

@@ -617,3 +617,18 @@ Invoke-RestMethod -Uri 'http://localhost:3001/api/system/timeouts' -Headers @{ A
 # Códigos de error (admin)
 Invoke-RestMethod -Uri 'http://localhost:3001/api/system/error-codes' -Headers @{ Authorization = "Bearer $token" } | ConvertTo-Json -Compress
 ```
+## 🔐 Security Measures Implemented
+
+- Dependency security
+  - npm overrides para vulnerabilidades críticas
+  - Polyfills seguros para compatibilidad retro
+  - Sanitización automatizada para cargas de archivos (XLSX, PDF)
+  - Auditorías periódicas con npm audit y Dependabot
+- File upload security
+  - XLSX con límites de tamaño/filas/columnas
+  - Fórmulas y macros deshabilitadas
+  - Validación y sanitización de entrada
+- API security
+  - Express 4.x con polyfill seguro de path-to-regexp
+  - Axios con timeout y protección SSRF
+  - Rate limiting y validación de requests

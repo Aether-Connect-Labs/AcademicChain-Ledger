@@ -1,5 +1,12 @@
 import React from 'react';
-import * as Sentry from "@sentry/react";
+const isDev = import.meta.env.DEV;
+const capture = async (error, options) => {
+  if (isDev) return null;
+  try {
+    const mod = await import("@sentry/react");
+    return mod.captureException(error, options);
+  } catch { return null; }
+};
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -22,23 +29,22 @@ class ErrorBoundary extends React.Component {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
     
     // Capturar en Sentry con más contexto
-    const eventId = Sentry.captureException(error, {
-      extra: {
-        componentStack: errorInfo.componentStack,
-        timestamp: new Date().toISOString(),
-        userAgent: navigator.userAgent,
-        url: window.location.href
-      },
-      tags: {
-        component: 'ErrorBoundary',
-        error_type: 'react_component_error'
-      }
-    });
-
-    this.setState({ 
-      errorInfo,
-      eventId 
-    });
+    const self = this;
+    (async () => {
+      const eventId = await capture(error, {
+        extra: {
+          componentStack: errorInfo.componentStack,
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          url: window.location.href
+        },
+        tags: {
+          component: 'ErrorBoundary',
+          error_type: 'react_component_error'
+        }
+      });
+      self.setState({ errorInfo, eventId });
+    })();
 
     // Llamar callback personalizado si existe
     if (this.props.onError) {
@@ -218,7 +224,7 @@ export const useErrorHandler = () => {
 
   const handleError = React.useCallback((error) => {
     setError(error);
-    Sentry.captureException(error);
+    capture(error);
   }, []);
 
   const clearError = React.useCallback(() => {

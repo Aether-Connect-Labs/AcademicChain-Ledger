@@ -18,11 +18,15 @@ const {
   Transaction,
   NftId,
   PublicKey,
+  TopicCreateTransaction,
+  TopicMessageSubmitTransaction,
   ContractExecuteTransaction,
   ContractFunctionParameters,
 } = require('@hashgraph/sdk');
 
 const logger = require('../utils/logger');
+const { TimeoutManager } = require('../utils/timeoutConfig');
+const { createError } = require('../utils/errorCodes');
 const { HederaError, BadRequestError, NotFoundError } = require('../utils/errors');
 const ipfsService = require('./ipfsService');
 const axios = require('axios');
@@ -129,7 +133,7 @@ class HederaService {
       .setAdminKey(this.operatorKey.publicKey)
       .setSupplyKey(this.operatorKey.publicKey)
       .setFreezeDefault(false);
-    const { receipt } = await this._executeTransaction(transaction);
+    const { receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transaction), 'hedera');
     const tokenId = receipt.tokenId;
     logger.info(`✅ Academic token created: ${tokenId}`);
     return {
@@ -158,7 +162,7 @@ class HederaService {
       .setAdminKey(this.operatorKey.publicKey)
       .setSupplyKey(this.operatorKey.publicKey)
       .setFreezeDefault(false);
-    const { receipt } = await this._executeTransaction(transaction);
+    const { receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transaction), 'hedera');
     const tokenId = receipt.tokenId;
     logger.info(`✅ Payment token created: ${tokenId}`);
     return {
@@ -222,7 +226,7 @@ class HederaService {
     const transaction = new TokenMintTransaction()
       .setTokenId(TokenId.fromString(tokenId))
       .setMetadata([onChainMetadata]);
-    const { receipt } = await this._executeTransaction(transaction);
+    const { receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transaction), 'hedera');
     const serialNumber = receipt.serials[0].toString();
     logger.info(`✅ Credential minted with serial: ${serialNumber}`);
     return {
@@ -245,7 +249,7 @@ class HederaService {
         this.operatorId,
         AccountId.fromString(recipientAccountId)
       );
-    const { receipt } = await this._executeTransaction(transferTransaction);
+    const { receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transferTransaction), 'hedera');
     logger.info(`✅ Credential transferred successfully`);
     return { transactionId: receipt.transactionId.toString() };
   }
@@ -257,7 +261,7 @@ class HederaService {
     const transaction = new TokenBurnTransaction()
       .setTokenId(TokenId.fromString(tokenId))
       .setSerials([parseInt(serialNumber, 10)]);
-    const { receipt } = await this._executeTransaction(transaction);
+    const { receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transaction), 'hedera');
     logger.info(`🔥 Credential burned: ${tokenId}#${serialNumber}. New total supply: ${receipt.totalSupply}`);
     return {
       transactionId: receipt.transactionId.toString(),
@@ -292,8 +296,8 @@ class HederaService {
     }
     const signedTransactionBytes = Buffer.from(signedTransactionBytesBase64, 'base64');
     const signedTransaction = Transaction.fromBytes(signedTransactionBytes);
-    const response = await signedTransaction.execute(this.client);
-    const receipt = await response.getReceipt(this.client);
+    const response = await TimeoutManager.promiseWithTimeout(signedTransaction.execute(this.client), 'hedera');
+    const receipt = await TimeoutManager.promiseWithTimeout(response.getReceipt(this.client), 'hedera');
     logger.info(`✅ Executed signed transaction successfully. Status: ${receipt.status.toString()}`);
     return {
       receipt,
@@ -307,7 +311,7 @@ class HederaService {
     }
     try {
       const query = new TokenNftInfoQuery().setNftId(new NftId(TokenId.fromString(tokenId), parseInt(serialNumber, 10)));
-      const nftInfo = await query.execute(this.client);
+    const nftInfo = await TimeoutManager.promiseWithTimeout(query.execute(this.client), 'hedera');
       if (!nftInfo) {
         throw new NotFoundError('Credential not found');
       }
@@ -355,7 +359,7 @@ class HederaService {
       throw new BadRequestError('Account ID is required');
     }
     const query = new AccountBalanceQuery().setAccountId(accountId);
-    const accountBalance = await query.execute(this.client);
+    const accountBalance = await TimeoutManager.promiseWithTimeout(query.execute(this.client), 'hedera');
     return {
       hbars: accountBalance.hbars.toString(),
       tokens: accountBalance.tokens.toString(),
@@ -366,7 +370,7 @@ class HederaService {
     if (!accountId) {
       throw new BadRequestError('Account ID is required');
     }
-    const info = await new AccountInfoQuery().setAccountId(AccountId.fromString(accountId)).execute(this.client);
+    const info = await TimeoutManager.promiseWithTimeout(new AccountInfoQuery().setAccountId(AccountId.fromString(accountId)).execute(this.client), 'hedera');
     return info.key.toString();
   }
 
@@ -386,7 +390,7 @@ class HederaService {
       throw new BadRequestError('Token ID is required');
     }
     const query = new TokenInfoQuery().setTokenId(tokenId);
-    const tokenInfo = await query.execute(this.client);
+    const tokenInfo = await TimeoutManager.promiseWithTimeout(query.execute(this.client), 'hedera');
     return {
       tokenId: tokenInfo.tokenId.toString(),
       name: tokenInfo.name,
@@ -394,6 +398,49 @@ class HederaService {
       totalSupply: tokenInfo.totalSupply.toString(),
       treasuryAccountId: tokenInfo.treasuryAccountId.toString(),
     };
+  }
+
+  async createGradesTopic(memo) {
+    if (!this.isEnabled()) {
+      const topicId = `0.0.${Math.floor(100000 + Math.random()*900000)}`;
+      return { topicId, transactionId: `mock-${uuidv4()}` };
+    }
+    const tx = new TopicCreateTransaction();
+    if (memo) tx.setMemo(String(memo).slice(0, 100));
+    const { receipt } = await this._executeTransaction(tx);
+    return { topicId: receipt.topicId.toString(), transactionId: receipt.transactionId.toString() };
+  }
+
+  async publishGrade(topicId, payload) {
+    if (!topicId || !payload) throw new BadRequestError('topicId and payload are required');
+    const message = Buffer.from(JSON.stringify(payload), 'utf8');
+    if (!this.isEnabled()) {
+      return { sequenceNumber: Math.floor(1 + Math.random()*100000), consensusTimestamp: new Date().toISOString(), transactionId: `mock-${uuidv4()}` };
+    }
+    const tx = new TopicMessageSubmitTransaction()
+      .setTopicId(topicId)
+      .setMessage(message);
+    const response = await TimeoutManager.promiseWithTimeout(tx.execute(this.client), 'hedera');
+    const receipt = await TimeoutManager.promiseWithTimeout(response.getReceipt(this.client), 'hedera');
+    return {
+      sequenceNumber: receipt.topicSequenceNumber.toNumber ? receipt.topicSequenceNumber.toNumber() : Number(receipt.topicSequenceNumber || 0),
+      consensusTimestamp: receipt.consensusTimestamp ? receipt.consensusTimestamp.toDate().toISOString() : new Date().toISOString(),
+      transactionId: response.transactionId.toString(),
+    };
+  }
+
+  async sendHbar(toAccountId, tinybars) {
+    if (!toAccountId || typeof tinybars !== 'number') throw new BadRequestError('toAccountId and tinybars are required');
+    if (!this.isEnabled()) {
+      return { receipt: { status: { toString: () => 'SUCCESS' } }, transactionId: `mock-${uuidv4()}` };
+    }
+    const t0 = Date.now();
+    const tx = new TransferTransaction()
+      .addHbarTransfer(this.operatorId, -tinybars)
+      .addHbarTransfer(AccountId.fromString(toAccountId), tinybars);
+    const { receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(tx), 'hedera');
+    try { const dt = (Date.now() - t0) / 1000; require('./cacheService').set('metrics:operation_duration_seconds:hedera_transfer', Number(dt.toFixed(6)), 180); } catch {}
+    return { receipt, transactionId: receipt.transactionId.toString() };
   }
 }
 

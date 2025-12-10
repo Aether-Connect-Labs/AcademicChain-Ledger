@@ -95,3 +95,15 @@ Dado que este es un proyecto privado, seguimos protocolos específicos para el m
 *Versión: 1.0*  
 *Última actualización: 9-12-2025  
 *Clasificación: CONFIDENCIAL*
+## Vulnerability Management Process
+
+1. Daily: Dependabot escanea vulnerabilidades
+2. Weekly: `npm audit --audit-level=high`
+3. Monthly: Revisión de dependencias
+
+### Para vulnerabilidades críticas
+- Actualización vía npm overrides en `package.json`
+- Implementación de polyfills si hay cambios incompatibles
+- Sanitizadores personalizados cuando no hay versión segura
+- Verificación con tests y builds
+- Documentación de mitigación en este archivo

@@ -208,6 +208,7 @@ router.post('/prepare-issuance', protect, isUniversity,
     body('tokenId').notEmpty().withMessage('Token ID is required').trim().escape(),
     body('uniqueHash').notEmpty().withMessage('uniqueHash is required').trim().escape(),
     body('ipfsURI').notEmpty().withMessage('ipfsURI is required').trim(),
+    body('paymentMethod').optional().isString().trim().escape(),
   ],
   validate,
   asyncHandler(async (req, res) => {
@@ -216,6 +217,19 @@ router.post('/prepare-issuance', protect, isUniversity,
       const { tokenId, ...credentialData } = req.body;
       const MINT_FEE = 100000000;
       const PAYMENT_TOKEN_ID = process.env.PAYMENT_TOKEN_ID;
+      const defaultMethod = String(process.env.DEFAULT_PAYMENT_METHOD || '').toUpperCase();
+      const methodFromBody = String(req.body.paymentMethod || '').toUpperCase();
+      let paymentMethod = methodFromBody || defaultMethod || (String(process.env.ENABLE_XRP_PAYMENTS || '0') === '1' ? 'XRP' : 'HBAR');
+      let preferXrp = paymentMethod === 'XRP';
+      if (paymentMethod === 'AUTO') {
+        const rateOracle = require('../services/rateOracle');
+        const rateResp = await rateOracle.getRate();
+        const rate = Number(rateResp?.data?.rate || parseFloat(process.env.XRPHBAR_RATE || global.XRPHBAR_RATE_CACHE || '1'));
+        const hbarFeeHbar = MINT_FEE / 1e8;
+        const xrpFee = parseFloat(process.env.XRPL_MINT_FEE_XRP || '0.001');
+        const xrpFeeInHbar = xrpFee * rate;
+        preferXrp = xrpFeeInHbar < hbarFeeHbar;
+      }
 
       const token = await Token.findOne({ tokenId, universityId: user.id });
       if (!token) {
@@ -230,13 +244,30 @@ router.post('/prepare-issuance', protect, isUniversity,
       });
 
       let transactionBytes = null;
-      if (PAYMENT_TOKEN_ID && user.hederaAccountId && MINT_FEE > 0) {
+      let xrpIntent = null;
+      if (!preferXrp && PAYMENT_TOKEN_ID && user.hederaAccountId && MINT_FEE > 0) {
         transactionBytes = await hederaService.prepareServiceChargeTransaction(
           user.hederaAccountId,
           process.env.HEDERA_ACCOUNT_ID,
           MINT_FEE,
           PAYMENT_TOKEN_ID
         );
+      } else if (preferXrp) {
+        try {
+          await xrpService.connect();
+          const feeXrp = parseFloat(process.env.XRPL_MINT_FEE_XRP || '0.001');
+          const drops = Math.max(1, Math.round(feeXrp * 1_000_000));
+          const dest = xrpService.getAddress();
+          xrpIntent = {
+            network: process.env.XRPL_NETWORK || 'testnet',
+            destination: dest,
+            amountDrops: drops,
+            memo: `ACAD|TX:${transactionRecord.id}`,
+            memoHex: Buffer.from(`ACAD|TX:${transactionRecord.id}`, 'utf8').toString('hex').toUpperCase(),
+          };
+          transactionRecord.status = 'PENDING_PAYMENT';
+          await transactionRecord.save();
+        } catch {}
       } else {
         transactionRecord.status = 'PENDING_ISSUANCE';
         await transactionRecord.save();
@@ -248,6 +279,7 @@ router.post('/prepare-issuance', protect, isUniversity,
         data: {
           transactionId: transactionRecord.id,
           paymentTransactionBytes: transactionBytes,
+          xrpPaymentIntent: xrpIntent,
         }
       });
     } catch (e) {
@@ -261,10 +293,11 @@ router.post('/execute-issuance', protect, isUniversity,
   [
     body('transactionId').notEmpty().withMessage('Transaction ID is required'),
     body('signedPaymentTransactionBytes').optional({ nullable: true }).isString(),
+    body('xrpTxHash').optional({ nullable: true }).isString(),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { transactionId, signedPaymentTransactionBytes } = req.body;
+    const { transactionId, signedPaymentTransactionBytes, xrpTxHash } = req.body;
     const { user } = req;
     const { Credential } = require('../models');
 
@@ -291,21 +324,46 @@ router.post('/execute-issuance', protect, isUniversity,
       }
 
       // 2. Process payment if required
-      if (signedPaymentTransactionBytes) {
+      if (signedPaymentTransactionBytes || xrpTxHash) {
         if (transaction.status !== 'PENDING_PAYMENT') {
             return res.status(409).json({ success: false, message: 'Payment has already been processed or is not required.' });
         }
-        const paymentResult = await hederaService.executeSignedTransaction(signedPaymentTransactionBytes);
-        if (paymentResult.receipt.status.toString() !== 'SUCCESS') {
-          transaction.status = 'PAYMENT_FAILED';
-          transaction.errorDetails = { message: `Payment receipt status: ${paymentResult.receipt.status.toString()}` };
-          await transaction.save();
-          return res.status(402).json({ success: false, message: 'Payment failed. Credential not issued.', data: paymentResult });
+        if (signedPaymentTransactionBytes) {
+          const paymentResult = await hederaService.executeSignedTransaction(signedPaymentTransactionBytes);
+          if (paymentResult.receipt.status.toString() !== 'SUCCESS') {
+            transaction.status = 'PAYMENT_FAILED';
+            transaction.errorDetails = { message: `Payment receipt status: ${paymentResult.receipt.status.toString()}` };
+            await transaction.save();
+            return res.status(402).json({ success: false, message: 'Payment failed. Credential not issued.', data: paymentResult });
+          }
+          transaction.paymentTransactionId = paymentResult.transactionId;
+        } else if (xrpTxHash) {
+          if (!/^[A-Fa-f0-9]{64}$/.test(xrpTxHash)) {
+            return res.status(400).json({ success: false, message: 'Invalid XRPL transaction hash format' });
+          }
+          try {
+            await xrpService.connect();
+            const dest = xrpService.getAddress();
+            const feeXrp = parseFloat(process.env.XRPL_MINT_FEE_XRP || '0.001');
+            const minDrops = Math.max(1, Math.round(feeXrp * 1_000_000));
+            const verify = await xrpService.verifyPayment({ txHash: xrpTxHash, destination: dest, minDrops, memoContains: String(transaction.id) });
+            if (!verify.verified) {
+              transaction.status = 'PAYMENT_FAILED';
+              transaction.errorDetails = { message: 'XRP payment verification failed' };
+              await transaction.save();
+              return res.status(402).json({ success: false, message: 'Payment failed. Credential not issued.' });
+            }
+            transaction.paymentTransactionId = xrpTxHash;
+          } catch (e) {
+            transaction.status = 'PAYMENT_FAILED';
+            transaction.errorDetails = { message: e.message };
+            await transaction.save();
+            return res.status(402).json({ success: false, message: 'Payment failed. Credential not issued.' });
+          }
         }
-        transaction.paymentTransactionId = paymentResult.transactionId;
         transaction.status = 'PENDING_ISSUANCE';
         await transaction.save();
-        logger.info(`💰 Payment successful for DB transaction ${transaction.id}. TxID: ${paymentResult.transactionId}`);
+        logger.info(`💰 Payment successful for DB transaction ${transaction.id}. TxID: ${transaction.paymentTransactionId}`);
       }
 
       // 3. Mint the NFT on HTS
@@ -402,6 +460,47 @@ router.post('/execute-issuance', protect, isUniversity,
   })
 );
 
+// Hedera Consensus Service (HCS) - Registro de calificaciones
+router.post('/grades/create-topic', protect, isUniversity,
+  [ body('memo').optional().isString().trim() ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { memo } = req.body;
+    const result = await hederaService.createGradesTopic(memo || `Grades · ${req.user.universityName}`);
+    res.status(201).json({ success: true, message: 'Grades topic created', data: result });
+  })
+);
+
+router.post('/grades/publish', protect, isUniversity,
+  [
+    body('topicId').notEmpty().withMessage('topicId is required').trim(),
+    body('tokenId').optional().isString().trim(),
+    body('serialNumber').optional().isString().trim(),
+    body('studentId').notEmpty().withMessage('studentId is required').trim(),
+    body('grade').notEmpty().withMessage('grade is required').trim(),
+    body('courseCode').optional().isString().trim(),
+    body('evaluator').optional().isString().trim(),
+    body('comments').optional().isString().trim(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { topicId, tokenId, serialNumber, studentId, grade, courseCode, evaluator, comments } = req.body;
+    const payload = {
+      type: 'GRADE_RECORD',
+      university: req.user.universityName,
+      studentId,
+      grade,
+      courseCode: courseCode || null,
+      credentialRef: tokenId && serialNumber ? `${tokenId}-${serialNumber}` : null,
+      evaluator: evaluator || null,
+      comments: comments || null,
+      timestamp: new Date().toISOString(),
+    };
+    const result = await hederaService.publishGrade(topicId, payload);
+    res.status(201).json({ success: true, message: 'Grade published to HCS', data: result });
+  })
+);
+
 // Encolar emisión masiva
 router.post('/issue-bulk', protect, isUniversity,
   [
@@ -441,14 +540,28 @@ router.post('/issue-bulk', protect, isUniversity,
             );
           }
 
-          await Credential.create({
-            tokenId: tokenId,
-            serialNumber: mintResult.serialNumber,
-            universityId: user.id,
-            studentAccountId: credentialData.recipientAccountId || null,
-            uniqueHash: credentialData.uniqueHash,
-            ipfsURI: credentialData.ipfsURI,
-          });
+          try {
+            if (!useMem()) {
+              await Credential.create({
+                tokenId: tokenId,
+                serialNumber: mintResult.serialNumber,
+                universityId: user.id,
+                studentAccountId: credentialData.recipientAccountId || null,
+                uniqueHash: credentialData.uniqueHash,
+                ipfsURI: credentialData.ipfsURI,
+              });
+            } else {
+              memStore.credentials.push({
+                tokenId: tokenId,
+                serialNumber: mintResult.serialNumber,
+                universityId: user.id,
+                studentAccountId: credentialData.recipientAccountId || null,
+                uniqueHash: credentialData.uniqueHash,
+                ipfsURI: credentialData.ipfsURI,
+                createdAt: new Date(),
+              });
+            }
+          } catch {}
           const enableXrp3 = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
           if (enableXrp3) {
             try {

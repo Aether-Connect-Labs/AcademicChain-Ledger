@@ -8,6 +8,8 @@ const hederaService = require('../services/hederaServices');
 const xrpService = require('../services/xrpService');
 const partnerService = require('../services/partnerService');
 const logger = require('../utils/logger');
+const cacheService = require('../services/cacheService');
+const rateOracle = require('../services/rateOracle');
 const ROLES = require('../config/roles');
 const { recordAnalytics } = require('../services/analyticsService');
 const { User, Token } = require('../models');
@@ -237,4 +239,64 @@ router.post('/institution/mint',
     })
   );
 
+// Puente básico XRP ↔ HBAR
+router.post('/bridge/quote', partnerAuth,
+  [
+    body('direction').notEmpty().withMessage('direction is required').trim().isIn(['XRP_TO_HBAR','HBAR_TO_XRP']),
+    body('amount').notEmpty().withMessage('amount is required').isFloat({ gt: 0 }),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { direction, amount } = req.body;
+    const rateResp = await rateOracle.getRate();
+    const rate = Number(rateResp?.data?.rate || parseFloat(process.env.XRPHBAR_RATE || global.XRPHBAR_RATE_CACHE || '1'));
+    const quote = direction === 'XRP_TO_HBAR' ? amount * rate : amount / rate;
+    res.status(200).json({ success: true, data: { rate, direction, amount, quote } });
+  })
+);
+
+router.post('/bridge/convert', partnerAuth,
+  [
+    body('direction').notEmpty().trim().isIn(['XRP_TO_HBAR','HBAR_TO_XRP']),
+    body('amount').notEmpty().isFloat({ gt: 0 }),
+    body('hederaRecipient').optional().isString(),
+    body('xrpTxHash').optional().isString(),
+    body('xrpRecipient').optional().isString(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { direction, amount, hederaRecipient, xrpTxHash, xrpRecipient } = req.body;
+    const rateResp = await rateOracle.getRate();
+    const rate = Number(rateResp?.data?.rate || parseFloat(process.env.XRPHBAR_RATE || global.XRPHBAR_RATE_CACHE || '1'));
+    if (direction === 'XRP_TO_HBAR') {
+      if (!hederaRecipient || !xrpTxHash) {
+        return res.status(400).json({ success: false, message: 'hederaRecipient and xrpTxHash are required for XRP_TO_HBAR' });
+      }
+      if (!/^[A-Fa-f0-9]{64}$/.test(xrpTxHash)) {
+        return res.status(400).json({ success: false, message: 'Invalid XRPL transaction hash format' });
+      }
+      await xrpService.connect();
+      const dest = xrpService.getAddress();
+      const minDrops = Math.max(1, Math.round(Number(amount) * 1_000_000));
+      const verify = await xrpService.verifyPayment({ txHash: xrpTxHash, destination: dest, minDrops, memoContains: 'BRIDGE' });
+      if (!verify.verified) {
+        return res.status(402).json({ success: false, message: 'XRP payment verification failed' });
+      }
+      const tinybars = Math.round(amount * rate * 1e8);
+      const tx = await hederaService.sendHbar(hederaRecipient, tinybars);
+      await cacheService.increment('metrics:xrphbar_conversions_total:XRP_TO_HBAR', 1);
+      return res.status(201).json({ success: true, message: 'Conversion completed', data: { hbarTxId: tx.transactionId, xrpVerified: true } });
+    } else {
+      await hederaService.connect();
+      await xrpService.connect();
+      const drops = Math.round(amount / rate * 1_000_000);
+      const dest = xrpRecipient || xrpService.getAddress();
+      const memo = `BRIDGE:${req.partner.id}:${amount}`;
+      const r = await xrpService.sendPayment({ destination: dest, amountDrops: drops, memo });
+      await cacheService.increment('metrics:xrphbar_conversions_total:HBAR_TO_XRP', 1);
+      return res.status(201).json({ success: true, message: 'Conversion simulated (HBAR→XRP)', data: { xrpTxHash: r.hash } });
+    }
+  })
+);
+ 
  module.exports = router;

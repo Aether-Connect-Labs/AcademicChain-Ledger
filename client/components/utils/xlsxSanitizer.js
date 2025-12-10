@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 
-const MAX_ROWS = 2000;
-const MAX_COLS = 50;
+const MAX_ROWS = 10000;
+const MAX_COLS = 100;
 const MAX_CELL_LEN = 1024;
 
 function sanitizeValue(v) {
@@ -19,6 +19,7 @@ export function readSafe(binaryStr) {
     raw: true,
     cellNF: false,
     cellFormula: false,
+    bookVBA: false,
     WTF: false
   });
   const sheetName = wb.SheetNames[0];

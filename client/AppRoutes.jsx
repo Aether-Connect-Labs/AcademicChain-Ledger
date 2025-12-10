@@ -10,6 +10,7 @@ import StudentPortal from './components/StudentPortal';
 import ComenzarGratisPage from './components/ComenzarGratisPage';
 import AdminLayout from './components/AdminLayout';
 import AdminDashboard from './components/AdminDashboard';
+import RateDashboard from './components/RateDashboard';
 import PendingInstitutions from './components/PendingInstitutions';
 import ApprovedInstitutions from './components/ApprovedInstitutions';
 import AdminPanel from './components/AdminPanel';
@@ -122,6 +123,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute requiredRoles={['admin','institution','university']}>
             <AdminLayout><AdminDashboard /></AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/rate"
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <AdminLayout><RateDashboard /></AdminLayout>
           </ProtectedRoute>
         }
       />

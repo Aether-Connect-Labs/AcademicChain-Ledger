@@ -22,7 +22,7 @@ const { v4: uuidv4 } = require('uuid');
 const { User } = require('./models');
 
 const logger = require('./utils/logger');
-const { errorHandler } = require('./middleware/errorHandler');
+const { errorHandler } = require('./utils/errorCodes');
 const ipfsService = require('./services/ipfsService');
 const cacheService = require('./services/cacheService');
 const { protect, authorize } = require('./middleware/auth');
@@ -31,6 +31,8 @@ const { initializeWorkers } = require('./workers');
 const { connectDB, isConnected: isMongoConnected, getConnectionStats: getMongoStats } = require('./config/database');
 const { isConnected: isRedisConnected, getStats: getRedisStats } = require('../queue/connection');
 const ROLES = require('./config/roles');
+const axios = require('axios');
+const cron = require('node-cron');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -40,15 +42,22 @@ const universityRoutes = require('./routes/university');
 const qrRoutes = require('./routes/qr');
 const partnerRoutes = require('./routes/partner');
 const adminRoutes = require('./routes/admin');
+const rateAdminRoutes = require('./routes/admin/rate');
+const metricsRoutes = require('./routes/metrics');
+const rateOracle = require('./services/rateOracle');
+const systemRoutes = require('./routes/system');
 const studentRoutes = require('./routes/student');
 const v1Routes = require('./routes/v1');
 const contactRoutes = require('./routes/contact');
 const demoRoutes = require('./routes/demo');
+const utilsRoutes = require('./routes/excel-validate');
+const { getRuntimeHealthMonitor } = require('./middleware/runtimeHealth');
+const path = require('path');
 
 const app = express();
 const testing = (process.env.NODE_ENV || '').toLowerCase() === 'test';
 const server = createServer(app);
-const io = testing ? { on: () => {} } : new Server(server, {
+const io = testing ? { on: () => {} , emit: () => {} } : new Server(server, {
   cors: {
     origin: (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:4173', 'http://localhost:4174'])),
     methods: ['GET', 'POST'],
@@ -65,6 +74,28 @@ if (process.env.NODE_ENV === 'test') {
   process.env.SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
 }
 
+// Validación de entorno en arranque
+function validateEnvOnStartup() {
+  const isProd = (process.env.NODE_ENV || 'development') === 'production';
+  const missing = [];
+  const required = ['JWT_SECRET'];
+  for (const k of required) { if (!process.env[k]) missing.push(k); }
+  const enableXrp = process.env.ENABLE_XRP_PAYMENTS === '1' || process.env.XRPL_ENABLE === '1' || String(process.env.XRPL_ENABLED).toLowerCase() === 'true';
+  if (enableXrp) {
+    if (!process.env.XRPL_SEED && !process.env.XRPL_SECRET) missing.push('XRPL_SEED');
+  }
+  if (missing.length) {
+    const msg = `Missing env vars: ${missing.join(', ')}`;
+    if (isProd) {
+      logger.error(msg);
+      throw new Error(msg);
+    } else {
+      logger.warn(msg);
+    }
+  }
+}
+try { validateEnvOnStartup(); } catch {}
+try { require('./utils/timeoutConfig').TimeoutManager.validateAll(); } catch (e) { logger.warn('Invalid timeout configuration', { message: e.message }); }
 // Security middleware
 const isProduction = process.env.NODE_ENV === 'production';
 const clientUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.CORS_ORIGIN;
@@ -101,6 +132,8 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.set('trust proxy', 1);
+// Exponer io para rutas
+try { app.set('io', io); } catch {}
 
 // Secure HTTP Headers with Helmet
 app.use(
@@ -273,29 +306,56 @@ app.get('/healthz', async (req, res) => {
   }
 });
 
-(async () => { try { await hederaService.connect(); } catch {} })();
+if (!testing) { (async () => { try { await hederaService.connect(); } catch {} })(); }
+
+if (!testing) {
+  try { const monitor = getRuntimeHealthMonitor(io); monitor.start(); } catch {}
+}
+
+// Rate oracle: refresh hourly and on startup
+if (!testing) {
+  const refreshJob = async () => {
+    try {
+      const payload = await rateOracle.refresh();
+      try { io.emit('rate:update', payload); } catch {}
+    } catch (e) { logger.warn(`Rate oracle refresh failed: ${e.message}`); }
+  };
+  refreshJob();
+  const task = cron.schedule('0 * * * *', refreshJob);
+  const stopTask = (sig) => { try { task.stop(); } catch {} };
+  process.on('SIGINT', stopTask);
+  process.on('SIGTERM', stopTask);
+}
 
 // Readiness probe - verifica si el servicio está listo para recibir tráfico
 app.get('/ready', async (req, res) => {
   try {
-    const isDev = (process.env.NODE_ENV || 'development') !== 'production';
-    const checks = {
-      status: 'ready',
+    const disableMongo = process.env.DISABLE_MONGO === '1';
+    const disableRedis = process.env.DISABLE_REDIS === '1';
+    const requireXRPL = (process.env.ENABLE_XRP_PAYMENTS === '1' || process.env.XRPL_ENABLE === '1' || String(process.env.XRPL_ENABLED).toLowerCase() === 'true');
+    const rate = await rateOracle.health();
+    const requireRateOracle = String(process.env.REQUIRE_RATE_ORACLE || 'true').toLowerCase() === 'true';
+
+    const serverOk = true;
+    const mongoOk = disableMongo ? true : isMongoConnected();
+    const redisOk = disableRedis ? true : isRedisConnected();
+    const rateOk = requireRateOracle ? (rate.healthy && rate.ageSeconds <= (60 * 60 + 300)) : true;
+    const xrplOk = requireXRPL ? (typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false) : true;
+
+    const ready = serverOk && mongoOk && redisOk && rateOk && xrplOk;
+    const statusCode = ready ? 200 : 503;
+
+    res.status(statusCode).json({
+      status: ready ? 'ready' : 'not ready',
       timestamp: new Date().toISOString(),
       checks: {
-        mongo: isMongoConnected(),
-        redis: isRedisConnected(),
-        server: true,
-        xrpl: typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false,
+        server: serverOk,
+        mongo: mongoOk,
+        redis: redisOk,
+        rateOracle: { healthy: rate.healthy, ageSeconds: rate.ageSeconds, sources: rate.sourcesActive },
+        xrpl: xrplOk,
       }
-    };
-
-    // En desarrollo, consideramos el servicio "ready" aunque falten dependencias
-    // para permitir probar el sistema completo con modo mock.
-    const isReady = (isDev && checks.checks.server) || (checks.checks.mongo && checks.checks.redis);
-    const statusCode = isReady ? 200 : 503;
-
-    res.status(statusCode).json(checks);
+    });
   } catch (error) {
     logger.error('Readiness check error:', error);
     res.status(503).json({ status: 'not ready', error: error.message });
@@ -312,8 +372,8 @@ app.get('/live', (req, res) => {
   });
 });
 
-// Métricas y estadísticas del sistema
-app.get('/metrics', protect, authorize(ROLES.ADMIN), async (req, res) => {
+// Métricas y estadísticas del sistema (JSON para dashboards)
+app.get('/api/metrics/json', protect, authorize(ROLES.ADMIN), async (req, res) => {
   try {
     const mongoStats = getMongoStats();
     const redisStats = await getRedisStats();
@@ -349,13 +409,32 @@ app.use('/api/qr', qrRoutes);
 app.use('/api/partners', partnerRoutes);
 app.use('/api/partner', partnerRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/rate', rateAdminRoutes);
+app.use('/metrics', metricsRoutes);
 app.use('/api/credentials', studentRoutes); // Ruta para credenciales de estudiantes
 app.use('/api/v1', v1Routes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/demo', demoRoutes);
+app.use('/api/system', systemRoutes);
+app.use('/api/utils', utilsRoutes);
 
-// Manejo de errores
+app.get('/excel-metrics.html', (req, res) => {
+  try {
+    const p = path.join(__dirname, 'public', 'excel-metrics.html');
+    res.sendFile(p);
+  } catch (e) {
+    res.status(404).send('Metrics dashboard not found');
+  }
+});
+
 app.use(errorHandler);
+
+app.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: { code: 'API_VALID_001', message: `Ruta no encontrada: ${req.originalUrl}`, severity: 'ERROR' }
+  });
+});
 
 module.exports = { app, server, io };
 
