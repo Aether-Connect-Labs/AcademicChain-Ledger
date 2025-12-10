@@ -141,6 +141,10 @@ coverage/
 # Production
 /build
 
+# Allow dashboard in server src public
+!server/src/public/
+!server/src/public/excel-metrics.html
+
 # Misc
 .DS_Store
 *.pem

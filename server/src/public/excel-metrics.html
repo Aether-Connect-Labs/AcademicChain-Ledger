@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Excel Metrics Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+    canvas { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 8px; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; }
+    h1 { margin-bottom: 8px; }
+    .stats { display: flex; gap: 16px; flex-wrap: wrap; }
+    .badge { background: #f3f4f6; border: 1px solid #e5e7eb; padding: 6px 10px; border-radius: 6px; }
+    .controls { display: flex; gap: 12px; margin: 12px 0; align-items: center; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #e5e7eb; padding: 6px 8px; font-size: 12px; }
+    tbody tr:nth-child(odd) { background: #f9fafb; }
+    .perf-excelente { background: #dcfce7; border-color: #22c55e; color: #14532d; }
+    .perf-bueno { background: #e0f2fe; border-color: #3b82f6; color: #0c4a6e; }
+    .perf-aceptable { background: #fef3c7; border-color: #f59e0b; color: #78350f; }
+    .perf-mejora { background: #fee2e2; border-color: #ef4444; color: #7f1d1d; }
+  </style>
+</head>
+<body>
+  <h1>Excel Metrics</h1>
+  <div class="controls">
+    <label>Granularidad
+      <select id="granularity">
+        <option value="hour">Hora</option>
+        <option value="day">Día</option>
+      </select>
+    </label>
+    <label>Periodo
+      <select id="period">
+        <option value="24">24</option>
+        <option value="72">72</option>
+        <option value="168">168</option>
+      </select>
+    </label>
+    <label>Inicio <input type="date" id="startDate" /></label>
+    <label>Fin <input type="date" id="endDate" /></label>
+    <button id="exportCsv">Exportar CSV</button>
+    <button id="exportRoleCsv">Exportar CSV Roles</button>
+  </div>
+  <div class="stats">
+    <div class="badge">Archivos: <span id="filesTotal">0</span></div>
+    <div class="badge">Advertencias: <span id="warningsTotal">0</span></div>
+    <div class="badge">Bloqueos: <span id="blocksTotal">0</span></div>
+    <div class="badge">P50: <span id="p50">0</span> ms</div>
+    <div class="badge">P95: <span id="p95">0</span> ms</div>
+    <div class="badge">P99: <span id="p99">0</span> ms</div>
+    <div class="badge">Éxitos: <span id="succ">0</span></div>
+    <div class="badge">Fallos: <span id="fail">0</span></div>
+  </div>
+  <div class="grid" style="margin-top: 20px;">
+    <div class="card">
+      <h3>Solicitudes a lo largo del tiempo</h3>
+      <canvas id="requestsChart" height="200"></canvas>
+    </div>
+    <div class="card">
+      <h3>Métricas de rendimiento (percentiles)</h3>
+      <canvas id="perfChart" height="200"></canvas>
+    </div>
+    <div class="card">
+      <h3>Tasa de éxito vs fallos</h3>
+      <canvas id="statusChart" height="200"></canvas>
+    </div>
+    <div class="card">
+      <h3>Bloqueos de seguridad</h3>
+      <canvas id="securityChart" height="200"></canvas>
+    </div>
+  </div>
+  <div class="grid" style="margin-top: 20px;">
+    <div class="card">
+      <h3>Distribución por rol</h3>
+      <canvas id="roleDistChart" height="200"></canvas>
+    </div>
+    <div class="card">
+      <h3>Resumen por rol</h3>
+      <table>
+        <thead><tr><th>Rol</th><th>Éxitos</th><th>Fallos</th><th>Total</th><th>Tasa éxito</th><th>P95 medio</th><th>Clasificación</th><th>Tendencia</th></tr></thead>
+        <tbody id="roleSummaryTable"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card" style="margin-top: 20px;">
+    <h3>Actividad por usuario (Top 50)</h3>
+    <table>
+      <thead><tr><th>Usuario</th><th>Rol</th><th>Solicitudes</th><th>Éxitos</th><th>Fallos</th><th>Tasa éxito</th><th>Días activos</th><th>Última vez</th></tr></thead>
+      <tbody id="userActivityTable"></tbody>
+    </table>
+  </div>
+  <div class="card" style="margin-top: 20px;">
+    <h3>Eventos recientes</h3>
+    <table>
+      <thead><tr><th>Hora</th><th>Usuario</th><th>Rol</th><th>Archivo</th><th>Tamaño</th><th>Tiempo</th><th>Éxito</th><th>Warnings</th><th>Bloqueos</th></tr></thead>
+      <tbody id="eventsTable"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const apiBase = location.origin;
+    const token = new URLSearchParams(location.search).get('token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const requestsChart = new Chart(document.getElementById('requestsChart'), { type: 'line', data: { labels: [], datasets: [{ label: 'Solicitudes', data: [], borderColor: '#2563eb' }] }, options: { responsive: true } });
+    const perfChart = new Chart(document.getElementById('perfChart'), { type: 'line', data: { labels: [], datasets: [{ label: 'P50', data: [], borderColor: '#10b981' }, { label: 'P95', data: [], borderColor: '#f59e0b' }, { label: 'P99', data: [], borderColor: '#ef4444' }] }, options: { responsive: true } });
+    const statusChart = new Chart(document.getElementById('statusChart'), { type: 'bar', data: { labels: ['Éxitos','Fallos'], datasets: [{ label: 'Conteo', data: [0,0], backgroundColor: ['#10b981','#ef4444'] }] }, options: { responsive: true } });
+    const securityChart = new Chart(document.getElementById('securityChart'), { type: 'line', data: { labels: [], datasets: [{ label: 'Bloqueos', data: [], borderColor: '#7c3aed' }] }, options: { responsive: true } });
+    const roleDistChart = new Chart(document.getElementById('roleDistChart'), { type: 'doughnut', data: { labels: ['Admin','University','Teacher','Uploader'], datasets: [{ data: [0,0,0,0], backgroundColor: ['#2563eb','#10b981','#f59e0b','#ef4444'] }] }, options: { responsive: true } });
+
+    async function loadTotals() {
+      const res = await fetch(`${apiBase}/api/utils/excel-metrics`, { headers });
+      const json = await res.json();
+      if (!json.success) return;
+      const d = json.data;
+      document.getElementById('filesTotal').textContent = Number(d['metrics:excel:files_total'] || 0);
+      document.getElementById('warningsTotal').textContent = Number(d['metrics:excel:warnings_total'] || 0);
+      document.getElementById('blocksTotal').textContent = Number(d['metrics:excel:security_blocks_total'] || 0);
+      const ev = d['metrics:excel:last_event'] || {};
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${(ev.timestamp||'')}</td><td>${(ev.userId||'')}</td><td>${(ev.role||'')}</td><td>${(ev.fileName||'')}</td><td>${(ev.fileSize||0)}</td><td>${(ev.processingTime||0)}ms</td><td>${ev.success?'✔️':'❌'}</td><td>${(ev.warnings||0)}</td><td>${(ev.securityBlocks||0)}</td>`;
+      const tb = document.getElementById('eventsTable');
+      tb.prepend(row);
+      while (tb.rows.length > 20) tb.deleteRow(tb.rows.length - 1);
+    }
+
+    function diffDaysInclusive(a, b) {
+      const ms = 24 * 60 * 60 * 1000;
+      const d1 = new Date(a);
+      const d2 = new Date(b);
+      const t1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate());
+      const t2 = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate());
+      return Math.floor((t2 - t1) / ms) + 1;
+    }
+
+    function selectedDays() {
+      const s = document.getElementById('startDate').value;
+      const e = document.getElementById('endDate').value;
+      if (s && e) {
+        const n = Math.max(1, Math.min(diffDaysInclusive(s, e), 90));
+        return n;
+      }
+      return Math.max(1, Math.min(parseInt(document.getElementById('period').value, 10), 168));
+    }
+
+    async function loadHistorical() {
+      const g = document.getElementById('granularity').value;
+      const daysOrHours = selectedDays();
+      const url = g === 'hour' ? `${apiBase}/api/utils/excel-validate/metrics/historical?granularity=hour&hours=${daysOrHours}` : `${apiBase}/api/utils/excel-validate/metrics/historical?granularity=day&days=${daysOrHours}`;
+      const res = await fetch(url, { headers });
+      const json = await res.json();
+      if (!json.success) return;
+      const d = json.data;
+      document.getElementById('p50').textContent = Math.round(d.percentiles.p50);
+      document.getElementById('p95').textContent = Math.round(d.percentiles.p95);
+      document.getElementById('p99').textContent = Math.round(d.percentiles.p99);
+      document.getElementById('succ').textContent = d.totals.success;
+      document.getElementById('fail').textContent = d.totals.failure;
+      const labels = d.series.map(s => s.bucket);
+      const reqs = d.series.map(s => s.success + s.failure);
+      const p50 = d.series.map(s => s.p50);
+      const p95 = d.series.map(s => s.p95);
+      const p99 = d.series.map(s => s.p99);
+      requestsChart.data.labels = labels; requestsChart.data.datasets[0].data = reqs; requestsChart.update();
+      perfChart.data.labels = labels; perfChart.data.datasets[0].data = p50; perfChart.data.datasets[1].data = p95; perfChart.data.datasets[2].data = p99; perfChart.update();
+      statusChart.data.datasets[0].data = [d.totals.success, d.totals.failure]; statusChart.update();
+      securityChart.data.labels = labels; const blocksTotal = Number((await (await fetch(`${apiBase}/api/utils/excel-metrics`, { headers })).json()).data['metrics:excel:security_blocks_total'] || 0); const arr = Array(labels.length).fill(0); arr[arr.length-1] = blocksTotal; securityChart.data.datasets[0].data = arr; securityChart.update();
+      await loadRoleSummary(daysOrHours);
+      await loadUserActivity(daysOrHours);
+    }
+
+    function perfClassClass(name) {
+      const n = (name || '').toLowerCase();
+      if (n === 'excelente') return 'perf-excelente';
+      if (n === 'bueno') return 'perf-bueno';
+      if (n === 'aceptable') return 'perf-aceptable';
+      return 'perf-mejora';
+    }
+
+    async function loadRoleSummary(days) {
+      const res = await fetch(`${apiBase}/api/utils/excel-validate/metrics/role-summary?days=${days}`, { headers });
+      const json = await res.json();
+      if (!json.success) return;
+      const data = json.data;
+      const mapOrder = { admin: 0, university: 1, teacher: 2, uploader: 3 };
+      const totals = [0,0,0,0];
+      for (const r of data) {
+        const key = (r.role || '').toLowerCase();
+        const idx = mapOrder[key];
+        if (idx !== undefined) totals[idx] = r.total;
+      }
+      roleDistChart.data.datasets[0].data = totals;
+      roleDistChart.update();
+      const tb = document.getElementById('roleSummaryTable');
+      tb.innerHTML = '';
+      for (const r of data) {
+        const tr = document.createElement('tr');
+        const trend = r.trend || {};
+        const deltaSR = Number(trend.deltaSuccessRate || 0);
+        const deltaP95 = Number(trend.deltaAvgP95 || 0);
+        const arrowSR = deltaSR > 0 ? '▲' : (deltaSR < 0 ? '▼' : '■');
+        const arrowP = deltaP95 < 0 ? '▲' : (deltaP95 > 0 ? '▼' : '■');
+        tr.innerHTML = `<td>${r.role}</td><td>${r.success}</td><td>${r.failure}</td><td>${r.total}</td><td>${r.successRate}%</td><td>${r.avgP95}ms</td><td><span class="badge ${perfClassClass(r.classification)}">${r.classification}</span></td><td>${arrowSR} ${deltaSR}% | ${arrowP} ${deltaP95}ms</td>`;
+        tb.appendChild(tr);
+      }
+    }
+
+    async function loadUserActivity(days) {
+      const res = await fetch(`${apiBase}/api/utils/excel-validate/metrics/user-activity?days=${days}`, { headers });
+      const json = await res.json();
+      if (!json.success) return;
+      const tb = document.getElementById('userActivityTable');
+      tb.innerHTML = '';
+      for (const u of json.data) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${u.userId}</td><td>${u.role||''}</td><td>${u.count}</td><td>${u.success}</td><td>${u.failure}</td><td>${u.successRate}%</td><td>${u.daysActive}</td><td>${u.lastSeen||''}</td>`;
+        tb.appendChild(tr);
+      }
+    }
+
+    async function exportCsv() {
+      const g = document.getElementById('granularity').value;
+      const n = selectedDays();
+      const url = g === 'hour' ? `${apiBase}/api/utils/excel-validate/export/csv?granularity=hour&hours=${n}` : `${apiBase}/api/utils/excel-validate/export/csv?granularity=day&days=${n}`;
+      const res = await fetch(url, { headers });
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `excel-metrics-${g}-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    }
+
+    async function exportRoleCsv() {
+      const n = selectedDays();
+      const res = await fetch(`${apiBase}/api/utils/excel-validate/export/role-summary?days=${n}`, { headers });
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `excel-role-summary-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    }
+
+    document.getElementById('exportCsv').addEventListener('click', exportCsv);
+    document.getElementById('exportRoleCsv').addEventListener('click', exportRoleCsv);
+    document.getElementById('granularity').addEventListener('change', loadHistorical);
+    document.getElementById('period').addEventListener('change', loadHistorical);
+    document.getElementById('startDate').addEventListener('change', loadHistorical);
+    document.getElementById('endDate').addEventListener('change', loadHistorical);
+
+    async function refreshAll() { await loadTotals(); await loadHistorical(); }
+    refreshAll();
+    setInterval(refreshAll, 30000);
+  </script>
+</body>
+</html>
