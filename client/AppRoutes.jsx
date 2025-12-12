@@ -7,6 +7,8 @@ import AuthCallback from './components/AuthCallback';
 import ProtectedRoute from './components/ProtectedRoute';
 import InstitutionDashboard from './components/InstitutionDashboard';
 import StudentPortal from './components/StudentPortal';
+import EnhancedInstitutionDashboard from './components/EnhancedInstitutionDashboard';
+import EnhancedStudentPortal from './components/EnhancedStudentPortal';
 import ComenzarGratisPage from './components/ComenzarGratisPage';
 import AdminLayout from './components/AdminLayout';
 import AdminDashboard from './components/AdminDashboard';
@@ -50,8 +52,8 @@ const AppRoutes = () => {
   <Route path="/developers/docs" element={<Layout><ApiDocsLanding /></Layout>} />
       <Route path="/agenda" element={<Layout><DemoScheduler /></Layout>} />
       {/* Rutas públicas de demo */}
-      <Route path="/demo/institution" element={<Layout><InstitutionDashboard demo={true} /></Layout>} />
-      <Route path="/demo/student" element={<Layout><StudentPortal demo={true} /></Layout>} />
+      <Route path="/demo/institution" element={<Layout><EnhancedInstitutionDashboard demo={true} /></Layout>} />
+      <Route path="/demo/student" element={<Layout><EnhancedStudentPortal demo={true} /></Layout>} />
       <Route path="/forgot-password" element={<Layout><ForgotPassword /></Layout>} />
 
       {/* Rutas Protegidas */}
@@ -67,7 +69,7 @@ const AppRoutes = () => {
         path="/institution/dashboard"
         element={
           <ProtectedRoute requiredRoles={['university','institution','admin']}>
-            <Layout><InstitutionDashboard /></Layout>
+            <Layout><EnhancedInstitutionDashboard /></Layout>
           </ProtectedRoute>
         }
       />
@@ -116,7 +118,7 @@ const AppRoutes = () => {
         path="/student/portal"
         element={
           <ProtectedRoute requiredRoles={['student']}>
-            <Layout><StudentPortal /></Layout>
+            <Layout><EnhancedStudentPortal /></Layout>
           </ProtectedRoute>
         }
       />
