@@ -89,6 +89,10 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
               )}
             </div>
           )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+            <a href="/demo/institution" className="btn-secondary w-full text-center">Ver Demo Institución</a>
+            <a href="/demo/student" className="btn-primary w-full text-center">Ver Demo Alumno</a>
+          </div>
           {userType === 'institution' && mode === 'register' && !allowInstitutionRegister ? (
             <div className="text-center text-sm text-gray-600">
               Acceso institucional solo por invitación del administrador.

@@ -62,12 +62,18 @@ function InstitutionDashboard({ demo = false }) {
   useEffect(() => {
     if (demo) {
       const sample = [
-        { id: 'demo-1', tokenId: '0.0.123456', serialNumber: '1', title: 'Título Profesional', issuer: 'Demo University', ipfsURI: 'ipfs://demoCID1', createdAt: new Date().toISOString() },
-        { id: 'demo-2', tokenId: '0.0.123456', serialNumber: '2', title: 'Certificado de Curso', issuer: 'Demo University', ipfsURI: 'ipfs://demoCID2', createdAt: new Date().toISOString() },
-        { id: 'demo-3', tokenId: '0.0.987654', serialNumber: '1', title: 'Diploma de Posgrado', issuer: 'Demo Institute', ipfsURI: 'ipfs://demoCID3', createdAt: new Date().toISOString() }
+        { id: 'demo-1', tokenId: '0.0.123456', serialNumber: '1', title: 'Título Profesional en Ingeniería', issuer: 'Demo University', ipfsURI: 'ipfs://QmDemoCid1', createdAt: new Date().toISOString(), recipientAccountId: '0.0.987654' },
+        { id: 'demo-2', tokenId: '0.0.123456', serialNumber: '2', title: 'Certificado de Curso Avanzado', issuer: 'Demo University', ipfsURI: 'ipfs://QmDemoCid2', createdAt: new Date().toISOString(), recipientAccountId: '0.0.987655' },
+        { id: 'demo-3', tokenId: '0.0.987654', serialNumber: '1', title: 'Diploma de Posgrado en Blockchain', issuer: 'Demo Institute', ipfsURI: 'ipfs://QmDemoCid3', createdAt: new Date().toISOString(), recipientAccountId: '0.0.987656' }
       ];
       setCredentials(sample);
       setMeta({ total: sample.length, page: 1, limit: 10, pages: 1, hasMore: false, from: 1, to: sample.length });
+      setStats({
+        totalCredentials: 3,
+        totalTokens: 2,
+        totalRecipients: 3,
+        lastIssuance: new Date().toISOString()
+      });
       return;
     }
     const API_BASE_URL = import.meta.env.VITE_API_URL;

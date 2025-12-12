@@ -65,8 +65,40 @@ const StudentCredentials = ({ demo = false }) => {
       setError(null);
       try {
         if (demo) {
-          const r = await axios.get(`${API}/api/demo/credentials`);
-          setCredentials(r.data?.data || []);
+          // Datos demo realistas
+          const demoData = [
+            {
+              id: 'demo-1',
+              tokenId: '0.0.123456',
+              serialNumber: '1',
+              title: 'Título Profesional en Ingeniería',
+              issuer: 'Demo University',
+              ipfsURI: 'ipfs://QmDemoCid1',
+              createdAt: new Date().toISOString(),
+              recipientAccountId: '0.0.987654'
+            },
+            {
+              id: 'demo-2',
+              tokenId: '0.0.123456',
+              serialNumber: '2',
+              title: 'Certificado de Curso Avanzado',
+              issuer: 'Demo University',
+              ipfsURI: 'ipfs://QmDemoCid2',
+              createdAt: new Date().toISOString(),
+              recipientAccountId: '0.0.987655'
+            },
+            {
+              id: 'demo-3',
+              tokenId: '0.0.987654',
+              serialNumber: '1',
+              title: 'Diploma de Posgrado en Blockchain',
+              issuer: 'Demo Institute',
+              ipfsURI: 'ipfs://QmDemoCid3',
+              createdAt: new Date().toISOString(),
+              recipientAccountId: '0.0.987656'
+            }
+          ];
+          setCredentials(demoData);
         } else {
           const res = await axios.get(`${API}/api/credentials/mine`, { headers: { Authorization: `Bearer ${token}` } });
           setCredentials(res.data.credentials || []);
