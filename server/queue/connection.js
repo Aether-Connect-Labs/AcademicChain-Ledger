@@ -1,9 +1,9 @@
 const IORedis = require('ioredis');
 const logger = require('../src/utils/logger');
 
-const DISABLE_REDIS = process.env.DISABLE_REDIS === '1' || (
-  !process.env.REDIS_URL && (process.env.NODE_ENV || 'development') !== 'production'
-);
+const DISABLE_REDIS = process.env.DISABLE_REDIS === '1' ||
+  (process.env.NODE_ENV || 'development') === 'test' ||
+  (!process.env.REDIS_URL && (process.env.NODE_ENV || 'development') !== 'production');
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 

@@ -16,6 +16,13 @@ const router = express.Router();
 
 // Todas las rutas en este archivo están protegidas y son solo para administradores
 router.use(protect, authorize(ROLES.ADMIN));
+router.use((req, res, next) => {
+  const email = String(process.env.SUPER_ADMIN_EMAIL || '').toLowerCase();
+  if (email && String(req.user?.email || '').toLowerCase() !== email) {
+    return res.status(403).json({ success: false, message: 'Forbidden' });
+  }
+  next();
+});
 
 /**
  * @route   GET /api/admin/users
@@ -175,6 +182,26 @@ router.patch('/users/:id/status',
 );
 
 module.exports = router;
+router.get('/bookings', asyncHandler(async (req, res) => {
+  const { Booking } = require('../models');
+  const list = await Booking.find({}).sort({ createdAt: -1 }).limit(200);
+  res.status(200).json({ success: true, data: list });
+}));
+
+router.patch('/bookings/:id/status',
+  [ param('id').isMongoId().withMessage('Invalid booking ID'), body('status').isString().trim().isLength({ min: 3, max: 32 }) ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    const { Booking } = require('../models');
+    const doc = await Booking.findById(id);
+    if (!doc) return res.status(404).json({ success: false, message: 'Booking not found' });
+    doc.status = status;
+    await doc.save();
+    res.status(200).json({ success: true, data: doc });
+  })
+);
 router.get('/pending-institutions', asyncHandler(async (req, res) => {
   const { User } = require('../models');
   const list = await User.find({ role: ROLES.PENDING_UNIVERSITY }).sort({ createdAt: -1 }).select('id email name universityName createdAt');

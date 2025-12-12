@@ -17,6 +17,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const hederaService = require('./services/hederaServices');
 const xrpService = require('./services/xrpService');
+const algorandService = require('./services/algorandService');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { User } = require('./models');
@@ -51,6 +52,7 @@ const v1Routes = require('./routes/v1');
 const contactRoutes = require('./routes/contact');
 const demoRoutes = require('./routes/demo');
 const utilsRoutes = require('./routes/excel-validate');
+const daoRoutes = require('./routes/dao');
 const { getRuntimeHealthMonitor } = require('./middleware/runtimeHealth');
 const path = require('path');
 
@@ -272,7 +274,8 @@ app.get('/health', async (req, res) => {
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
         rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
       },
-      xrpl: { enabled: typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false, network: xrpService.network || 'disabled' }
+      xrpl: { enabled: typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false, network: xrpService.network || 'disabled' },
+      algorand: { enabled: typeof algorandService.isEnabled === 'function' ? algorandService.isEnabled() : false, network: algorandService.network || 'disabled' }
     };
 
     res.status(200).json(health);
@@ -296,7 +299,8 @@ app.get('/healthz', async (req, res) => {
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
         rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
       },
-      xrpl: { enabled: typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false, network: xrpService.network || 'disabled' }
+      xrpl: { enabled: typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false, network: xrpService.network || 'disabled' },
+      algorand: { enabled: typeof algorandService.isEnabled === 'function' ? algorandService.isEnabled() : false, network: algorandService.network || 'disabled' }
     };
 
     res.status(200).json(health);
@@ -341,8 +345,10 @@ app.get('/ready', async (req, res) => {
     const redisOk = disableRedis ? true : isRedisConnected();
     const rateOk = requireRateOracle ? (rate.healthy && rate.ageSeconds <= (60 * 60 + 300)) : true;
     const xrplOk = requireXRPL ? (typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false) : true;
+    const requireAlgorand = String(process.env.REQUIRE_ALGORAND || 'false').toLowerCase() === 'true';
+    const algoOk = requireAlgorand ? (typeof algorandService.isEnabled === 'function' ? algorandService.isEnabled() : false) : true;
 
-    const ready = serverOk && mongoOk && redisOk && rateOk && xrplOk;
+    const ready = serverOk && mongoOk && redisOk && rateOk && xrplOk && algoOk;
     const statusCode = ready ? 200 : 503;
 
     res.status(statusCode).json({
@@ -354,6 +360,7 @@ app.get('/ready', async (req, res) => {
         redis: redisOk,
         rateOracle: { healthy: rate.healthy, ageSeconds: rate.ageSeconds, sources: rate.sourcesActive },
         xrpl: xrplOk,
+        algorand: algoOk,
       }
     });
   } catch (error) {
@@ -417,6 +424,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/demo', demoRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/utils', utilsRoutes);
+app.use('/api/dao', daoRoutes);
 
 app.get('/excel-metrics.html', (req, res) => {
   try {
@@ -456,6 +464,7 @@ if (require.main === module) {
       }
       try { await hederaService.connect(); } catch {}
       try { await xrpService.connect(); } catch {}
+      try { await algorandService.connect(); } catch {}
       if (typeof initializeWorkers === 'function') {
         try {
           if (isRedisConnected()) {

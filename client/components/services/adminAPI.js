@@ -51,4 +51,22 @@ export default class AdminAPI {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   }
+
+  static async getBookings() {
+    const res = await fetch(`${this.base()}/api/admin/bookings`, {
+      headers: this.authHeaders(),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  static async updateBookingStatus(id, status) {
+    const res = await fetch(`${this.base()}/api/admin/bookings/${id}/status`, {
+      method: 'PATCH',
+      headers: this.authHeaders(),
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
 }

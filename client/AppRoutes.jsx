@@ -28,6 +28,7 @@ import BatchIssuance from './components/BatchIssuance';
 import DeveloperPortal from './components/DeveloperPortal';
 import ApiDocsLanding from './components/ApiDocsLanding';
 import PendingApproval from './components/PendingApproval';
+import DemoScheduler from './components/DemoScheduler';
 
 const AppRoutes = () => {
   return (
@@ -47,6 +48,7 @@ const AppRoutes = () => {
       <Route path="/instituciones" element={<Layout><InstitutionsPage /></Layout>} />
       <Route path="/developers" element={<Layout><DeveloperPortal /></Layout>} />
   <Route path="/developers/docs" element={<Layout><ApiDocsLanding /></Layout>} />
+      <Route path="/agenda" element={<Layout><DemoScheduler /></Layout>} />
       {/* Rutas públicas de demo */}
       <Route path="/demo/institution" element={<Layout><InstitutionDashboard demo={true} /></Layout>} />
       <Route path="/demo/student" element={<Layout><StudentPortal demo={true} /></Layout>} />

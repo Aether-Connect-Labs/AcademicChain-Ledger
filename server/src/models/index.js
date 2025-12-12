@@ -6,8 +6,12 @@ const Developer = require('./Developer');
 const Credential = require('./Credential');
 const Booking = require('./Booking');
 const XrpAnchor = require('./XrpAnchor');
+const AlgorandAnchor = require('./AlgorandAnchor');
 const SystemMetrics = require('./SystemMetrics');
 const ExchangeRate = require('./ExchangeRate');
+const AnalyticsEvent = require('./AnalyticsEvent');
+const DaoProposal = require('./DaoProposal');
+const DaoVote = require('./DaoVote');
 
 const db = {
   User,
@@ -18,8 +22,12 @@ const db = {
   Credential,
   Booking,
   XrpAnchor,
+  AlgorandAnchor,
   SystemMetrics,
   ExchangeRate,
+  AnalyticsEvent,
+  DaoProposal,
+  DaoVote,
 };
 
 module.exports = db;

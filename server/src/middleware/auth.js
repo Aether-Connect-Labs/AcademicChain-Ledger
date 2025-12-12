@@ -64,6 +64,9 @@ const isUniversity = (req, res, next) => {
   if (req.user.role !== 'university') {
     throw new ForbiddenError('This route is only for universities');
   }
+  if (req.user.isActive === false) {
+    throw new ForbiddenError('Institution not active');
+  }
   next();
 };
 

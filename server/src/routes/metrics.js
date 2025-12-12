@@ -5,6 +5,7 @@ const { protect, authorize } = require('../middleware/auth');
 const ROLES = require('../config/roles');
 const cacheService = require('../services/cacheService');
 const rateOracle = require('../services/rateOracle');
+const { getUniversityInsights } = require('../services/analyticsService');
 
 /**
  * @swagger
@@ -45,6 +46,11 @@ router.get('/json', protect, authorize(ROLES.ADMIN), asyncHandler(async (req, re
   const rate = await rateOracle.getRate();
   const cacheStats = await cacheService.getStats();
   res.status(200).json({ success: true, timestamp: new Date().toISOString(), metrics: { system: {}, rates: rate, business: { cache: cacheStats } } });
+}));
+
+router.get('/insights/:universityId', protect, asyncHandler(async (req, res) => {
+  const insights = await getUniversityInsights(req.params.universityId);
+  res.status(200).json({ success: true, data: { insights } });
 }));
 
 router.post('/connection', protect, authorize(ROLES.ADMIN), asyncHandler(async (req, res) => {
