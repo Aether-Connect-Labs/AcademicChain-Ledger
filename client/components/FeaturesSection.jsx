@@ -62,35 +62,17 @@ const FeaturesSection = () => {
         <div className="space-y-8">
           <div>
             <h3 className="text-2xl font-semibold text-gray-900 mb-3">Para Universidades</h3>
-            <Row items={["Emitir 100 títulos", "Hedera ✅", "XRP ✅", "Algoran ❌", "Hedera + XRP"]} />
-            <div className="mt-2" />
-            <Row items={["Emitir 10,000 títulos", "Hedera ❌ $2", "XRP ✅", "Algoran ✅ $0.10", "Algoran + XRP"]} />
-            <div className="mt-2" />
-            <Row items={["Cambiar estándares", "Hedera ❌", "XRP ❌", "Algoran ✅ DAO", "Solo Algoran"]} />
-            <div className="mt-2" />
-            <Row items={["Auditar emisiones", "HashScan", "XRPL Explorer", "Algoran Explorer", "Los 3 juntos"]} />
+            <p className="text-gray-600">Sistema completo de emisión de credenciales académicas con triple capa blockchain para máxima seguridad y escalabilidad.</p>
           </div>
 
           <div>
             <h3 className="text-2xl font-semibold text-gray-900 mb-3">Para Estudiantes</h3>
-            <Row items={["Ver mi título", "Hedera ✅ wallet", "XRP ❌", "Algoran ✅ shard", "Hedera principal"]} />
-            <div className="mt-2" />
-            <Row items={["Compartir con empleador", "Hedera ✅ QR", "XRP ❌", "Algoran ❌", "Solo Hedera"]} />
-            <div className="mt-2" />
-            <Row items={["Transferir si cambio uni", "Hedera ✅", "XRP ❌", "Algoran ✅", "Hedera + Algoran"]} />
-            <div className="mt-2" />
-            <Row items={["Probar autenticidad", "Datos completos", "Timestamp", "Consenso múltiple", "Máxima confianza"]} />
+            <p className="text-gray-600">Acceso seguro a tus credenciales académicas con verificación instantánea y control total sobre tus datos.</p>
           </div>
 
           <div>
-            <h3 className="text-2xl font-semibold text-gray-900 mb-3">Para Empleadores/Gobierno</h3>
-            <Row items={["Verificar título", "Datos completos", "Proof existencia", "Consenso shard", "Hedera principal"]} />
-            <div className="mt-2" />
-            <Row items={["Verificar fecha", "Timestamp metadata", "Timestamp ledger ✅", "Timestamp shard ✅", "XRP más confiable"]} />
-            <div className="mt-2" />
-            <Row items={["Verificar sin internet", "Necesita conexión", "Necesita conexión", "Cache local ✅", "Algoran con cache"]} />
-            <div className="mt-2" />
-            <Row items={["Auditar miles", "Lento ❌", "Lento ❌", "Batch verification ✅", "Solo Algoran escala"]} />
+            <h3 className="text-2xl font-semibold text-gray-900 mb-3">Para Empleadores</h3>
+            <p className="text-gray-600">Verificación instantánea de credenciales académicas con máxima confianza y cero posibilidad de falsificación.</p>
           </div>
         </div>
       </div>
