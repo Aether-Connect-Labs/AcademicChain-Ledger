@@ -29,7 +29,7 @@ const AdminSidebar = ({
     {
       title: 'Principal',
       items: [
-        { id: 'dashboard', name: 'Dashboard', path: '/admin/dashboard', icon: '📊', permission: 'view_dashboard' },
+        { id: 'dashboard', name: 'Dashboard', path: '/admin', icon: '📊', permission: 'view_dashboard' },
         { id: 'bulk_issuance', name: 'Emisión Masiva', path: '/admin/credentials/bulk', icon: '📦', permission: 'issue_credentials' },
       ]
     }
