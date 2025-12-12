@@ -376,7 +376,7 @@ curl -s "$API/api/universities/credentials?tokenId=0.0.<TOKEN_ID>&page=1&limit=1
 - La UI de verificación es intuitiva para no técnicos
 ```
 
-## 🔗 XRP + Hedera (Dual Ledger)
+### 🔗 XRP + Hedera (Dual Ledger)
 
 
 ### Variables de entorno (server/.env)
@@ -397,7 +397,91 @@ curl -s "$API/api/universities/credentials?tokenId=0.0.<TOKEN_ID>&page=1&limit=1
 - Cliente (UI):
   - Sidebar Admin muestra estado/red/dirección/balance de XRP y balance API de Hedera.
   - Referencias: `client/components/AdminSidebar.jsx:19`, `client/components/AdminSidebar.jsx:56-85`, `client/components/AdminSidebar.jsx:275-291`.
-  - Emisión masiva muestra ancla XRP por fila y enlace de verificación dual.
+ - Emisión masiva muestra ancla XRP por fila y enlace de verificación dual.
+
+---
+
+## Arquitectura Triple Capa: Hedera + XRP + Algoran
+
+### 🔵 Hedera Hashgraph
+
+| Aspecto | ¿Qué Hace? | ¿Por Qué Usarlo? | Costo | Límites |
+|------------|----------------|----------------------|-----------|-------------|
+| Emisión NFT | Crea el NFT principal (HIP-412) | Estándar educativo aceptado | $0.0001-0.0002 | 10,000 TPS máximo |
+| Metadata Completa | Almacena todos los datos del título | Información detallada inalterable | Incluido en NFT fee | 1KB metadata por NFT |
+| Propiedad | Define dueño del NFT (estudiante) | Transferencia fácil si cambia universidad | $0.0001 por transfer | Requiere wallet Hedera |
+| Verificación Simple | Consulta básica de validez | Rápido para verificaciones individuales | Gratis (solo lectura) | Depende de nodos Hedera |
+| HashScan Explorer | Visualización pública | Cualquiera puede verificar sin login | Gratis | Solo datos públicos |
+
+Resumen Hedera: El "certificado digital" principal. Como el PDF oficial del título.
+
+---
+
+### 🌊 XRP Ledger
+
+| Aspecto | ¿Qué Hace? | ¿Por Qué Usarlo? | Costo | Límites |
+|------------|----------------|----------------------|-----------|-------------|
+| Anclaje Temporal | Registra timestamp + hash | Prueba de cuándo se emitió | $0.000001 | Timestamp preciso |
+| Proof de Existencia | Prueba que el hash existía en X fecha | Para disputas legales "existía en X fecha" | $0.000001 | Solo prueba existencia, no datos |
+| Backup Ultra-Barato | Copia de seguridad distribuida | Si Hedera falla, prueba en XRP | $0.000001 | Solo guarda hash, no datos completos |
+| Interoperabilidad | Puente con otros sistemas | Bancos/gobiernos ya usan XRP | $0.000001 | Memo limitado a 1KB |
+| Auditoría Pública | Registro inmutable público | Para auditorías gubernamentales | Gratis consulta | Solo consulta, no edición |
+
+Resumen XRP: El "notario público" que certifica fecha y existencia.
+
+---
+
+### ⚡ Algoran
+
+| Aspecto | ¿Qué Hace? | ¿Por Qué Usarlo? | Costo | Límites |
+|------------|----------------|----------------------|-----------|-------------|
+| Sharding Masivo | Divide datos por región/institución | Escalar a millones de títulos | $0.00001-0.00005 | Escalabilidad casi ilimitada |
+| Emisión por Lotes | Procesa 10,000+ títulos en 1 tx | Para graduaciones masivas | $0.01-0.05 por lote | Optimizado para batch |
+| Consenso PoC | Validadores institucionales | Universidades validan transacciones | Staking requerido | Requiere validadores activos |
+| Gobernanza DAO | Votaciones descentralizadas | Decisiones comunitarias | Variable por propuesta | Participación voluntaria |
+| Cross-Chain | Puente entre blockchains | Interoperabilidad total | Variable | Depende de bridges |
+| Micro-Credenciales | Transacciones ultra-baratas | Para cursos/certificados pequeños | $0.000001-0.00001 | Optimizado para micro-txs |
+
+Resumen Algoran: El "sistema operativo" que escala y gobierna todo el ecosistema.
+
+1. 🔵 Hedera: El certificado oficial con todos los datos (como el PDF del título)
+2. 🌊 XRP: El notario/timestamp que prueba cuándo se emitió (sello de fecha y existencia)
+3. ⚡ Algoran: El sistema operativo que escala y gobierna todo (infraestructura para millones)
+
+Analogía simple
+
+- Hedera = El Título físico (tiene todos los datos)
+- XRP = El Sello notarial (prueba autenticidad y fecha)
+- Algoran = El Sistema de Registro Nacional (registra todos los títulos del país)
+
+### Tabla para diferentes usuarios
+
+Para Universidades
+
+| Necesidad | Hedera | XRP | Algoran | Recomendación |
+|---------------|------------|---------|-------------|------------------|
+| Emitir 100 títulos | ✅ Fácil y rápido | ✅ Anclaje barato | ❌ Overkill | Hedera + XRP |
+| Emitir 10,000 títulos | ❌ Muy caro ($2) | ✅ Anclaje barato | ✅ Ideal ($0.10) | Algoran + XRP |
+| Cambiar estándares | ❌ Contactar Hedera | ❌ No aplica | ✅ Votación DAO | Solo Algoran |
+| Auditar emisiones | ✅ HashScan | ✅ XRPL Explorer | ✅ Algoran Explorer | Los 3 juntos |
+
+Para Estudiantes
+
+| Necesidad | Hedera | XRP | Algoran | Importancia |
+|---------------|------------|---------|-------------|------------------|
+| Ver mi título | ✅ NFT en wallet | ❌ Solo hash | ✅ Shard accesible | Hedera principal |
+| Compartir con empleador | ✅ QR fácil | ❌ No necesario | ❌ No necesario | Solo Hedera |
+| Transferir si cambio uni | ✅ Transfer NFT | ❌ No aplica | ✅ Update shard | Hedera + Algoran |
+| Probar autenticidad | ✅ Datos completos | ✅ Timestamp | ✅ Consenso múltiple | Los 3 dan máxima confianza |
+
+Para Empleadores/Gobierno
+
+| Necesidad | Hedera | XRP | Algoran | Verificación |
+|---------------|------------|---------|-------------|------------------|
+| Verificar título | ✅ Datos completos | ✅ Proof existencia | ✅ Consenso shard | Hedera principal |
+| Verificar fecha | ⚠️ Timestamp metadata | ✅ Timestamp ledger | ✅ Timestamp shard | XRP más confiable |
+| Verificar sin internet | ❌ Necesita conexión | ❌ Necesita conexión | ✅ Shard local cache | Algoran con cache |
+| Auditar miles | ❌ Lento | ❌ Lento | ✅ Batch verification | Solo Algoran escala |
   - Referencias: `client/components/BatchIssuance.jsx:16-48`, `client/components/BatchIssuance.jsx:690-719`.
 
 ### Pasos para habilitar y probar

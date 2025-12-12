@@ -13,6 +13,7 @@ const AdminDashboard = () => {
   const [bookings, setBookings] = useState([]);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState('');
+  const [planTab, setPlanTab] = useState('basic');
 
   const loadDashboardStats = async () => {
     try {
@@ -96,13 +97,14 @@ const AdminDashboard = () => {
         <button className={`btn-primary ${activeTab==='pending'?'':'btn-secondary'}`} onClick={()=>setActiveTab('pending')}>📋 Pendientes</button>
         <button className={`btn-primary ${activeTab==='approved'?'':'btn-secondary'}`} onClick={()=>setActiveTab('approved')}>✅ Aprobadas</button>
         <button className={`btn-primary ${activeTab==='bookings'?'':'btn-secondary'}`} onClick={()=>setActiveTab('bookings')}>📅 Reservas</button>
+        <button className={`btn-primary ${activeTab==='plans'?'':'btn-secondary'}`} onClick={()=>setActiveTab('plans')}>🧩 Planes</button>
         <button className={`btn-secondary`} onClick={loadDashboardStats}>🔄 Actualizar</button>
       </div>
       {activeTab==='pending' ? (
         <PendingInstitutions onActionComplete={loadDashboardStats}/>
       ) : activeTab==='approved' ? (
         <ApprovedInstitutions/>
-      ) : (
+      ) : activeTab==='bookings' ? (
         <div className="bg-white rounded-xl border border-gray-200 shadow-soft p-6">
           {bookingLoading ? (
             <div className="text-sm text-gray-500">Cargando reservas…</div>
@@ -149,6 +151,175 @@ const AdminDashboard = () => {
               </table>
             </div>
           )}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="flex flex-wrap gap-2">
+            <button className={`btn-primary ${planTab==='basic'?'':'btn-secondary'}`} onClick={()=>setPlanTab('basic')}>📊 Básico</button>
+            <button className={`btn-primary ${planTab==='standard'?'':'btn-secondary'}`} onClick={()=>setPlanTab('standard')}>🚀 Estándar</button>
+            <button className={`btn-primary ${planTab==='premium'?'':'btn-secondary'}`} onClick={()=>setPlanTab('premium')}>🏆 Premium</button>
+            <button className={`btn-primary ${planTab==='enterprise'?'':'btn-secondary'}`} onClick={()=>setPlanTab('enterprise')}>🏢 Enterprise</button>
+          </div>
+          {planTab==='basic' && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-soft p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">📊 DASHBOARD BÁSICO - Universidad</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <div className="font-semibold text-gray-800 mb-2">📈 Resumen</div>
+                  <ul className="text-gray-700 space-y-1 text-sm">
+                    <li>• Títulos emitidos: 85/100</li>
+                    <li>• Costo promedio: $0.0002 c/u</li>
+                    <li>• Próxima factura: $99 (30 días)</li>
+                  </ul>
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-800 mb-2">🔗 Blockchain</div>
+                  <ul className="text-gray-700 space-y-1 text-sm">
+                    <li>• Hedera: 85 transacciones</li>
+                    <li>• Estado: ✅ Todas confirmadas</li>
+                  </ul>
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-800 mb-2">⚠️ Alertas</div>
+                  <ul className="text-gray-700 space-y-1 text-sm">
+                    <li>• Límite: 15 títulos restantes</li>
+                    <li>• Upgrade sugerido al llegar a 90</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+          {planTab==='standard' && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-soft p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">🚀 DASHBOARD ESTÁNDAR</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <div className="font-semibold text-gray-800 mb-2">📈 Resumen Detallado</div>
+                  <ul className="text-gray-700 space-y-1 text-sm">
+                    <li>• Títulos: 450/1000</li>
+                    <li>• Costo Hedera: $0.09</li>
+                    <li>• Costo XRP: $0.00045</li>
+                    <li>• Ahorro vs solo Hedera: 45%</li>
+                  </ul>
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-800 mb-2">🔗 Blockchain Status</div>
+                  <ul className="text-gray-700 space-y-1 text-sm">
+                    <li>• Hedera: 450 tx ✅</li>
+                    <li>• XRP: 30 anchors diarios ✅</li>
+                    <li>• Sync: Perfecto</li>
+                  </ul>
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-800 mb-2">⚡ Features</div>
+                  <ul className="text-gray-700 space-y-1 text-sm">
+                    <li>• Batch processing activado</li>
+                    <li>• Legal proof generado</li>
+                    <li>• Backup automático</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+          {planTab==='premium' && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-soft p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">🏆 DASHBOARD PREMIUM INTELIGENTE</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <div className="font-semibold text-gray-800 mb-2">🧠 Sistema Inteligente</div>
+                  <ul className="text-gray-700 space-y-1 text-sm">
+                    <li>• Títulos hoy: 1,245</li>
+                    <li>• Auto-distribución: Hedera 100 (8%)</li>
+                    <li>• Auto-distribución: Algorand 1,145 (92%)</li>
+                    <li>• Costo total: $1.1502</li>
+                    <li>• Ahorro: 87% vs solo Hedera</li>
+                  </ul>
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-800 mb-2">🔗 Orchestration</div>
+                  <ul className="text-gray-700 space-y-1 text-sm">
+                    <li>• Algorand: 11 batches de 100 + 45 individuales</li>
+                    <li>• Hedera: 100 títulos premium</li>
+                    <li>• XRP: 1 anchor con hash batch</li>
+                  </ul>
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-800 mb-2">📊 Analytics</div>
+                  <ul className="text-gray-700 space-y-1 text-sm">
+                    <li>• Proyección mensual: 25,000</li>
+                    <li>• Costo estimado: $25.10</li>
+                    <li>• Recomendación: Mantener plan</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+          {planTab==='enterprise' && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-soft p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">🏢 ENTERPRISE</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <ul className="text-gray-700 space-y-1 text-sm">
+                    <li>• Sharding por región/institución</li>
+                    <li>• White-label dashboard</li>
+                    <li>• API enterprise con SLA</li>
+                    <li>• Integración SSO/SAML</li>
+                    <li>• Soporte dedicado 24/7</li>
+                    <li>• Auditoría y compliance</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-soft p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">CHECKLIST DE IMPLEMENTACIÓN</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
+              <div>
+                <div className="font-semibold text-gray-800 mb-2">Plan BÁSICO</div>
+                <ul className="text-gray-700 space-y-1">
+                  <li>• Cuenta Hedera Mainnet configurada</li>
+                  <li>• Sistema de generación NFT HIP-412</li>
+                  <li>• Wallet management para universidades</li>
+                  <li>• API de emisión y verificación</li>
+                  <li>• Dashboard con métricas básicas</li>
+                  <li>• Sistema de facturación mensual</li>
+                </ul>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-800 mb-2">Plan ESTÁNDAR</div>
+                <ul className="text-gray-700 space-y-1">
+                  <li>• Integración XRP Ledger</li>
+                  <li>• Sistema de anchors diarios</li>
+                  <li>• Batch processing (hasta 1,000)</li>
+                  <li>• Dashboard con comparativas de costos</li>
+                  <li>• Migración automática de Básico a Estándar</li>
+                  <li>• Alertas de optimización</li>
+                </ul>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-800 mb-2">Plan PREMIUM</div>
+                <ul className="text-gray-700 space-y-1">
+                  <li>• Integración Algorand</li>
+                  <li>• Sistema inteligente de distribución</li>
+                  <li>• Orquestador multi-blockchain</li>
+                  <li>• Analytics predictivos</li>
+                  <li>• Auto-optimización en tiempo real</li>
+                  <li>• API avanzada con webhooks</li>
+                </ul>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-800 mb-2">Plan ENTERPRISE</div>
+                <ul className="text-gray-700 space-y-1">
+                  <li>• Sharding por región/institución</li>
+                  <li>• White-label dashboard</li>
+                  <li>• API enterprise con SLA</li>
+                  <li>• Integración SSO/SAML</li>
+                  <li>• Soporte dedicado 24/7</li>
+                  <li>• Auditoría y compliance</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

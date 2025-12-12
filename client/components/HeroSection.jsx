@@ -105,7 +105,7 @@ export const HeroSection = () => {
           {/* Subtítulo mejorado */}
           <motion.div variants={itemVariants} className="mb-10">
             <p className="hero-subtitle text-base sm:text-xl lg:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed font-light">
-              {t('hero.subtitle', 'Verificación instantánea y segura de títulos y certificados en la blockchain de Hedera.')}
+              {t('hero.subtitle', 'Verificación instantánea y segura con arquitectura triple: Hedera (certificado), XRP (timestamp) y Algoran (escalado y gobernanza).')}
             </p>
             <motion.p 
               variants={itemVariants}

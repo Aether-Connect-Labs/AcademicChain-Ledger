@@ -1,5 +1,6 @@
 // Usaremos una colección/tabla para eventos de analítica
 const { AnalyticsEvent, Token, User } = require('../models');
+const { isConnected: isMongoConnected } = require('../config/database');
 
 /**
  * Registra un evento significativo en el sistema.
@@ -9,6 +10,7 @@ const { AnalyticsEvent, Token, User } = require('../models');
 const recordAnalytics = async (eventType, metadata) => {
   try {
     if (!AnalyticsEvent || typeof AnalyticsEvent !== 'function') return;
+    if (!isMongoConnected()) return;
     const event = new AnalyticsEvent({ type: eventType, data: metadata, timestamp: new Date() });
     await event.save();
   } catch {}
