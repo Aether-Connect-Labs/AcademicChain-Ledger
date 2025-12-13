@@ -29,8 +29,13 @@ class AlgorandService {
         acct = algosdk.mnemonicToSecretKey(mn);
       } else if (sk64) {
         const sk = Uint8Array.from(Buffer.from(sk64, 'base64'));
-        const addr = algosdk.encodeAddress(algosdk.generateAccount().addr.publicKey || algosdk.generateAccount().addr);
-        acct = { addr, sk };
+        const addrEnv = String(process.env.ALGORAND_ADDRESS || '').trim();
+        const addr = algosdk.isValidAddress(addrEnv) ? addrEnv : null;
+        if (!addr) {
+          logger.warn('Algorand SK64 provided without a valid ALGORAND_ADDRESS');
+        } else {
+          acct = { addr, sk };
+        }
       }
       this.account = acct || null;
       this.network = net;

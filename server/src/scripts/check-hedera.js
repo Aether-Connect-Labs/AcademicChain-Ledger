@@ -13,6 +13,11 @@ const run = async () => {
       process.exit(1);
     }
     await hederaService.connect();
+    if (!hederaService.isEnabled()) {
+      process.stdout.write('Hedera no habilitado (revise credenciales y red)\n');
+      process.stdout.write(`HEDERA_NETWORK=${network}\n`);
+      process.exit(1);
+    }
     const bal = await hederaService.getAccountBalance(accountId);
     process.stdout.write('Hedera conectado\n');
     process.stdout.write(`Red: ${network}\n`);

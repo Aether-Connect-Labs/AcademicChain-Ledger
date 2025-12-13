@@ -1,13 +1,17 @@
 // client/pages/LoginPage.js
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './useAuth';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
 
 const LoginPage = ({ userType = 'student', mode = 'login' }) => {
-  const { isLoading } = useAuth();
+  const { isLoading, login, error } = useAuth();
   const location = useLocation();
   const [googleEnabled, setGoogleEnabled] = useState(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   
 
@@ -36,6 +40,17 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
     try { localStorage.setItem('postLoginNext', next); } catch {}
     const url = `${API_BASE_URL}/api/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}&next=${encodeURIComponent(next)}`;
     window.location.href = url;
+  };
+  const handleEmailLogin = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const ok = await login(email, password, userType);
+    setSubmitting(false);
+    if (ok) {
+      const params = new URLSearchParams(location.search);
+      const next = params.get('next') || (userType === 'institution' ? '/institution/dashboard' : '/student/portal');
+      navigate(next, { replace: true });
+    }
   };
 
   useEffect(() => {
@@ -89,6 +104,18 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
               )}
             </div>
           )}
+          <form onSubmit={handleEmailLogin} className="space-y-3 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Correo</label>
+              <input type="email" value={email} onChange={(e)=>setEmail(e.target.value)} className="w-full px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="tu.email@gmail.com" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+              <input type="password" value={password} onChange={(e)=>setPassword(e.target.value)} className="w-full px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="••••••" required />
+            </div>
+            {error && <div className="text-sm text-red-600">{error}</div>}
+            <button type="submit" className="btn-primary w-full" disabled={submitting}>{submitting ? 'Ingresando…' : 'Ingresar con correo'}</button>
+          </form>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
             <a href="/demo/institution" className="btn-secondary w-full text-center">Ver Demo Institución</a>
             <a href="/demo/student" className="btn-primary w-full text-center">Ver Demo Alumno</a>
