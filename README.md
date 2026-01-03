@@ -268,16 +268,58 @@ Invoke-RestMethod -Method Post -Uri 'http://localhost:3001/api/verify/multi' -Co
 
 ## 🚀 Deployment en Producción
 
-### Render.com (Recomendado)
-```bash
-# Variables de producción críticas
-API_URL=https://academicchain-ledger.onrender.com
-CLIENT_URL=https://academicchain.io
+### Infraestructura Recomendada (Enero 2026)
+- Backend: Google Cloud Run
+- Bóveda de Llaves: Google Secret Manager
+- Base de Datos: MongoDB Atlas Serverless
+- Frontend: Vercel
 
-# Health checks de producción
-curl -s https://academicchain-ledger.onrender.com/health
-curl -s https://academicchain-ledger.onrender.com/ready
-```
+#### Despliegue en Koyeb (Alternativa Serverless)
+- Servicio:
+  - Crea una App y un Service desde tu repositorio.
+  - Directorio de trabajo: `server/`
+  - Build command: `npm ci && npm run build`
+  - Start command: `npm start`
+  - Puerto: usa `PORT` (la app ya lee `process.env.PORT`).
+- Variables y Secretos (Koyeb ENV):
+  - `NODE_ENV=production`
+  - `CLIENT_URL=https://tu-dominio.vercel.app`
+  - `MONGODB_URI=mongodb+srv://<usuario>:<pass>@<cluster>/<db>?retryWrites=true&w=majority`
+  - `HEDERA_NETWORK=testnet|mainnet`
+  - `XRPL_NETWORK=testnet|mainnet`
+  - `ALGORAND_NETWORK=testnet|mainnet`
+  - `HEDERA_ACCOUNT_ID=0.0.<ID>`
+  - `HEDERA_PRIVATE_KEY=<clave>` (como secreto)
+  - `XRPL_SEED=<seed>` (secreto)
+  - `ALGORAND_MNEMONIC=<mnemonic>` (secreto)
+  - `PINATA_API_KEY`, `PINATA_SECRET_API_KEY` (secretos)
+- Health Checks:
+  - HTTP path `/health` y `/ready` para probes.
+- Dominio y CORS:
+  - Configura el dominio en Koyeb y usa ese URL en `CLIENT_URL` y `VITE_API_URL` del frontend.
+- Notas:
+  - La resolución de secretos en el código primero utiliza las variables de entorno; en Koyeb basta con definirlas como ENV/Secrets.
+
+#### Pasos Rápidos
+- Backend en Cloud Run:
+  1. Configura variables sensibles en Secret Manager (ej. HEDERA_PRIVATE_KEY).
+  2. Despliega el contenedor:
+     ```bash
+     gcloud run deploy academicchain-api \
+       --source ./server \
+       --region southamerica-west1 \
+       --allow-unauthenticated \
+       --set-env-vars NODE_ENV=production,CLIENT_URL=https://tu-dominio.vercel.app,MONGODB_URI='mongodb+srv://<atlas-uri>'
+     ```
+  3. Concede al servicio permiso para leer secretos (roles/secretmanager.secretAccessor).
+- Base de Datos en Atlas Serverless:
+  - Crea instancia Serverless y copia el URI (usar SRV).
+- Frontend en Vercel:
+  - Importa el proyecto de `client/` y configura env:
+    - `VITE_API_URL=https://<cloud-run-url>`
+    - `VITE_HEDERA_NETWORK=testnet|mainnet`
+    - `VITE_ALGORAND_NETWORK=testnet|mainnet`
+  - Deploy con un clic desde Vercel.
 
 ### Docker Enterprise
 ```dockerfile
@@ -302,9 +344,9 @@ docker logs academicchain-api
 - **Transaction Explorer**: https://testnet.xrpl.org/transactions/{txHash}
 
 ### Algorand
-- **Testnet**: https://testnet.algoexplorer.io
-- **Mainnet**: https://algoexplorer.io
-- **Asset Explorer**: https://testnet.algoexplorer.io/asset/{assetId}
+- **Testnet**: https://testnet.explorer.perawallet.app
+- **Mainnet**: https://explorer.perawallet.app
+- **Asset Explorer**: https://testnet.explorer.perawallet.app/asset/{assetId}
 
 ## 📞 Soporte y Contacto
 
