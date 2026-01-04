@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import ConnectionService from './services/connectionService';
 import CredentialVerifier from './credentials/CredentialVerifier';
+import demoService from './services/demoService';
+import { toGateway } from './utils/ipfsUtils';
 
 function EnhancedStudentPortal({ demo = false }) {
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [connectionStatus, setConnectionStatus] = useState('checking');
+  const [issuing, setIssuing] = useState(false);
+  const [issueResult, setIssueResult] = useState(null);
 
   useEffect(() => {
     loadStudentData();
@@ -18,9 +23,27 @@ function EnhancedStudentPortal({ demo = false }) {
       setConnectionStatus('checking');
 
       if (demo) {
-        // Modo demo - datos predefinidos
-        const demoData = ConnectionService.getDemoStudentData();
-        setCredentials(demoData.credentials);
+        // Modo demo: intentar sincronizar con backend demo si está disponible
+        try {
+          const resp = await demoService.getCredentials();
+          const list = Array.isArray(resp?.data) ? resp.data : [];
+          const mapped = list.map((c) => ({
+            id: c.id || `${c.tokenId}-${c.serialNumber}`,
+            title: c.title || 'Credential',
+            issuer: c.issuer || 'Demo Institution',
+            issueDate: c.createdAt ? new Date(c.createdAt) : new Date(),
+            expirationDate: null,
+            metadata: {
+              tokenId: c.tokenId,
+              serialNumber: c.serialNumber,
+              ipfsURI: c.ipfsURI
+            }
+          }));
+          setCredentials(mapped);
+        } catch {
+          const demoData = ConnectionService.getDemoStudentData();
+          setCredentials(demoData.credentials);
+        }
         setConnectionStatus('demo');
         setLoading(false);
         return;
@@ -31,8 +54,26 @@ function EnhancedStudentPortal({ demo = false }) {
       
       if (!isBackendAvailable) {
         // Fallback a datos demo
-        const demoData = ConnectionService.getDemoStudentData();
-        setCredentials(demoData.credentials);
+        try {
+          const resp = await demoService.getCredentials();
+          const list = Array.isArray(resp?.data) ? resp.data : [];
+          const mapped = list.map((c) => ({
+            id: c.id || `${c.tokenId}-${c.serialNumber}`,
+            title: c.title || 'Credential',
+            issuer: c.issuer || 'Demo Institution',
+            issueDate: c.createdAt ? new Date(c.createdAt) : new Date(),
+            expirationDate: null,
+            metadata: {
+              tokenId: c.tokenId,
+              serialNumber: c.serialNumber,
+              ipfsURI: c.ipfsURI
+            }
+          }));
+          setCredentials(mapped);
+        } catch {
+          const demoData = ConnectionService.getDemoStudentData();
+          setCredentials(demoData.credentials);
+        }
         setConnectionStatus('demo');
         setLoading(false);
         return;
@@ -142,6 +183,51 @@ function EnhancedStudentPortal({ demo = false }) {
                       {credential.metadata.honors && (
                         <p>Honores: {credential.metadata.honors}</p>
                       )}
+                      {credential.metadata.tokenId && (
+                        <p>Token ID: <span className="font-mono">{credential.metadata.tokenId}</span></p>
+                      )}
+                      {credential.metadata.serialNumber && (
+                        <p>Serial: <span className="font-mono">{credential.metadata.serialNumber}</span></p>
+                      )}
+                      {credential.metadata.ipfsURI && (
+                        <p>
+                          IPFS:{' '}
+                          <a
+                            href={String(credential.metadata.ipfsURI).replace('ipfs://', 'https://dweb.link/ipfs/')}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-blue-600 underline"
+                          >
+                            {String(credential.metadata.ipfsURI).slice(0, 28)}…
+                          </a>
+                        </p>
+                      )}
+                      {credential.metadata.ipfsURI && (
+                        <p>
+                          Filecoin:{' '}
+                          <a
+                            href={String(credential.metadata.ipfsURI).replace('ipfs://', 'https://w3s.link/ipfs/')}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-blue-600 underline"
+                          >
+                            Copia verificada (web3.storage)
+                          </a>
+                        </p>
+                      )}
+                      {credential.metadata.tokenId && credential.metadata.serialNumber && (
+                        <p>
+                          Explorer:{' '}
+                          <a
+                            href={`https://hashscan.io/${import.meta.env.VITE_HEDERA_NETWORK || (import.meta.env.PROD ? 'mainnet' : 'testnet')}/nft/${credential.metadata.tokenId}-${credential.metadata.serialNumber}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-blue-600 underline"
+                          >
+                            Ver en HashScan
+                          </a>
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -161,12 +247,51 @@ function EnhancedStudentPortal({ demo = false }) {
       <div className="bg-green-50 border border-green-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-green-900 mb-4">Acciones Rápidas</h3>
         <div className="flex flex-wrap gap-4">
-          <button className="btn-primary">Solicitar Nueva Credencial</button>
           <button className="btn-secondary">Descargar Todas</button>
           <button className="btn-outline">Compartir Portfolio</button>
-          <a href="/agenda" className="btn-primary">Agendar Asesoría</a>
+          <Link to="/agenda" className="btn-primary">Agendar Asesoría</Link>
+          <button
+            className="btn-primary"
+            disabled={issuing}
+            onClick={async () => {
+              try {
+                setIssuing(true);
+                const resp = await demoService.issueCredential({ degree: 'Demo Ingeniería', studentName: 'Alumno Demo' });
+                setIssueResult(resp?.data || null);
+                await loadStudentData();
+              } catch (e) {
+                setIssueResult({ error: e.message || 'Error' });
+              } finally {
+                setIssuing(false);
+              }
+            }}
+          >
+            {issuing ? 'Emitiendo...' : 'Obtener Credencial Demo'}
+          </button>
         </div>
       </div>
+
+      {issueResult && (
+        <div className="mt-4 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Resultado de Emisión Demo</h3>
+          {'error' in issueResult ? (
+            <p className="text-red-600">{String(issueResult.error)}</p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-gray-700">NFT ID: <span className="font-mono">{String(issueResult.nftId || '')}</span></p>
+              {issueResult.hashscanUrl ? (
+                <a href={issueResult.hashscanUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline">Ver en HashScan</a>
+              ) : null}
+              {issueResult.anchors?.xrpl?.url ? (
+                <a href={issueResult.anchors.xrpl.url} target="_blank" rel="noreferrer" className="text-blue-600 underline">XRPL Anchor</a>
+              ) : null}
+              {issueResult.anchors?.algorand?.url ? (
+                <a href={issueResult.anchors.algorand.url} target="_blank" rel="noreferrer" className="text-blue-600 underline">Algorand Anchor</a>
+              ) : null}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Información adicional */}
       <div className="mt-8 bg-gray-50 rounded-lg p-6">
@@ -179,9 +304,9 @@ function EnhancedStudentPortal({ demo = false }) {
             soporte@academicchain.com
           </a>
           <span className="text-gray-400">|</span>
-          <a href="/agenda" className="text-blue-600 hover:text-blue-800">
+          <Link to="/agenda" className="text-blue-600 hover:text-blue-800">
             Agendar cita con soporte
-          </a>
+          </Link>
         </div>
       </div>
     </div>

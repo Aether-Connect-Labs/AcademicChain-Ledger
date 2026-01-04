@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
+import developerService from './services/developerService';
 
 const DeveloperPortal = () => {
   const [email, setEmail] = useState('');
@@ -13,38 +13,45 @@ const DeveloperPortal = () => {
 
   const register = async () => {
     setMessage('');
-    const res = await fetch(`${API_BASE_URL}/api/v1/developers/register`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, name, password, plan })
-    });
-    const data = await res.json();
-    if (res.ok) { setVerifyToken(data?.data?.verificationToken || ''); setMessage('Registro creado, verifica tu email'); } else { setMessage(data.message || 'Error'); }
+    try {
+      const data = await developerService.register({ email, name, password, plan });
+      setVerifyToken(data?.data?.verificationToken || ''); 
+      setMessage('Registro creado, verifica tu email'); 
+    } catch (e) {
+      setMessage(e.message || 'Error'); 
+    }
   };
 
   const verifyEmail = async () => {
     setMessage('');
-    const res = await fetch(`${API_BASE_URL}/api/v1/developers/verify-email`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: verifyToken })
-    });
-    const data = await res.json();
-    setMessage(data.message || (res.ok ? 'Email verificado' : 'Error'));
+    try {
+      const data = await developerService.verifyEmail(verifyToken);
+      setMessage(data.message || 'Email verificado');
+    } catch (e) {
+      setMessage(e.message || 'Error');
+    }
   };
 
   const login = async () => {
     setMessage('');
-    const res = await fetch(`${API_BASE_URL}/api/v1/developers/login`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password })
-    });
-    const data = await res.json();
-    if (res.ok) { setJwt(data?.data?.token || ''); setMessage('Login ok'); } else { setMessage(data.message || 'Error'); }
+    try {
+      const data = await developerService.login(email, password);
+      setJwt(data?.data?.token || ''); 
+      setMessage('Login ok'); 
+    } catch (e) {
+      setMessage(e.message || 'Error'); 
+    }
   };
 
   const issueKey = async () => {
     setMessage('');
-    const res = await fetch(`${API_BASE_URL}/api/v1/developers/api-keys/issue`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` }, body: JSON.stringify({})
-    });
-    const data = await res.json();
-    if (res.ok) { setApiKey(data?.data?.apiKey || ''); setMessage('API Key emitida'); } else { setMessage(data.message || 'Error'); }
+    try {
+      const data = await developerService.issueApiKey(jwt);
+      setApiKey(data?.data?.apiKey || ''); 
+      setMessage('API Key emitida'); 
+    } catch (e) {
+      setMessage(e.message || 'Error'); 
+    }
   };
 
   return (
@@ -86,8 +93,12 @@ const DeveloperPortal = () => {
           {apiKey && <div className="mt-2 text-xs break-all">API Key: {apiKey}</div>}
         </div>
       </div>
-
-      {message && <div className="mt-6 badge badge-info">{message}</div>}
+      
+      {message && (
+        <div className="mt-6 p-4 rounded-xl border border-blue-200 bg-blue-50 text-blue-800">
+          {message}
+        </div>
+      )}
     </div>
   );
 };

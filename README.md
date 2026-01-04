@@ -1,14 +1,14 @@
-# 🎓 AcademicChain Ledger - Plataforma Blockchain para Credenciales Académicas
+# 🎓 AcademicChain Ledger — Credenciales Verificables en Tiempo Real
 
 ## 🚀 Propuesta de Valor
-Solución end-to-end enterprise-grade para emisión y verificación de credenciales académicas en blockchain. Combina la velocidad y bajo costo de Hedera con la seguridad de XRP y la resiliencia de Algorand para ofrecer verificación instantánea con triple capa de seguridad.
+Plataforma end‑to‑end para emisión y verificación de credenciales académicas con evidencia criptográfica, auditoría pública y experiencia en tiempo real. El enfoque es cero fricción, precisión verificable y continuidad operativa, sin jerga cripto.
 
 ## 🏆 Para audiencias ejecutivas (inversores, clientes)
 ### 📊 Problema del Mercado
 Las credenciales académicas falsas cuestan $600+ mil millones anuales globalmente; la verificación manual consume 5-15 días por credencial con costos de $30-100 USD cada una.
 
 ### 💡 Solución Innovadora
-Plataforma blockchain que transforma títulos universitarios en certificados digitales inalterables con verificación instantánea y triple respaldo blockchain.
+Transforma títulos y certificados en credenciales digitales inalterables con verificación instantánea, evidencia temporal y auditoría pública. Todo con una interfaz moderna y datos reales.
 
 ### ⚡ Flujo de Valor
 1. **Emisión Institucional**: Universidades autorizadas emiten títulos como NFTs con metadatos inmutables
@@ -17,70 +17,68 @@ Plataforma blockchain que transforma títulos universitarios en certificados dig
 
 ### 🎯 Ventajas Competitivas Clave
 - **Verificación Instantánea**: Segundos vs días/semanas tradicionales
-- **Imposible de Falsificar**: Tecnología blockchain con triple respaldo
-- **Costo Mínimo**: < $0.01 por emisión vs $30-100 tradicionales
-- **Auditoría Pública**: Transparencia completa con triple ledger
-- **Experencia Sin Fricción**: UI/UX intuitiva para todos los usuarios
+- **Inalterabilidad Práctica**: Pruebas criptográficas y evidencia auditable
+- **Costo Mínimo**: Emisión y verificación a costo marginal
+- **Auditoría Pública**: Transparencia verificable sin fricción
+- **Experiencia Superior**: UI/UX futurista, precisa y clara
 
 ## 🛠️ Para audiencias técnicas (developers, CTOs)
-### 🏗️ Arquitectura Multi-Blockchain
-![Hedera](https://img.shields.io/badge/Hedera-Hashgraph-blue) ![XRP](https://img.shields.io/badge/XRP-Ledger-purple) ![Algorand](https://img.shields.io/badge/Algorand-SDK-green) ![IPFS](https://img.shields.io/badge/IPFS-Descentralizado-orange) ![Node.js](https://img.shields.io/badge/Node.js-Express-yellow) ![React](https://img.shields.io/badge/React-Vite-red)
+### 🏗️ Arquitectura de Confianza
+![Verificable](https://img.shields.io/badge/Credenciales-Verificables-blue) ![Auditable](https://img.shields.io/badge/Evidencia-Auditable-purple) ![Continuidad](https://img.shields.io/badge/Continuidad-Operativa-green) ![IPFS](https://img.shields.io/badge/IPFS-Distribuido-orange) ![Node.js](https://img.shields.io/badge/Node.js-Express-yellow) ![React](https://img.shields.io/badge/React-Vite-red)
 
 ### 🎨 Características Enterprise
 
 #### 🔐 Seguridad Avanzada
-- **Triple-Layer Blockchain**: Hedera (NFTs) + XRP (auditoría) + Algorand (resiliencia)
-- **Sharding Inteligente**: Partición por región/institución con balanceo round-robin
-- **Failover Automático**: Conmutación automática entre redes blockchain
-- **DAO Governance**: Sistema de gobernanza descentralizada con votación
+- **Capas de Confianza**: Certificado principal + evidencia temporal + continuidad
+- **Sharding Inteligente**: Partición por región/institución con balanceo
+- **Failover Automático**: Conmutación transparente entre backends
+- **Gobernanza**: Controles de acceso y trazabilidad de cambios
 
 #### 📊 Dashboard Profesional
 - **Admin Único**: Acceso restringido a SUPER_ADMIN_EMAIL
-- **Paneles Multi-Rol**: Dashboards diferenciados para admin/instituciones/estudiantes
-- **Métricas en Tiempo Real**: Analytics de costos, transacciones y ahorros
-- **Sistema de Planes**: Básico, Estándar, Premium, Enterprise con features progresivos
+- **Paneles Multi-Rol**: Dashboards para admin/instituciones/estudiantes
+- **Métricas en Tiempo Real**: Latencias, disponibilidad, actividad
+- **Sistema de Planes**: Básico, Estándar, Premium, Enterprise
 
 #### 🌐 Demo Público
 - **Acceso Instantáneo**: Rutas `/demo/institution` y `/demo/student`
-- **Datos Reales**: Credenciales demo con metadata completa
-- **Auto-Actualización**: Datos en tiempo real cada 10 segundos
-- **Agendamiento**: Sistema de citas integrado con Google Calendar
+- **Tiempo Real**: Datos vivos con actualización automática
+- **Agendamiento**: Calendly/Google Calendar integrados
 
 #### 💼 Flujo Completo de Credenciales
-- **Emisión Tokenizada**: Conversión a NFTs con metadatos HIP‑412
-- **Verificación Dual**: Validación on-chain vía QR/URL consultando múltiples ledgers
-- **Gestión Masiva**: Emisión por lotes vía Excel con validación automática
-- **Exportación CSV**: Reportes completos con filtros avanzados
+- **Emisión Digital**: Certificados con metadatos verificables
+- **Verificación Instantánea**: QR/URL con lectura pública
+- **Gestión Masiva**: Emisión por lotes con validación automática
+- **Exportación CSV**: Reportes con filtros avanzados
 
 ### 📈 Arquitectura Técnica
 ```
-Frontend (React/Vite) ←→ Backend (Node.js/Express) ←→ Triple Blockchain Layer
+Frontend (React/Vite) ←→ Backend (Node.js/Express) ←→ Capas de Confianza
     │                            │                            │
-    │                            ├── Hedera Hashgraph (NFTs)  │
-    │                            ├── XRP Ledger (Auditoría)   │
-    │                            └── Algorand (Resiliencia)   │
+    │                            ├── Credencial verificable   │
+    │                            ├── Evidencia auditable      │
+    │                            └── Continuidad operativa    │
     │                            │
     └── IPFS (Almacenamiento) ←──┘
 ```
 
-## 🚀 Implementación Reciente - Triple Capa Blockchain
+## 🚀 Implementación Reciente
 
-### 🎯 Integración Algorand Completa
-- **Algorand SDK**: Integración nativa con wallets y smart contracts
-- **Node Validator**: Nodo completo para transacciones rápidas
-- **Data Mirroring**: Espejado de datos entre Hedera-XRP-Algorand
-- **Cross-Chain**: Balanceo inteligente entre redes blockchain
+### 🎯 Continuidad Operativa
+- **SDKs**: Integraciones nativas con proveedores de evidencia y continuidad
+- **Data Mirroring**: Espejado de datos entre capas de confianza
+- **Balanceo Inteligente**: Selección dinámica de backends
 
 ### 🏢 Dashboard de Planes Enterprise
-- **Plan Básico**: 100 credenciales/mes, Hedera-only
-- **Plan Estándar**: 1,000 credenciales/mes, Hedera + XRP  
-- **Plan Premium**: 10,000 credenciales/mes, Triple-layer con Algorand
-- **Plan Enterprise**: Unlimited, Sharding + Load Balancing + DAO
+- **Plan Básico**: 100 credenciales/mes
+- **Plan Estándar**: 1,000 credenciales/mes
+- **Plan Premium**: 10,000 credenciales/mes
+- **Plan Enterprise**: Ilimitado, sharding + balanceo
 
 ### 🔧 API Unificada Inteligente
-- **Single Endpoint**: API única con routing automático entre blockchains
-- **Health Probes**: Monitoreo en tiempo real de todas las redes
-- **Auto-Failover**: Conmutación transparente entre ledgers
+- **Single Endpoint**: API única con routing automático entre capas
+- **Health Probes**: Monitoreo en tiempo real de servicios
+- **Auto-Failover**: Conmutación transparente entre backends
 - **Rate Limiting**: Limitación inteligente por plan/institución
 
 ## 🏁 Inicio Rápido (Paso a Paso Enterprise)
@@ -268,16 +266,58 @@ Invoke-RestMethod -Method Post -Uri 'http://localhost:3001/api/verify/multi' -Co
 
 ## 🚀 Deployment en Producción
 
-### Render.com (Recomendado)
-```bash
-# Variables de producción críticas
-API_URL=https://academicchain-ledger.onrender.com
-CLIENT_URL=https://academicchain.io
+### Infraestructura Recomendada (Enero 2026)
+- Backend: Google Cloud Run
+- Bóveda de Llaves: Google Secret Manager
+- Base de Datos: MongoDB Atlas Serverless
+- Frontend: Vercel
 
-# Health checks de producción
-curl -s https://academicchain-ledger.onrender.com/health
-curl -s https://academicchain-ledger.onrender.com/ready
-```
+#### Despliegue en Koyeb (Alternativa Serverless)
+- Servicio:
+  - Crea una App y un Service desde tu repositorio.
+  - Directorio de trabajo: `server/`
+  - Build command: `npm ci && npm run build`
+  - Start command: `npm start`
+  - Puerto: usa `PORT` (la app ya lee `process.env.PORT`).
+- Variables y Secretos (Koyeb ENV):
+  - `NODE_ENV=production`
+  - `CLIENT_URL=https://tu-dominio.vercel.app`
+  - `MONGODB_URI=mongodb+srv://<usuario>:<pass>@<cluster>/<db>?retryWrites=true&w=majority`
+  - `HEDERA_NETWORK=testnet|mainnet`
+  - `XRPL_NETWORK=testnet|mainnet`
+  - `ALGORAND_NETWORK=testnet|mainnet`
+  - `HEDERA_ACCOUNT_ID=0.0.<ID>`
+  - `HEDERA_PRIVATE_KEY=<clave>` (como secreto)
+  - `XRPL_SEED=<seed>` (secreto)
+  - `ALGORAND_MNEMONIC=<mnemonic>` (secreto)
+  - `PINATA_API_KEY`, `PINATA_SECRET_API_KEY` (secretos)
+- Health Checks:
+  - HTTP path `/health` y `/ready` para probes.
+- Dominio y CORS:
+  - Configura el dominio en Koyeb y usa ese URL en `CLIENT_URL` y `VITE_API_URL` del frontend.
+- Notas:
+  - La resolución de secretos en el código primero utiliza las variables de entorno; en Koyeb basta con definirlas como ENV/Secrets.
+
+#### Pasos Rápidos
+- Backend en Cloud Run:
+  1. Configura variables sensibles en Secret Manager (ej. HEDERA_PRIVATE_KEY).
+  2. Despliega el contenedor:
+     ```bash
+     gcloud run deploy academicchain-api \
+       --source ./server \
+       --region southamerica-west1 \
+       --allow-unauthenticated \
+       --set-env-vars NODE_ENV=production,CLIENT_URL=https://tu-dominio.vercel.app,MONGODB_URI='mongodb+srv://<atlas-uri>'
+     ```
+  3. Concede al servicio permiso para leer secretos (roles/secretmanager.secretAccessor).
+- Base de Datos en Atlas Serverless:
+  - Crea instancia Serverless y copia el URI (usar SRV).
+- Frontend en Vercel:
+  - Importa el proyecto de `client/` y configura env:
+    - `VITE_API_URL=https://<cloud-run-url>`
+    - `VITE_HEDERA_NETWORK=testnet|mainnet`
+    - `VITE_ALGORAND_NETWORK=testnet|mainnet`
+  - Deploy con un clic desde Vercel.
 
 ### Docker Enterprise
 ```dockerfile
@@ -302,9 +342,9 @@ docker logs academicchain-api
 - **Transaction Explorer**: https://testnet.xrpl.org/transactions/{txHash}
 
 ### Algorand
-- **Testnet**: https://testnet.algoexplorer.io
-- **Mainnet**: https://algoexplorer.io
-- **Asset Explorer**: https://testnet.algoexplorer.io/asset/{assetId}
+- **Testnet**: https://testnet.explorer.perawallet.app
+- **Mainnet**: https://explorer.perawallet.app
+- **Asset Explorer**: https://testnet.explorer.perawallet.app/asset/{assetId}
 
 ## 📞 Soporte y Contacto
 

@@ -1,6 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 
 const ComenzarGratisPage = () => {
+  const [superAdminEmail, setSuperAdminEmail] = useState('');
+  const navigate = useNavigate();
+
+  const handleCreateAccount = () => {
+    const base = '/institution/register';
+    const next = 'next=/institution/dashboard';
+    const emailParam = superAdminEmail ? `super_admin_email=${encodeURIComponent(superAdminEmail)}` : '';
+    const qs = [emailParam, next].filter(Boolean).join('&');
+    navigate(`${base}?${qs}`);
+  };
+
   return (
     <div className="container-responsive py-16">
       <div className="max-w-5xl mx-auto text-center">
@@ -35,12 +47,28 @@ const ComenzarGratisPage = () => {
         <div className="card p-6">
           <h2 className="text-xl font-bold mb-2">¿Listo para producción?</h2>
           <p className="text-gray-700 mb-4">Pásate a planes con emisión masiva, SLA y soporte dedicado.</p>
-          <a href="/pricing" className="btn-secondary">Ver planes</a>
+          <Link to="/precios" className="btn-secondary">Ver planes</Link>
         </div>
       </div>
 
-      <div className="mt-12 text-center">
-        <a href="/register?next=/student/portal" className="btn-primary px-8 py-4 text-lg hover-lift">Crear cuenta gratis</a>
+      <div className="mt-12 max-w-lg mx-auto">
+        <div className="card p-6">
+          <h3 className="text-lg font-bold mb-2">Acceso al Panel de Autoridad</h3>
+          <p className="text-gray-700 mb-4">Ingresa el correo del super administrador de tu institución para habilitar el panel de control.</p>
+          <div className="space-y-3">
+            <input
+              type="email"
+              value={superAdminEmail}
+              onChange={(e) => setSuperAdminEmail(e.target.value)}
+              placeholder="superadmin@institucion.edu"
+              className="input-primary"
+            />
+            <button onClick={handleCreateAccount} className="btn-primary px-8 py-4 text-lg hover-lift w-full">
+              Crear cuenta gratis
+            </button>
+            <p className="text-sm text-gray-500">Puedes continuar sin este campo, pero lo necesitarás para activar la “Gestión de Vigencia”.</p>
+          </div>
+        </div>
       </div>
     </div>
   );

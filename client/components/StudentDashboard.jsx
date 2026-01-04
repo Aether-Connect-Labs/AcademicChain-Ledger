@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from './useAuth';
 
 const Stat = ({ value, label }) => (
@@ -43,13 +44,13 @@ const StudentDashboard = () => {
       <div className="rounded-2xl border border-primary-200 bg-primary-50 p-6">
         <h3 className="text-lg font-semibold text-primary-900 mb-2">Verificación rápida</h3>
         <p className="text-primary-800 mb-4">Escanea tu QR desde la sección Verificar para comprobar al instante.</p>
-        <a href="/verify" className="inline-block btn-primary hover-lift">Ir a Verificar</a>
+        <Link to="/verificar" className="inline-block btn-primary hover-lift">Ir a Verificar</Link>
       </div>
 
       <div className="mt-6 card">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestión de credenciales</h3>
         <p className="text-gray-700 mb-4">Consulta tus credenciales emitidas y obtén su QR y link.</p>
-        <a href="/credentials" className="inline-block btn-secondary hover-lift">Ver Mis Credenciales</a>
+        <Link to="/student/portal" className="inline-block btn-secondary hover-lift">Ver Mis Credenciales</Link>
       </div>
     </div>
   );

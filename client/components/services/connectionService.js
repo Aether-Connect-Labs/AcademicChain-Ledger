@@ -1,16 +1,25 @@
-// Servicio de conexión robusta con fallback automático
+import { API_BASE_URL, getAuthHeaders, handleResponse } from './config';
+
+const withTimeout = async (url, options = {}, ms = 5000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
+};
+
 class ConnectionService {
   static async healthCheck() {
     try {
-      const response = await fetch('/api/health', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        timeout: 3000 // 3 segundos de timeout
-      });
-      
-      return response.ok;
+      const primary = `${API_BASE_URL}/api/health`;
+      const alt = `${API_BASE_URL}/api/healthz`;
+      const response = await withTimeout(primary, { method: 'GET', headers: { 'Content-Type': 'application/json' } }, 4000);
+      if (response.ok) return true;
+      const response2 = await withTimeout(alt, { method: 'GET', headers: { 'Content-Type': 'application/json' } }, 4000);
+      return response2.ok;
     } catch (error) {
       console.warn('Backend no disponible, usando modo demo:', error.message);
       return false;
@@ -19,13 +28,11 @@ class ConnectionService {
 
   static async fetchWithFallback(endpoint, fallbackData) {
     try {
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        timeout: 5000
-      });
+      const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+      const response = await withTimeout(url, { 
+        method: 'GET', 
+        headers: getAuthHeaders() 
+      }, 6000);
 
       if (response.ok) {
         const data = await response.json();
@@ -120,10 +127,8 @@ class ConnectionService {
   // Método para verificar conexión blockchain
   static async checkBlockchainConnection() {
     try {
-      const response = await fetch('/api/blockchain/status', {
-        method: 'GET',
-        timeout: 10000
-      });
+      const target = `${API_BASE_URL}/api/system/monitor/snapshot`;
+      const response = await withTimeout(target, { method: 'GET', headers: getAuthHeaders() }, 10000);
       
       if (response.ok) {
         const status = await response.json();
@@ -136,46 +141,12 @@ class ConnectionService {
     }
   }
 
-  // Método para emitir credencial (demo o real)
-  static async issueCredential(credentialData, isDemo = false) {
-    if (isDemo) {
-      // Simular emisión exitosa en demo
-      return {
-        success: true,
-        message: 'Credencial emitida en modo demo',
-        transactionId: `DEMO-${Date.now()}`,
-        credential: {
-          ...credentialData,
-          id: `demo-${Date.now()}`,
-          createdAt: new Date(),
-          status: 'issued'
-        }
-      };
-    }
-
-    try {
-      const response = await fetch('/api/credentials/issue', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(credentialData),
-        timeout: 15000
-      });
-
-      if (response.ok) {
-        return await response.json();
-      }
-
-      throw new Error(`Error en emisión: ${response.status}`);
-    } catch (error) {
-      console.error('Error emitiendo credencial:', error);
-      return {
-        success: false,
-        message: 'Error al conectar con el servidor',
-        error: error.message
-      };
-    }
+  static async getNftBalance(accountId) {
+    const res = await fetch(`${API_BASE_URL}/api/nfts/balance/${encodeURIComponent(accountId)}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    return handleResponse(res);
   }
 }
 

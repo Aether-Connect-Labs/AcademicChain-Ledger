@@ -17,6 +17,119 @@ const mem = { tokens: [], credentials: [] };
 const { validate } = require('../../middleware/validator');
 const apiKeyAuth = require('../../middleware/apiKeyAuth');
 const apiRateLimit = require('../../middleware/apiRateLimit');
+const crypto = require('crypto');
+const axios = require('axios');
+
+router.post('/revoke', apiKeyAuth, apiRateLimit, [
+  body('tokenId').notEmpty().trim(),
+  body('serialNumber').notEmpty().trim(),
+  body('reason').optional().isString(),
+], validate, asyncHandler(async (req, res) => {
+  const { tokenId, serialNumber, reason } = req.body;
+  await hederaService.connect();
+  const hSubmit = await hederaService.submitRevocation(tokenId, serialNumber, reason);
+  if (useMem()) {
+    const idx = mem.credentials.findIndex(c => c.tokenId === tokenId && c.serialNumber === serialNumber);
+    if (idx >= 0) {
+      mem.credentials[idx].status = 'REVOKED';
+      mem.credentials[idx].revocationReason = reason || null;
+      mem.credentials[idx].revokedAt = new Date();
+      mem.credentials[idx].revocationTxId = hSubmit.transactionId;
+      mem.credentials[idx].revocationTopicId = hSubmit.topicId;
+      mem.credentials[idx].revocationSequence = hSubmit.sequence;
+      mem.credentials[idx].updatedAt = new Date();
+    } else {
+      mem.credentials.push({ tokenId, serialNumber, status: 'REVOKED', revocationReason: reason || null, revokedAt: new Date(), revocationTxId: hSubmit.transactionId, revocationTopicId: hSubmit.topicId, revocationSequence: hSubmit.sequence, createdAt: new Date(), updatedAt: new Date() });
+    }
+  } else {
+    await Credential.updateOne({ tokenId, serialNumber }, { $set: { status: 'REVOKED', revocationReason: reason || null, revokedAt: new Date(), revocationTxId: hSubmit.transactionId, revocationTopicId: hSubmit.topicId, revocationSequence: hSubmit.sequence } });
+  }
+  res.status(200).json({
+    success: true,
+    message: 'Credential revoked',
+    data: {
+      hedera: { topicId: hSubmit.topicId, sequence: hSubmit.sequence, transactionId: hSubmit.transactionId },
+    }
+  });
+}));
+
+router.get('/revocations', apiRateLimit, asyncHandler(async (req, res) => {
+  const tokenId = String(req.query.tokenId || '').trim();
+  const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '50', 10) || 50));
+  const offset = Math.max(0, parseInt(req.query.offset || '0', 10) || 0);
+  const startDateRaw = String(req.query.startDate || '').trim();
+  const endDateRaw = String(req.query.endDate || '').trim();
+  const reasonRaw = String(req.query.reason || '').trim().toLowerCase();
+  const q = { status: 'REVOKED' };
+  if (tokenId) q.tokenId = tokenId;
+  if (startDateRaw || endDateRaw) {
+    const range = {};
+    if (startDateRaw) {
+      const sd = new Date(startDateRaw);
+      if (!isNaN(sd.getTime())) range.$gte = sd;
+    }
+    if (endDateRaw) {
+      const ed = new Date(endDateRaw);
+      if (!isNaN(ed.getTime())) range.$lte = ed;
+    }
+    if (Object.keys(range).length) q.revokedAt = range;
+  }
+  const matchReason = (txt) => {
+    if (!reasonRaw) return true;
+    const s = String(txt || '').toLowerCase();
+    return s.includes(reasonRaw);
+  };
+  let list = [];
+  if (useMem()) {
+    list = mem.credentials
+      .filter(c => c.status === 'REVOKED' && (!tokenId || c.tokenId === tokenId))
+      .filter(c => {
+        if (q.revokedAt) {
+          const ts = c.revokedAt instanceof Date ? c.revokedAt : (c.updatedAt instanceof Date ? c.updatedAt : new Date(c.updatedAt || Date.now()));
+          if (q.revokedAt.$gte && ts < q.revokedAt.$gte) return false;
+          if (q.revokedAt.$lte && ts > q.revokedAt.$lte) return false;
+        }
+        return matchReason(c.revocationReason);
+      })
+      .slice(offset, offset + limit);
+  } else {
+    const base = await Credential.find(q).sort({ revokedAt: -1, updatedAt: -1 }).skip(offset).limit(limit).lean();
+    list = base.filter(c => matchReason(c.revocationReason));
+  }
+  const items = list.map(c => ({
+    tokenId: c.tokenId,
+    serialNumber: c.serialNumber,
+    status: c.status || 'REVOKED',
+    revocationReason: c.revocationReason || null,
+    revokedAt: c.revokedAt || c.updatedAt || null,
+    hedera: {
+      topicId: c.revocationTopicId || null,
+      sequence: c.revocationSequence || null,
+      transactionId: c.revocationTxId || null
+    }
+  }));
+  res.status(200).json({ success: true, data: { items, paging: { limit, offset, count: items.length } } });
+}));
+
+router.get('/status/:tokenId/:serialNumber', apiRateLimit, asyncHandler(async (req, res) => {
+  const { tokenId, serialNumber } = req.params;
+  let cred = null;
+  if (useMem()) {
+    cred = mem.credentials.find(c => c.tokenId === tokenId && c.serialNumber === serialNumber) || null;
+  } else {
+    cred = await Credential.findOne({ tokenId, serialNumber });
+  }
+  if (!cred) {
+    return res.status(404).json({ success: false, message: 'Credencial no encontrada' });
+  }
+  res.status(200).json({
+    success: true,
+    data: {
+      status: cred.status || 'ACTIVE',
+      revocationReason: cred.revocationReason || null
+    }
+  });
+}));
 
 router.post('/issue', apiKeyAuth, apiRateLimit, [
   body('tokenId').notEmpty().trim(),
@@ -25,8 +138,10 @@ router.post('/issue', apiKeyAuth, apiRateLimit, [
   body('studentName').notEmpty().trim(),
   body('degree').notEmpty().trim(),
   body('recipientAccountId').optional().isString(),
+  body('image').optional().isString(),
+  body('expiryDate').optional().isString(),
 ], validate, asyncHandler(async (req, res) => {
-  const { tokenId, uniqueHash, ipfsURI, studentName, degree, recipientAccountId } = req.body;
+  const { tokenId, uniqueHash, ipfsURI, studentName, degree, recipientAccountId, image, expiryDate } = req.body;
   let token = useMem() ? mem.tokens.find(t => t.tokenId === tokenId) : await Token.findOne({ tokenId });
   if (!token && String(process.env.ALLOW_V1_TOKEN_AUTO_CREATE).toLowerCase() === 'true') {
     const name = `AcademicChain - ${degree || 'Credential'}`;
@@ -39,23 +154,34 @@ router.post('/issue', apiKeyAuth, apiRateLimit, [
     }
   }
   const universityLabel = token?.tokenName || 'AcademicChain';
-  const mintResult = await hederaService.mintAcademicCredential(tokenId, {
-    uniqueHash,
-    ipfsURI,
-    degree,
-    studentName,
-    university: universityLabel,
-    recipientAccountId,
-  });
+  let xrpPre = null;
+  let algoPre = null;
+  try {
+    await xrpService.connect();
+    xrpPre = await xrpService.anchor({
+      certificateHash: uniqueHash,
+      hederaTokenId: tokenId,
+      serialNumber: 'pending',
+      timestamp: new Date().toISOString(),
+    });
+  } catch {}
+  try {
+    await algorandService.connect();
+    algoPre = await algorandService.anchor({
+      certificateHash: uniqueHash,
+      hederaTokenId: tokenId,
+      serialNumber: 'pending',
+      timestamp: new Date().toISOString(),
+    });
+  } catch {}
+  const creator = req.apiConsumer?.email || req.apiConsumer?.id || 'API Consumer';
+  const mintResult = await hederaService.mintAcademicCredential(tokenId, { uniqueHash, ipfsURI, degree, studentName, university: universityLabel, recipientAccountId, xrpTxHash: xrpPre?.xrpTxHash, algoTxId: algoPre?.algoTxId, image, expiryDate, creator });
   let transferResult = null;
   if (recipientAccountId) {
     transferResult = await hederaService.transferCredentialToStudent(tokenId, mintResult.serialNumber, recipientAccountId);
   }
-  if (useMem()) {
-    mem.credentials.push({ tokenId, serialNumber: mintResult.serialNumber, universityId: token?.universityId || null, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI, createdAt: new Date() });
-  } else {
-    await Credential.create({ tokenId, serialNumber: mintResult.serialNumber, universityId: token?.universityId || null, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI });
-  }
+  const credRecord = { tokenId, serialNumber: mintResult.serialNumber, universityId: token?.universityId || null, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI, externalProofs: { xrpTxHash: xrpPre?.xrpTxHash, algoTxId: algoPre?.algoTxId } };
+  if (useMem()) { mem.credentials.push({ ...credRecord, createdAt: new Date() }); } else { await Credential.create(credRecord); }
   let xrplAnchor = null;
   let algoAnchor = null;
   try {
@@ -76,7 +202,7 @@ router.post('/issue', apiKeyAuth, apiRateLimit, [
       timestamp: new Date().toISOString(),
     });
   } catch {}
-  res.status(201).json({ success: true, message: 'Credential issued', data: { mint: mintResult, transfer: transferResult, xrplAnchor: xrplAnchor ? { txHash: xrplAnchor.xrpTxHash || null, ledgerIndex: xrplAnchor.ledgerIndex || null, status: xrplAnchor.status || 'completed', network: xrplAnchor.network || xrpService.network } : undefined, algorandAnchor: algoAnchor ? { txId: algoAnchor.algoTxId || null, status: algoAnchor.status || 'completed', network: algoAnchor.network || algorandService.network } : undefined } });
+  res.status(201).json({ success: true, message: 'Credential issued', data: { mint: mintResult, transfer: transferResult, xrplAnchor: { txHash: xrpPre?.xrpTxHash || xrplAnchor?.xrpTxHash || null }, algorandAnchor: { txId: algoPre?.algoTxId || algoAnchor?.algoTxId || null } } });
 }));
 
 router.post('/issue-unified', apiKeyAuth, apiRateLimit, [
@@ -96,13 +222,23 @@ router.post('/issue-unified', apiKeyAuth, apiRateLimit, [
     else { token = await Token.create({ tokenId: created.tokenId, tokenName: name, tokenSymbol: `AC-${(degree||'EDU').slice(0,4).toUpperCase()}` }); }
   }
   const universityLabel = token?.tokenName || 'AcademicChain';
-  const mintResult = await hederaService.mintAcademicCredential(tokenId, { uniqueHash, ipfsURI, degree, studentName, university: universityLabel, recipientAccountId });
+  let xrpPre2 = null;
+  let algoPre2 = null;
+  try {
+    await xrpService.connect();
+    xrpPre2 = await xrpService.anchor({ certificateHash: uniqueHash, hederaTokenId: tokenId, serialNumber: 'pending', timestamp: new Date().toISOString() });
+  } catch {}
+  try {
+    await algorandService.connect();
+    algoPre2 = await algorandService.anchor({ certificateHash: uniqueHash, hederaTokenId: tokenId, serialNumber: 'pending', timestamp: new Date().toISOString() });
+  } catch {}
+  const mintResult = await hederaService.mintAcademicCredential(tokenId, { uniqueHash, ipfsURI, degree, studentName, university: universityLabel, recipientAccountId, xrpTxHash: xrpPre2?.xrpTxHash, algoTxId: algoPre2?.algoTxId });
   let transferResult = null;
   if (recipientAccountId) {
     transferResult = await hederaService.transferCredentialToStudent(tokenId, mintResult.serialNumber, recipientAccountId);
   }
-  if (useMem()) { mem.credentials.push({ tokenId, serialNumber: mintResult.serialNumber, universityId: token?.universityId || null, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI, createdAt: new Date() }); }
-  else { await Credential.create({ tokenId, serialNumber: mintResult.serialNumber, universityId: token?.universityId || null, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI }); }
+  const rec = { tokenId, serialNumber: mintResult.serialNumber, universityId: token?.universityId || null, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI, externalProofs: { xrpTxHash: xrpPre2?.xrpTxHash, algoTxId: algoPre2?.algoTxId } };
+  if (useMem()) { mem.credentials.push({ ...rec, createdAt: new Date() }); } else { await Credential.create(rec); }
 
   const primary = decideChainFromRequest(req);
   const order = primary === 'xrpl' ? ['xrpl','algorand'] : (primary === 'algorand' ? ['algorand','xrpl'] : ['xrpl','algorand']);
@@ -125,10 +261,156 @@ router.post('/issue-unified', apiKeyAuth, apiRateLimit, [
     mint: mintResult,
     transfer: transferResult,
     anchors: {
+      pre: { xrp: xrpPre2?.xrpTxHash || null, algorand: algoPre2?.algoTxId || null },
       primary: primaryAnchor ? { chain: order[0], id: primaryAnchor.xrpTxHash || primaryAnchor.algoTxId || null, status: primaryAnchor.status || 'completed' } : null,
       secondary: secondaryAnchor ? { id: secondaryAnchor.xrpTxHash || secondaryAnchor.algoTxId || null, status: secondaryAnchor.status || 'completed' } : null,
     }
   } });
+}));
+
+function sha256Hex(input) {
+  return crypto.createHash('sha256').update(Buffer.isBuffer(input) ? input : String(input), 'utf8').digest('hex');
+}
+function buildMerkleLevels(hashes) {
+  const levels = [];
+  let current = hashes.map(h => String(h).toLowerCase());
+  levels.push(current);
+  while (current.length > 1) {
+    const next = [];
+    for (let i = 0; i < current.length; i += 2) {
+      const left = current[i];
+      const right = (i + 1 < current.length) ? current[i + 1] : current[i];
+      const combined = Buffer.concat([Buffer.from(left, 'hex'), Buffer.from(right, 'hex')]);
+      next.push(sha256Hex(combined));
+    }
+    levels.push(next);
+    current = next;
+  }
+  return levels;
+}
+function computeProof(levels, index) {
+  const path = [];
+  let idx = index;
+  for (let level = 0; level < levels.length - 1; level++) {
+    const nodes = levels[level];
+    const isRight = idx % 2 === 1;
+    const siblingIdx = isRight ? idx - 1 : (idx + 1 < nodes.length ? idx + 1 : idx);
+    path.push({ position: isRight ? 'left' : 'right', hash: nodes[siblingIdx] });
+    idx = Math.floor(idx / 2);
+  }
+  return path;
+}
+function verifyProof(hash, proof, expectedRoot) {
+  let acc = String(hash).trim().toLowerCase();
+  for (const step of (Array.isArray(proof) ? proof : [])) {
+    const sib = String(step.hash || '').trim().toLowerCase();
+    const left = step.position === 'left';
+    const combined = left
+      ? Buffer.concat([Buffer.from(sib, 'hex'), Buffer.from(acc, 'hex')])
+      : Buffer.concat([Buffer.from(acc, 'hex'), Buffer.from(sib, 'hex')]);
+    acc = sha256Hex(combined);
+  }
+  return acc === String(expectedRoot || '').trim().toLowerCase();
+}
+async function fetchLatestMerkleRootFromTopic(topicId) {
+  const base = process.env.HEDERA_MIRROR_URL || 'https://testnet.mirrornode.hedera.com';
+  const url = `${base}/api/v1/topics/${topicId}/messages?limit=50&order=desc`;
+  const resp = await axios.get(url, { timeout: 15000 });
+  const messages = resp.data?.messages || [];
+  for (const m of messages) {
+    try {
+      const b = Buffer.from(m.message || '', 'base64');
+      const s = b.toString('utf8');
+      const j = JSON.parse(s);
+      if (j && j.type === 'MERKLE_ROOT' && typeof j.merkleRoot === 'string') {
+        return { merkleRoot: j.merkleRoot, sequenceNumber: m.sequence_number, consensusTimestamp: m.consensus_timestamp };
+      }
+    } catch {}
+  }
+  return null;
+}
+
+router.post('/merkle/batch', apiKeyAuth, apiRateLimit, [
+  body('hashes').optional().isArray(),
+  body('documents').optional().isArray(),
+], validate, asyncHandler(async (req, res) => {
+  const docs = Array.isArray(req.body.documents) ? req.body.documents : [];
+  const hashesInput = Array.isArray(req.body.hashes) ? req.body.hashes : [];
+  const leaves = (hashesInput.length ? hashesInput : docs.map(d => d.hash || sha256Hex(String(d.cid || d.content || ''))))
+    .map(h => String(h).trim().toLowerCase());
+  if (!leaves.length) return res.status(400).json({ success: false, message: 'No hashes provided' });
+  const levels = buildMerkleLevels(leaves);
+  const root = levels[levels.length - 1][0];
+  await hederaService.connect();
+  const hSubmit = await hederaService.submitMerkleRoot(root, { count: leaves.length, issuer: 'AcademicChain' });
+  let xrpl = null, algo = null;
+  try { await xrpService.connect(); xrpl = await xrpService.anchor({ certificateHash: root, title: 'MERKLE_ROOT', issuer: 'AcademicChain', hederaTopicId: hSubmit.topicId, hederaSequence: hSubmit.sequence, timestamp: new Date().toISOString() }); } catch {}
+  try { await algorandService.connect(); algo = await algorandService.anchor({ certificateHash: root, title: 'MERKLE_ROOT', issuer: 'AcademicChain', timestamp: new Date().toISOString() }); } catch {}
+  const proofs = leaves.map((_, i) => computeProof(levels, i));
+  const baseClient = String(process.env.CLIENT_URL || '').trim();
+  const verificationLinks = leaves.map((leaf, i) => {
+    const proofJson = JSON.stringify(proofs[i]);
+    const b64 = Buffer.from(proofJson, 'utf8').toString('base64url');
+    const params = new URLSearchParams();
+    params.set('hash', leaf);
+    params.set('proof_b64', b64);
+    params.set('hederaTopicId', hSubmit.topicId);
+    if (xrpl?.xrpTxHash) params.set('xrplTx', xrpl.xrpTxHash);
+    if (algo?.algoTxId) params.set('algoTx', algo.algoTxId);
+    const path = `/verificar?${params.toString()}`;
+    const url = baseClient ? `${baseClient}${path}` : path;
+    return { hash: leaf, proof_b64: b64, url };
+  });
+  res.status(201).json({
+    success: true,
+    message: 'Merkle batch anchored',
+    data: {
+      merkleRoot: root,
+      count: leaves.length,
+      hedera: { topicId: hSubmit.topicId, sequence: hSubmit.sequence, txId: hSubmit.transactionId, explorer: `https://hashscan.io/${process.env.HEDERA_NETWORK || 'testnet'}/transaction/${hSubmit.transactionId}` },
+      xrpl: xrpl?.xrpTxHash ? { txHash: xrpl.xrpTxHash, explorer: `https://${(process.env.XRPL_NETWORK||'testnet').includes('main')?'livenet':'testnet'}.xrpl.org/transactions/${xrpl.xrpTxHash}` } : null,
+      algorand: algo?.algoTxId ? { txId: algo.algoTxId, explorer: `https://testnet.explorer.perawallet.app/tx/${algo.algoTxId}/` } : null,
+      proofs,
+      verificationLinks,
+    }
+  });
+}));
+
+router.post('/merkle/verify', apiKeyAuth, apiRateLimit, [
+  body('hash').notEmpty().isString(),
+  body('proof').isArray(),
+  body('merkleRoot').optional().isString(),
+  body('hederaTopicId').optional().isString(),
+], validate, asyncHandler(async (req, res) => {
+  const { hash, proof, merkleRoot, hederaTopicId } = req.body;
+  let root = String(merkleRoot || '').trim();
+  let fromTopic = null;
+  if (!root && hederaTopicId) {
+    try {
+      const latest = await fetchLatestMerkleRootFromTopic(hederaTopicId);
+      if (latest && latest.merkleRoot) {
+        root = latest.merkleRoot;
+        fromTopic = { sequenceNumber: latest.sequenceNumber, consensusTimestamp: latest.consensusTimestamp };
+      }
+    } catch {}
+  }
+  if (!root) return res.status(400).json({ success: false, message: 'merkleRoot or hederaTopicId required' });
+  const ok = verifyProof(hash, proof, root);
+  let xrpl = null, algo = null;
+  try { await xrpService.connect(); xrpl = await xrpService.getByHash(root); } catch {}
+  try { await algorandService.connect(); algo = await algorandService.getByHash(root); } catch {}
+  res.status(200).json({
+    success: ok,
+    data: {
+      merkleRoot: root,
+      verified: ok,
+      hederaTopic: fromTopic || null,
+      anchors: {
+        xrpl: xrpl?.xrpTxHash || null,
+        algorand: algo?.algoTxId || null,
+      }
+    }
+  });
 }));
 
 module.exports = router;

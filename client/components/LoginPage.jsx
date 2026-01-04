@@ -1,154 +1,144 @@
-// client/pages/LoginPage.js
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './useAuth';
-import { useLocation, useNavigate } from 'react-router-dom';
-let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
 
 const LoginPage = ({ userType = 'student', mode = 'login' }) => {
-  const { isLoading, login, error } = useAuth();
-  const location = useLocation();
-  const [googleEnabled, setGoogleEnabled] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login, register } = useAuth();
 
-  
-
-  const config = {
-    institution: {
-      title: 'Acceso para Instituciones',
-      icon: '🏫',
-      gradient: 'from-blue-600 to-purple-600',
-    },
-    student: {
-      title: 'Portal del Alumno',
-      icon: '🎓',
-      gradient: 'from-cyan-500 to-blue-500',
-    },
-  };
-
-  const currentConfig = config[userType] || config.student;
-  const allowInstitutionRegister = import.meta.env.VITE_ALLOW_INSTITUTION_REGISTER === '1';
-
-  
-
-  const handleGoogle = () => {
-    const redirectUri = `${window.location.origin}/auth/callback`;
-    const params = new URLSearchParams(location.search);
-    const next = params.get('next') || (userType === 'institution' ? '/institution/dashboard' : '/student/portal');
-    try { localStorage.setItem('postLoginNext', next); } catch {}
-    const url = `${API_BASE_URL}/api/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}&next=${encodeURIComponent(next)}`;
-    window.location.href = url;
-  };
-  const handleEmailLogin = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setSubmitting(true);
-    const ok = await login(email, password, userType);
-    setSubmitting(false);
-    if (ok) {
-      const params = new URLSearchParams(location.search);
-      const next = params.get('next') || (userType === 'institution' ? '/institution/dashboard' : '/student/portal');
-      navigate(next, { replace: true });
-    }
-  };
+    setIsSubmitting(true);
+    setError(null);
 
-  useEffect(() => {
+    if (!email || !password) {
+      setError('Ingresa correo y contraseña');
+      setIsSubmitting(false);
+      return;
+    }
+
     (async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/auth/google/enabled`);
-        const data = await res.json();
-        setGoogleEnabled(Boolean(data.enabled));
-      } catch {
-        setGoogleEnabled(false);
+        let ok = false;
+        if (mode === 'register') {
+          ok = await register(email, password);
+        } else {
+          ok = await login(email, password, userType);
+        }
+        if (!ok) throw new Error('Credenciales inválidas');
+        const params = new URLSearchParams(location.search);
+        const nextParam = params.get('next');
+        const target = nextParam || (userType === 'institution' ? '/institution/dashboard' : userType === 'student' ? '/student/portal' : '/');
+        navigate(target, { replace: true });
+      } catch (e) {
+        setError(e.message || 'Error de inicio de sesión');
+      } finally {
+        setIsSubmitting(false);
       }
     })();
-  }, []);
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
-      <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
-        <div className={`p-8 bg-gradient-to-br ${currentConfig.gradient} text-white text-center`}>
-          <div className="w-20 h-20 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center">
-            <span className="text-4xl">{currentConfig.icon}</span>
-          </div>
-          <h1 className="text-3xl font-bold">{mode === 'register' ? 'Comenzar Gratis' : currentConfig.title}</h1>
-          {userType === 'institution' && mode === 'register' && allowInstitutionRegister && (
-            <div className="inline-flex items-center mt-3 px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm">
-              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-              <span>Registro institucional habilitado</span>
-            </div>
-          )}
-          {(
-            <></>
-          )}
-          {(mode === 'register' || mode === 'login') && (
-            <p className="mt-2 text-white/80">Elige acceso con Google o usa tu correo</p>
-          )}
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:p-4 focus:bg-indigo-600 focus:text-white"
+      >
+        Ir al contenido principal
+      </a>
+      <div
+        id="main-content"
+        className="flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+        role="main"
+      >
+      <div
+        className="max-w-md w-full space-y-8"
+        data-testid="login-form-container"
+      >
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Inicia sesión
+          </h2>
         </div>
-
-        <div className="p-8">
-          {(mode === 'register' || mode === 'login') && (
-            <div className="mb-6">
-              <button
-                type="button"
-                onClick={handleGoogle}
-                disabled={isLoading || googleEnabled === false}
-                className={`${googleEnabled === false ? 'btn-ghost border border-gray-200 text-gray-400' : 'btn-secondary'} w-full flex items-center justify-center space-x-3 hover-lift shadow-soft disabled:opacity-50 disabled:cursor-not-allowed`}
+        {error && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded"
+            data-testid="login-error"
+          >
+            {error}
+          </div>
+        )}
+        <form
+          className="mt-8 space-y-6"
+          onSubmit={handleSubmit}
+          data-testid="login-form"
+        >
+          <div className="rounded-md shadow-sm -space-y-px">
+            <div>
+              <label
+                htmlFor="email-address"
+                className="sr-only"
               >
-                <span>🔵</span>
-                <span>{googleEnabled === false ? 'Google no disponible' : (mode === 'register' ? 'Continuar con Google' : 'Iniciar con Google')}</span>
-              </button>
-              {googleEnabled === false && (
-                <div className="mt-2 text-xs text-gray-500 text-center">OAuth de Google no está configurado</div>
-              )}
+                Correo
+              </label>
+              <input
+                id="email-address"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                aria-required="true"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                placeholder="Correo"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                data-testid="login-email"
+                aria-invalid={error ? 'true' : 'false'}
+                aria-describedby={error ? 'login-error' : undefined}
+              />
             </div>
-          )}
-          <form onSubmit={handleEmailLogin} className="space-y-3 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Correo</label>
-              <input type="email" value={email} onChange={(e)=>setEmail(e.target.value)} className="w-full px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="tu.email@gmail.com" required />
+              <label htmlFor="password" className="sr-only">
+                Contraseña
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                aria-required="true"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                placeholder="Contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                data-testid="login-password"
+                aria-invalid={error ? 'true' : 'false'}
+                aria-describedby={error ? 'login-error' : undefined}
+              />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-              <input type="password" value={password} onChange={(e)=>setPassword(e.target.value)} className="w-full px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="••••••" required />
-            </div>
-            {error && <div className="text-sm text-red-600">{error}</div>}
-            <button type="submit" className="btn-primary w-full" disabled={submitting}>{submitting ? 'Ingresando…' : 'Ingresar con correo'}</button>
-          </form>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-            <a href="/demo/institution" className="btn-secondary w-full text-center">Ver Demo Institución</a>
-            <a href="/demo/student" className="btn-primary w-full text-center">Ver Demo Alumno</a>
           </div>
-          {userType === 'institution' && mode === 'register' && !allowInstitutionRegister ? (
-            <div className="text-center text-sm text-gray-600">
-              Acceso institucional solo por invitación del administrador.
-            </div>
-          ) : (
-            <div className="text-center text-sm text-gray-600">
-              Acceso institucional solo por invitación del administrador.
-            </div>
-          )}
 
-          <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-            {mode !== 'register' ? (
-              <p>
-                ¿No tienes una cuenta?{' '}
-                <a href="/register" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
-                  Regístrate aquí
-                </a>
-              </p>
-            ) : (
-              <p>
-                ¿Ya tienes cuenta?{' '}
-                <a href="/students/login" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
-                  Inicia sesión
-                </a>
-              </p>
-            )}
+          <div>
+            <button
+              type="submit"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              data-testid="login-submit"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Entrando...' : (mode === 'register' ? 'Crear cuenta' : 'Entrar')}
+            </button>
           </div>
-        </div>
+        </form>
       </div>
+    </div>
     </div>
   );
 };

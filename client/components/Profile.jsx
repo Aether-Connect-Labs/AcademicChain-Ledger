@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from './useAuth';
-let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
+import { authService } from './authService';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -14,13 +14,7 @@ const Profile = () => {
     setSaving(true);
     setMessage('');
     try {
-      const token = localStorage.getItem('authToken');
-      const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name, hederaAccountId })
-      });
-      if (!res.ok) throw new Error('Error al guardar');
+      await authService.updateProfile({ name, hederaAccountId });
       setMessage('Perfil actualizado');
     } catch (e) {
       setMessage('Error al guardar');

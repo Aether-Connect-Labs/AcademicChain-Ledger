@@ -19,8 +19,7 @@
     "docker:logs": "docker compose -f docker-compose-services.yml logs -f",
     "test": "npm run test:server && npm run test:client",
     "test:server": "cd server && npm test",
-    "test:client": "cd client && npm test",
-    "vercel:deploy": "vercel --prod"
+    "test:client": "cd client && npm test"
   },
   "workspaces": [
     "server",
@@ -36,20 +35,11 @@
     "semver": "^7.5.0",
     "tar": ">=6.2.1",
     "undici": ">=5.29.0",
-    "jws": "^4.0.0",
-    "@vercel/node": {
-      "undici": ">=5.29.0"
-    },
-    "@vercel/fun": {
-      "semver": ">=7.5.4",
-      "debug": "^4.3.4",
-      "tar": ">=6.2.1"
-    }
+    "jws": "^4.0.0"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "cross-env": "^7.0.3",
-    "vercel": "^32.3.0"
+    "cross-env": "^7.0.3"
   },
   "dependencies": {
     "mongodb": "^6.20.0"

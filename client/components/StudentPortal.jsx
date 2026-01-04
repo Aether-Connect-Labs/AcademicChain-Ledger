@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import StudentCredentials from './StudentCredentials.jsx';
 import CredentialVerifier from './credentials/CredentialVerifier.jsx';
 
@@ -13,7 +14,7 @@ const StudentPortal = ({ demo = false }) => {
         <CredentialVerifier />
       </div>
       <div className="mt-6">
-        <a href="/demo" className="btn-primary">Agendar Demo</a>
+        <Link to="/agenda" className="btn-primary">Agendar Asesoría</Link>
       </div>
     </div>
   );

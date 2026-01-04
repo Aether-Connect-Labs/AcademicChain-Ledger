@@ -7,6 +7,8 @@ const { ERROR_CODES } = require('../utils/errorCodes');
 const { Credential } = require('../models');
 const xrpService = require('../services/xrpService');
 const algorandService = require('../services/algorandService');
+const ipfsService = require('../services/ipfsService');
+const { getRuntimeHealthMonitor } = require('../middleware/runtimeHealth');
 
 router.get('/timeouts', protect, authorize(ROLES.ADMIN), asyncHandler(async (req, res) => {
   const services = Object.keys(TIMEOUT_DEFAULTS.development);
@@ -40,4 +42,16 @@ router.post('/migration/progressive', protect, authorize(ROLES.ADMIN), asyncHand
     if (delayMs > 0) { await new Promise(r => setTimeout(r, delayMs)); }
   }
   res.status(202).json({ success: true, data: { total: creds.length, processed, dryRun: dry, targets: target } });
+}));
+
+router.get('/ipfs/status', asyncHandler(async (req, res) => {
+  const enabled = !!ipfsService.pinata;
+  res.status(200).json({ success: true, data: { enabled } });
+}));
+
+router.get('/monitor/snapshot', asyncHandler(async (req, res) => {
+  const io = req.app.get('io');
+  const monitor = getRuntimeHealthMonitor(io);
+  const snapshot = await monitor.buildSnapshot();
+  res.status(200).json({ success: true, data: snapshot });
 }));

@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { io as socketIO } from 'socket.io-client';
+import { API_BASE_URL } from './services/config';
+import AdminAPI from './services/adminAPI';
 
 const SOCKET_CONFIG = {
   reconnection: true,
@@ -23,9 +25,7 @@ const CONNECTION_STATES = {
 };
 
 const RateDashboard = () => {
-  const API_BASE_URL = useMemo(() => (import.meta.env.VITE_API_URL || ''), []);
   const token = useMemo(() => { try { return localStorage.getItem('authToken'); } catch { return null; } }, []);
-  const headers = useMemo(() => ({ 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' }), [token]);
 
   const [error, setError] = useState('');
   const [rate, setRate] = useState(null);
@@ -42,12 +42,9 @@ const RateDashboard = () => {
   const reconnectCountRef = useRef(0);
 
   const fetchRate = useCallback(async () => {
-    if (!API_BASE_URL) return;
     setError('');
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/rate?includeHistory=true&hours=24`, { headers });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      const data = await AdminAPI.getRate('?includeHistory=true&hours=24');
       const d = data?.data || data;
       setRate(d);
       setHistory(Array.isArray(data?.history) ? data.history : []);
@@ -56,20 +53,17 @@ const RateDashboard = () => {
       setRate(null);
       setHistory([]);
     }
-  }, [API_BASE_URL, headers]);
+  }, []);
 
   const fetchMetrics = useCallback(async () => {
-    if (!API_BASE_URL) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/metrics/json`, { headers });
-      const data = await res.json();
-      if (res.ok) setMetrics(data?.metrics || data);
+      const data = await AdminAPI.getMetrics();
+      if (data) setMetrics(data?.metrics || data);
     } catch {}
-  }, [API_BASE_URL, headers]);
+  }, []);
 
   const sendConnectionMetrics = useCallback(async (payload = {}) => {
     try {
-      if (!API_BASE_URL) return;
       const body = {
         state: connectionState,
         reconnects: reconnectCount,
@@ -78,26 +72,16 @@ const RateDashboard = () => {
         timestamp: new Date().toISOString(),
         ...payload,
       };
-      await fetch(`${API_BASE_URL}/metrics/connection`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-      });
+      await AdminAPI.sendConnectionMetrics(body);
     } catch {}
-  }, [API_BASE_URL, headers, connectionState, reconnectCount, lastLatencyMs, isFallbackMode]);
+  }, [connectionState, reconnectCount, lastLatencyMs, isFallbackMode]);
 
   const applyOverride = async () => {
     setActionMessage('');
     setError('');
     try {
       if (!overrideRate || Number(overrideRate) <= 0) throw new Error('Ingresa una tasa válida (> 0)');
-      const res = await fetch(`${API_BASE_URL}/api/admin/rate`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ rate: Number(overrideRate), reason: overrideReason || undefined, expiresAt: overrideExpiresAt || undefined })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      await AdminAPI.setRate({ rate: Number(overrideRate), reason: overrideReason || undefined, expiresAt: overrideExpiresAt || undefined });
       setActionMessage('Override aplicado correctamente');
       setOverrideReason('');
       setOverrideExpiresAt('');
@@ -111,9 +95,7 @@ const RateDashboard = () => {
     setActionMessage('');
     setError('');
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/rate`, { method: 'DELETE', headers });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      await AdminAPI.deleteRate();
       setActionMessage('Override eliminado');
       await fetchRate();
     } catch (e) {

@@ -5,6 +5,7 @@ const xrpService = require('../services/xrpService');
 const { isConnected: isMongoConnected } = require('../config/database');
 const { isConnected: isRedisConnected } = require('../../queue/connection');
 const logger = require('../utils/logger');
+const notificationService = require('../services/notificationService');
 
 class RuntimeHealthMonitor {
   constructor({ io, intervalMs, emitIntervalMs, degradeThresholdMs } = {}) {
@@ -109,6 +110,7 @@ class RuntimeHealthMonitor {
         try { await cacheService.set('alerts:system:list', this.last.alerts, 3600); } catch {}
         try { if (this.io && typeof this.io.emit === 'function') this.io.emit('system:alert', payload); } catch {}
         logger.warn('Service degraded', payload);
+        try { await notificationService.sendAlert(`Alerta de sistema: ${d.name}`, `Servicio degradado: ${d.name}\nHealthy=${d.data.healthy}\nLatencyMs=${d.data.latencyMs}`); } catch {}
       }
     }
   }

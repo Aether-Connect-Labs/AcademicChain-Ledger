@@ -8,6 +8,7 @@ const xrpService = require('../services/xrpService');
 const logger = require('../utils/logger');
 const { Token, Transaction, Credential, User } = require('../models');
 const { isConnected: isMongoConnected } = require('../config/database');
+const memoryStore = require('../utils/memoryStore');
 const { issuanceQueue, isRedisConnected } = require('../../queue/issuanceQueue');
 const { recordAnalytics, getUniversityInsights } = require('../services/analyticsService');
 const NodeCache = require('node-cache');
@@ -18,10 +19,9 @@ const useMem = () => {
   if (isTest) return false;
   return (process.env.DISABLE_MONGO === '1' || !isMongoConnected());
 };
-const memStore = {
-  tokens: [],
-  credentials: [],
-};
+// Local fallback store (Migrated to utils/memoryStore)
+// const memStore = { tokens: [], credentials: [] }; 
+const memStore = memoryStore;
 
 const router = express.Router();
 
@@ -70,7 +70,15 @@ router.post('/create-token', protect, isUniversity,
     const { tokenName, tokenSymbol, tokenMemo } = req.body;
     const { user } = req;
 
-    const existingToken = await Token.findOne({ tokenSymbol, universityId: user.id });
+    let existingToken;
+    try {
+      existingToken = await Token.findOne({ tokenSymbol, universityId: user.id });
+    } catch (e) {
+      if (useMem()) {
+        existingToken = memStore.tokens.find(t => t.tokenSymbol === tokenSymbol && t.universityId === user.id);
+      }
+    }
+
     if (existingToken) {
       return res.status(409).json({ success: false, message: `Token symbol '${tokenSymbol}' already exists for your university.` });
     }
@@ -112,7 +120,15 @@ router.post('/create-payment-token', protect, isUniversity,
     const { tokenName, tokenSymbol, tokenMemo, decimals, initialSupply } = req.body;
     const { user } = req;
 
-    const existingToken = await Token.findOne({ tokenSymbol, universityId: user.id });
+    let existingToken;
+    try {
+      existingToken = await Token.findOne({ tokenSymbol, universityId: user.id });
+    } catch (e) {
+      if (useMem()) {
+        existingToken = memStore.tokens.find(t => t.tokenSymbol === tokenSymbol && t.universityId === user.id);
+      }
+    }
+
     if (existingToken) {
       return res.status(409).json({ success: false, message: `Token symbol '${tokenSymbol}' already exists for your university.` });
     }
@@ -152,17 +168,64 @@ router.post('/issue-credential', protect, isUniversity,
     body('studentName').optional().isString().trim(),
     body('graduationDate').optional().isString().trim(),
     body('recipientAccountId').optional().isString().trim(),
+    body('image').optional().isString().trim(),
+    body('expiryDate').optional().isString().trim(),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { tokenId, uniqueHash, ipfsURI, recipientAccountId, degree, studentName, graduationDate } = req.body;
+    const { tokenId, uniqueHash, ipfsURI, recipientAccountId, degree, studentName, graduationDate, image, expiryDate } = req.body;
     const { user } = req;
     const network = process.env.HEDERA_NETWORK || 'testnet';
     try {
       const enableOnChain = String(process.env.ENABLE_ONCHAIN_VALIDATION || '1') === '1';
-      if (enableOnChain) {
+      const hasContract = !!process.env.ACADEMIC_LEDGER_CONTRACT_ID;
+      const canOnChain = enableOnChain && hasContract && hederaService.isEnabled();
+      if (canOnChain) {
         await hederaService.requestCredentialOnChain(uniqueHash, ipfsURI, recipientAccountId || '0.0.0');
       }
+
+      // 1. Anchor to External Chains FIRST to get proofs
+      let xrp = null;
+      let algo = null;
+
+      const enableXrp = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
+      if (enableXrp) {
+        try {
+          await xrpService.connect();
+          const anchorTitle = studentName ? `${degree || 'Credential'} - ${studentName} - ${user.universityName}` : `${degree || 'Credential'} - ${user.universityName}`;
+          // Serial number is not yet known, pass 'pending' or 0.
+          const a = await xrpService.anchor({ 
+            certificateHash: uniqueHash, 
+            hederaTokenId: tokenId, 
+            serialNumber: 'pending', 
+            timestamp: new Date().toISOString(), 
+            title: anchorTitle, 
+            issuer: user.universityName 
+          });
+          xrp = a;
+        } catch (e) {
+            logger.warn(`XRP Anchor failed pre-mint: ${e.message}`);
+        }
+      }
+
+      const enableAlgo = (process.env.ALGORAND_ENABLED === 'true' || process.env.ALGORAND_ENABLE === '1' || process.env.ENABLE_ALGORAND === '1');
+      if (enableAlgo) {
+        try {
+          const algorandService = require('../services/algorandService');
+          await algorandService.connect();
+          const a = await algorandService.anchor({
+            certificateHash: uniqueHash,
+            hederaTokenId: tokenId,
+            serialNumber: 'pending',
+            timestamp: new Date().toISOString(),
+          });
+          algo = a;
+        } catch (e) {
+            logger.warn(`Algorand Anchor failed pre-mint: ${e.message}`);
+        }
+      }
+
+      // 2. Mint on Hedera with external proofs
       const mint = await hederaService.mintAcademicCredential(tokenId, {
         tokenId,
         uniqueHash,
@@ -171,32 +234,44 @@ router.post('/issue-credential', protect, isUniversity,
         studentName,
         graduationDate,
         university: user.universityName,
+        image,
+        expiryDate,
+        xrpTxHash: xrp?.xrpTxHash,
+        algoTxId: algo?.algoTxId
       });
+
+      // 3. Save to DB
       try {
+        const credData = { 
+            tokenId, 
+            serialNumber: mint.serialNumber, 
+            universityId: user.id, 
+            studentAccountId: recipientAccountId || null, 
+            uniqueHash, 
+            ipfsURI,
+            externalProofs: {
+                xrpTxHash: xrp?.xrpTxHash,
+                algoTxId: algo?.algoTxId
+            }
+        };
+
         if (!useMem()) {
-          await Credential.create({ tokenId, serialNumber: mint.serialNumber, universityId: user.id, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI });
+          await Credential.create(credData);
         } else {
-          memStore.credentials.push({ tokenId, serialNumber: mint.serialNumber, universityId: user.id, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI, createdAt: new Date() });
+          memStore.credentials.push({ ...credData, createdAt: new Date() });
         }
       } catch {}
+
       let transfer = null;
       if (recipientAccountId) {
         transfer = await hederaService.transferCredentialToStudent(tokenId, mint.serialNumber, recipientAccountId);
       }
-      let xrp = null;
-      const enableXrp = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
-      if (enableXrp) {
-        try {
-          await xrpService.connect();
-          const anchorTitle = studentName ? `${degree || 'Credential'} - ${studentName} - ${user.universityName}` : `${degree || 'Credential'} - ${user.universityName}`;
-          const a = await xrpService.anchor({ certificateHash: uniqueHash, hederaTokenId: tokenId, serialNumber: mint.serialNumber, timestamp: new Date().toISOString(), title: anchorTitle, issuer: user.universityName });
-          xrp = a;
-        } catch {}
-      }
+
       const nftId = `${tokenId}-${mint.serialNumber}`;
       const hashscanUrl = `https://hashscan.io/${network}/nft/${nftId}`;
       const xrplUrl = xrp?.xrpTxHash ? `https://testnet.xrpl.org/transactions/${xrp.xrpTxHash}` : null;
-      res.status(201).json({ success: true, data: { nftId, hashscanUrl, mintTxId: mint.transactionId, transfer, xrpTxHash: xrp?.xrpTxHash || null, xrplUrl } });
+      
+      res.status(201).json({ success: true, data: { nftId, hashscanUrl, mintTxId: mint.transactionId, transfer, xrpTxHash: xrp?.xrpTxHash || null, xrplUrl, algoTxId: algo?.algoTxId || null } });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
     }
@@ -208,28 +283,12 @@ router.post('/prepare-issuance', protect, isUniversity,
     body('tokenId').notEmpty().withMessage('Token ID is required').trim().escape(),
     body('uniqueHash').notEmpty().withMessage('uniqueHash is required').trim().escape(),
     body('ipfsURI').notEmpty().withMessage('ipfsURI is required').trim(),
-    body('paymentMethod').optional().isString().trim().escape(),
   ],
   validate,
   asyncHandler(async (req, res) => {
     try {
       const { user } = req;
       const { tokenId, ...credentialData } = req.body;
-      const MINT_FEE = 100000000;
-      const PAYMENT_TOKEN_ID = process.env.PAYMENT_TOKEN_ID;
-      const defaultMethod = String(process.env.DEFAULT_PAYMENT_METHOD || '').toUpperCase();
-      const methodFromBody = String(req.body.paymentMethod || '').toUpperCase();
-      let paymentMethod = methodFromBody || defaultMethod || (String(process.env.ENABLE_XRP_PAYMENTS || '0') === '1' ? 'XRP' : 'HBAR');
-      let preferXrp = paymentMethod === 'XRP';
-      if (paymentMethod === 'AUTO') {
-        const rateOracle = require('../services/rateOracle');
-        const rateResp = await rateOracle.getRate();
-        const rate = Number(rateResp?.data?.rate || parseFloat(process.env.XRPHBAR_RATE || global.XRPHBAR_RATE_CACHE || '1'));
-        const hbarFeeHbar = MINT_FEE / 1e8;
-        const xrpFee = parseFloat(process.env.XRPL_MINT_FEE_XRP || '0.001');
-        const xrpFeeInHbar = xrpFee * rate;
-        preferXrp = xrpFeeInHbar < hbarFeeHbar;
-      }
 
       const token = await Token.findOne({ tokenId, universityId: user.id });
       if (!token) {
@@ -239,47 +298,15 @@ router.post('/prepare-issuance', protect, isUniversity,
       const transactionRecord = await Transaction.create({
         universityId: user.id,
         type: 'CREDENTIAL_ISSUANCE',
-        status: 'PENDING_PAYMENT',
+        status: 'PENDING_ISSUANCE',
         credentialData: req.body,
       });
 
-      let transactionBytes = null;
-      let xrpIntent = null;
-      if (!preferXrp && PAYMENT_TOKEN_ID && user.hederaAccountId && MINT_FEE > 0) {
-        transactionBytes = await hederaService.prepareServiceChargeTransaction(
-          user.hederaAccountId,
-          process.env.HEDERA_ACCOUNT_ID,
-          MINT_FEE,
-          PAYMENT_TOKEN_ID
-        );
-      } else if (preferXrp) {
-        try {
-          await xrpService.connect();
-          const feeXrp = parseFloat(process.env.XRPL_MINT_FEE_XRP || '0.001');
-          const drops = Math.max(1, Math.round(feeXrp * 1_000_000));
-          const dest = xrpService.getAddress();
-          xrpIntent = {
-            network: process.env.XRPL_NETWORK || 'testnet',
-            destination: dest,
-            amountDrops: drops,
-            memo: `ACAD|TX:${transactionRecord.id}`,
-            memoHex: Buffer.from(`ACAD|TX:${transactionRecord.id}`, 'utf8').toString('hex').toUpperCase(),
-          };
-          transactionRecord.status = 'PENDING_PAYMENT';
-          await transactionRecord.save();
-        } catch {}
-      } else {
-        transactionRecord.status = 'PENDING_ISSUANCE';
-        await transactionRecord.save();
-      }
-      
       res.status(200).json({
         success: true,
-        message: 'Issuance prepared. Please sign the payment transaction if required.',
+        message: 'Issuance prepared.',
         data: {
           transactionId: transactionRecord.id,
-          paymentTransactionBytes: transactionBytes,
-          xrpPaymentIntent: xrpIntent,
         }
       });
     } catch (e) {
@@ -315,7 +342,9 @@ router.post('/execute-issuance', protect, isUniversity,
 
       // 1. On-chain validation via Smart Contract (optional)
       const enableOnChain = String(process.env.ENABLE_ONCHAIN_VALIDATION || '1') === '1';
-      if (enableOnChain) {
+      const hasContract = !!process.env.ACADEMIC_LEDGER_CONTRACT_ID;
+      const canOnChain = enableOnChain && hasContract && hederaService.isEnabled();
+      if (canOnChain) {
         await hederaService.requestCredentialOnChain(
           credentialData.uniqueHash,
           credentialData.ipfsURI,
@@ -323,53 +352,54 @@ router.post('/execute-issuance', protect, isUniversity,
         );
       }
 
-      // 2. Process payment if required
-      if (signedPaymentTransactionBytes || xrpTxHash) {
-        if (transaction.status !== 'PENDING_PAYMENT') {
-            return res.status(409).json({ success: false, message: 'Payment has already been processed or is not required.' });
+      // 2. Proceed without payment
+      
+      // 2.5 Anchor to External Chains FIRST
+      let xrpAnchor = null;
+      let algoAnchor = null;
+
+      const enableXrp2 = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
+      if (enableXrp2) {
+        try {
+          await xrpService.connect();
+          const anchorTitle = credentialData.studentName ? `${credentialData.degree} - ${credentialData.studentName} - ${user.universityName}` : `${credentialData.degree || 'Credential'} - ${user.universityName}`;
+          xrpAnchor = await xrpService.anchor({
+            certificateHash: credentialData.uniqueHash,
+            hederaTokenId: credentialData.tokenId,
+            serialNumber: 'pending',
+            hederaTopicId: credentialData.hederaTopicId,
+            hederaSequence: credentialData.hederaSequence,
+            timestamp: new Date().toISOString(),
+            title: anchorTitle,
+            issuer: user.universityName,
+          });
+        } catch (e) {
+             logger.warn(`XRP Anchor failed pre-mint in execute-issuance: ${e.message}`);
         }
-        if (signedPaymentTransactionBytes) {
-          const paymentResult = await hederaService.executeSignedTransaction(signedPaymentTransactionBytes);
-          if (paymentResult.receipt.status.toString() !== 'SUCCESS') {
-            transaction.status = 'PAYMENT_FAILED';
-            transaction.errorDetails = { message: `Payment receipt status: ${paymentResult.receipt.status.toString()}` };
-            await transaction.save();
-            return res.status(402).json({ success: false, message: 'Payment failed. Credential not issued.', data: paymentResult });
-          }
-          transaction.paymentTransactionId = paymentResult.transactionId;
-        } else if (xrpTxHash) {
-          if (!/^[A-Fa-f0-9]{64}$/.test(xrpTxHash)) {
-            return res.status(400).json({ success: false, message: 'Invalid XRPL transaction hash format' });
-          }
-          try {
-            await xrpService.connect();
-            const dest = xrpService.getAddress();
-            const feeXrp = parseFloat(process.env.XRPL_MINT_FEE_XRP || '0.001');
-            const minDrops = Math.max(1, Math.round(feeXrp * 1_000_000));
-            const verify = await xrpService.verifyPayment({ txHash: xrpTxHash, destination: dest, minDrops, memoContains: String(transaction.id) });
-            if (!verify.verified) {
-              transaction.status = 'PAYMENT_FAILED';
-              transaction.errorDetails = { message: 'XRP payment verification failed' };
-              await transaction.save();
-              return res.status(402).json({ success: false, message: 'Payment failed. Credential not issued.' });
-            }
-            transaction.paymentTransactionId = xrpTxHash;
-          } catch (e) {
-            transaction.status = 'PAYMENT_FAILED';
-            transaction.errorDetails = { message: e.message };
-            await transaction.save();
-            return res.status(402).json({ success: false, message: 'Payment failed. Credential not issued.' });
-          }
+      }
+
+      const enableAlgo = (process.env.ALGORAND_ENABLED === 'true' || process.env.ALGORAND_ENABLE === '1' || process.env.ENABLE_ALGORAND === '1');
+      if (enableAlgo) {
+        try {
+          const algorandService = require('../services/algorandService');
+          await algorandService.connect();
+          algoAnchor = await algorandService.anchor({
+            certificateHash: credentialData.uniqueHash,
+            hederaTokenId: credentialData.tokenId,
+            serialNumber: 'pending',
+            timestamp: new Date().toISOString(),
+          });
+        } catch (e) {
+             logger.warn(`Algorand Anchor failed pre-mint in execute-issuance: ${e.message}`);
         }
-        transaction.status = 'PENDING_ISSUANCE';
-        await transaction.save();
-        logger.info(`💰 Payment successful for DB transaction ${transaction.id}. TxID: ${transaction.paymentTransactionId}`);
       }
 
       // 3. Mint the NFT on HTS
       const mintResult = await hederaService.mintAcademicCredential(credentialData.tokenId, {
         ...credentialData,
         university: user.universityName,
+        xrpTxHash: xrpAnchor?.xrpTxHash,
+        algoTxId: algoAnchor?.algoTxId
       });
 
       transaction.issuanceTransactionId = mintResult.transactionId;
@@ -378,23 +408,24 @@ router.post('/execute-issuance', protect, isUniversity,
 
       // 4. Save credential record to local DB
       try {
-        if (!useMem()) {
-          await Credential.create({
+        const credData = {
             tokenId: credentialData.tokenId,
             serialNumber: mintResult.serialNumber,
             universityId: user.id,
             studentAccountId: credentialData.recipientAccountId || null,
             uniqueHash: credentialData.uniqueHash,
             ipfsURI: credentialData.ipfsURI,
-          });
+            externalProofs: {
+                xrpTxHash: xrpAnchor?.xrpTxHash,
+                algoTxId: algoAnchor?.algoTxId
+            }
+        };
+
+        if (!useMem()) {
+          await Credential.create(credData);
         } else {
           memStore.credentials.push({
-            tokenId: credentialData.tokenId,
-            serialNumber: mintResult.serialNumber,
-            universityId: user.id,
-            studentAccountId: credentialData.recipientAccountId || null,
-            uniqueHash: credentialData.uniqueHash,
-            ipfsURI: credentialData.ipfsURI,
+            ...credData,
             createdAt: new Date(),
           });
         }
@@ -408,23 +439,6 @@ router.post('/execute-issuance', protect, isUniversity,
           mintResult.serialNumber,
           credentialData.recipientAccountId
         );
-      }
-      const enableXrp2 = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
-      if (enableXrp2) {
-        try {
-          await xrpService.connect();
-          const anchorTitle = credentialData.studentName ? `${credentialData.degree} - ${credentialData.studentName} - ${user.universityName}` : `${credentialData.degree || 'Credential'} - ${user.universityName}`;
-          await xrpService.anchor({
-            certificateHash: credentialData.uniqueHash,
-            hederaTokenId: credentialData.tokenId,
-            serialNumber: mintResult.serialNumber,
-            hederaTopicId: credentialData.hederaTopicId,
-            hederaSequence: credentialData.hederaSequence,
-            timestamp: new Date().toISOString(),
-            title: anchorTitle,
-            issuer: user.universityName,
-          });
-        } catch {}
       }
 
       await recordAnalytics('CREDENTIAL_MINTED', {
@@ -526,11 +540,69 @@ router.post('/issue-bulk', protect, isUniversity,
       const results = [];
       for (const credentialData of credentials) {
         try {
+          // 1. Anchor External
+          let xrp = null;
+          let algo = null;
+
+          const enableXrp3 = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
+          if (enableXrp3) {
+            try {
+              await xrpService.connect();
+              xrp = await xrpService.anchor({
+                certificateHash: credentialData.uniqueHash,
+                hederaTokenId: tokenId,
+                serialNumber: 'pending',
+                hederaTopicId: credentialData.hederaTopicId,
+                hederaSequence: credentialData.hederaSequence,
+                timestamp: new Date().toISOString(),
+              });
+            } catch {}
+          }
+
+          const enableAlgo = (process.env.ALGORAND_ENABLED === 'true' || process.env.ALGORAND_ENABLE === '1' || process.env.ENABLE_ALGORAND === '1');
+          if (enableAlgo) {
+            try {
+              const algorandService = require('../services/algorandService');
+              await algorandService.connect();
+              algo = await algorandService.anchor({
+                certificateHash: credentialData.uniqueHash,
+                hederaTokenId: tokenId,
+                serialNumber: 'pending',
+                timestamp: new Date().toISOString(),
+              });
+            } catch {}
+          }
+
+          // 2. Mint
           const mintResult = await hederaService.mintAcademicCredential(tokenId, {
             ...credentialData,
             university: user.universityName,
+            xrpTxHash: xrp?.xrpTxHash,
+            algoTxId: algo?.algoTxId
           });
 
+          // 3. Save
+          try {
+            const credData = {
+                tokenId: tokenId,
+                serialNumber: mintResult.serialNumber,
+                universityId: user.id,
+                studentAccountId: credentialData.recipientAccountId || null,
+                uniqueHash: credentialData.uniqueHash,
+                ipfsURI: credentialData.ipfsURI,
+                externalProofs: {
+                    xrpTxHash: xrp?.xrpTxHash,
+                    algoTxId: algo?.algoTxId
+                }
+            };
+            if (!useMem()) {
+              await Credential.create(credData);
+            } else {
+              memStore.credentials.push({ ...credData, createdAt: new Date() });
+            }
+          } catch {}
+
+          // 4. Transfer
           let transferResult = null;
           if (credentialData.recipientAccountId) {
             transferResult = await hederaService.transferCredentialToStudent(
@@ -540,42 +612,6 @@ router.post('/issue-bulk', protect, isUniversity,
             );
           }
 
-          try {
-            if (!useMem()) {
-              await Credential.create({
-                tokenId: tokenId,
-                serialNumber: mintResult.serialNumber,
-                universityId: user.id,
-                studentAccountId: credentialData.recipientAccountId || null,
-                uniqueHash: credentialData.uniqueHash,
-                ipfsURI: credentialData.ipfsURI,
-              });
-            } else {
-              memStore.credentials.push({
-                tokenId: tokenId,
-                serialNumber: mintResult.serialNumber,
-                universityId: user.id,
-                studentAccountId: credentialData.recipientAccountId || null,
-                uniqueHash: credentialData.uniqueHash,
-                ipfsURI: credentialData.ipfsURI,
-                createdAt: new Date(),
-              });
-            }
-          } catch {}
-          const enableXrp3 = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
-          if (enableXrp3) {
-            try {
-              await xrpService.connect();
-              await xrpService.anchor({
-                certificateHash: credentialData.uniqueHash,
-                hederaTokenId: tokenId,
-                serialNumber: mintResult.serialNumber,
-                hederaTopicId: credentialData.hederaTopicId,
-                hederaSequence: credentialData.hederaSequence,
-                timestamp: new Date().toISOString(),
-              });
-            } catch {}
-          }
 
           await recordAnalytics('CREDENTIAL_MINTED', {
             universityId: user.id,

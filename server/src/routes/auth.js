@@ -105,7 +105,7 @@ router.get('/google', (req, res, next) => {
   const isProd = process.env.NODE_ENV === 'production';
   if (!hasGoogle && !isProd) {
     const authService = require('../services/authService');
-    const user = { id: 'dev-admin', email: 'admin.dev@academicchain.com', name: 'Admin Dev', role: 'admin', isActive: true };
+    const user = { id: '5f8d04f3b5c9a410f0e8d123', email: 'admin.dev@academicchain.com', name: 'Admin Dev', role: 'admin', isActive: true };
     const token = authService.generateToken(user);
     res.cookie('token', token, {
       httpOnly: true,
@@ -136,7 +136,7 @@ router.post('/google/mock', (req, res) => {
     return res.status(403).json({ success: false, message: 'Mock OAuth no permitido en producción' });
   }
   const authService = require('../services/authService');
-  const user = { id: 'dev-admin', email: 'admin.dev@academicchain.com', name: 'Admin Dev', role: 'admin', isActive: true };
+  const user = { id: '5f8d04f3b5c9a410f0e8d123', email: 'admin.dev@academicchain.com', name: 'Admin Dev', role: 'admin', isActive: true };
   const token = authService.generateToken(user);
   res.status(200).json({ success: true, token, user });
 });

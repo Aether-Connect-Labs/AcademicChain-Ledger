@@ -4,6 +4,10 @@ import { useSearchParams } from 'react-router-dom';
 import IssueTitleForm from './IssueTitleForm';
 import BatchIssuance from './BatchIssuance';
 import DocumentViewer from './ui/DocumentViewer';
+import { issuanceService } from './services/issuanceService';
+import { verificationService } from './services/verificationService';
+import { demoService } from './services/demoService';
+import { toGateway } from './utils/ipfsUtils';
 
 function InstitutionDashboard({ demo = false }) {
   const [credentials, setCredentials] = useState([]);
@@ -52,11 +56,52 @@ function InstitutionDashboard({ demo = false }) {
   const [demoIssued, setDemoIssued] = useState([]);
   const [demoPinMsg, setDemoPinMsg] = useState('');
   const [demoPinErr, setDemoPinErr] = useState('');
-  const toGateway = (uri) => {
-    if (!uri) return '';
-    const gw = import.meta.env.VITE_IPFS_GATEWAY || 'https://ipfs.io/ipfs/';
-    if (uri.startsWith('ipfs://')) return gw + uri.replace('ipfs://','');
-    return uri;
+  const [demoImageCid, setDemoImageCid] = useState('');
+
+  const loadCredentials = async (params = {}) => {
+    setLoadingCreds(true);
+    setErrorCreds('');
+    try {
+      // Merge current state with new params
+      const currentParams = {
+        page: params.page || page,
+        limit: params.limit || limit,
+        sort: params.sort || sort,
+        sortBy: params.sortBy || sortBy,
+        tokenId: params.tokenId !== undefined ? params.tokenId : (filterTokenId || undefined),
+        accountId: params.accountId !== undefined ? params.accountId : (filterAccountId || undefined)
+      };
+
+      // Update state
+      if (params.page) setPage(params.page);
+      if (params.limit) setLimit(params.limit);
+      if (params.sort) setSort(params.sort);
+      if (params.sortBy) setSortBy(params.sortBy);
+
+      // Update URL
+      const urlParams = {
+        page: String(currentParams.page),
+        limit: String(currentParams.limit),
+        sort: currentParams.sort,
+        sortBy: currentParams.sortBy
+      };
+      if (currentParams.tokenId) urlParams.tokenId = currentParams.tokenId;
+      if (currentParams.accountId) urlParams.accountId = currentParams.accountId;
+      setSearchParams(urlParams);
+
+      const data = await issuanceService.getCredentials(currentParams);
+      const list = data?.data?.credentials || [];
+      const metaData = data?.data?.meta || { page: currentParams.page, limit: currentParams.limit, total: list.length, pages: 1, hasMore: false };
+      
+      setCredentials(list);
+      setMeta(metaData);
+      setPage(metaData.page);
+      setLimit(metaData.limit);
+    } catch (e) {
+      setErrorCreds(e.message);
+    } finally {
+      setLoadingCreds(false);
+    }
   };
 
   useEffect(() => {
@@ -76,45 +121,31 @@ function InstitutionDashboard({ demo = false }) {
       });
       return;
     }
-    const API_BASE_URL = import.meta.env.VITE_API_URL;
-    const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const initialTokenId = searchParams.get('tokenId') || '';
     const initialAccountId = searchParams.get('accountId') || '';
     const initialPage = parseInt(searchParams.get('page') || '1', 10) || 1;
     const initialLimit = parseInt(searchParams.get('limit') || '10', 10) || 10;
     const initialSort = searchParams.get('sort') || 'desc';
     const initialSortBy = searchParams.get('sortBy') || 'createdAt';
+    
     setFilterTokenId(initialTokenId);
     setFilterAccountId(initialAccountId);
     setPage(initialPage);
     setLimit(initialLimit);
     setSort(initialSort);
     setSortBy(initialSortBy);
-    const fetchCreds = async (params = {}) => {
-      setLoadingCreds(true);
-      setErrorCreds('');
-      try {
-        if (!API_BASE_URL) return;
-        const q = new URLSearchParams({ page: initialPage, limit: initialLimit, sort: initialSort, sortBy: initialSortBy, tokenId: initialTokenId || undefined, accountId: initialAccountId || undefined, ...params }).toString();
-        const url = q ? `${API_BASE_URL}/api/universities/credentials?${q}` : `${API_BASE_URL}/api/universities/credentials`;
-        const res = await fetch(url, { headers });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const list = data?.data?.credentials || [];
-        const metaData = data?.data?.meta || { page: 1, limit: 10, total: list.length, pages: 1, hasMore: false };
-        setCredentials(list);
-        setMeta(metaData);
-        setPage(metaData.page);
-        setLimit(metaData.limit);
-      } catch (e) {
-        setErrorCreds(e.message);
-      } finally {
-        setLoadingCreds(false);
-      }
-    };
-    fetchCreds();
-  }, [demo, searchParams]);
+
+    loadCredentials({
+      page: initialPage,
+      limit: initialLimit,
+      sort: initialSort,
+      sortBy: initialSortBy,
+      tokenId: initialTokenId || undefined,
+      accountId: initialAccountId || undefined
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demo, searchParams]); // Keep deps but loadCredentials handles avoiding loops if implemented carefully or just use initial load logic
+
 
   const handleCreateToken = async () => {
     setCreatingToken(true);
@@ -122,26 +153,14 @@ function InstitutionDashboard({ demo = false }) {
     setTokenMessage('');
     try {
       if (demo) {
-        const API_BASE_URL = import.meta.env.VITE_API_URL;
-        const res = await fetch(`${API_BASE_URL}/api/demo/create-token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tokenName, tokenSymbol: tokenSymbol || undefined }) });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+        const data = await demoService.createToken({ tokenName, tokenSymbol: tokenSymbol || undefined });
         const tid = data?.data?.tokenId || data?.data?.token?.tokenId || '';
         setTokenMessage(`Token demo creado: ${tid}`);
         setDemoTokenId(tid);
         setTokenName(''); setTokenSymbol(''); setTokenMemo('');
         return;
       }
-      const API_BASE_URL = import.meta.env.VITE_API_URL;
-      const jwt = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-      if (!API_BASE_URL || !jwt) throw new Error('API no disponible o sesión inválida');
-      const res = await fetch(`${API_BASE_URL}/api/universities/create-token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
-        body: JSON.stringify({ tokenName, tokenSymbol, tokenMemo: tokenMemo || undefined })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      const data = await issuanceService.createToken({ tokenName, tokenSymbol, tokenMemo: tokenMemo || undefined });
       setTokenMessage(`Token creado: ${data?.data?.tokenId || data?.data?.token?.tokenId || 'ok'}`);
       setTokenName('');
       setTokenSymbol('');
@@ -157,7 +176,6 @@ function InstitutionDashboard({ demo = false }) {
     if (!demo) return;
     setDemoLoading(true); setDemoIssuanceErr(''); setDemoIssuanceMsg('');
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_URL;
       const payload = {
         tokenId: demoTokenId || filterTokenId || tokenName || '0.0.0',
         uniqueHash: demoUniqueHash || Math.random().toString(36).slice(2),
@@ -165,10 +183,9 @@ function InstitutionDashboard({ demo = false }) {
         recipientAccountId: demoRecipientAccountId || undefined,
         degree: tokenMemo || undefined,
         studentName: undefined,
+        image: demoImageCid ? `ipfs://${String(demoImageCid).replace('ipfs://','')}` : undefined,
       };
-      const res = await fetch(`${API_BASE_URL}/api/demo/issue-credential`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      const data = await demoService.issueCredential(payload);
       const url = data?.data?.hashscanUrl || '';
       const nftId = data?.data?.nftId || '';
       setDemoIssuanceMsg(`Emitido en testnet: ${nftId}`);
@@ -182,9 +199,8 @@ function InstitutionDashboard({ demo = false }) {
   };
 
   const handleOpenVerification = () => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL;
     if (!verifyTokenId || !verifySerial) return;
-    const url = `${API_BASE_URL}/api/verification/verify/${encodeURIComponent(verifyTokenId)}/${encodeURIComponent(verifySerial)}`;
+    const url = verificationService.getVerificationUrl(verifyTokenId, verifySerial);
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
@@ -193,16 +209,11 @@ function InstitutionDashboard({ demo = false }) {
       setStats({ totalCredentials: 3, totalStudents: 2, issuedToday: 0 });
       return;
     }
-    const API_BASE_URL = import.meta.env.VITE_API_URL;
-    const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const fetchStats = async () => {
       setLoadingStats(true);
       setErrorStats('');
       try {
-        const res = await fetch(`${API_BASE_URL}/api/universities/statistics`, { headers });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+        const data = await issuanceService.getStatistics();
         setStats(data?.data?.statistics || data?.data || null);
       } catch (e) {
         setErrorStats(e.message);
@@ -226,22 +237,21 @@ function InstitutionDashboard({ demo = false }) {
 
   useEffect(() => {
     if (!qrPreviewOpen || !qrTokenId || !qrSerial) return;
-    const base = import.meta.env.VITE_API_URL;
-    const url = `${base}/api/verification/credential-history/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}`;
     setQrMetaLoading(true);
     setQrMeta(null);
-    fetch(url).then(async (res) => {
-      const data = await res.json();
-      setQrMeta(data?.data?.credential || null);
-      try {
-        const cred = data?.data?.credential || null;
-        const attrs = cred?.metadata?.attributes || [];
-        const txAttr = attrs.find(a => a.trait_type === 'TransactionId' || a.trait_type === 'TxId');
-        const tx = data?.data?.transactionId || cred?.transactionId || cred?.metadata?.transactionId || txAttr?.value || '';
-        setQrTxId(tx || '');
-      } catch { setQrTxId(''); }
-      setQrMetaLoading(false);
-    }).catch(() => { setQrMetaLoading(false); });
+    verificationService.getCredentialHistory(qrTokenId, qrSerial)
+      .then((data) => {
+        setQrMeta(data?.data?.credential || null);
+        try {
+          const cred = data?.data?.credential || null;
+          const attrs = cred?.metadata?.attributes || [];
+          const txAttr = attrs.find(a => a.trait_type === 'TransactionId' || a.trait_type === 'TxId');
+          const tx = data?.data?.transactionId || cred?.transactionId || cred?.metadata?.transactionId || txAttr?.value || '';
+          setQrTxId(tx || '');
+        } catch { setQrTxId(''); }
+        setQrMetaLoading(false);
+      })
+      .catch(() => { setQrMetaLoading(false); });
   }, [qrPreviewOpen, qrTokenId, qrSerial]);
 
   return (
@@ -274,6 +284,9 @@ function InstitutionDashboard({ demo = false }) {
                   <button type="button" className="btn-secondary" onClick={() => setDemoIpfsURI('ipfs://QmDemoCid')}>Usar CID de ejemplo</button>
                   <button type="button" className="btn-secondary" onClick={() => setDemoIpfsURI('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf')}>Usar PDF de ejemplo</button>
                 </div>
+                <label className="text-sm mt-3">Imagen (ipfs://CID)</label>
+                <input value={demoImageCid} onChange={e => setDemoImageCid(e.target.value)} placeholder="ipfs CID" className="input mt-1" />
+                <div className="text-xs text-gray-500 mt-1">Se usará en metadata.image. Si se omite, aplica jerarquía (logo → global).</div>
                 <label className="text-sm mt-3">Recipient AccountId (opcional)</label>
                 <input value={demoRecipientAccountId} onChange={e => setDemoRecipientAccountId(e.target.value)} placeholder="0.0.account" className="input mt-1" />
               </div>
@@ -287,13 +300,13 @@ function InstitutionDashboard({ demo = false }) {
               <button className="btn-secondary" onClick={async () => {
                 setDemoPinMsg(''); setDemoPinErr('');
                 try {
-                  const API_BASE_URL = import.meta.env.VITE_API_URL;
-                  const res = await fetch(`${API_BASE_URL}/api/demo/pin-credential`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ degree: tokenMemo || 'Demo Degree', studentName: 'Demo Student', tokenId: demoTokenId || undefined, uniqueHash: demoUniqueHash || undefined })
+                  const data = await demoService.pinCredential({
+                    degree: tokenMemo || 'Demo Degree',
+                    studentName: 'Demo Student',
+                    tokenId: demoTokenId || undefined,
+                    uniqueHash: demoUniqueHash || undefined,
+                    image: demoImageCid ? `ipfs://${String(demoImageCid).replace('ipfs://','')}` : undefined,
                   });
-                  const data = await res.json();
-                  if (!res.ok || !data.success) throw new Error(data.message || `HTTP ${res.status}`);
                   setDemoIpfsURI(data?.data?.ipfsURI || '');
                   setDemoPinMsg(data?.data?.pinned ? 'Documento demo creado en IPFS' : 'Usando documento de ejemplo');
                 } catch (e) {
@@ -309,7 +322,7 @@ function InstitutionDashboard({ demo = false }) {
               <div className="font-semibold mb-2">Últimas credenciales emitidas (demo)</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {demoIssued.map(item => {
-                  const link = `${window.location.origin}/verificar?tokenId=${encodeURIComponent(item.tokenId)}&serialNumber=${encodeURIComponent(item.serialNumber)}`;
+                  const link = `${window.location.origin}/#/verificar?tokenId=${encodeURIComponent(item.tokenId)}&serialNumber=${encodeURIComponent(item.serialNumber)}`;
                   return (
                     <div key={item.nftId} className="card">
                       <div className="flex justify-between items-center">
@@ -411,25 +424,11 @@ function InstitutionDashboard({ demo = false }) {
           <input value={filterAccountId} onChange={(e) => setFilterAccountId(e.target.value)} placeholder="Filtrar por Cuenta Hedera" className="input-primary" disabled={demo} />
           <div className="flex items-center gap-2">
             <button className="btn-primary" disabled={demo} onClick={() => {
-              const params = {};
-              if (filterTokenId) params.tokenId = filterTokenId;
-              if (filterAccountId) params.accountId = filterAccountId;
-              const API_BASE_URL = import.meta.env.VITE_API_URL;
-              const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-              const headers = token ? { Authorization: `Bearer ${token}` } : {};
-              const q = new URLSearchParams({ page: 1, limit, sort, sortBy, ...params }).toString();
-              const url = q ? `${API_BASE_URL}/api/universities/credentials?${q}` : `${API_BASE_URL}/api/universities/credentials`;
-              setSearchParams({ ...params, page: '1', limit: String(limit), sort, sortBy });
-              setLoadingCreds(true);
-              fetch(url, { headers }).then(async (res) => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const data = await res.json();
-                setCredentials(data?.data?.credentials || []);
-                const metaData = data?.data?.meta || { page: 1, limit };
-                setMeta(metaData);
-                setPage(metaData.page);
-                setLoadingCreds(false);
-              }).catch((e) => { setErrorCreds(e.message); setLoadingCreds(false); });
+              loadCredentials({
+                page: 1,
+                tokenId: filterTokenId || undefined,
+                accountId: filterAccountId || undefined
+              });
             }}>
               Buscar
             </button>
@@ -504,7 +503,7 @@ function InstitutionDashboard({ demo = false }) {
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button className="btn-secondary btn-sm" onClick={() => { setDocUrl(toGateway(c.ipfsURI)); setDocOpen(true); }}>Ver Documento</button>
                     <button className="btn-secondary btn-sm" disabled={demo} onClick={() => {
-                      const base = import.meta.env.VITE_API_URL;
+                      const base = import.meta.env.VITE_API_URL || '';
                       const u = `${base}/api/verification/qr/generate/${c.universityId}/${c.tokenId}/${c.serialNumber}?format=png&width=${qrPngSize}`;
                       setQrPreviewUrl(u);
                       setQrTokenId(c.tokenId);
@@ -513,8 +512,8 @@ function InstitutionDashboard({ demo = false }) {
                       setQrIpfsURI(c.ipfsURI || '');
                       setQrPreviewOpen(true);
                     }}>QR</button>
-                    <a className="btn-primary btn-sm" href={`${import.meta.env.VITE_API_URL}/api/verification/credential-history/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Verificar</a>
-                    <a className="btn-primary btn-sm" href={`${import.meta.env.VITE_API_URL}/api/verification/verify/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Dual</a>
+                    <a className="btn-primary btn-sm" href={`${(import.meta.env.VITE_API_URL || '')}/api/verification/credential-history/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Verificar</a>
+                    <a className="btn-primary btn-sm" href={`${(import.meta.env.VITE_API_URL || '')}/api/verification/verify/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Dual</a>
                   </div>
                 </div>
               ))}
@@ -522,109 +521,23 @@ function InstitutionDashboard({ demo = false }) {
             <div className="flex items-center justify-between p-3 border-t" role="navigation" aria-label="Controles de paginación">
               <div className="flex items-center gap-2">
                 <button aria-label="Primera página" aria-disabled={demo || page <= 1 || loadingCreds} className="btn-secondary btn-sm" disabled={demo || page <= 1 || loadingCreds} onClick={() => {
-                  const params = {};
-                  if (filterTokenId) params.tokenId = filterTokenId;
-                  if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL;
-                  const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-                  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                  const q = new URLSearchParams({ page: 1, limit, sort, sortBy, ...params }).toString();
-                  const url = `${API_BASE_URL}/api/universities/credentials?${q}`;
-                  setSearchParams({ ...params, page: '1', limit: String(limit), sort, sortBy });
-                  setLoadingCreds(true);
-                  fetch(url, { headers }).then(async (res) => {
-                    const data = await res.json();
-                    setCredentials(data?.data?.credentials || []);
-                    const metaData = data?.data?.meta || { page: 1, limit };
-                    setMeta(metaData);
-                    setPage(metaData.page);
-                    setLoadingCreds(false);
-                  }).catch((e) => { setErrorCreds(e.message); setLoadingCreds(false); });
+                  loadCredentials({ page: 1 });
                 }}>Primera</button>
                 <button aria-label="Página anterior" aria-disabled={demo || page <= 1 || loadingCreds} className="btn-secondary btn-sm" disabled={demo || page <= 1 || loadingCreds} onClick={() => {
-                  const params = {};
-                  if (filterTokenId) params.tokenId = filterTokenId;
-                  if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL;
-                  const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-                  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                  const q = new URLSearchParams({ page: page - 1, limit, sort, sortBy, ...params }).toString();
-                  const url = `${API_BASE_URL}/api/universities/credentials?${q}`;
-                  setSearchParams({ ...params, page: String(page - 1), limit: String(limit), sort, sortBy });
-                  setLoadingCreds(true);
-                  fetch(url, { headers }).then(async (res) => {
-                    const data = await res.json();
-                    setCredentials(data?.data?.credentials || []);
-                    const metaData = data?.data?.meta || { page: page - 1, limit };
-                    setMeta(metaData);
-                    setPage(metaData.page);
-                    setLoadingCreds(false);
-                  }).catch((e) => { setErrorCreds(e.message); setLoadingCreds(false); });
+                  loadCredentials({ page: page - 1 });
                 }}>Anterior</button>
                 <button aria-label="Página siguiente" aria-disabled={demo || loadingCreds || !meta.hasMore} className="btn-primary btn-sm" disabled={demo || loadingCreds || !meta.hasMore} onClick={() => {
-                  const params = {};
-                  if (filterTokenId) params.tokenId = filterTokenId;
-                  if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL;
-                  const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-                  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                  const q = new URLSearchParams({ page: page + 1, limit, sort, sortBy, ...params }).toString();
-                  const url = `${API_BASE_URL}/api/universities/credentials?${q}`;
-                  setSearchParams({ ...params, page: String(page + 1), limit: String(limit), sort, sortBy });
-                  setLoadingCreds(true);
-                  fetch(url, { headers }).then(async (res) => {
-                    const data = await res.json();
-                    setCredentials(data?.data?.credentials || []);
-                    const metaData = data?.data?.meta || { page: page + 1, limit };
-                    setMeta(metaData);
-                    setPage(metaData.page);
-                    setLoadingCreds(false);
-                  }).catch((e) => { setErrorCreds(e.message); setLoadingCreds(false); });
+                  loadCredentials({ page: page + 1 });
                 }}>Siguiente</button>
                 <button aria-label="Última página" aria-disabled={demo || loadingCreds || page >= meta.pages} className="btn-secondary btn-sm" disabled={demo || loadingCreds || page >= meta.pages} onClick={() => {
-                  const params = {};
-                  if (filterTokenId) params.tokenId = filterTokenId;
-                  if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL;
-                  const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-                  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                  const q = new URLSearchParams({ page: meta.pages, limit, sort, sortBy, ...params }).toString();
-                  const url = `${API_BASE_URL}/api/universities/credentials?${q}`;
-                  setSearchParams({ ...params, page: String(meta.pages), limit: String(limit), sort, sortBy });
-                  setLoadingCreds(true);
-                  fetch(url, { headers }).then(async (res) => {
-                    const data = await res.json();
-                    setCredentials(data?.data?.credentials || []);
-                    const metaData = data?.data?.meta || { page: meta.pages, limit };
-                    setMeta(metaData);
-                    setPage(metaData.page);
-                    setLoadingCreds(false);
-                  }).catch((e) => { setErrorCreds(e.message); setLoadingCreds(false); });
+                  loadCredentials({ page: meta.pages });
                 }}>Última</button>
               </div>
               <div className="text-sm text-gray-600" role="status" aria-live="polite">Mostrando {meta.from}-{meta.to} de {meta.total} • Página {page} de {meta.pages}</div>
               <div>
                 <select aria-label="Límite por página" className="input-primary" value={limit} disabled={demo} onChange={(e) => {
                   const newLimit = parseInt(e.target.value, 10) || 10;
-                  setLimit(newLimit);
-                  const params = {};
-                  if (filterTokenId) params.tokenId = filterTokenId;
-                  if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL;
-                  const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-                  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                  const q = new URLSearchParams({ page: 1, limit: newLimit, sort, sortBy, ...params }).toString();
-                  const url = `${API_BASE_URL}/api/universities/credentials?${q}`;
-                  setSearchParams({ ...params, page: '1', limit: String(newLimit), sort, sortBy });
-                  setLoadingCreds(true);
-                  fetch(url, { headers }).then(async (res) => {
-                    const data = await res.json();
-                    setCredentials(data?.data?.credentials || []);
-                    const metaData = data?.data?.meta || { page: 1, limit: newLimit };
-                    setMeta(metaData);
-                    setPage(metaData.page);
-                    setLoadingCreds(false);
-                  }).catch((e) => { setErrorCreds(e.message); setLoadingCreds(false); });
+                  loadCredentials({ page: 1, limit: newLimit });
                 }}>
                   <option value={5}>5</option>
                   <option value={10}>10</option>
@@ -633,50 +546,14 @@ function InstitutionDashboard({ demo = false }) {
                 </select>
                 <select aria-label="Orden" className="input-primary ml-2" value={sort} disabled={demo} onChange={(e) => {
                   const newSort = e.target.value;
-                  setSort(newSort);
-                  const params = {};
-                  if (filterTokenId) params.tokenId = filterTokenId;
-                  if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL;
-                  const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-                  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                  const q = new URLSearchParams({ page: 1, limit, sort: newSort, sortBy, ...params }).toString();
-                  const url = `${API_BASE_URL}/api/universities/credentials?${q}`;
-                  setSearchParams({ ...params, page: '1', limit: String(limit), sort: newSort, sortBy });
-                  setLoadingCreds(true);
-                  fetch(url, { headers }).then(async (res) => {
-                    const data = await res.json();
-                    setCredentials(data?.data?.credentials || []);
-                    const metaData = data?.data?.meta || { page: 1, limit };
-                    setMeta(metaData);
-                    setPage(metaData.page);
-                    setLoadingCreds(false);
-                  }).catch((e) => { setErrorCreds(e.message); setLoadingCreds(false); });
+                  loadCredentials({ page: 1, sort: newSort });
                 }}>
                   <option value="desc">Nuevos primero</option>
                   <option value="asc">Antiguos primero</option>
                 </select>
                 <select aria-label="Ordenar por" className="input-primary ml-2" value={sortBy} disabled={demo} onChange={(e) => {
                   const newSortBy = e.target.value;
-                  setSortBy(newSortBy);
-                  const params = {};
-                  if (filterTokenId) params.tokenId = filterTokenId;
-                  if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL;
-                  const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-                  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                  const q = new URLSearchParams({ page: 1, limit, sort, sortBy: newSortBy, ...params }).toString();
-                  const url = `${API_BASE_URL}/api/universities/credentials?${q}`;
-                  setSearchParams({ ...params, page: '1', limit: String(limit), sort, sortBy: newSortBy });
-                  setLoadingCreds(true);
-                  fetch(url, { headers }).then(async (res) => {
-                    const data = await res.json();
-                    setCredentials(data?.data?.credentials || []);
-                    const metaData = data?.data?.meta || { page: 1, limit };
-                    setMeta(metaData);
-                    setPage(metaData.page);
-                    setLoadingCreds(false);
-                  }).catch((e) => { setErrorCreds(e.message); setLoadingCreds(false); });
+                  loadCredentials({ page: 1, sortBy: newSortBy });
                 }}>
                   <option value="createdAt">Fecha</option>
                   <option value="tokenId">Token ID</option>
@@ -688,46 +565,12 @@ function InstitutionDashboard({ demo = false }) {
                   if (e.key === 'Enter') {
                     const tp = Number(targetPage);
                     if (!tp || tp < 1 || tp > (meta.pages || 1) || loadingCreds) return;
-                    const params = {};
-                    if (filterTokenId) params.tokenId = filterTokenId;
-                    if (filterAccountId) params.accountId = filterAccountId;
-                    const API_BASE_URL = import.meta.env.VITE_API_URL;
-                    const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-                    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                    const q = new URLSearchParams({ page: tp, limit, sort, sortBy, ...params }).toString();
-                    const url = `${API_BASE_URL}/api/universities/credentials?${q}`;
-                    setSearchParams({ ...params, page: String(tp), limit: String(limit), sort, sortBy });
-                    setLoadingCreds(true);
-                    fetch(url, { headers }).then(async (res) => {
-                      const data = await res.json();
-                      setCredentials(data?.data?.credentials || []);
-                      const metaData = data?.data?.meta || { page: tp, limit };
-                      setMeta(metaData);
-                      setPage(metaData.page);
-                      setLoadingCreds(false);
-                    }).catch((err) => { setErrorCreds(err.message); setLoadingCreds(false); });
+                    loadCredentials({ page: tp });
                   }
                 }} />
                 <button aria-label="Ir a página" aria-disabled={demo || loadingCreds || !targetPage || Number(targetPage) < 1 || Number(targetPage) > (meta.pages || 1)} className="btn-secondary ml-1" disabled={demo || loadingCreds || !targetPage || Number(targetPage) < 1 || Number(targetPage) > (meta.pages || 1)} onClick={() => {
                   const tp = Number(targetPage);
-                  const params = {};
-                  if (filterTokenId) params.tokenId = filterTokenId;
-                  if (filterAccountId) params.accountId = filterAccountId;
-                  const API_BASE_URL = import.meta.env.VITE_API_URL;
-                  const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-                  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                  const q = new URLSearchParams({ page: tp, limit, sort, sortBy, ...params }).toString();
-                  const url = `${API_BASE_URL}/api/universities/credentials?${q}`;
-                  setSearchParams({ ...params, page: String(tp), limit: String(limit), sort, sortBy });
-                  setLoadingCreds(true);
-                  fetch(url, { headers }).then(async (res) => {
-                    const data = await res.json();
-                    setCredentials(data?.data?.credentials || []);
-                    const metaData = data?.data?.meta || { page: tp, limit };
-                    setMeta(metaData);
-                    setPage(metaData.page);
-                    setLoadingCreds(false);
-                  }).catch((e) => { setErrorCreds(e.message); setLoadingCreds(false); });
+                  loadCredentials({ page: tp });
                 }}>Ir</button>
               </div>
             </div>
@@ -767,8 +610,7 @@ function InstitutionDashboard({ demo = false }) {
                   const base = import.meta.env.VITE_API_URL;
                   const svg = `${base}/api/verification/qr/generate/${encodeURIComponent(qrIssuerId)}/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}?format=svg`;
                   try {
-                    const res = await fetch(svg);
-                    const blob = await res.blob();
+                    const blob = await issuanceService.fetchBlob(svg);
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
@@ -783,8 +625,7 @@ function InstitutionDashboard({ demo = false }) {
                   const base = import.meta.env.VITE_API_URL;
                   const png = `${base}/api/verification/qr/generate/${encodeURIComponent(qrIssuerId)}/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}?format=png&width=${encodeURIComponent(qrPngSize)}`;
                   try {
-                    const res = await fetch(png);
-                    const blob = await res.blob();
+                    const blob = await issuanceService.fetchBlob(png);
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;

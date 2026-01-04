@@ -1,6 +1,4 @@
-// client/services/authService.js
-
-let API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
+import { API_BASE_URL, getAuthHeaders, handleResponse } from './services/config';
 
 const mockApiCall = (data, shouldFail = false, errorMessage = 'Error de red', delay = 600) => {
   return new Promise((resolve, reject) => {
@@ -65,6 +63,19 @@ export const authService = {
 
     const forInstitution = userType === 'institution';
     if (forInstitution) {
+      const allowInstitutionMock = (import.meta.env.DEV || import.meta.env.VITE_ALLOW_INSTITUTION_LOGIN === '1');
+      if (allowInstitutionMock) {
+        const user = {
+          id: `university-${crypto.randomUUID()}`,
+          name: 'Administrador Institución',
+          email,
+          role: 'university',
+          universityName: 'Institución Demo',
+          permissions: ['issue_credentials', 'verify_credential']
+        };
+        const token = `mock-jwt-token-for-admin-${Date.now()}`;
+        return mockApiCall({ user, token });
+      }
       return mockApiCall(null, true, 'Credenciales inválidas para institución.');
     }
 
@@ -242,5 +253,21 @@ export const authService = {
       return mockApiCall(null, true, 'Ingresa un correo válido');
     }
     return mockApiCall({ ok: true });
+  },
+  updateProfile: async (data) => {
+    try {
+      if (API_BASE_URL) {
+        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(data)
+        });
+        return handleResponse(res);
+      }
+    } catch (e) {
+      console.warn('Update profile failed', e);
+      throw e;
+    }
+    return mockApiCall({ ...data, success: true });
   }
 };

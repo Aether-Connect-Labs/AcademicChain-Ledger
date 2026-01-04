@@ -1,8 +1,7 @@
-// src/components/layout/AdminSidebar.js
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useHedera } from './useHedera';
 import { useAuth } from './useAuth';
+import AdminAPI from './services/adminAPI';
 
 const AdminSidebar = ({ 
   // ... (props sin cambios)
@@ -13,10 +12,8 @@ const AdminSidebar = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { account, balance, isConnected, connectWallet } = useHedera();
   const { user, logout } = useAuth(); // Obtenemos la navegación del hook
   const [activeSubmenu, setActiveSubmenu] = useState(null);
-  const API_BASE_URL = useMemo(() => (import.meta.env.VITE_API_URL), []);
   const [xrpInfo, setXrpInfo] = useState({ enabled: false, network: 'disabled', address: null, balance: null });
   const [loadingXrp, setLoadingXrp] = useState(false);
   const [errorXrp, setErrorXrp] = useState('');
@@ -30,7 +27,11 @@ const AdminSidebar = ({
       title: 'Principal',
       items: [
         { id: 'dashboard', name: 'Dashboard', path: '/admin', icon: '📊', permission: 'view_dashboard' },
+        { id: 'usage', name: 'Uso por institución', path: '/admin/usage', icon: '📈', permission: 'manage_settings' },
+        { id: 'alerts', name: 'Alertas', path: '/admin/alerts', icon: '⚠️', permission: 'manage_settings' },
+        { id: 'reports', name: 'Reportes', path: '/admin/reports', icon: '📄', permission: 'manage_settings' },
         { id: 'bulk_issuance', name: 'Emisión Masiva', path: '/admin/credentials/bulk', icon: '📦', permission: 'issue_credentials' },
+        { id: 'manage_validity', name: 'Gestión de Vigencia', path: '/admin/credentials/revoke', icon: '🛡️', permission: 'manage_settings' },
       ]
     }
   ]), []);
@@ -54,19 +55,19 @@ const AdminSidebar = ({
   }, [location.pathname, navigationSections]);
 
   useEffect(() => {
-    const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
     setLoadingXrp(true);
     setErrorXrp('');
     (async () => {
       try {
-        const resBal = await fetch(`${API_BASE_URL}/api/admin/xrp/balance`, { headers });
-        if (resBal.ok) {
-          const dataBal = await resBal.json();
-          const d = dataBal?.data || {};
-          setXrpInfo({ enabled: Boolean(d.enabled), network: d.network || 'unknown', address: d.address || null, balance: d.balance ?? null });
-        } else {
-          setErrorXrp(`HTTP ${resBal.status}`);
+        const status = await AdminAPI.getXrpStatus();
+        const s = status?.data || {};
+        setXrpInfo({ enabled: Boolean(s.enabled), network: s.network || 'disabled', address: null, balance: null });
+        if (s.enabled) {
+          try {
+            const bal = await AdminAPI.getXrpBalance();
+            const d = bal?.data || {};
+            setXrpInfo({ enabled: true, network: s.network || 'unknown', address: d.address || null, balance: d.balance ?? null });
+          } catch {}
         }
       } catch (e) {
         setErrorXrp(e.message);
@@ -74,15 +75,12 @@ const AdminSidebar = ({
         setLoadingXrp(false);
       }
       try {
-        const resH = await fetch(`${API_BASE_URL}/api/admin/hedera/balance`, { headers });
-        if (resH.ok) {
-          const dataH = await resH.json();
-          const hb = dataH?.data?.hbars;
-          if (typeof hb === 'number') setHederaApiBalance(hb);
-        }
+        const dataH = await AdminAPI.getHederaBalance();
+        const hb = dataH?.data?.hbars;
+        if (typeof hb === 'number') setHederaApiBalance(hb);
       } catch {}
     })();
-  }, [API_BASE_URL]);
+  }, []);
 
   // Manejar navegación
   const handleNavigation = (path) => {
@@ -125,6 +123,7 @@ const AdminSidebar = ({
     return (
       <div key={item.id} className={`${level > 0 ? 'ml-6' : ''}`}>
         <button
+          data-tour-id={item.id}
           onClick={() => {
             if (hasChildren) {
               handleSubmenuToggle(item.id);
@@ -246,39 +245,6 @@ const AdminSidebar = ({
 
       {/* Contenido desplazable */}
       <div className="flex-1 overflow-y-auto">
-        {/* Estado de Hedera */}
-        <div className="p-4 border-b border-gray-200" onClick={!isConnected ? connectWallet : undefined} style={{ cursor: !isConnected ? 'pointer' : 'default' }}>
-          <div className="flex items-center space-x-3">
-            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-            {isOpen && (
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-semibold ${isConnected ? 'text-green-800' : 'text-red-800'}`}>
-                  {isConnected ? 'Hedera Conectado' : 'Conectar Wallet'}
-                </p>
-                {isConnected && account ? (
-                  <p className="text-xs text-gray-500 truncate" title={account.accountId}>
-                    {account.accountId}
-                  </p>
-                ) : (
-                  <p className="text-xs text-gray-500">
-                    Se requiere para emitir
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-          {isOpen && isConnected && balance && (
-            <div className="mt-2 text-xs text-gray-600 bg-gray-100 p-2 rounded-md">
-              Balance: <span className="font-mono">{balance.hbars.toFixed(3)} ℏ</span>
-            </div>
-          )}
-          {isOpen && hederaApiBalance != null && (
-            <div className="mt-2 text-xs text-gray-600 bg-primary-50 p-2 rounded-md border border-primary-200">
-              Balance API: <span className="font-mono">{hederaApiBalance.toFixed(3)} ℏ</span>
-            </div>
-          )}
-        </div>
-
         {/* Estado de XRP */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
@@ -348,7 +314,7 @@ const AdminSidebar = ({
         {isOpen && (
           <div className="mb-3 text-center">
             <p className="text-xs text-gray-500">
-              v1.0.0 • {isConnected ? '🟢 Online' : '🔴 Offline'}
+              v1.0.0 • 🟢 Online
             </p>
           </div>
         )}

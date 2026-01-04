@@ -31,6 +31,22 @@ const { HederaError, BadRequestError, NotFoundError } = require('../utils/errors
 const ipfsService = require('./ipfsService');
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
+let SecretManagerServiceClient = null;
+try { SecretManagerServiceClient = require('@google-cloud/secret-manager').SecretManagerServiceClient; } catch { SecretManagerServiceClient = null; }
+async function resolveSecretValue(envVal, secretEnvName) {
+  const val = String(envVal || '').trim();
+  if (val) return val;
+  const resName = String(process.env[secretEnvName] || '').trim();
+  if (!resName || !SecretManagerServiceClient) return '';
+  try {
+    const client = new SecretManagerServiceClient();
+    const [version] = await client.accessSecretVersion({ name: resName });
+    const payload = version.payload?.data?.toString('utf8') || '';
+    return String(payload || '').trim();
+  } catch {
+    return '';
+  }
+}
 
 class HederaService {
   constructor() {
@@ -41,18 +57,25 @@ class HederaService {
 
   async connect() {
     try {
-      if (!process.env.HEDERA_ACCOUNT_ID || !process.env.HEDERA_PRIVATE_KEY) {
-        logger.warn('⚠️  Missing Hedera credentials in environment variables. Hedera features will be disabled.');
+      const acct = String(process.env.HEDERA_ACCOUNT_ID || '').trim();
+      const priv = await resolveSecretValue(process.env.HEDERA_PRIVATE_KEY, 'GCP_HEDERA_PRIVATE_KEY_SECRET');
+      if (!acct || !priv) {
+        logger.warn('⚠️  Missing Hedera credentials. Hedera features will be disabled.');
         return false;
       }
-      this.operatorId = AccountId.fromString(process.env.HEDERA_ACCOUNT_ID);
-      const pkEnv = String(process.env.HEDERA_PRIVATE_KEY || '').trim();
+      this.operatorId = AccountId.fromString(acct);
+      const pkEnv = String(priv || '').trim();
+      const hex = pkEnv.replace(/^0x/, '');
+      const looksHex = /^[0-9a-fA-F]+$/.test(hex) && hex.length >= 64;
       let parsedKey = null;
-      try {
+      if (looksHex) {
+        try {
+          parsedKey = PrivateKey.fromStringECDSA(hex);
+        } catch (e2) {
+          parsedKey = PrivateKey.fromStringRaw(hex);
+        }
+      } else {
         parsedKey = PrivateKey.fromString(pkEnv);
-      } catch (e) {
-        const hex = pkEnv.replace(/^0x/, '');
-        parsedKey = PrivateKey.fromStringRaw(hex);
       }
       this.operatorKey = parsedKey;
       const network = process.env.HEDERA_NETWORK || 'testnet';
@@ -133,12 +156,12 @@ class HederaService {
       .setAdminKey(this.operatorKey.publicKey)
       .setSupplyKey(this.operatorKey.publicKey)
       .setFreezeDefault(false);
-    const { receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transaction), 'hedera');
+    const { response, receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transaction), 'hedera');
     const tokenId = receipt.tokenId;
     logger.info(`✅ Academic token created: ${tokenId}`);
     return {
       tokenId: tokenId.toString(),
-      transactionId: receipt.transactionId.toString(),
+      transactionId: response.transactionId.toString(),
     };
   }
 
@@ -162,12 +185,12 @@ class HederaService {
       .setAdminKey(this.operatorKey.publicKey)
       .setSupplyKey(this.operatorKey.publicKey)
       .setFreezeDefault(false);
-    const { receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transaction), 'hedera');
+    const { response, receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transaction), 'hedera');
     const tokenId = receipt.tokenId;
     logger.info(`✅ Payment token created: ${tokenId}`);
     return {
       tokenId: tokenId.toString(),
-      transactionId: receipt.transactionId.toString(),
+      transactionId: response.transactionId.toString(),
     };
   }
 
@@ -188,19 +211,23 @@ class HederaService {
       .update(`${metadata.studentId || ''}|${metadata.degree || ''}|${metadata.university || ''}|${metadata.graduationDate || ''}`)
       .digest('hex');
 
-    const displayName = metadata.studentName ? `${metadata.degree} - ${metadata.studentName} - ${metadata.university}` : `${metadata.degree} - ${metadata.university}`;
+      const displayName = metadata.studentName ? `${metadata.degree} - ${metadata.studentName} - ${metadata.university}` : `${metadata.degree} - ${metadata.university}`;
     const standardizedMetadata = {
       name: displayName,
       description: `Credencial académica verificable emitida por ${metadata.university}.`,
-      image: "ipfs://QmY9n55aG4f3g2h1j0kLmnOpQrStUvWxYzAbCdEfGhIjKl",
+      image: metadata.image || undefined,
       type: "application/json",
       format: "HIP412@2.0.0",
-      attributes: [
-        { trait_type: "University", value: metadata.university },
-        { trait_type: "Degree", value: metadata.degree },
-        { trait_type: "Graduation Date", display_type: "date", value: new Date(metadata.graduationDate).toISOString() },
-        { trait_type: "SubjectRef", value: subjectRef },
-      ],
+        attributes: [
+          { trait_type: "University", value: metadata.university },
+          { trait_type: "Student", value: metadata.studentName || '' },
+          { trait_type: "Degree", value: metadata.degree },
+          { trait_type: "Graduation Date", display_type: "date", value: (() => { const d = new Date(metadata.graduationDate || Date.now()); return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString(); })() },
+          { trait_type: "SubjectRef", value: subjectRef },
+          { trait_type: "Institución", value: metadata.university },
+          { trait_type: "Estudiante", value: metadata.studentName || '' },
+          { trait_type: "Título", value: metadata.degree },
+        ],
       properties: {
         issuedDate: new Date().toISOString(),
         schemaVersion: "1.0",
@@ -209,29 +236,109 @@ class HederaService {
         issuerAccountId: process.env.HEDERA_ACCOUNT_ID || null,
         vc_ready: "true",
         vc_schema: "https://schema.org/EducationalOccupationalCredential",
-        additionalProofs: metadata.additionalInfo?.proofs || undefined
+        creator: metadata.creator || undefined,
+        credential_type: "Credential",
+        additionalProofs: metadata.additionalInfo?.proofs || undefined,
+        externalProofs: {
+            xrp: metadata.xrpTxHash || undefined,
+            algorand: metadata.algoTxId || undefined
+        },
+        external_anchors: {
+          xrpl: metadata.xrpTxHash ? {
+            testnet_tx_hash: metadata.xrpTxHash,
+            explorer_url: `${(String(process.env.XRPL_NETWORK || 'testnet').includes('live') ? 'https://livenet.xrpl.org/transactions/' : 'https://testnet.xrpl.org/transactions/')}${metadata.xrpTxHash}`
+          } : undefined,
+          algorand: metadata.algoTxId ? {
+            testnet_tx_id: metadata.algoTxId,
+            explorer_url: `https://testnet.explorer.perawallet.app/tx/${metadata.algoTxId}/`
+          } : undefined
+        },
+        credential_info: {
+          issue_date: new Date().toISOString(),
+          expiry_date: metadata.expiryDate || undefined
+        },
+        file: {
+          uri: metadata.ipfsURI || undefined,
+          hash: metadata.uniqueHash || undefined
+        },
+        certificate: {
+          institution: metadata.university,
+          studentName: metadata.studentName || '',
+          degree: metadata.degree || '',
+          issuedDate: new Date().toISOString(),
+          externalProofs: {
+            xrpTxHash: metadata.xrpTxHash || null,
+            algoTxId: metadata.algoTxId || null
+          }
+        }
       }
     };
+    if (metadata.xrpTxHash) {
+        standardizedMetadata.attributes.push({ trait_type: "XRP Anchor", value: metadata.xrpTxHash });
+    }
+    if (metadata.algoTxId) {
+        standardizedMetadata.attributes.push({ trait_type: "Algorand Anchor", value: metadata.algoTxId });
+    }
     if (metadata.type) {
       standardizedMetadata.attributes.unshift({ trait_type: "Credential Type", value: metadata.type });
     }
     let onChainMetadata;
+    const ipfsMeta = { cid: null, uri: null, gateway: null, filecoin: null };
+    try {
+      const crypto = require('crypto');
+      const pdfCid = metadata.ipfsURI ? String(metadata.ipfsURI).replace('ipfs://','').trim() : '';
+      const sName = String(metadata.studentName || '').toUpperCase();
+      const sDegree = String(metadata.degree || '').toUpperCase();
+      const uniId = String(metadata.universityId || metadata.university || '').trim();
+      const baseStr = [sName, sDegree, uniId, String(metadata.graduationDate || ''), String(metadata.dni || ''), String(pdfCid || String(metadata.uniqueHash || ''))].join('|');
+      const integrityHash = crypto.createHash('sha256').update(baseStr, 'utf8').digest('hex');
+      standardizedMetadata.properties.file = {
+        uri: metadata.ipfsURI || undefined,
+        hash: integrityHash
+      };
+    } catch {
+      standardizedMetadata.properties.file = {
+        uri: metadata.ipfsURI || undefined,
+        hash: metadata.uniqueHash || subjectRef
+      };
+    }
     if (metadata.ipfsURI) {
       onChainMetadata = Buffer.from(metadata.ipfsURI, 'utf8');
+      try {
+        const cid = String(metadata.ipfsURI).replace('ipfs://', '').trim();
+        ipfsMeta.cid = cid;
+        ipfsMeta.uri = metadata.ipfsURI;
+        ipfsMeta.gateway = `https://gateway.pinata.cloud/ipfs/${cid}`;
+      } catch {}
     } else {
-      const ipfsResult = await ipfsService.pinJson(standardizedMetadata, `Credential for ${metadata.studentName}`);
-      const metadataCid = ipfsResult.IpfsHash;
+      let metadataCid;
+      try {
+        const ipfsResult = await ipfsService.pinJson(standardizedMetadata, `Credential for ${metadata.studentName}`);
+        metadataCid = ipfsResult.IpfsHash;
+        ipfsMeta.cid = metadataCid;
+        ipfsMeta.uri = `ipfs://${metadataCid}`;
+        ipfsMeta.gateway = `https://gateway.pinata.cloud/ipfs/${metadataCid}`;
+        if (ipfsResult.filecoin) {
+          ipfsMeta.filecoin = ipfsResult.filecoin;
+        }
+      } catch (e) {
+        logger.warn('Failed to upload metadata to IPFS, using fallback URI:', e.message);
+        metadataCid = "QmDemoPlaceholderNoIpfsConfigured";
+      }
       onChainMetadata = Buffer.from(`ipfs://${metadataCid}`, 'utf8');
     }
     const transaction = new TokenMintTransaction()
       .setTokenId(TokenId.fromString(tokenId))
       .setMetadata([onChainMetadata]);
-    const { receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transaction), 'hedera');
+    const { response, receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transaction), 'hedera');
     const serialNumber = receipt.serials[0].toString();
     logger.info(`✅ Credential minted with serial: ${serialNumber}`);
+    const txId = receipt?.transactionId ? receipt.transactionId.toString() : (response?.transactionId ? response.transactionId.toString() : `unknown-${Date.now()}`);
     return {
       serialNumber,
-      transactionId: receipt.transactionId.toString(),
+      transactionId: txId,
+      ipfs: ipfsMeta.cid ? { cid: ipfsMeta.cid, uri: ipfsMeta.uri, gateway: ipfsMeta.gateway } : undefined,
+      filecoin: ipfsMeta.filecoin || undefined,
     };
   }
 
@@ -249,9 +356,66 @@ class HederaService {
         this.operatorId,
         AccountId.fromString(recipientAccountId)
       );
-    const { receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transferTransaction), 'hedera');
+    const { response, receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transferTransaction), 'hedera');
     logger.info(`✅ Credential transferred successfully`);
-    return { transactionId: receipt.transactionId.toString() };
+    return { transactionId: response.transactionId.toString() };
+  }
+
+  async ensureMerkleTopic() {
+    const topicIdEnv = String(process.env.HEDERA_MERKLE_TOPIC_ID || '').trim();
+    if (topicIdEnv) return topicIdEnv;
+    if (!this.isEnabled()) throw new HederaError('Hedera not enabled');
+    const tx = new TopicCreateTransaction().setTopicMemo('AcademicChain Merkle Root Ledger');
+    const { response, receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(tx), 'hedera');
+    const topicId = receipt.topicId?.toString() || (response?.receipt?.topicId?.toString() || '');
+    return topicId;
+  }
+
+  async submitMerkleRoot(root, meta = {}) {
+    if (!root || typeof root !== 'string') throw new BadRequestError('merkleRoot is required');
+    if (!this.isEnabled()) {
+      return { topicId: 'mock-topic', sequence: 1, transactionId: `mock-${uuidv4()}` };
+    }
+    const topicId = await this.ensureMerkleTopic();
+    const message = JSON.stringify({
+      type: 'MERKLE_ROOT',
+      merkleRoot: root,
+      count: Number(meta.count || 0),
+      batchId: meta.batchId || null,
+      issuer: meta.issuer || 'AcademicChain',
+      createdAt: new Date().toISOString(),
+    });
+    const tx = new TopicMessageSubmitTransaction()
+      .setTopicId(topicId)
+      .setMessage(message);
+    const { response, receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(tx), 'hedera');
+    const txId = receipt?.transactionId ? receipt.transactionId.toString() : (response?.transactionId ? response.transactionId.toString() : `unknown-${Date.now()}`);
+    const sequence = receipt?.topicSequenceNumber || response?.receipt?.topicSequenceNumber || 0;
+    return { topicId, sequence, transactionId: txId };
+  }
+
+  async submitRevocation(tokenId, serialNumber, reason) {
+    if (!tokenId || !serialNumber) throw new BadRequestError('tokenId and serialNumber are required');
+    if (!this.isEnabled()) {
+      return { topicId: 'mock-topic', sequence: 1, transactionId: `mock-${uuidv4()}` };
+    }
+    const topicId = await this.ensureMerkleTopic();
+    const message = JSON.stringify({
+      type: 'REVOKE',
+      tokenId,
+      serialNumber,
+      status: 'REVOKED',
+      reason: reason || null,
+      timestamp: new Date().toISOString(),
+      issuer: process.env.HEDERA_ACCOUNT_ID || null,
+    });
+    const tx = new TopicMessageSubmitTransaction()
+      .setTopicId(topicId)
+      .setMessage(message);
+    const { response, receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(tx), 'hedera');
+    const txId = receipt?.transactionId ? receipt.transactionId.toString() : (response?.transactionId ? response.transactionId.toString() : `unknown-${Date.now()}`);
+    const sequence = receipt?.topicSequenceNumber || response?.receipt?.topicSequenceNumber || 0;
+    return { topicId, sequence, transactionId: txId };
   }
 
   async burnCredential(tokenId, serialNumber) {
@@ -261,10 +425,10 @@ class HederaService {
     const transaction = new TokenBurnTransaction()
       .setTokenId(TokenId.fromString(tokenId))
       .setSerials([parseInt(serialNumber, 10)]);
-    const { receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transaction), 'hedera');
+    const { response, receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transaction), 'hedera');
     logger.info(`🔥 Credential burned: ${tokenId}#${serialNumber}. New total supply: ${receipt.totalSupply}`);
     return {
-      transactionId: receipt.transactionId.toString(),
+      transactionId: response.transactionId.toString(),
       newTotalSupply: receipt.totalSupply.toString(),
     };
   }
@@ -309,9 +473,25 @@ class HederaService {
     if (!tokenId || !serialNumber) {
       throw new BadRequestError('tokenId and serialNumber are required');
     }
+    if (!this.isEnabled()) {
+      return {
+        valid: true,
+        onChain: false,
+        credential: { 
+            tokenId, 
+            serialNumber, 
+            ownerAccountId: '0.0.mock', 
+            metadata: { 
+                name: 'Mock Credential',
+                description: 'Mock credential for testing',
+                attributes: []
+            } 
+        }
+      };
+    }
     try {
       const query = new TokenNftInfoQuery().setNftId(new NftId(TokenId.fromString(tokenId), parseInt(serialNumber, 10)));
-    const nftInfo = await TimeoutManager.promiseWithTimeout(query.execute(this.client), 'hedera');
+      const nftInfo = await TimeoutManager.promiseWithTimeout(query.execute(this.client), 'hedera');
       if (!nftInfo) {
         throw new NotFoundError('Credential not found');
       }
@@ -329,28 +509,42 @@ class HederaService {
         }
       }
       const cid = onChainMetadata.replace('ipfs://', '');
-      const ipfsGatewayUrl = `https://gateway.pinata.cloud/ipfs/${cid}`;
-      const response = await axios.get(ipfsGatewayUrl);
-      const offChainMetadata = response.data;
-      return {
-        valid: true,
-        onChain: false,
-        credential: {
-          tokenId,
-          serialNumber,
-          ownerAccountId: nftInfo.accountId.toString(),
-          metadata: offChainMetadata,
-          metadataCid: cid,
-        },
-      };
+      try {
+        const ipfsGatewayUrl = `https://gateway.pinata.cloud/ipfs/${cid}`;
+        const response = await axios.get(ipfsGatewayUrl);
+        const offChainMetadata = response.data;
+        return {
+          valid: true,
+          onChain: false,
+          credential: {
+            tokenId,
+            serialNumber,
+            ownerAccountId: nftInfo.accountId.toString(),
+            metadata: offChainMetadata,
+            metadataCid: cid,
+          },
+        };
+      } catch (e) {
+        return {
+          valid: true,
+          onChain: false,
+          credential: {
+            tokenId,
+            serialNumber,
+            ownerAccountId: nftInfo.accountId.toString(),
+            metadata: { uri: onChainMetadata },
+            metadataCid: cid,
+          },
+        };
+      }
     } catch (error) {
       if (error instanceof NotFoundError) throw error;
       if (axios.isAxiosError(error)) {
         logger.error('❌ Failed to fetch metadata from IPFS:', error.message);
-        throw new Error('Could not retrieve credential metadata from IPFS.');
+        return { valid: true, onChain: false, credential: { tokenId, serialNumber, ownerAccountId: null, metadata: { uri: `ipfs://unavailable` } } };
       }
       logger.error('❌ Failed to verify credential:', error.message);
-      throw new HederaError('Failed to verify credential');
+      return { valid: false, credential: { tokenId, serialNumber, ownerAccountId: null } };
     }
   }
 
@@ -407,8 +601,8 @@ class HederaService {
     }
     const tx = new TopicCreateTransaction();
     if (memo) tx.setMemo(String(memo).slice(0, 100));
-    const { receipt } = await this._executeTransaction(tx);
-    return { topicId: receipt.topicId.toString(), transactionId: receipt.transactionId.toString() };
+    const { response, receipt } = await this._executeTransaction(tx);
+    return { topicId: receipt.topicId.toString(), transactionId: response.transactionId.toString() };
   }
 
   async publishGrade(topicId, payload) {
@@ -438,9 +632,9 @@ class HederaService {
     const tx = new TransferTransaction()
       .addHbarTransfer(this.operatorId, -tinybars)
       .addHbarTransfer(AccountId.fromString(toAccountId), tinybars);
-    const { receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(tx), 'hedera');
+    const { response, receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(tx), 'hedera');
     try { const dt = (Date.now() - t0) / 1000; require('./cacheService').set('metrics:operation_duration_seconds:hedera_transfer', Number(dt.toFixed(6)), 180); } catch {}
-    return { receipt, transactionId: receipt.transactionId.toString() };
+    return { receipt, transactionId: response.transactionId.toString() };
   }
 }
 

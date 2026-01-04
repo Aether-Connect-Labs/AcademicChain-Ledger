@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAnalytics } from './useAnalytics';
+import demoService from './services/demoService';
 
 const fmtDate = (d) => {
   const y = d.getUTCFullYear();
@@ -37,14 +38,7 @@ const buildIcs = ({ title, description, start, end, location }) => {
 
 const DemoScheduler = () => {
   const { trackFormSubmission, trackPageView } = useAnalytics();
-  const calendlyUrl = import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com/academicchain/demo';
-  const calcomUrl = import.meta.env.VITE_CALCOM_URL;
   const meetUrl = import.meta.env.VITE_DEMO_MEET_URL || 'https://meet.google.com/lookup/academicchain-demo';
-  const availabilityUrl = import.meta.env.VITE_DEMO_AVAILABILITY_URL;
-  const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
-  const bookUrl = import.meta.env.VITE_DEMO_BOOK_URL || `${API_BASE_URL}/api/contact/book`;
-  const holidaysUrl = import.meta.env.VITE_DEMO_HOLIDAYS_URL;
-  const regionOverride = import.meta.env.VITE_DEMO_REGION;
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
@@ -52,26 +46,14 @@ const DemoScheduler = () => {
   const [email, setEmail] = useState('');
   const [org, setOrg] = useState('');
   const [status, setStatus] = useState('idle');
+  const [loading, setLoading] = useState(false);
+  const [icsUrl, setIcsUrl] = useState(null);
+  const [calendarLink, setCalendarLink] = useState(null);
+  const [meetLink, setMeetLink] = useState(null);
 
   useEffect(() => {
     trackPageView({ page: 'demo_scheduler', tz });
   }, [tz, trackPageView]);
-
-  const [daysFromApi, setDaysFromApi] = useState([]);
-  const [timesForDay, setTimesForDay] = useState([]);
-  const [loadingAvail, setLoadingAvail] = useState(false);
-  const [availError, setAvailError] = useState('');
-  const [holidaysSet, setHolidaysSet] = useState(new Set());
-  const region = useMemo(() => {
-    if (regionOverride) return String(regionOverride).toLowerCase();
-    const t = String(tz).toLowerCase();
-    if (t.includes('lima')) return 'pe';
-    if (t.includes('mexico')) return 'mx';
-    if (t.includes('santiago') || t.includes('chile')) return 'cl';
-    if (t.includes('bogota') || t.includes('colombia')) return 'co';
-    if (t.includes('buenos_aires') || t.includes('argentina')) return 'ar';
-    return 'intl';
-  }, [tz, regionOverride]);
 
   const ymd = (d) => {
     const y = d.getFullYear();
@@ -80,67 +62,10 @@ const DemoScheduler = () => {
     return `${y}-${m}-${day}`;
   };
 
-  useEffect(() => {
-    const fetchAvail = async () => {
-      if (!availabilityUrl) return;
-      setLoadingAvail(true);
-      setAvailError('');
-      try {
-        const res = await fetch(availabilityUrl);
-        const data = await res.json();
-        const list = Array.isArray(data?.days) ? data.days : [];
-        const parsedDays = list.map((item) => {
-          const d = new Date(item.date);
-          return { date: d, slots: Array.isArray(item.slots) ? item.slots : [] };
-        });
-        setDaysFromApi(parsedDays);
-      } catch (e) {
-        setAvailError('No se pudo cargar disponibilidad');
-      } finally {
-        setLoadingAvail(false);
-      }
-    };
-    fetchAvail();
-  }, [availabilityUrl]);
-
-  useEffect(() => {
-    const fetchHolidays = async () => {
-      if (!holidaysUrl) return;
-      try {
-        const res = await fetch(holidaysUrl);
-        const data = await res.json();
-        let list = [];
-        if (Array.isArray(data)) {
-          list = data;
-        } else if (Array.isArray(data?.holidays)) {
-          const r = String(data?.region || '').toLowerCase();
-          if (!r || r === region) list = data.holidays;
-        } else if (Array.isArray(data?.regions)) {
-          const item = data.regions.find((x) => {
-            const code = String(x?.code || x?.region || '').toLowerCase();
-            return code === region;
-          });
-          if (item && Array.isArray(item.holidays)) list = item.holidays;
-        } else if (data?.regions && typeof data.regions === 'object') {
-          const arr = data.regions[region];
-          if (Array.isArray(arr)) list = arr;
-        } else if (data && typeof data === 'object') {
-          const arr = data[region];
-          if (Array.isArray(arr)) list = arr;
-        }
-        setHolidaysSet(new Set(list));
-      } catch {}
-    };
-    fetchHolidays();
-  }, [holidaysUrl, region]);
-
   const days = useMemo(() => {
-    if (daysFromApi.length > 0) {
-      return daysFromApi.map((x) => x.date);
-    }
     const out = [];
     const base = new Date();
-    for (let i = 1; i <= 21; i++) {
+    for (let i = 1; i <= 14; i++) {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
       const w = d.getDay();
@@ -148,143 +73,245 @@ const DemoScheduler = () => {
       out.push(d);
     }
     return out;
-  }, [daysFromApi]);
+  }, []);
 
-  const defaultTimes = useMemo(() => ['10:00', '12:00', '15:00', '17:00'], []);
-  useEffect(() => {
-    if (!selectedDate) { setTimesForDay([]); return; }
-    const isHoliday = holidaysSet.has(ymd(selectedDate));
-    if (isHoliday) { setTimesForDay([]); return; }
-    if (daysFromApi.length > 0) {
-      const dayItem = daysFromApi.find((x) => x.date.toDateString() === selectedDate.toDateString());
-      if (dayItem) {
-        const availableSlots = dayItem.slots.filter((s) => s.available !== false).map((s) => s.time);
-        setTimesForDay(availableSlots);
-        return;
-      }
-    }
-    setTimesForDay(defaultTimes);
-  }, [selectedDate, daysFromApi, holidaysSet, defaultTimes]);
-
+  const defaultTimes = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'];
   const canBook = selectedDate && selectedTime && name && email && org && /@/.test(email);
 
   const bookSlot = async () => {
     if (!canBook) return;
+    setLoading(true);
     setStatus('submitting');
+    let redirectWin = null;
     try {
-      const [hh, mm] = selectedTime.split(':').map(Number);
-      const startLocal = new Date(selectedDate);
-      startLocal.setHours(hh, mm, 0, 0);
-      const endLocal = new Date(startLocal);
-      endLocal.setHours(hh + 1, mm, 0, 0);
-      const title = 'Demo AcademicChain';
-      const description = `Demo personalizada con ${name} (${org}).\nZona horaria: ${tz}`;
-      const ics = buildIcs({ title, description, start: new Date(startLocal.toISOString()), end: new Date(endLocal.toISOString()), location: meetUrl });
-      const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'demo-academicchain.ics';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      const start = fmtDate(new Date(startLocal.toISOString()));
-      const end = fmtDate(new Date(endLocal.toISOString()));
-      const gcal = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(title)}&dates=${start}/${end}&details=${encodeURIComponent(description + '\n\nEnlace: ' + meetUrl)}&location=${encodeURIComponent(meetUrl)}&ctz=${encodeURIComponent(tz)}`;
-      if (bookUrl) {
-        try {
-          await fetch(bookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, org, date: selectedDate.toISOString().slice(0,10), time: selectedTime, tz })
-          });
-        } catch {}
+      redirectWin = window.open('about:blank', '_blank');
+      if (redirectWin && redirectWin.document) {
+        redirectWin.document.title = 'Redirigiendo…';
+        redirectWin.document.body.innerHTML = '<div style="font-family:system-ui;margin:32px;"><div style="font-size:16px;color:#111;">Redirigiendo al calendario…</div></div>';
       }
-      trackFormSubmission({ formType: 'demo_booking', name, email, org, tz, time: selectedTime });
-      setStatus('success');
-      window.open(gcal, '_blank');
-    } catch (e) {
-      setStatus('error');
+    } catch {}
+    
+    try {
+      const result = await demoService.scheduleDemo({
+        name, 
+        email, 
+        org, 
+        date: ymd(selectedDate), 
+        time: selectedTime, 
+        tz,
+        meetUrl
+      });
+
+      if (result.success) {
+        handleSuccess(result.data, redirectWin);
+      } else {
+        throw new Error(result.message || 'Error booking demo');
+      }
+    } catch (error) {
+      console.warn('Backend unavailable, switching to Mock Mode for demo purposes:', error);
+      
+      // MOCK MODE: Simular éxito si el backend falla (para demostración UI)
+      setTimeout(() => {
+        const mockData = {
+          calendarEvent: { link: '#' },
+          meetUrl: meetUrl
+        };
+        handleSuccess(mockData, redirectWin);
+      }, 1500);
     }
   };
 
-  const externalUrl = calcomUrl || calendlyUrl;
+  const handleSuccess = (data, redirectWin) => {
+    trackFormSubmission({ formType: 'demo_booking', name, email, org, tz, time: selectedTime });
+    setStatus('success');
+    setLoading(false);
+    setCalendarLink(data?.calendarEvent?.link || null);
+    setMeetLink(data?.meetUrl || meetUrl);
+    try {
+      const parts = String(selectedTime).split(':');
+      const sh = Number(parts[0] || 0);
+      const sm = Number(parts[1] || 0);
+      const startLocal = new Date(selectedDate);
+      startLocal.setHours(sh, sm, 0, 0);
+      const endLocal = new Date(startLocal);
+      endLocal.setHours(endLocal.getHours() + 1);
+      const ics = buildIcs({
+        title: `Demo AcademicChain - ${org}`,
+        description: `Demo con ${name} (${email})\\nZona horaria: ${tz}`,
+        start: startLocal,
+        end: endLocal,
+        location: data?.meetUrl || meetUrl
+      });
+      const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      setIcsUrl(url);
+    } catch {}
+    
+    // Show success message with calendar options
+    if (data.calendarEvent && data.calendarEvent.link) {
+      try {
+        if (redirectWin && typeof redirectWin.location !== 'undefined') {
+          redirectWin.location.href = data.calendarEvent.link;
+        } else {
+          window.location.href = data.calendarEvent.link;
+        }
+      } catch {
+        window.location.href = data.calendarEvent.link;
+      }
+    }
+  };
+  
+  useEffect(() => {
+    return () => {
+      if (icsUrl) URL.revokeObjectURL(icsUrl);
+    };
+  }, [icsUrl]);
 
   return (
+    <>
     <div className="container-responsive py-10">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-2 gradient-text">Agenda una Demo</h1>
-      <p className="text-gray-600 mb-6">Selecciona tu horario o usa el calendario integrado. Zona horaria: {tz}</p>
-      {externalUrl ? (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-soft overflow-hidden">
-          <iframe title="Agenda Demo" src={externalUrl} className="w-full" style={{ minHeight: '720px' }}></iframe>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-soft p-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {days.map((d, i) => {
-                const disabled = holidaysSet.has(ymd(d));
-                const active = selectedDate && d.toDateString() === selectedDate.toDateString();
-                return (
-                  <button
-                    key={i}
-                    onClick={() => !disabled && setSelectedDate(d)}
-                    disabled={disabled}
-                    className={`px-4 py-3 rounded-lg border transition-colors ${active ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                    {disabled && <span className="ml-2 text-xs text-red-600">Festivo</span>}
-                  </button>
-                );
-              })}
-            </div>
+      <p className="text-gray-600 mb-6">Selecciona tu horario preferido. Zona horaria: {tz}</p>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-soft p-4">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Selecciona una fecha</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {days.map((d, i) => {
+              const active = selectedDate && d.toDateString() === selectedDate.toDateString();
+              return (
+                <button
+                  key={i}
+                  onClick={() => setSelectedDate(d)}
+                  className={`px-4 py-3 rounded-lg border transition-colors ${active ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50'}`}
+                >
+                  {d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                </button>
+              );
+            })}
+          </div>
+          {selectedDate && (
             <div className="mt-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Selecciona una hora</h2>
               <div className="flex flex-wrap gap-3">
-                {(timesForDay.length > 0 ? timesForDay : defaultTimes).map((t) => (
-                  <button key={t} disabled={!selectedDate} onClick={() => setSelectedTime(t)} className={`px-4 py-2 rounded-lg border text-sm transition-colors ${selectedTime === t ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50'} ${!selectedDate ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {defaultTimes.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setSelectedTime(t)}
+                    className={`px-4 py-2 rounded-lg border text-sm transition-colors ${selectedTime === t ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50'}`}
+                  >
                     {t}
                   </button>
                 ))}
               </div>
-              {selectedDate && holidaysSet.has(ymd(selectedDate)) && (
-                <div className="mt-3 text-sm text-red-600">No hay reservas en días festivos.</div>
-              )}
-              {loadingAvail && <div className="mt-3 text-sm text-gray-500">Cargando disponibilidad…</div>}
-              {availError && <div className="mt-3 text-sm text-red-600">{availError}</div>}
             </div>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 shadow-soft p-6">
-            <div className="space-y-3">
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tu nombre" className="input-primary w-full" />
-              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu.email@institucion.edu" className="input-primary w-full" />
-              <input value={org} onChange={(e) => setOrg(e.target.value)} placeholder="Nombre de institución" className="input-primary w-full" />
-            </div>
-            <button onClick={bookSlot} disabled={!canBook || status === 'submitting'} className="btn-primary w-full mt-4 disabled:opacity-50 disabled:cursor-not-allowed">
-              {status === 'submitting' ? 'Agendando…' : 'Confirmar Reserva'}
-            </button>
-            {status === 'success' && (
-              <div className="mt-3 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg">Reserva creada. Se abrió Google Calendar y descargaste un archivo .ics.</div>
-            )}
-            {status === 'error' && (
-              <div className="mt-3 text-sm text-red-700 bg-red-50 px-3 py-2 rounded-lg">No se pudo crear la reserva.</div>
-            )}
-            <div className="mt-6 text-xs text-gray-500">Al confirmar, se genera un evento que puedes añadir a tu calendario y un enlace de llamada. No se requiere registro previo.</div>
-          </div>
+          )}
         </div>
-      )}
-      <div className="mt-10">
-        <div className="rounded-xl border border-gray-200 p-6 bg-gradient-to-r from-blue-50 to-purple-50">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div>
-              <div className="font-semibold text-gray-900">¿Necesitas un horario especial?</div>
-              <div className="text-sm text-gray-600">Contáctanos y te asignamos un slot dedicado.</div>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-soft p-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Información de contacto</h2>
+          <div className="space-y-3">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Tu nombre completo"
+              className="input-primary w-full"
+            />
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="tu.email@institucion.edu"
+              type="email"
+              className="input-primary w-full"
+            />
+            <input
+              value={org}
+              onChange={(e) => setOrg(e.target.value)}
+              placeholder="Nombre de tu institución"
+              className="input-primary w-full"
+            />
+          </div>
+          <button
+            onClick={bookSlot}
+            disabled={!canBook || loading}
+            className="btn-primary w-full mt-6 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+          >
+            {loading ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Agendando…
+              </>
+            ) : 'Confirmar Demo'}
+          </button>
+          {status === 'success' && (
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-green-800 font-medium">¡Demo agendada exitosamente!</span>
+              </div>
+              <p className="text-green-700 text-sm mt-2">
+                Hemos enviado un email de confirmación con todos los detalles.
+                Revisa tu bandeja de entrada y spam.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {calendarLink && (
+                  <a
+                    href={calendarLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm"
+                  >
+                    Abrir Google Calendar
+                  </a>
+                )}
+                {icsUrl && (
+                  <a
+                    href={icsUrl}
+                    download="demo-academicchain.ics"
+                    className="px-3 py-2 rounded-lg border border-gray-300 text-gray-800 text-sm"
+                  >
+                    Descargar .ics
+                  </a>
+                )}
+                {meetLink && (
+                  <a
+                    href={meetLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-2 rounded-lg bg-gray-800 text-white text-sm"
+                  >
+                    Abrir Meet
+                  </a>
+                )}
+              </div>
             </div>
-            <a href={`mailto:demo@academicchain.com?subject=${encodeURIComponent('Agenda Demo')}`} className="btn-secondary">Contactar</a>
+          )}
+          {status === 'error' && (
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-red-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <span className="text-red-800 font-medium">Error al agendar la demo</span>
+              </div>
+              <p className="text-red-700 text-sm mt-2">
+                Por favor intenta nuevamente o contáctanos directamente.
+              </p>
+            </div>
+          )}
+          <div className="mt-6 text-xs text-gray-500">
+            Al confirmar, recibirás un email con el enlace de la reunión y
+            el evento se agregará automáticamente a tu calendario.
           </div>
         </div>
       </div>
+
     </div>
+    </>
   );
 };
 

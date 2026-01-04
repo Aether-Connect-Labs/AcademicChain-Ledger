@@ -1,8 +1,29 @@
 // client/hooks/useWebSocket.js
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
-
-const SOCKET_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
+const env = import.meta.env || {};
+const apiBase = (() => {
+  const c = [
+    env.VITE_API_URL,
+    env.VITE_SERVER_URL,
+    env.VITE_BASE_URL,
+    env.REACT_APP_API_URL,
+    env.REACT_APP_SERVER_URL,
+    env.SERVER_URL,
+    env.BASE_URL
+  ].filter(Boolean);
+  const base = c[0] || '';
+  return String(base).replace(/`/g, '').replace(/\/$/, '');
+})();
+const primary = env.NEXT_PUBLIC_WS_URL || env.VITE_WS_URL || env.REACT_APP_WS_URL || (apiBase ? apiBase.replace(/^http/, 'ws') : '');
+const guessLocal = (() => {
+  try {
+    const u = new URL(window.location.origin);
+    const host = u.hostname || 'localhost';
+    return [`http://${host}:3001`, `http://${host}:3002`];
+  } catch { return ['http://localhost:3001','http://localhost:3002']; }
+})();
+const CANDIDATES = primary ? [primary, ...guessLocal] : guessLocal;
 
 export const useWebSocket = (token) => {
   const socketRef = useRef(null);
@@ -20,19 +41,23 @@ export const useWebSocket = (token) => {
   }, []);
 
   useEffect(() => {
-    if (!SOCKET_URL) {
-      console.error('WebSocket URL is not defined.');
-      return;
-    }
-
-    // Iniciar conexión
-    console.log('Connecting to WebSocket...');
-    socketRef.current = io(SOCKET_URL, {
-      auth: { token },
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
+    let idx = 0;
+    const connectNext = () => {
+      const target = CANDIDATES[idx] || CANDIDATES[CANDIDATES.length - 1];
+      try {
+        socketRef.current = io(target, {
+          auth: { token },
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+        });
+      } catch {
+        idx = Math.min(idx + 1, CANDIDATES.length - 1);
+        setTimeout(connectNext, 500);
+        return;
+      }
+    };
+    connectNext();
 
     socketRef.current.on('connect', () => {
       console.log('WebSocket connected:', socketRef.current.id);
@@ -44,8 +69,12 @@ export const useWebSocket = (token) => {
       setIsConnected(false);
     });
 
-    socketRef.current.on('error', (error) => {
-      console.error('WebSocket error:', error);
+    socketRef.current.on('error', () => {});
+    socketRef.current.on('connect_error', () => {
+      setIsConnected(false);
+      try { socketRef.current && socketRef.current.disconnect(); } catch {}
+      idx = Math.min(idx + 1, CANDIDATES.length - 1);
+      setTimeout(connectNext, 500);
     });
 
     socketRef.current.on('hedera-status', (data) => {

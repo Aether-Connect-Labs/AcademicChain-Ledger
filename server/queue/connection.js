@@ -63,6 +63,7 @@ if (DISABLE_REDIS) {
     redisOptions: {
       ...redisOptions,
       password: process.env.REDIS_PASSWORD,
+      username: process.env.REDIS_USERNAME,
     },
     clusterRetryStrategy: (times) => {
       const delay = Math.min(times * 50, 2000);
@@ -96,6 +97,7 @@ if (DISABLE_REDIS) {
       sentinels,
       name: process.env.REDIS_MASTER_NAME || 'mymaster',
       password: process.env.REDIS_PASSWORD,
+      username: process.env.REDIS_USERNAME,
       ...redisOptions,
     });
   } else {
@@ -103,6 +105,7 @@ if (DISABLE_REDIS) {
     connection = new IORedis(REDIS_URL, {
       ...redisOptions,
       password: process.env.REDIS_PASSWORD,
+      username: process.env.REDIS_USERNAME,
     });
   }
 }
