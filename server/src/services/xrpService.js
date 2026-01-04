@@ -29,6 +29,9 @@ class XrpService {
     this.memAnchors = [];
   }
   async connect() {
+    // Evitar reinicialización si ya está conectado
+    if (this.client && this.client.isConnected()) return true;
+
     try {
       const isTestEnv = (process.env.NODE_ENV || '').toLowerCase() === 'test';
       if (isTestEnv) { this.network = 'disabled'; return false; }

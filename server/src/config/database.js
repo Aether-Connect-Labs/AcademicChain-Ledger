@@ -8,8 +8,6 @@ const RETRY_DELAY = parseInt(process.env.MONGO_RETRY_DELAY || '5000', 10);
 
 // Opciones optimizadas para escalabilidad
 const mongooseOptions = {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
   // Connection pooling para mejor rendimiento
   maxPoolSize: parseInt(process.env.MONGO_MAX_POOL_SIZE || '10', 10),
   minPoolSize: parseInt(process.env.MONGO_MIN_POOL_SIZE || '2', 10),

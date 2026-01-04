@@ -40,8 +40,19 @@ class RuntimeHealthMonitor {
   async checkAllServices() {
     const svc = {};
     const now = Date.now();
-    const mongoLatency = await this.measure(async () => isMongoConnected(), 'mongodb');
-    const redisLatency = await this.measure(async () => isRedisConnected(), 'redis');
+    const mongoDisabled = process.env.DISABLE_MONGO === '1';
+    const redisDisabled = process.env.DISABLE_REDIS === '1';
+
+    const mongoLatency = await this.measure(async () => {
+      if (mongoDisabled) return true;
+      return isMongoConnected();
+    }, 'mongodb');
+
+    const redisLatency = await this.measure(async () => {
+      if (redisDisabled) return true;
+      return isRedisConnected();
+    }, 'redis');
+
     const hederaLatency = await this.measure(async () => {
       try { await hederaService.connect(); } catch {}
       return hederaService.isEnabled();
@@ -56,8 +67,8 @@ class RuntimeHealthMonitor {
       return !!r?.data?.rate;
     }, 'rate_oracle');
 
-    svc.mongodb = { healthy: isMongoConnected(), latencyMs: mongoLatency.latencyMs, timestamp: new Date(now).toISOString() };
-    svc.redis = { healthy: isRedisConnected(), latencyMs: redisLatency.latencyMs, timestamp: new Date(now).toISOString() };
+    svc.mongodb = { healthy: mongoDisabled || isMongoConnected(), latencyMs: mongoLatency.latencyMs, timestamp: new Date(now).toISOString() };
+    svc.redis = { healthy: redisDisabled || isRedisConnected(), latencyMs: redisLatency.latencyMs, timestamp: new Date(now).toISOString() };
     svc.hedera = { healthy: hederaService.isEnabled(), latencyMs: hederaLatency.latencyMs, timestamp: new Date(now).toISOString() };
     svc.xrpl = { healthy: xrpService.isEnabled(), latencyMs: xrplLatency.latencyMs, timestamp: new Date(now).toISOString() };
     const rateHealth = await rateOracle.health();

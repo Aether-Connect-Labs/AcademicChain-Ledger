@@ -56,6 +56,9 @@ class HederaService {
   }
 
   async connect() {
+    // Evitar reinicialización si ya está conectado
+    if (this.client) return true;
+
     try {
       const acct = String(process.env.HEDERA_ACCOUNT_ID || '').trim();
       const priv = await resolveSecretValue(process.env.HEDERA_PRIVATE_KEY, 'GCP_HEDERA_PRIVATE_KEY_SECRET');
