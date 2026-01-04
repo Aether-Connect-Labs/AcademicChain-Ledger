@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "cross-env NODE_ENV=development nodemon -r ./src/polyfills/express-path-to-regexp.js src/app.js",
-    "start": "cross-env PORT=3001 node -r ./src/polyfills/express-path-to-regexp.js src/app.js",
+    "start": "node -r ./src/polyfills/express-path-to-regexp.js src/app.js",
     "start:pm2": "pm2 start ecosystem.config.js",
     "start:pm2:prod": "pm2 start ecosystem.config.js --env production",
     "stop:pm2": "pm2 stop ecosystem.config.js",
