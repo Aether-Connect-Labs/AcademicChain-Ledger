@@ -41,7 +41,7 @@ class RuntimeHealthMonitor {
     const svc = {};
     const now = Date.now();
     const mongoDisabled = process.env.DISABLE_MONGO === '1';
-    const redisDisabled = process.env.DISABLE_REDIS === '1';
+    const redisDisabled = process.env.DISABLE_REDIS === '1' || (process.env.NODE_ENV === 'production' && !process.env.REDIS_URL && !process.env.REDIS_CLUSTER_NODES);
 
     const mongoLatency = await this.measure(async () => {
       if (mongoDisabled) return true;
