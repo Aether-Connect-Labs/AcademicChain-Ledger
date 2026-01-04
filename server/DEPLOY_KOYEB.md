@@ -16,14 +16,16 @@ Variables que debes agregar como secretos en Koyeb después de pulsar el botón:
 - `DISABLE_HEDERA`: `1` (Opcional, si quieres desactivar Hedera para ahorrar memoria)
 - `DISABLE_MONGO`: `1` (Si aún no tienes DB)
 - `DISABLE_REDIS`: `1` (Recomendado si no tienes Redis configurado para evitar reintentos y logs)
+- `DISABLE_SWAGGER`: `1` (Recomendado para ahorrar memoria en producción)
+- `DISABLE_BULLBOARD`: `1` (Recomendado para ahorrar memoria en producción)
 
 ## 1. Preparación (GitHub)
-Asegúrate de subir los cambios más recientes, incluyendo el `Dockerfile` actualizado y el archivo `.dockerignore` que son críticos para evitar errores de módulos.
+Asegúrate de subir los cambios más recientes, incluyendo las optimizaciones de memoria en `app.js` y `package.json`.
 
 ```bash
 # Estando en la raíz del proyecto
-git add server/package.json server/Dockerfile server/.dockerignore
-git commit -m "Fix Koyeb deployment: remove cross-env, add .dockerignore"
+git add server/package.json server/Dockerfile server/.dockerignore server/src/app.js server/.env.example.koyeb
+git commit -m "Fix Koyeb deployment: OOM fixes and memory optimizations"
 git push origin main
 ```
 
