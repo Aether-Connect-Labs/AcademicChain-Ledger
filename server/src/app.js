@@ -15,9 +15,22 @@ const { BullMQAdapter } = require('@bull-board/api/bullMQAdapter');
 const { ExpressAdapter } = require('@bull-board/express');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const hederaService = require('./services/hederaServices');
-const xrpService = require('./services/xrpService');
-const algorandService = require('./services/algorandService');
+
+// Lazy load heavy services
+let hederaService, xrpService, algorandService;
+const getHederaService = () => {
+  if (!hederaService) hederaService = require('./services/hederaServices');
+  return hederaService;
+};
+const getXrpService = () => {
+  if (!xrpService) xrpService = require('./services/xrpService');
+  return xrpService;
+};
+const getAlgorandService = () => {
+  if (!algorandService) algorandService = require('./services/algorandService');
+  return algorandService;
+};
+
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { User } = require('./models');
@@ -299,8 +312,8 @@ app.get('/health', async (req, res) => {
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
         rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
       },
-      xrpl: { enabled: typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false, network: xrpService.network || 'disabled' },
-      algorand: { enabled: typeof algorandService.isEnabled === 'function' ? algorandService.isEnabled() : false, network: algorandService.network || 'disabled' },
+      xrpl: { enabled: (process.env.XRPL_ENABLED === 'true' && typeof getXrpService().isEnabled === 'function') ? getXrpService().isEnabled() : false, network: (process.env.XRPL_ENABLED === 'true' && getXrpService().network) || 'disabled' },
+      algorand: { enabled: (process.env.ALGORAND_ENABLED === 'true' && typeof getAlgorandService().isEnabled === 'function') ? getAlgorandService().isEnabled() : false, network: (process.env.ALGORAND_ENABLED === 'true' && getAlgorandService().network) || 'disabled' },
       ipfs: { enabled: !!ipfsService.pinata }
     };
 
@@ -325,8 +338,8 @@ app.get('/healthz', async (req, res) => {
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
         rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
       },
-      xrpl: { enabled: typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false, network: xrpService.network || 'disabled' },
-      algorand: { enabled: typeof algorandService.isEnabled === 'function' ? algorandService.isEnabled() : false, network: algorandService.network || 'disabled' },
+      xrpl: { enabled: (process.env.XRPL_ENABLED === 'true' && typeof getXrpService().isEnabled === 'function') ? getXrpService().isEnabled() : false, network: (process.env.XRPL_ENABLED === 'true' && getXrpService().network) || 'disabled' },
+      algorand: { enabled: (process.env.ALGORAND_ENABLED === 'true' && typeof getAlgorandService().isEnabled === 'function') ? getAlgorandService().isEnabled() : false, network: (process.env.ALGORAND_ENABLED === 'true' && getAlgorandService().network) || 'disabled' },
       ipfs: { enabled: !!ipfsService.pinata }
     };
 
@@ -337,7 +350,12 @@ app.get('/healthz', async (req, res) => {
   }
 });
 
-if (!testing) { (async () => { try { await hederaService.connect(); } catch {} })(); }
+if (!testing) { (async () => {
+  try {
+    const disableHedera = process.env.DISABLE_HEDERA === '1';
+    if (!disableHedera) await getHederaService().connect();
+  } catch {}
+})(); }
 
 if (!testing) {
   try { const monitor = getRuntimeHealthMonitor(io); monitor.start(); } catch {}
@@ -376,9 +394,9 @@ app.get('/ready', async (req, res) => {
     const mongoOk = disableMongo ? true : isMongoConnected();
     const redisOk = disableRedis ? true : isRedisConnected();
     const rateOk = requireRateOracle ? (rate.healthy && rate.ageSeconds <= (60 * 60 + 300)) : true;
-    const xrplOk = requireXRPL ? (typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false) : true;
+    const xrplOk = requireXRPL ? ((process.env.XRPL_ENABLED === 'true' && typeof getXrpService().isEnabled === 'function') ? getXrpService().isEnabled() : false) : true;
     const requireAlgorand = String(process.env.REQUIRE_ALGORAND || 'false').toLowerCase() === 'true';
-    const algoOk = requireAlgorand ? (typeof algorandService.isEnabled === 'function' ? algorandService.isEnabled() : false) : true;
+    const algoOk = requireAlgorand ? ((process.env.ALGORAND_ENABLED === 'true' && typeof getAlgorandService().isEnabled === 'function') ? getAlgorandService().isEnabled() : false) : true;
 
     const ready = serverOk && mongoOk && redisOk && rateOk && xrplOk && algoOk;
     const statusCode = ready ? 200 : 503;
@@ -502,9 +520,9 @@ if (require.main === module) {
           logger.warn('MongoDB disabled by DISABLE_MONGO=1. Running without database.');
         }
       }
-      try { await hederaService.connect(); } catch {}
-      try { await xrpService.connect(); } catch {}
-      try { await algorandService.connect(); } catch {}
+      try { await getHederaService().connect(); } catch {}
+      try { await getXrpService().connect(); } catch {}
+      try { await getAlgorandService().connect(); } catch {}
       if (typeof initializeWorkers === 'function') {
         try {
           if (isRedisConnected()) {

@@ -11,16 +11,19 @@ Variables que debes agregar como secretos en Koyeb después de pulsar el botón:
 - JWT_SECRET
 - PINATA_API_KEY, PINATA_SECRET_API_KEY
 - HEDERA_ACCOUNT_ID, HEDERA_PRIVATE_KEY, HEDERA_NETWORK
-- XRPL_ENABLED, XRPL_NETWORK, XRPL_SEED
-- ALGORAND_ENABLED, ALGORAND_NETWORK, ALGORAND_MNEMONIC
-- Opcional para simplificar readiness: DISABLE_REDIS=1
+- `XRPL_ENABLED`: `true` (o `false` para ahorrar memoria si no usas XRP)
+- `ALGORAND_ENABLED`: `true` (o `false` para ahorrar memoria)
+- `DISABLE_HEDERA`: `1` (Opcional, si quieres desactivar Hedera para ahorrar memoria)
+- `DISABLE_MONGO`: `1` (Si aún no tienes DB)
+- `DISABLE_REDIS`: `1` (Recomendado si no tienes Redis configurado para evitar reintentos y logs)
 
 ## 1. Preparación (GitHub)
-Asegúrate de haber subido los últimos cambios al repositorio, especialmente el archivo `server/Dockerfile` que acabo de crear.
+Asegúrate de subir los cambios más recientes, incluyendo el `Dockerfile` actualizado y el archivo `.dockerignore` que son críticos para evitar errores de módulos.
 
 ```bash
-git add server/Dockerfile
-git commit -m "Add Dockerfile for Koyeb"
+# Estando en la raíz del proyecto
+git add server/package.json server/Dockerfile server/.dockerignore
+git commit -m "Fix Koyeb deployment: remove cross-env, add .dockerignore"
 git push origin main
 ```
 
