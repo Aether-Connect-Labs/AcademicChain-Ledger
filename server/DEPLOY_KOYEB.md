@@ -2,6 +2,19 @@
 
 Sigue estos pasos para desplegar tu servidor Node.js en Koyeb.
 
+## Deploy Automático (Buildpack, sin Docker)
+
+[![Deploy to Koyeb](https://www.koyeb.com/static/images/deploy/button.svg)](https://app.koyeb.com/deploy?name=academicchain-ledger&type=git&repository=Aether-Connect-Labs%2FAcademicChain-Ledger&branch=main&workdir=server&build_command=npm+install+%26%26+npm+run+build&run_command=npm+start&regions=was&env%5BNODE_ENV%5D=production&env%5BPORT%5D=3001&env%5BCLIENT_URL%5D=https%3A%2F%2Facademic-chain-ledger.vercel.app&ports=3001%3Bhttp%3B%2F&hc_protocol%5B3001%5D=http&hc_grace_period%5B3001%5D=5&hc_interval%5B3001%5D=30&hc_restart_limit%5B3001%5D=3&hc_timeout%5B3001%5D=5&hc_path%5B3001%5D=%2Fhealth&hc_method%5B3001%5D=get)
+
+Variables que debes agregar como secretos en Koyeb después de pulsar el botón:
+- MONGODB_URI
+- JWT_SECRET
+- PINATA_API_KEY, PINATA_SECRET_API_KEY
+- HEDERA_ACCOUNT_ID, HEDERA_PRIVATE_KEY, HEDERA_NETWORK
+- XRPL_ENABLED, XRPL_NETWORK, XRPL_SEED
+- ALGORAND_ENABLED, ALGORAND_NETWORK, ALGORAND_MNEMONIC
+- Opcional para simplificar readiness: DISABLE_REDIS=1
+
 ## 1. Preparación (GitHub)
 Asegúrate de haber subido los últimos cambios al repositorio, especialmente el archivo `server/Dockerfile` que acabo de crear.
 
