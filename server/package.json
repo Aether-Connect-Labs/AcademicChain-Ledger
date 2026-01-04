@@ -69,7 +69,7 @@
     "passport-linkedin-oauth2": "^2.0.0",
     "pinata-web3": "^0.4.0",
     "qrcode": "^1.5.3",
-    "redis": "^4.6.12",
+    "redis": "^5.10.0",
     "sharp": "^0.33.1",
     "socket.io": "^4.7.4",
     "swagger-jsdoc": "^6.2.8",
