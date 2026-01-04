@@ -5,6 +5,14 @@ const DISABLE_REDIS = process.env.DISABLE_REDIS === '1' ||
   (process.env.NODE_ENV || 'development') === 'test' ||
   (!process.env.REDIS_URL && (process.env.NODE_ENV || 'development') !== 'production');
 
+// Fail-safe para producción si REDIS_URL no está definido (Koyeb)
+// Si estamos en producción y NO hay REDIS_URL, asumimos que queremos correr sin Redis en lugar de crashear
+if ((process.env.NODE_ENV === 'production') && !process.env.REDIS_URL && !process.env.REDIS_CLUSTER_NODES && !process.env.REDIS_SENTINELS) {
+  logger.warn('No REDIS_URL found in production. Running in fallback mode (Redis disabled).');
+  // Sobreescribir variable global si es necesario, o usar una bandera interna
+  // Nota: const DISABLE_REDIS no se puede reasignar, así que usaremos la lógica de conexión abajo
+}
+
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 
@@ -24,8 +32,18 @@ const redisOptions = {
   lazyConnect: true,
   // Retry configuration
   retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
-    logger.warn(`Redis retry attempt ${times}, waiting ${delay}ms`);
+    // Si Redis está desactivado explícitamente, no reintentar
+    if (process.env.DISABLE_REDIS === '1') {
+      return null;
+    }
+    // Límite de reintentos para evitar bucles infinitos en desarrollo o si falla críticamente
+    if (times > 20 && process.env.NODE_ENV !== 'production') {
+      logger.error('Redis connection failed too many times in dev, giving up.');
+      return null;
+    }
+    
+    // Exponential backoff con jitter
+    const delay = Math.min(times * 100, 3000);
     return delay;
   },
   // Reconnect configuration
@@ -45,16 +63,18 @@ const redisOptions = {
 };
 
 let connection;
+// Flag efectiva para desactivar
+const isRedisDisabled = DISABLE_REDIS || ((process.env.NODE_ENV === 'production') && !process.env.REDIS_URL && !process.env.REDIS_CLUSTER_NODES && !process.env.REDIS_SENTINELS);
 
 // Detectar si es cluster o standalone
-if (DISABLE_REDIS) {
+if (isRedisDisabled) {
   connection = {
     status: 'disabled',
     on: () => {},
     connect: async () => {},
     info: async () => null,
   };
-  logger.warn('Redis disabled in development. Queues will be no-op.');
+  logger.warn('Redis disabled. Queues will be no-op.');
 } else if (REDIS_CLUSTER_NODES && REDIS_CLUSTER_NODES.length > 0) {
   // Redis Cluster mode para alta disponibilidad
   logger.info('Initializing Redis Cluster connection...');
@@ -136,11 +156,12 @@ connection.on('end', () => {
 });
 
 // Conectar cuando el módulo se carga
-if (!DISABLE_REDIS) {
+if (!isRedisDisabled) {
   // En producción ya conectamos; en desarrollo conectamos proactivamente si REDIS_URL está definido
   try {
     connection.connect().catch((err) => {
-      logger.error('Failed to connect to Redis:', err);
+      // Silenciar errores de conexión inicial para evitar ruido en logs si se va a reintentar
+      // logger.error('Failed to connect to Redis:', err);
     });
   } catch (e) {
     logger.error('Redis connect init error:', e);
@@ -149,7 +170,7 @@ if (!DISABLE_REDIS) {
 
 // Helper para verificar estado
 const isConnected = () => {
-  if (DISABLE_REDIS) {
+  if (isRedisDisabled) {
     return false;
   }
   return connection.status === 'ready';
@@ -158,7 +179,7 @@ const isConnected = () => {
 // Helper para obtener estadísticas
 const getStats = async () => {
   try {
-    if (DISABLE_REDIS) {
+    if (isRedisDisabled) {
       return { status: 'disabled' };
     }
     if (!isConnected()) {
