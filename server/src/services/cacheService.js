@@ -9,6 +9,21 @@ class CacheService {
   constructor() {
     this.defaultTTL = parseInt(process.env.CACHE_DEFAULT_TTL || '3600', 10); // 1 hora por defecto
     this.keyPrefix = process.env.CACHE_KEY_PREFIX || 'academicchain:';
+    // Memoria caché simple como fallback
+    this.memoryCache = new Map();
+    // Limpieza periódica de caché en memoria (cada 10 min)
+    if (!process.env.DISABLE_MEMORY_CACHE_CLEANUP) {
+      setInterval(() => this._cleanMemoryCache(), 600000).unref();
+    }
+  }
+
+  _cleanMemoryCache() {
+    const now = Date.now();
+    for (const [key, item] of this.memoryCache.entries()) {
+      if (item.expiresAt && item.expiresAt < now) {
+        this.memoryCache.delete(key);
+      }
+    }
   }
 
   /**
@@ -25,12 +40,22 @@ class CacheService {
    */
   async get(key) {
     try {
+      const fullKey = this._getKey(key);
+
+      // Si Redis no está conectado, usar memoria
       if (!redis.isConnected()) {
-        logger.warn('Redis not connected, cache miss');
+        const item = this.memoryCache.get(fullKey);
+        if (item) {
+          if (item.expiresAt && item.expiresAt < Date.now()) {
+            this.memoryCache.delete(fullKey);
+            return null;
+          }
+          return item.value;
+        }
+        // logger.warn('Redis not connected, cache miss'); // Silenciado para reducir ruido
         return null;
       }
 
-      const fullKey = this._getKey(key);
       const value = await redis.get(fullKey);
       
       if (value) {
@@ -58,14 +83,28 @@ class CacheService {
    */
   async set(key, value, ttl = null) {
     try {
+      const fullKey = this._getKey(key);
+      const expiration = ttl || this.defaultTTL;
+
+      // Si Redis no está conectado, usar memoria
       if (!redis.isConnected()) {
-        logger.warn('Redis not connected, skipping cache set');
-        return false;
+        // logger.warn('Redis not connected, skipping cache set'); // Silenciado
+        // Guardar en memoria
+        this.memoryCache.set(fullKey, {
+          value: value,
+          expiresAt: expiration > 0 ? Date.now() + (expiration * 1000) : null
+        });
+        
+        // Limitar tamaño de caché en memoria para evitar OOM (FIFO simple)
+        if (this.memoryCache.size > 1000) {
+          const firstKey = this.memoryCache.keys().next().value;
+          this.memoryCache.delete(firstKey);
+        }
+        
+        return true;
       }
 
-      const fullKey = this._getKey(key);
       const serializedValue = typeof value === 'string' ? value : JSON.stringify(value);
-      const expiration = ttl || this.defaultTTL;
 
       if (expiration > 0) {
         await redis.setex(fullKey, expiration, serializedValue);
@@ -87,12 +126,15 @@ class CacheService {
    */
   async delete(key) {
     try {
+      const fullKey = this._getKey(key);
+
       if (!redis.isConnected()) {
-        return false;
+        return this.memoryCache.delete(fullKey);
       }
 
-      const fullKey = this._getKey(key);
       const result = await redis.del(fullKey);
+      // También intentar borrar de memoria por si acaso
+      this.memoryCache.delete(fullKey);
       return result > 0;
     } catch (error) {
       logger.error(`Cache delete error for key ${key}:`, error);
