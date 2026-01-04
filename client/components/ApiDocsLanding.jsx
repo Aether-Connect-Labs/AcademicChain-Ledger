@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const ApiDocsLanding = () => {
   return (
@@ -6,7 +7,7 @@ const ApiDocsLanding = () => {
       <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Documentación de la API</h1>
       <p className="text-gray-600 mb-6">Explora y prueba la API REST v1 de AcademicChain-Ledger.</p>
       <div className="mb-6">
-        <a href="/demo" className="btn-primary">Agendar Demo</a>
+        <Link to="/agenda" className="btn-primary">Agendar Demo</Link>
       </div>
 
       <div className="card p-6 mb-6">

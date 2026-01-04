@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, ShieldCheck, Zap, Users, Globe } from 'lucide-react';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import ConnectionService from './services/connectionService';
 
 // Variantes de animación
 const containerVariants = {
@@ -44,28 +46,54 @@ const floatingVariants = {
   }
 };
 
-// Estadísticas para mostrar
-const stats = [
-  { number: '10K+', label: 'Credenciales Emitidas', icon: Zap },
-  { number: '50+', label: 'Instituciones', icon: Users },
-  { number: '150+', label: 'Países', icon: Globe }
-];
-
 export const HeroSection = () => {
   // Placeholder para la traducción, se puede reemplazar con un hook de i18next para React
   const t = (key, defaultValue) => defaultValue;
+  const [health, setHealth] = useState(null);
+  const [latencyMs, setLatencyMs] = useState(null);
+  const [statusLabel, setStatusLabel] = useState('Plataforma Operacional');
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchHealth = async () => {
+      const t0 = Date.now();
+      const { data } = await ConnectionService.fetchWithFallback('/health', { status: 'DEMO', timestamp: new Date().toISOString(), uptime: 0, environment: 'development', memory: { used: 0, total: 0 }, xrpl: { enabled: false }, algorand: { enabled: false }, ipfs: { enabled: false } });
+      const t1 = Date.now();
+      if (!mounted) return;
+      setLatencyMs(Math.max(0, t1 - t0));
+      setHealth(data);
+      setStatusLabel((data && data.status === 'OK') ? 'Operacional en Tiempo Real' : 'Degradado');
+    };
+    fetchHealth();
+    const id = setInterval(fetchHealth, 10000);
+    return () => { mounted = false; clearInterval(id); };
+  }, []);
+
+  const liveStats = useMemo(() => {
+    const uptimeSec = Number(health?.uptime || 0);
+    const uptimeH = Math.floor(uptimeSec / 3600);
+    const enabledServices = ['xrpl','algorand','ipfs'].reduce((acc, k) => acc + (health?.[k]?.enabled ? 1 : 0), 0) + 1;
+    const memUsed = health?.memory?.used ? `${health.memory.used} MB` : '--';
+    const avgLatency = latencyMs != null ? `${latencyMs} ms` : '--';
+    return [
+      { number: `${enabledServices}`, label: 'Servicios activos' },
+      { number: `${uptimeH}h`, label: 'Uptime continuo' },
+      { number: avgLatency, label: 'Respuesta API' },
+      { number: memUsed, label: 'Memoria usada' },
+    ];
+  }, [health, latencyMs]);
   
   return (
-    <section className="section-padding relative min-h-screen overflow-hidden bg-gradient-to-br from-gray-900 via-gray-950 to-black animated-grid-background">
+    <section className="section-padding relative min-h-screen overflow-hidden bg-gradient-to-br from-[#020617] via-[#0b1224] to-[#0a0f1f]">
       {/* Efectos de fondo mejorados */}
       <div className="absolute inset-0">
-        {/* Gradientes animados */}
-        <div className="absolute top-0 left-0 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute top-1/4 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-500"></div>
-        
-        {/* Grid animado */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_50%,black,transparent)]"></div>
+        <div className="absolute top-0 left-0 w-72 h-72 bg-[#0066FF]/12 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/4 right-0 w-96 h-96 bg-[#0066FF]/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-[#0066FF]/10 rounded-full blur-3xl animate-pulse delay-500"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_50%,black,transparent)]"></div>
+        <div className="absolute inset-0 opacity-10">
+          <div className="w-full h-1/2 bg-[linear-gradient(90deg,#0066FF_0%,transparent_40%,transparent_60%,#0066FF_100%)] bg-[length:200%_100%] animate-background-shine"></div>
+        </div>
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20">
@@ -75,7 +103,7 @@ export const HeroSection = () => {
           animate="visible"
           className="text-center"
         >
-          {/* Badge de estado mejorado */}
+          {/* Badge de estado */}
           <motion.div variants={itemVariants} className="mb-8">
             <Link to="/status">
               <motion.div 
@@ -84,7 +112,7 @@ export const HeroSection = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 <ShieldCheck className="w-5 h-5 mr-3" />
-                <span className="font-semibold">{t('hero.status', 'Plataforma Operacional')}</span>
+                <span className="font-semibold">{t('hero.status', statusLabel)}</span>
                 <ArrowRight className="w-4 h-4 ml-2 transform group-hover:translate-x-1 transition-transform" />
               </motion.div>
             </Link>
@@ -105,45 +133,43 @@ export const HeroSection = () => {
           {/* Subtítulo mejorado */}
           <motion.div variants={itemVariants} className="mb-10">
             <p className="hero-subtitle text-base sm:text-xl lg:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed font-light">
-              {t('hero.subtitle', 'Verificación instantánea y segura con arquitectura triple: Hedera (certificado), XRP (timestamp) y Algoran (escalado y gobernanza).')}
+              {t('hero.subtitle', 'Fe pública digital con garantía perpetua y estándar global. Blindaje total contra el fraude académico, verificación instantánea en cualquier lugar.')}
             </p>
             <motion.p 
               variants={itemVariants}
               className="mt-3 text-sm sm:text-base text-cyan-200/80 max-w-2xl mx-auto"
             >
-              {t('hero.description', 'Únete a la revolución de la educación digital.')}
+              {t('hero.description', 'Autoridad inquebrantable para títulos y certificados. Transparencia, confianza y cumplimiento sin fricción.')}
             </motion.p>
           </motion.div>
 
           {/* Botones CTA mejorados */}
           <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-16">
-            <Link to="/#demo">
+            <Link to="/verify">
               <motion.div
                 className="group inline-flex items-center btn-primary px-8 py-4 rounded-2xl text-lg shadow-soft hover-lift"
               >
                 <span className="relative z-10 flex items-center">
-                  🚀 {t('hero.cta_primary', 'Comenzar Gratis')}
+                  🔍 {t('hero.cta_verify', 'Verificar Título')}
                 </span>
               </motion.div>
             </Link>
             
-            <Link to="/demo">
-              <motion.div
-                className="group inline-flex items-center justify-center btn-secondary px-8 py-4 rounded-2xl text-lg shadow-soft hover-lift"
-              >
+            <a href="https://calendly.com/academicchain/demo" target="_blank" rel="noreferrer">
+              <motion.div className="group inline-flex items-center justify-center btn-secondary px-8 py-4 rounded-2xl text-lg shadow-soft hover-lift">
                 <span className="flex items-center">
                   📅 {t('hero.cta_secondary', 'Agendar Demo')}
                   <ArrowRight className="w-4 h-4 ml-2 transform group-hover:translate-x-1 transition-transform" />
                 </span>
               </motion.div>
-            </Link>
+            </a>
           </motion.div>
 
-          {/* Estadísticas flotantes */}
+          {/* Estadísticas en tiempo real */}
           <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto mb-16">
-            {stats.map((stat, index) => (
+            {liveStats.slice(0,3).map((stat, index) => (
               <motion.div
-                key={stat.label}
+                key={`${stat.label}-${index}`}
                 variants={floatingVariants}
                 animate="floating"
                 className="text-center p-6 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 hover:border-cyan-500/30 transition-all duration-300 hover-lift"
@@ -153,7 +179,6 @@ export const HeroSection = () => {
                 }}
                 style={{ animationDelay: `${index * 0.5}s` }}
               >
-                <stat.icon className="w-8 h-8 text-cyan-400 mx-auto mb-3" />
                 <div className="text-3xl font-bold text-white mb-1">{stat.number}</div>
                 <div className="text-gray-400 text-sm font-medium">{stat.label}</div>
               </motion.div>

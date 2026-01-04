@@ -21,7 +21,7 @@ const out = (ok, label, detail = '') => {
   // Redis
   try {
     const url = process.env.REDIS_URL || 'redis://localhost:6379';
-    const redis = new Redis(url, { lazyConnect: true, maxRetriesPerRequest: 0, retryStrategy: () => null, enableReadyCheck: false });
+    const redis = new Redis(url, { lazyConnect: true, maxRetriesPerRequest: 0, retryStrategy: () => null, enableReadyCheck: false, password: process.env.REDIS_PASSWORD, username: process.env.REDIS_USERNAME });
     await redis.connect();
     await redis.ping();
     out(true, 'Redis');

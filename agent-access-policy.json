@@ -1,0 +1,22 @@
+{
+  "allowed": [
+    "^/client/.*\\.jsx$",
+    "^/client/.*\\.js$",
+    "^/client/components/.*$",
+    "^/server/src/routes/.*\\.js$",
+    "^/server/src/models/.*\\.js$",
+    "^/server/src/services/.*\\.js$",
+    "^/server/src/blockchain/.*\\.js$",
+    "^/client/components/__tests__/.*\\.jsx$",
+    "^/server/tests/.*\\.js$"
+  ],
+  "forbidden": [
+    "\\.env$",
+    "^/package\\.json$",
+    "^/client/package\\.json$",
+    "^/server/package\\.json$",
+    "^/server/src/server\\.js$",
+    "^/docker-compose.*\\.yml$",
+    "^/\\.agent-backups/.*$"
+  ]
+}

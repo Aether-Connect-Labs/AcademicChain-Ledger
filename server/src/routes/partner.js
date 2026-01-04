@@ -184,7 +184,21 @@ router.post('/institution/mint',
         xrp = anchorDoc;
       } catch {}
     }
-    res.status(201).json({ success: true, message: 'Credential minted successfully', data: { mint: mintResult, transfer: transferResult, xrpTxHash: xrp?.xrpTxHash || null } });
+    let algorand = null;
+    const enableAlgorand2 = String(process.env.ENABLE_ALGORAND || '0') === '1' || String(process.env.ALGORAND_ENABLED || 'false') === 'true';
+    if (enableAlgorand2) {
+      try {
+        await algorandService.connect();
+        const anchorDoc = await algorandService.anchor({
+          certificateHash: uniqueHash,
+          hederaTokenId: tokenId,
+          serialNumber: mintResult.serialNumber,
+          timestamp: new Date().toISOString(),
+        });
+        algorand = anchorDoc;
+      } catch {}
+    }
+    res.status(201).json({ success: true, message: 'Credential minted successfully', data: { mint: mintResult, transfer: transferResult, xrpTxHash: xrp?.xrpTxHash || null, algoTxId: algorand?.algoTxId || null } });
   })
 );
 

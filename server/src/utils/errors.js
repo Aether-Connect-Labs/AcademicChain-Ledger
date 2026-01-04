@@ -42,6 +42,12 @@ class ForbiddenError extends AppError {
   }
 }
 
+class ServiceUnavailableError extends AppError {
+  constructor(message = 'Service Unavailable') {
+    super(message, 503);
+  }
+}
+
 module.exports = {
   AppError,
   HederaError,
@@ -49,4 +55,5 @@ module.exports = {
   BadRequestError,
   UnauthorizedError,
   ForbiddenError,
+  ServiceUnavailableError,
 };

@@ -7,7 +7,7 @@ const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
-require('dotenv').config();
+require('dotenv').config({ override: true });
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const { createBullBoard } = require('@bull-board/api');
@@ -34,6 +34,7 @@ const { isConnected: isRedisConnected, getStats: getRedisStats } = require('../q
 const ROLES = require('./config/roles');
 const axios = require('axios');
 const cron = require('node-cron');
+const { startBackupStatsJob } = require('./jobs/backupStatsJob');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -47,10 +48,12 @@ const rateAdminRoutes = require('./routes/admin/rate');
 const metricsRoutes = require('./routes/metrics');
 const rateOracle = require('./services/rateOracle');
 const systemRoutes = require('./routes/system');
+const publicRoutes = require('./routes/public');
 const studentRoutes = require('./routes/student');
 const v1Routes = require('./routes/v1');
 const contactRoutes = require('./routes/contact');
 const demoRoutes = require('./routes/demo');
+const scheduleDemoRoutes = require('./routes/schedule-demo');
 const utilsRoutes = require('./routes/excel-validate');
 const daoRoutes = require('./routes/dao');
 const { getRuntimeHealthMonitor } = require('./middleware/runtimeHealth');
@@ -74,6 +77,12 @@ if (process.env.NODE_ENV === 'test') {
 } else if (process.env.NODE_ENV !== 'production') {
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
   process.env.SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
+  // Disable external dependencies in dev to avoid using real services
+  process.env.DISABLE_MONGO = '1';
+  process.env.DISABLE_REDIS = '1';
+  // Enable public demo in dev
+  process.env.DEMO_PUBLIC = process.env.DEMO_PUBLIC || '1';
+  process.env.HEDERA_NETWORK = process.env.HEDERA_NETWORK || 'testnet';
 }
 
 // Validación de entorno en arranque
@@ -101,14 +110,22 @@ try { require('./utils/timeoutConfig').TimeoutManager.validateAll(); } catch (e)
 // Security middleware
 const isProduction = process.env.NODE_ENV === 'production';
 const clientUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.CORS_ORIGIN;
+const verifierOriginsRaw = process.env.ALLOWED_VERIFIER_ORIGINS || '';
 
 // Secure CORS Policy (resiliente para Render)
 const defaultOrigins = ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:4173', 'http://localhost:4174'];
-const configuredOrigins = clientUrl ? clientUrl.split(',').map(o => o.trim()).filter(Boolean) : [];
-const extraOrigins = [process.env.RENDER_EXTERNAL_URL, process.env.SERVER_URL, process.env.BASE_URL].map(o => (o || '').trim()).filter(Boolean);
-const whitelist = Array.from(new Set([...
-  (configuredOrigins.length ? configuredOrigins : defaultOrigins),
-  ...extraOrigins
+const normalizeOrigin = (u) => {
+  const s = (u || '').trim();
+  const withoutQuotes = s.replace(/^[`'"]+|[`'"]+$/g, '');
+  return withoutQuotes.replace(/\/+$/, '');
+};
+const configuredOrigins = clientUrl ? clientUrl.split(',').map(o => normalizeOrigin(o)).filter(Boolean) : [];
+const verifierOrigins = verifierOriginsRaw ? verifierOriginsRaw.split(',').map(o => normalizeOrigin(o)).filter(Boolean) : [];
+const extraOrigins = [process.env.SERVER_URL, process.env.BASE_URL].map(o => normalizeOrigin(o)).filter(Boolean);
+const whitelist = Array.from(new Set([
+  ...(configuredOrigins.length ? configuredOrigins : defaultOrigins),
+  ...extraOrigins,
+  ...verifierOrigins
 ]));
 
 const corsOptions = {
@@ -162,7 +179,7 @@ app.use(passport.initialize());
 try {
   const hasGoogle = process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET;
   if (hasGoogle) {
-  const callbackBase = process.env.RENDER_EXTERNAL_URL || process.env.SERVER_URL || `http://localhost:${PORT}`;
+  const callbackBase = normalizeOrigin(process.env.SERVER_URL || `http://localhost:${PORT}`);
     passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -241,7 +258,7 @@ const swaggerOptions = {
         email: 'support@academicchain-ledger.com',
       },
     },
-    servers: [{ url: process.env.SERVER_URL || process.env.BASE_URL || `http://localhost:${PORT}` }],
+    servers: [{ url: normalizeOrigin(process.env.SERVER_URL || process.env.BASE_URL || `http://localhost:${PORT}`) }],
     components: {
       securitySchemes: {
         bearerAuth: {
@@ -259,6 +276,14 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+app.get('/', (req, res) => {
+  try {
+    res.redirect('/api/docs');
+  } catch {
+    res.status(200).send('AcademicChain Ledger API');
+  }
+});
+
 // Health check endpoints escalables (para Kubernetes/Docker health checks)
 app.get('/health', async (req, res) => {
   try {
@@ -275,7 +300,8 @@ app.get('/health', async (req, res) => {
         rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
       },
       xrpl: { enabled: typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false, network: xrpService.network || 'disabled' },
-      algorand: { enabled: typeof algorandService.isEnabled === 'function' ? algorandService.isEnabled() : false, network: algorandService.network || 'disabled' }
+      algorand: { enabled: typeof algorandService.isEnabled === 'function' ? algorandService.isEnabled() : false, network: algorandService.network || 'disabled' },
+      ipfs: { enabled: !!ipfsService.pinata }
     };
 
     res.status(200).json(health);
@@ -300,7 +326,8 @@ app.get('/healthz', async (req, res) => {
         rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
       },
       xrpl: { enabled: typeof xrpService.isEnabled === 'function' ? xrpService.isEnabled() : false, network: xrpService.network || 'disabled' },
-      algorand: { enabled: typeof algorandService.isEnabled === 'function' ? algorandService.isEnabled() : false, network: algorandService.network || 'disabled' }
+      algorand: { enabled: typeof algorandService.isEnabled === 'function' ? algorandService.isEnabled() : false, network: algorandService.network || 'disabled' },
+      ipfs: { enabled: !!ipfsService.pinata }
     };
 
     res.status(200).json(health);
@@ -314,6 +341,11 @@ if (!testing) { (async () => { try { await hederaService.connect(); } catch {} }
 
 if (!testing) {
   try { const monitor = getRuntimeHealthMonitor(io); monitor.start(); } catch {}
+  try { ipfsService.testConnection(); } catch {}
+}
+
+if (!testing) {
+  try { startBackupStatsJob(); } catch {}
 }
 
 // Rate oracle: refresh hourly and on startup
@@ -422,7 +454,9 @@ app.use('/api/credentials', studentRoutes); // Ruta para credenciales de estudia
 app.use('/api/v1', v1Routes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/demo', demoRoutes);
+app.use('/api/schedule-demo', scheduleDemoRoutes);
 app.use('/api/system', systemRoutes);
+app.use('/api/public', publicRoutes);
 app.use('/api/utils', utilsRoutes);
 app.use('/api/dao', daoRoutes);
 
@@ -434,6 +468,16 @@ app.get('/excel-metrics.html', (req, res) => {
     res.status(404).send('Metrics dashboard not found');
   }
 });
+
+// Redirect root to client in production
+try {
+  app.get('/', (req, res) => {
+    const raw = process.env.CLIENT_URL || process.env.FRONTEND_URL || '/welcome';
+    const target = (raw || '').trim().replace(/^`+|`+$/g, '');
+    if (target.startsWith('http')) return res.redirect(target);
+    return res.redirect(target);
+  });
+} catch {}
 
 app.use(errorHandler);
 
@@ -453,11 +497,7 @@ if (require.main === module) {
       const isProd = (process.env.NODE_ENV || 'development') === 'production';
       if (typeof connectDB === 'function') {
         if (!disableMongo) {
-          if (isProd) {
-            await connectDB();
-          } else {
-            connectDB().catch(err => logger.error('MongoDB async connect failed:', err));
-          }
+          await connectDB();
         } else {
           logger.warn('MongoDB disabled by DISABLE_MONGO=1. Running without database.');
         }
@@ -472,18 +512,41 @@ if (require.main === module) {
           }
         } catch {}
       }
-      server.listen(PORT, () => {
-        if (process.send) process.send('ready');
-      });
+      const tryPorts = (() => {
+        const base = parseInt(process.env.PORT || '3001', 10) || 3001;
+        const list = [base, base + 1, base + 2];
+        return list;
+      })();
+      let started = false;
+      for (const p of tryPorts) {
+        try {
+          await new Promise((resolve, reject) => {
+            const onError = (err) => {
+              server.off('error', onError);
+              if (err && err.code === 'EADDRINUSE') reject(err);
+              else reject(err || new Error('listen error'));
+            };
+            server.once('error', onError);
+            server.listen(p, () => {
+              server.off('error', onError);
+              process.env.PORT = String(p);
+              process.env.SERVER_URL = process.env.SERVER_URL || `http://localhost:${p}`;
+              started = true;
+              if (process.send) process.send('ready');
+              resolve();
+            });
+          });
+          if (started) break;
+        } catch {}
+      }
+      if (!started) throw new Error('No available port to start server');
     } catch (err) {
       const isProd = (process.env.NODE_ENV || 'development') === 'production';
-      if (isProd) {
+      logger.error('Startup error:', err);
+      if (isProd || process.env.STRICT_STARTUP === '1') {
         process.exit(1);
       } else {
-        logger.error('Startup continuing without MongoDB:', err);
-        server.listen(PORT, () => {
-          if (process.send) process.send('ready');
-        });
+        process.exit(1);
       }
     }
   })();

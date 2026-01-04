@@ -1,9 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import PendingInstitutions from './PendingInstitutions';
 import ApprovedInstitutions from './ApprovedInstitutions';
 import StatsChart from './StatsChart';
 import RecentInstitutions from './RecentInstitutions';
 import AdminAPI from './services/adminAPI';
+import { useWebSocket } from './useWebSocket';
+import { useNavigate } from 'react-router-dom';
+import { Toaster, toast } from 'react-hot-toast';
+import SystemLatencyChart from './SystemLatencyChart';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('pending');
@@ -14,6 +18,18 @@ const AdminDashboard = () => {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [planTab, setPlanTab] = useState('basic');
+  const [usage, setUsage] = useState([]);
+  const [billing, setBilling] = useState({ items: [], currency: 'USD', rates: {} });
+  const [systemStatus, setSystemStatus] = useState(null);
+  const [alerts, setAlerts] = useState([]);
+  const [healthRealtime, setHealthRealtime] = useState(null);
+  const [partnerName, setPartnerName] = useState('');
+  const [universityId, setUniversityId] = useState('');
+  const [keyLoading, setKeyLoading] = useState(false);
+  const [keyError, setKeyError] = useState('');
+  const [keyResult, setKeyResult] = useState(null);
+  const navigate = useNavigate();
+  const { isConnected, subscribe, unsubscribe } = useWebSocket();
 
   const loadDashboardStats = async () => {
     try {
@@ -35,6 +51,92 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => { loadDashboardStats(); }, []);
+
+  const loadUsage = async () => {
+    try {
+      const res = await AdminAPI.getUsageByInstitution();
+      const d = res.data || res;
+      setUsage(Array.isArray(d?.data) ? d.data : (Array.isArray(d) ? d : []));
+    } catch (error) {
+      setError('Error al cargar uso por institución');
+      toast.error('Error al cargar uso por institución');
+    }
+  };
+
+  const loadBilling = async () => {
+    try {
+      const res = await AdminAPI.getBillingConsumption();
+      const d = res.data || res;
+      const items = Array.isArray(d?.data) ? d.data : (Array.isArray(d) ? d : []);
+      setBilling({ items, currency: d?.currency || 'USD', rates: d?.rates || {} });
+    } catch {}
+  };
+
+  const loadSystemStatus = async () => {
+    try {
+      const res = await AdminAPI.getSystemStatus();
+      const d = res.data || res;
+      setSystemStatus(d);
+      setAlerts(Array.isArray(d?.alerts) ? d.alerts : []);
+    } catch (error) {
+      toast('Sistema: estado no disponible', { style: { background: '#FEE2E2', color: '#7F1D1D', border: '1px solid #EF4444' } });
+    }
+  };
+
+  useEffect(() => {
+    loadUsage();
+    loadBilling();
+    loadSystemStatus();
+    const t1 = setInterval(() => { loadSystemStatus(); }, 30000);
+    const t2 = setInterval(() => { loadUsage(); loadBilling(); }, 60000);
+    return () => { clearInterval(t1); clearInterval(t2); };
+  }, []);
+
+  useEffect(() => {
+    const onHealth = (payload) => {
+      setHealthRealtime(payload);
+      setSystemStatus(payload);
+      setAlerts(Array.isArray(payload?.alerts) ? payload.alerts : []);
+    };
+    const onAlert = (a) => {
+      setAlerts((prev) => [a, ...prev].slice(0, 20));
+      const sev = String(a?.severity || 'info').toLowerCase();
+      const styles = {
+        warning: { background: '#FEF3C7', color: '#92400E', border: '1px solid #F59E0B' },
+        error: { background: '#FEE2E2', color: '#7F1D1D', border: '1px solid #EF4444' },
+        info: { background: '#DBEAFE', color: '#1E3A8A', border: '1px solid #3B82F6' },
+        success: { background: '#D1FAE5', color: '#065F46', border: '1px solid #10B981' }
+      };
+      const style = styles[sev] || styles.info;
+      const title = a?.service ? `${String(a.service).toUpperCase()}` : 'Sistema';
+      const msg = a?.message || a?.code || 'Alerta del sistema';
+      toast(`${title}: ${msg}`, { style });
+    };
+    subscribe('health:update', onHealth);
+    subscribe('system:alert', onAlert);
+    return () => {
+      unsubscribe('health:update', onHealth);
+      unsubscribe('system:alert', onAlert);
+    };
+  }, [subscribe, unsubscribe]);
+
+  const formatCurrency = useMemo(() => {
+    const cur = billing.currency || 'USD';
+    const symbol = cur === 'USD' ? '$' : '';
+    return (v) => `${symbol}${Number(v || 0).toFixed(2)} ${cur}`;
+  }, [billing]);
+
+  const mapCost = useMemo(() => Object.fromEntries((billing.items || []).map(i => [String(i.universityId), i.estimatedCost])), [billing]);
+  const totalCreds = useMemo(() => (usage || []).reduce((a, b) => a + Number(b.credentials || 0), 0), [usage]);
+  const totalCost = useMemo(() => (billing.items || []).reduce((a, b) => a + Number(b.estimatedCost || 0), 0), [billing]);
+  const services = systemStatus?.services || {};
+  const serviceList = ['mongodb', 'redis', 'hedera', 'xrpl', 'rate_oracle'];
+  const healthyCount = serviceList.reduce((c, n) => c + (services?.[n]?.healthy ? 1 : 0), 0);
+  const healthLabel = healthyCount === serviceList.length ? 'Óptimo' : 'Degradado';
+  const topInstitutions = useMemo(() => {
+    const base = Array.isArray(usage) ? usage.slice(0, 5) : [];
+    return base.map(u => ({ ...u, estimatedCost: mapCost[String(u.universityId)] || 0 }));
+  }, [usage, mapCost]);
 
   const loadBookings = async () => {
     try {
@@ -69,26 +171,133 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">Panel de Administración</h1>
-      <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded shadow">
-          <div className="text-sm text-gray-500">Total Instituciones</div>
-          <div className="text-2xl font-semibold">{stats.total}</div>
-        </div>
-        <div className="bg-white p-4 rounded shadow">
-          <div className="text-sm text-gray-500">Pendientes</div>
-          <div className="text-2xl font-semibold">{stats.pending}</div>
-        </div>
-        <div className="bg-white p-4 rounded shadow">
-          <div className="text-sm text-gray-500">Aprobadas</div>
-          <div className="text-2xl font-semibold">{stats.approved}</div>
-        </div>
-        <div className="bg-white p-4 rounded shadow">
-          <div className="text-sm text-gray-500">Acciones Pendientes</div>
-          <div className="text-2xl font-semibold">{stats.pending}</div>
+    <div className="p-8 bg-[#0b1224] min-h-screen">
+      <Toaster position="top-right" toastOptions={{ style: { borderRadius: '8px', padding: '8px 12px' } }} />
+      <h1 className="text-3xl font-bold text-white mb-6">Panel de Administración</h1>
+      <div className="mb-6">
+        <div className="max-w-5xl mx-auto rounded-2xl border border-red-500/40 bg-red-600/10 p-6 text-center">
+          <div className="text-white text-lg font-semibold">Estado de Alertas</div>
+          <div className="mt-2 text-red-300 text-sm">Alertas activas: {(alerts || []).length}</div>
         </div>
       </div>
+      <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white/5 border border-white/10 p-4 rounded shadow">
+          <div className="text-sm text-white/70">Instituciones activas</div>
+          <div className="text-2xl font-semibold text-white">{stats.approved}</div>
+        </div>
+        <div className="bg-white/5 border border-white/10 p-4 rounded shadow">
+          <div className="text-sm text-white/70">Credenciales totales</div>
+          <div className="text-2xl font-semibold text-white">{totalCreds}</div>
+        </div>
+        <div className="bg-white/5 border border-white/10 p-4 rounded shadow">
+          <div className="text-sm text-white/70">Facturación estimada</div>
+          <div className="text-2xl font-semibold text-white">{formatCurrency(totalCost)}</div>
+        </div>
+        <div className="bg-white/5 border border-white/10 p-4 rounded shadow">
+          <div className="text-sm text-white/70">Salud del sistema</div>
+          <div className="text-2xl font-semibold text-white">{healthLabel}</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="bg-white/5 rounded-xl border border-white/10 shadow-soft p-6 text-white">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold">Top 5 Instituciones</h3>
+            <button className="btn-secondary" onClick={loadUsage}>Actualizar</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left">
+                  <th className="px-3 py-2">Institución</th>
+                  <th className="px-3 py-2">Credenciales</th>
+                  <th className="px-3 py-2">Verificaciones 30d</th>
+                  <th className="px-3 py-2">Costo estimado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topInstitutions.map((i) => (
+                  <tr key={i.universityId} className="border-t border-white/10">
+                    <td className="px-3 py-2">{i.universityName || i.email || i.universityId}</td>
+                    <td className="px-3 py-2">{i.credentials}</td>
+                    <td className="px-3 py-2">{i.verifications30d || 0}</td>
+                    <td className="px-3 py-2">{formatCurrency(i.estimatedCost || 0)}</td>
+                  </tr>
+                ))}
+                {topInstitutions.length === 0 && (
+                  <tr><td className="px-3 py-2 text-white/70" colSpan={4}>Sin datos</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="bg-white/5 rounded-xl border border-white/10 shadow-soft p-6 text-white">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold">Salud del Sistema</h3>
+            <button className="btn-secondary" onClick={loadSystemStatus}>Actualizar</button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {serviceList.map((name) => {
+              const d = services?.[name] || {};
+              const ok = !!d.healthy;
+              const lat = Number(d.latencyMs || 0);
+              return (
+                <div key={name} className={`p-4 rounded border ${ok ? 'border-green-300 bg-green-900/20' : 'border-yellow-300 bg-yellow-900/20'}`}>
+                  <div className="font-semibold mb-1">{name.toUpperCase()}</div>
+                  <div className="text-sm">Estado: {ok ? 'OK' : 'Degradado'}</div>
+                  <div className="text-sm">Latencia: {lat} ms</div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4">
+            <div className="text-sm text-white/70 mb-2">Alertas activas</div>
+            <div className="space-y-2">
+              {(alerts || []).slice(0, 5).map((a, idx) => (
+                <div key={idx} className="text-sm text-white bg-white/5 border border-white/10 rounded px-3 py-2">
+                  {a.message || a.code} · {a.service || ''} · {a.severity || ''}
+                </div>
+              ))}
+              {(!alerts || alerts.length === 0) && <div className="text-sm text-white/70">Sin alertas</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="dashboard-section">
+        <SystemLatencyChart />
+      </div>
+
+      <div className="bg-white/5 rounded-xl border border-white/10 shadow-soft p-6 mb-6 text-white">
+        <h3 className="text-lg font-bold mb-4">Acciones Rápidas</h3>
+        <div className="flex flex-wrap gap-3">
+          <a className="btn-secondary" href={AdminAPI.reportUrl('/api/admin/reports/credentials.csv')} target="_blank" rel="noreferrer">Descargar CSV credenciales</a>
+          <a className="btn-secondary" href={AdminAPI.reportUrl('/api/admin/reports/compliance.csv')} target="_blank" rel="noreferrer">Descargar CSV compliance</a>
+          <a className="btn-secondary" href={AdminAPI.reportUrl('/api/admin/reports/backup-stats.pdf')} target="_blank" rel="noreferrer">Descargar PDF backup</a>
+          <button className="px-4 py-2 rounded-lg bg-[#0066FF] text-white hover:bg-[#0057d6]" onClick={() => navigate('/admin/alerts')}>Configurar alertas</button>
+          <button className="px-4 py-2 rounded-lg bg-[#0066FF] text-white hover:bg-[#0057d6]" onClick={() => navigate('/admin/credentials/bulk')}>Emisión masiva</button>
+        </div>
+        <div className="mt-4 text-sm text-white/70">Tiempo real: {isConnected ? 'Conectado' : 'Desconectado'} · Última actualización: {(healthRealtime?.timestamp || systemStatus?.timestamp || '').toString().replace('T',' ').replace('Z','')}</div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 shadow-soft p-6 mb-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Generar API Key para instituciones</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <input className="input-primary" placeholder="Nombre del partner" value={partnerName} onChange={(e)=>setPartnerName(e.target.value)} />
+          <input className="input-primary" placeholder="ID de universidad (opcional)" value={universityId} onChange={(e)=>setUniversityId(e.target.value)} />
+          <button className="btn-primary" onClick={async()=>{ try { setKeyError(''); setKeyLoading(true); const res = await AdminAPI.generatePartnerKey(partnerName, universityId || undefined); setKeyResult(res?.data || res); } catch (e) { setKeyError(e.message || 'Error'); setKeyResult(null); } finally { setKeyLoading(false); } }} disabled={keyLoading || !partnerName}>Generar</button>
+        </div>
+        {keyLoading && <div className="mt-3 text-sm text-gray-600">Generando…</div>}
+        {keyError && <div className="mt-3 text-sm text-red-600">{keyError}</div>}
+        {keyResult?.apiKey && (
+          <div className="mt-4 p-4 rounded-xl border border-green-200 bg-green-50 text-green-800">
+            <div className="font-semibold mb-1">API Key creada</div>
+            <div className="text-xs break-all">{keyResult.apiKey}</div>
+            <div className="mt-2 text-xs text-green-700">Cópiala ahora, no se mostrará de nuevo.</div>
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <StatsChart stats={stats} onSegmentClick={(key) => setActiveTab(key === 'approved' ? 'approved' : 'pending')} />
         <RecentInstitutions institutions={recent} />

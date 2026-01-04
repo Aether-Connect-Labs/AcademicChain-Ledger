@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { verificationService } from '../services/verificationService';
+import { OFFICIAL_BILLETERA_MADRE } from '../services/config';
 import QRScanner from '../ui/QRScanner.jsx';
 import DocumentViewer from '../ui/DocumentViewer';
 import QRCode from 'react-qr-code';
@@ -104,6 +105,23 @@ const CredentialVerifier = () => {
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     const y = Math.max(10, (pageHeight - imgHeight) / 2);
     pdf.addImage(imgData, 'PNG', 10, y, imgWidth, imgHeight);
+    pdf.setFontSize(9);
+    const gw = toGateway(state.data?.ipfsURI);
+    const hedId = state.data?.tokenId && state.data?.serialNumber ? `${state.data.tokenId}-${state.data.serialNumber}` : '';
+    const ts = new Date().toLocaleString();
+    const lines = [
+      hedId ? `Hedera ID: ${hedId}` : '',
+      gw ? `IPFS: ${gw}` : '',
+      `Generado: ${ts}`,
+      OFFICIAL_BILLETERA_MADRE ? `Certificado emitido por la Autoridad Central AcademicChain (ID: ${OFFICIAL_BILLETERA_MADRE}). Autenticidad verificada mediante firma criptográfica inalterable.` : ''
+    ].filter(Boolean);
+    let ty = y + imgHeight + 6;
+    if (ty > pageHeight - 20) ty = pageHeight - 20;
+    for (const line of lines) {
+      const wrapped = pdf.splitTextToSize(line, 180);
+      pdf.text(wrapped, 10, ty);
+      ty += (wrapped.length * 5) + 2;
+    }
     const uni = (state.data?.metadata?.attributes || []).find(a => a.trait_type === 'University')?.value || 'Universidad';
     const stu = (state.data?.metadata?.attributes || []).find(a => a.trait_type === 'Student')?.value || 'Estudiante';
     const deg = (state.data?.metadata?.attributes || []).find(a => a.trait_type === 'Degree')?.value || 'Título';
@@ -137,6 +155,11 @@ const CredentialVerifier = () => {
     const legal = 'La integridad se valida criptográficamente mediante Árbol de Merkle contra raíz publicada en redes distribuidas (Hedera/XRPL/Algorand).';
     const lwrapped = pdf.splitTextToSize(legal, 180);
     pdf.text(lwrapped, 10, y + 4);
+    if (OFFICIAL_BILLETERA_MADRE) {
+      const phrase = `Certificado emitido por la Autoridad Central AcademicChain (ID: ${OFFICIAL_BILLETERA_MADRE}). Autenticidad verificada mediante firma criptográfica inalterable.`;
+      const pw = pdf.splitTextToSize(phrase, 180);
+      pdf.text(pw, 10, y + 14);
+    }
     pdf.save(`Certificado-Autenticidad-${(merkle.hash||'').slice(0,8)}.pdf`);
   }, [merkle]);
 
@@ -148,6 +171,20 @@ const CredentialVerifier = () => {
       return false;
     }
   };
+
+  const checkStatus = useCallback(async (tokenId, serialNumber) => {
+    try {
+      const res = await verificationService.getCredentialStatus(tokenId, serialNumber);
+      const st = String(res.data?.status || res.status || '').toUpperCase();
+      if (st === 'REVOKED') {
+        const reason = res.data?.revocationReason || null;
+        return { ok: false, message: '⚠️ TÍTULO REVOCADO: Esta credencial ha sido anulada por la institución emisora.', reason };
+      }
+      return { ok: true };
+    } catch {
+      return { ok: true };
+    }
+  }, []);
 
   const handleScan = useCallback(async (data) => {
     if (!data || state.status === 'verifying') return;
@@ -162,14 +199,42 @@ const CredentialVerifier = () => {
 
     try {
       const parsed = JSON.parse(data);
+      const statusCheck = await checkStatus(parsed.tokenId, parsed.serialNumber);
+      if (!statusCheck.ok) {
+        setState({ status: 'error', error: statusCheck.message });
+        return;
+      }
       const payload = await verificationService.verifyCredential(parsed.tokenId, parsed.serialNumber);
       
       if (payload.success && payload.data?.valid && payload.data?.credential) {
-        setState({ 
-          status: 'success', 
-          data: payload.data.credential, 
+        const cred = payload.data.credential;
+        const props = cred?.metadata?.properties || {};
+        const issuerId = props?.issuerAccountId || '';
+        if (OFFICIAL_BILLETERA_MADRE && issuerId && issuerId !== OFFICIAL_BILLETERA_MADRE) {
+          setState({ status: 'error', error: '⚠️ FRAUDE: Esta credencial no fue emitida por la autoridad oficial.' });
+          return;
+        }
+        const attrs = Array.isArray(cred?.metadata?.attributes) ? cred.metadata.attributes : [];
+        const uni = (attrs.find(a => a.trait_type === 'University')?.value || '');
+        const stu = (attrs.find(a => a.trait_type === 'Student')?.value || '');
+        const deg = (attrs.find(a => a.trait_type === 'Degree')?.value || '');
+        const date = (attrs.find(a => a.display_type === 'date')?.value || '');
+        const uri = cred?.metadata?.properties?.file?.uri || cred?.ipfsURI || '';
+        const cid = uri.startsWith('ipfs://') ? uri.replace('ipfs://','') : uri;
+        const baseStr = [stu, deg, date, cid].join('|');
+        const enc = new TextEncoder().encode(baseStr);
+        const digest = await crypto.subtle.digest('SHA-256', enc);
+        const calcHex = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+        const stored = String(props?.file?.hash || '').trim().toLowerCase();
+        if (stored && calcHex !== stored) {
+          setState({ status: 'error', error: 'CONTENIDO ALTERADO: Los datos no coinciden con el hash de la Blockchain.' });
+          return;
+        }
+        setState({
+          status: 'success',
+          data: cred,
           xrpAnchor: payload.data.xrpAnchor || null,
-          algorandAnchor: payload.data.algorandAnchor || null 
+          algorandAnchor: payload.data.algorandAnchor || null
         });
       } else {
         throw new Error('Credencial inválida');
@@ -185,14 +250,42 @@ const CredentialVerifier = () => {
     if (!tokenIdInput || !serialInput || state.status === 'verifying') return;
     setState({ status: 'verifying' });
     try {
+      const statusCheck = await checkStatus(tokenIdInput.trim(), serialInput.trim());
+      if (!statusCheck.ok) {
+        setState({ status: 'error', error: statusCheck.message });
+        return;
+      }
       const payload = await verificationService.verifyCredential(tokenIdInput.trim(), serialInput.trim());
       
       if (payload.success && payload.data?.valid && payload.data?.credential) {
-        setState({ 
-            status: 'success', 
-            data: payload.data.credential, 
+        const cred = payload.data.credential;
+        const props = cred?.metadata?.properties || {};
+        const issuerId = props?.issuerAccountId || '';
+        if (OFFICIAL_BILLETERA_MADRE && issuerId && issuerId !== OFFICIAL_BILLETERA_MADRE) {
+          setState({ status: 'error', error: '⚠️ FRAUDE: Esta credencial no fue emitida por la autoridad oficial.' });
+          return;
+        }
+        const attrs = Array.isArray(cred?.metadata?.attributes) ? cred.metadata.attributes : [];
+        const uni = (attrs.find(a => a.trait_type === 'University')?.value || '');
+        const stu = (attrs.find(a => a.trait_type === 'Student')?.value || '');
+        const deg = (attrs.find(a => a.trait_type === 'Degree')?.value || '');
+        const date = (attrs.find(a => a.display_type === 'date')?.value || '');
+        const uri = cred?.metadata?.properties?.file?.uri || cred?.ipfsURI || '';
+        const cid = uri.startsWith('ipfs://') ? uri.replace('ipfs://','') : uri;
+        const baseStr = [stu, deg, date, cid].join('|');
+        const enc = new TextEncoder().encode(baseStr);
+        const digest = await crypto.subtle.digest('SHA-256', enc);
+        const calcHex = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+        const stored = String(props?.file?.hash || '').trim().toLowerCase();
+        if (stored && calcHex !== stored) {
+          setState({ status: 'error', error: 'CONTENIDO ALTERADO: Los datos no coinciden con el hash de la Blockchain.' });
+          return;
+        }
+        setState({
+            status: 'success',
+            data: cred,
             xrpAnchor: payload.data.xrpAnchor || null,
-            algorandAnchor: payload.data.algorandAnchor || null 
+            algorandAnchor: payload.data.algorandAnchor || null
         });
       } else {
         throw new Error('Credencial inválida');
@@ -302,12 +395,40 @@ const CredentialVerifier = () => {
           setSerialInput(sn);
           setState({ status: 'verifying' });
           try {
+            const statusCheck = await checkStatus(tid, sn);
+            if (!statusCheck.ok) {
+              setState({ status: 'error', error: statusCheck.message });
+              return;
+            }
             const payload = await verificationService.verifyCredential(tid, sn);
             
             if (payload.success && payload.data?.valid && payload.data?.credential) {
+              const cred = payload.data.credential;
+              const props = cred?.metadata?.properties || {};
+              const issuerId = props?.issuerAccountId || '';
+              if (OFFICIAL_BILLETERA_MADRE && issuerId && issuerId !== OFFICIAL_BILLETERA_MADRE) {
+                setState({ status: 'error', error: '⚠️ FRAUDE: Esta credencial no fue emitida por la autoridad oficial.' });
+                return;
+              }
+              const attrs = Array.isArray(cred?.metadata?.attributes) ? cred.metadata.attributes : [];
+              const uni = (attrs.find(a => a.trait_type === 'University')?.value || '');
+              const stu = (attrs.find(a => a.trait_type === 'Student')?.value || '');
+              const deg = (attrs.find(a => a.trait_type === 'Degree')?.value || '');
+              const date = (attrs.find(a => a.display_type === 'date')?.value || '');
+              const uri = cred?.metadata?.properties?.file?.uri || cred?.ipfsURI || '';
+              const cid = uri.startsWith('ipfs://') ? uri.replace('ipfs://','') : uri;
+              const baseStr = [stu, deg, date, cid].join('|');
+              const enc = new TextEncoder().encode(baseStr);
+              const digest = await crypto.subtle.digest('SHA-256', enc);
+              const calcHex = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+              const stored = String(props?.file?.hash || '').trim().toLowerCase();
+              if (stored && calcHex !== stored) {
+                setState({ status: 'error', mode: 'credential', error: 'CONTENIDO ALTERADO: Los datos no coinciden con el hash de la Blockchain.' });
+                return;
+              }
               setState({ 
                 status: 'success', 
-                data: payload.data.credential, 
+                data: cred, 
                 xrpAnchor: payload.data.xrpAnchor || null,
                 algorandAnchor: payload.data.algorandAnchor || null 
               });
@@ -386,6 +507,29 @@ const CredentialVerifier = () => {
                 <h3 className="mt-1 text-2xl font-extrabold tracking-wide text-gray-900">Prueba de Merkle</h3>
               </div>
               <div className="px-10 py-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="rounded-lg border p-4 bg-green-50 border-green-200">
+                    <div className="text-sm font-semibold">Hedera</div>
+                    <div className="mt-1 text-xs">Raíz publicada</div>
+                    {merkle.hedera?.topicId ? (
+                      <a className="text-blue-600 text-xs underline" href={`https://hashscan.io/${import.meta.env.VITE_HEDERA_NETWORK || (import.meta.env.PROD ? 'mainnet' : 'testnet')}/topic/${merkle.hedera.topicId}`} target="_blank" rel="noreferrer">Ver Topic</a>
+                    ) : null}
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm font-semibold">XRPL</div>
+                    <div className="mt-1 text-xs">Estado: {merkle.xrpl?.txHash ? 'Anclado' : 'N/A'}</div>
+                    {merkle.xrpl?.txHash ? (
+                      <a className="text-blue-600 text-xs underline" href={merkle.xrpl.explorer} target="_blank" rel="noreferrer">Ver Tx</a>
+                    ) : null}
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm font-semibold">Algorand</div>
+                    <div className="mt-1 text-xs">Estado: {merkle.algorand?.txId ? 'Anclado' : 'N/A'}</div>
+                    {merkle.algorand?.txId ? (
+                      <a className="text-blue-600 text-xs underline" href={merkle.algorand.explorer} target="_blank" rel="noreferrer">Ver Tx</a>
+                    ) : null}
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className={`rounded-lg border p-4 ${merkle.verified ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                     <div className="text-sm font-semibold">Resultado</div>
@@ -420,7 +564,7 @@ const CredentialVerifier = () => {
                       if (merkle.hedera?.topicId) params.set('hederaTopicId', merkle.hedera.topicId);
                       if (merkle.xrpl?.txHash) params.set('xrplTx', merkle.xrpl.txHash);
                       if (merkle.algorand?.txId) params.set('algoTx', merkle.algorand.txId);
-                      const url = `${window.location.origin}/verificar?${params.toString()}`;
+                      const url = `${window.location.origin}/#/verificar?${params.toString()}`;
                       return <QRCode value={url} size={128} />;
                     })()}
                   </div>
@@ -439,7 +583,7 @@ const CredentialVerifier = () => {
                       if (merkle.hedera?.topicId) params.set('hederaTopicId', merkle.hedera.topicId);
                       if (merkle.xrpl?.txHash) params.set('xrplTx', merkle.xrpl.txHash);
                       if (merkle.algorand?.txId) params.set('algoTx', merkle.algorand.txId);
-                      const url = `${window.location.origin}/verificar?${params.toString()}`;
+                      const url = `${window.location.origin}/#/verificar?${params.toString()}`;
                       navigator.clipboard.writeText(url);
                     }} className="btn-secondary btn-sm ml-2">Copiar Link de Verificación</button>
                   </div>
@@ -487,6 +631,29 @@ const CredentialVerifier = () => {
                 </h3>
               </div>
               <div className="px-10 py-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="rounded-lg border p-4 bg-green-50 border-green-200">
+                    <div className="text-sm font-semibold">Hedera</div>
+                    <div className="mt-1 text-xs">Estado: Válido</div>
+                    {state.data?.tokenId ? (
+                      <a className="text-blue-600 text-xs underline" href={`https://hashscan.io/${import.meta.env.VITE_HEDERA_NETWORK || (import.meta.env.PROD ? 'mainnet' : 'testnet')}/token/${state.data.tokenId}`} target="_blank" rel="noreferrer">Ver en Hashscan</a>
+                    ) : null}
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm font-semibold">XRPL</div>
+                    <div className="mt-1 text-xs">Estado: {state.xrpAnchor?.xrpTxHash ? 'Anclado' : 'N/A'}</div>
+                    {state.xrpAnchor?.xrpTxHash ? (
+                      <a className="text-blue-600 text-xs underline" href={`https://${(import.meta.env.VITE_XRPL_NETWORK || 'testnet').includes('main') ? 'livenet' : 'testnet'}.xrpl.org/transactions/${state.xrpAnchor.xrpTxHash}`} target="_blank" rel="noreferrer">Ver Tx</a>
+                    ) : null}
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm font-semibold">Algorand</div>
+                    <div className="mt-1 text-xs">Estado: {state.algorandAnchor?.algoTxId ? 'Anclado' : 'N/A'}</div>
+                    {state.algorandAnchor?.algoTxId ? (
+                      <a className="text-blue-600 text-xs underline" href={`https://${(import.meta.env.VITE_ALGORAND_NETWORK || 'testnet')==='mainnet'?'algoexplorer.io':'testnet.algoexplorer.io'}/tx/${state.algorandAnchor.algoTxId}`} target="_blank" rel="noreferrer">Ver Tx</a>
+                    ) : null}
+                  </div>
+                </div>
                 <div className="text-center">
                   <div className="text-gray-600">Otorgado a</div>
                   <div className="text-4xl font-bold text-gray-900">
@@ -559,7 +726,7 @@ const CredentialVerifier = () => {
                     {(() => {
                       const tokenId = state.data?.tokenId;
                       const serialNumber = state.data?.serialNumber;
-                      const link = `${window.location.origin}/verificar?tokenId=${encodeURIComponent(tokenId || '')}&serialNumber=${encodeURIComponent(serialNumber || '')}`;
+                      const link = `${window.location.origin}/#/verificar?tokenId=${encodeURIComponent(tokenId || '')}&serialNumber=${encodeURIComponent(serialNumber || '')}`;
                       return <QRCode value={link} size={128} />;
                     })()}
                   </div>

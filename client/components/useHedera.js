@@ -2,7 +2,9 @@ import { HashConnect } from 'hashconnect';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWebSocket } from './useWebSocket';
 import { useAuth } from './useAuth';
-let API_BASE_URL = import.meta.env.VITE_API_URL
+import ConnectionService from './services/connectionService';
+import { authService } from './authService';
+
 const HEDERA_NETWORK = (import.meta.env.VITE_HEDERA_NETWORK || (import.meta.env.PROD ? 'mainnet' : 'testnet'))
 
 export const useHedera = () => {
@@ -28,13 +30,8 @@ export const useHedera = () => {
     if (candidate) {
       setAccount({ accountId: candidate });
       try {
-        const res = await fetch(`${API_BASE_URL}/api/nft/balance/${encodeURIComponent(candidate)}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setBalance(data?.data || null);
-        }
+        const data = await ConnectionService.getNftBalance(candidate);
+        setBalance(data?.data || null);
       } catch {}
       setIsConnected(true);
       return true;
@@ -53,11 +50,7 @@ export const useHedera = () => {
           setIsConnected(true);
           try {
             if (token) {
-              await fetch(`${API_BASE_URL}/api/auth/me`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ hederaAccountId: acc })
-              });
+              await authService.updateProfile({ hederaAccountId: acc });
             }
           } catch {}
         }

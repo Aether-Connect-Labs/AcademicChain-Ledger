@@ -1,17 +1,19 @@
 // src/components/issuance/BatchIssuance.js
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import axios from 'axios';
 import { useHedera } from './useHedera';
 import { useAuth } from './useAuth';
 import { useWebSocket } from './useWebSocket';
 import { useAnalytics } from './useAnalytics';
 import { issuanceService } from './services/issuanceService';
+import { verificationService } from './services/verificationService';
 import { fileParser } from './utils/fileParser';
 import { validationService } from './services/validationService';
 import ProgressTracker from './ui/ProgressTracker';
 import CredentialPreview from './CredentialPreview';
 import IssuanceSummary from './IssuanceSummary';
 import ErrorReport from './ui/ErrorReport';
+import { Toaster, toast } from 'react-hot-toast';
+import { toGateway } from './utils/ipfsUtils';
 
 const XrpAnchorCell = ({ tokenId, serialNumber }) => {
   const [hash, setHash] = useState(null);
@@ -25,9 +27,7 @@ const XrpAnchorCell = ({ tokenId, serialNumber }) => {
       try {
         setLoading(true);
         setError('');
-        const API_BASE_URL = import.meta.env.VITE_API_URL;
-        const res = await fetch(`${API_BASE_URL}/api/verification/verify/${tokenId}/${serialNumber}`, { headers: { Accept: 'application/json' } });
-        const data = await res.json();
+        const data = await verificationService.getCredentialDetails(tokenId, serialNumber);
         const x = data?.data?.xrpAnchor;
         setHash(x?.xrpTxHash || null);
         setNetwork(x?.network || null);
@@ -70,7 +70,6 @@ const BatchIssuance = ({ demo = false }) => {
     sendEmail: false,
     template: 'default',
     tokenId: '0.0.123456',
-    paymentMethod: 'AUTO'
   });
   const [preSignPayments, setPreSignPayments] = useState(true);
   const [pollError, setPollError] = useState('');
@@ -111,15 +110,42 @@ const BatchIssuance = ({ demo = false }) => {
       const s = String(v ?? '');
       return (s.includes(',') || s.includes('"')) ? `"${s.replace(/"/g,'""')}"` : s;
     }).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `emision-masiva-${Date.now()}.csv`;
-    document.body.appendChild(a);
+    a.download = `credenciales_${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+    URL.revokeObjectURL(url);
   }, [getResultItems]);
+
+  const handleAuditBatch = useCallback(async () => {
+    try {
+      const prepared = Array.isArray(processResult?.data?.prepared) ? processResult.data.prepared : [];
+      const verified = Array.isArray(processResult?.data?.verified) ? processResult.data.verified : [];
+      const results = Array.isArray(processResult?.data?.results) ? processResult.data.results : [];
+      const all = [...prepared, ...verified, ...results];
+      const documents = all.map(r => {
+        const cid = r?.mint?.ipfs?.cid || (r?.mint?.ipfsURI ? String(r.mint.ipfsURI).replace('ipfs://','') : '');
+        return cid ? { cid } : null;
+      }).filter(Boolean);
+      if (!documents.length) {
+        toast.error('No hay documentos con CID para auditar');
+        return;
+      }
+      const resp = await verificationService.merkleBatch({ documents });
+      const topicId = resp?.data?.hedera?.topicId || resp?.data?.hedera?.topicId || resp?.data?.hedera?.topicId;
+      if (topicId) {
+        const params = new URLSearchParams();
+        params.set('hederaTopicId', topicId);
+        window.open(`/#/verificar?${params.toString()}`, '_blank');
+      } else {
+        toast.error('No se obtuvo topicId del backend');
+      }
+    } catch (e) {
+      toast.error(e.message || 'Error al auditar lote');
+    }
+  }, [processResult]);
 
   // Paso 1: Manejo de archivos
   const handleFileUpload = async (event) => {
@@ -202,7 +228,7 @@ const BatchIssuance = ({ demo = false }) => {
           rawData: row,
           status: 'pending',
           errors: [],
-          paymentMethod: issuanceConfig.paymentMethod || 'AUTO'
+          paymentMethod: undefined
         };
       });
 
@@ -299,33 +325,28 @@ const BatchIssuance = ({ demo = false }) => {
     setPollError('');
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/universities/batch-status/${masterJobId}`, { headers });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const st = data?.data?.state;
-        const prog = data?.data?.progress ?? 0;
-        const result = data?.data?.result;
+        const res = await issuanceService.getBatchStatus(masterJobId);
+        const data = res.data || res;
+        
         setProcessResult(prev => ({
           ...prev,
           summary: {
             ...prev.summary,
-            status: st === 'completed' ? 'completed' : (st === 'failed' ? 'failed' : 'processing'),
-            progress: typeof prog === 'number' ? prog : prev.summary?.progress || 0,
-            successful: Array.isArray(result?.data?.successful) ? result.data.successful.length : (prev.summary?.successful || 0),
-            failed: Array.isArray(result?.data?.failed) ? result.data.failed.length : (prev.summary?.failed || 0),
-            dualOk: (() => {
-              const succ = Array.isArray(result?.data?.successful) ? result.data.successful : [];
-              return succ.filter(s => s?.xrpAnchor?.xrpTxHash).length;
-            })(),
+            status: data.status,
+            progress: data.progress,
+            successful: data.successfulCount || data.successful?.length || 0,
+            failed: data.failedCount || data.failed?.length || 0,
           },
-          data: result?.data ? { ...prev.data, ...result.data } : prev.data,
+          data: { ...prev.data, ...data }
         }));
-        if (st === 'completed' || st === 'failed') {
-          clearInterval(interval);
+
+        if (data.status === 'completed' || data.status === 'failed') {
           setIsPolling(false);
+          clearInterval(interval);
         }
       } catch (e) {
-        setPollError(e.message);
+        console.error('Polling error:', e);
+        setPollError('Error al consultar estado: ' + e.message);
       }
     }, 3000);
     return () => {
@@ -370,49 +391,65 @@ const BatchIssuance = ({ demo = false }) => {
       }
 
       if (preSignPayments) {
-        const API_BASE_URL = import.meta.env.VITE_API_URL;
-        const headers = (() => { try { const t = localStorage.getItem('authToken'); return t ? { Authorization: `Bearer ${t}` } : {}; } catch { return {}; } })();
-        const prepared = [];
-        for (const item of credentials) {
-          const uniqueHash = `hash-${crypto.randomUUID()}`;
-          const ipfsURI = `ipfs://demo-${uniqueHash}`;
-          const payload = {
-            type: issuanceConfig.credentialType,
-            tokenId: issuanceConfig.tokenId,
-            uniqueHash,
-            ipfsURI,
-            studentName: item.credential?.subject?.name || 'Student',
-            degree: item.credential?.subject?.degree || 'Degree',
-            graduationDate: new Date().toISOString().slice(0, 10),
-            recipientAccountId: item.credential?.recipientAccountId || undefined,
-            paymentMethod: item.paymentMethod === 'XRP' ? 'XRP' : undefined,
-          };
-          const prepRes = await axios.post(`${API_BASE_URL}/api/universities/prepare-issuance`, payload, { headers });
-          const transactionId = prepRes.data?.data?.transactionId || prepRes.data?.transactionId;
-          const paymentBytes = prepRes.data?.data?.paymentTransactionBytes || prepRes.data?.paymentTransactionBytes;
-          const xrpPaymentIntent = prepRes.data?.data?.xrpPaymentIntent || prepRes.data?.xrpPaymentIntent;
-          let execRes;
-          if (xrpPaymentIntent) {
-            prepared.push({ transactionId, xrpPaymentIntent });
-          } else if (paymentBytes) {
-            const signed = await signTransactionBytes(paymentBytes);
-            execRes = await axios.post(`${API_BASE_URL}/api/universities/execute-issuance`, { transactionId, signedPaymentTransactionBytes: signed }, { headers });
-          } else {
-            execRes = await axios.post(`${API_BASE_URL}/api/universities/execute-issuance`, { transactionId }, { headers });
+          const prepared = [];
+          for (const item of credentials) {
+            const uniqueHash = `hash-${crypto.randomUUID()}`;
+            const ipfsURI = `ipfs://demo-${uniqueHash}`;
+            const payload = {
+              type: issuanceConfig.credentialType,
+              tokenId: issuanceConfig.tokenId,
+              uniqueHash,
+              ipfsURI,
+              studentName: item.credential?.subject?.name || 'Student',
+              degree: item.credential?.subject?.degree || 'Degree',
+              graduationDate: new Date().toISOString().slice(0, 10),
+              recipientAccountId: item.credential?.recipientAccountId || undefined,
+              paymentMethod: undefined,
+            };
+            const prepRes = await issuanceService.prepareIssuance(payload);
+            const transactionId = prepRes.data?.transactionId || prepRes.transactionId;
+            const execRes = await issuanceService.executeIssuance({ transactionId });
+            prepared.push(execRes.data || execRes);
+            try {
+              const r = execRes?.data || execRes;
+              const tokenId = String(r?.tokenId || issuanceConfig.tokenId || '');
+              const serial = String(r?.mint?.serialNumber || r?.serialNumber || '');
+              const ipfs = r?.mint?.ipfs;
+              const ipfsCid = ipfs?.cid || (String(r?.mint?.ipfsURI || '').replace('ipfs://','') || '');
+              const ipfsGateway = ipfs?.gateway || (ipfsCid ? toGateway(`ipfs://${ipfsCid}`) : '');
+              const filecoinCid = r?.mint?.filecoin?.cid || '';
+              const filecoinGateway = r?.mint?.filecoin?.gateway || '';
+              toast.custom((t) => (
+                <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 w-[360px]">
+                  <div className="font-semibold text-gray-900">🎉 Credencial Emitida</div>
+                  <div className="text-sm text-gray-700 mt-2">Hedera: {tokenId}-{serial}</div>
+                  {ipfsCid ? (
+                    <div className="mt-2 text-sm">
+                      <div className="text-gray-700">IPFS CID: <span className="font-mono">{ipfsCid}</span></div>
+                      {ipfsGateway ? <a className="text-blue-600 underline" href={ipfsGateway} target="_blank" rel="noreferrer">Ver en Gateway</a> : null}
+                    </div>
+                  ) : null}
+                  {filecoinCid ? (
+                    <div className="mt-2 text-sm">
+                      <div className="text-gray-700">Respaldo Filecoin: <span className="text-green-700 font-semibold">Activo</span></div>
+                      <div className="text-gray-700">CID: <span className="font-mono">{filecoinCid}</span></div>
+                      {filecoinGateway ? <a className="text-blue-600 underline" href={filecoinGateway} target="_blank" rel="noreferrer">Ver en Gateway</a> : null}
+                    </div>
+                  ) : null}
+                  <div className="mt-3 flex justify-end">
+                    <button className="btn-secondary btn-xs" onClick={() => toast.dismiss(t.id)}>Cerrar</button>
+                  </div>
+                </div>
+              ), { duration: 6000 });
+            } catch {}
           }
-          if (execRes) prepared.push(execRes.data?.data || execRes.data);
+          const total = prepared.length;
+          const summary = { total, successful: total, failed: 0, successRate: 100, duration: Math.round((Date.now() - results.startTime) / 1000), status: 'completed' };
+          setProcessResult({ success: true, data: { total, startTime: results.startTime, prepared }, summary });
+          setCurrentStep(4);
+          setIsProcessing(false);
+          return;
         }
-        const hasXrp = prepared.some(p => p && p.xrpPaymentIntent);
-        const total = prepared.length;
-        const summary = hasXrp 
-          ? { total, successful: 0, failed: 0, successRate: 0, duration: Math.round((Date.now() - results.startTime) / 1000), status: 'awaiting_xrp' }
-          : { total, successful: total, failed: 0, successRate: 100, duration: Math.round((Date.now() - results.startTime) / 1000), status: 'completed' };
-        if (hasXrp) setXrpBatchIntents(prepared.filter(p => p && p.xrpPaymentIntent));
-        setProcessResult({ success: true, data: { total, startTime: results.startTime, prepared }, summary });
-        setCurrentStep(4);
-        setIsProcessing(false);
-        return;
-      }
       // Track del inicio de la operación
       trackCredentialOperation({
         operation: 'batch_issuance_start',
@@ -646,17 +683,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                   </label>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
-                  <select
-                    value={issuanceConfig.paymentMethod}
-                    onChange={(e) => setIssuanceConfig(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                    className="input-primary"
-                  >
-                    <option value="AUTO">Automático (Hedera/None)</option>
-                    <option value="XRP">XRP</option>
-                  </select>
-                </div>
+                
 
                 <div className="flex items-center">
                   <input
@@ -730,20 +757,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                     credential={credential.credential}
                     index={index}
                   />
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-700">Pago:</label>
-                    <select
-                      value={credential.paymentMethod || 'AUTO'}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setCredentials(prev => prev.map((c, i) => i === index ? { ...c, paymentMethod: val } : c));
-                      }}
-                      className="input-primary"
-                    >
-                      <option value="AUTO">AUTO</option>
-                      <option value="XRP">XRP</option>
-                    </select>
-                  </div>
+                  
                 </div>
               ))}
             </div>
@@ -847,16 +861,13 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                 )}
                 <button className="btn-secondary btn-sm mt-3" onClick={async () => {
                   try {
-                    const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
-                    const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-                    const headers = token ? { Authorization: `Bearer ${token}` } : {};
                     const masterJobId = processResult?.data?.masterJobId;
                     if (!masterJobId) return;
-                    const res = await fetch(`${API_BASE_URL}/api/universities/batch-status/${masterJobId}`, { headers });
-                    const data = await res.json();
-                    const st = data?.data?.state;
-                    const prog = data?.data?.progress ?? 0;
-                    const result = data?.data?.result;
+                    const res = await issuanceService.getBatchStatus(masterJobId);
+                    const data = res.data || res;
+                    const st = data?.state;
+                    const prog = data?.progress ?? 0;
+                    const result = data?.result;
                     setProcessResult(prev => ({
                       ...prev,
                       summary: {
@@ -914,8 +925,6 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                   className="btn-primary mt-3"
                   onClick={async () => {
                     try {
-                      const API_BASE_URL = import.meta.env.VITE_API_URL;
-                      const headers = (() => { try { const t = localStorage.getItem('authToken'); return t ? { Authorization: `Bearer ${t}` } : {}; } catch { return {}; } })();
                       const results = [];
                       const invalids = [];
                       for (const it of xrpBatchIntents) {
@@ -925,8 +934,8 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                           invalids.push(it.transactionId);
                           continue;
                         }
-                        const execRes = await axios.post(`${API_BASE_URL}/api/universities/execute-issuance`, { transactionId: it.transactionId, xrpTxHash: h }, { headers });
-                        results.push(execRes.data?.data || execRes.data);
+                        const execRes = await issuanceService.executeIssuance({ transactionId: it.transactionId, xrpTxHash: h });
+                        results.push(execRes.data || execRes);
                       }
                       if (invalids.length) {
                         setPollError(`Hash XRPL inválido para ${invalids.length} transacción(es): ${invalids.join(', ')}`);
@@ -955,6 +964,22 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                 }}
               />
             )}
+            <div className="mt-4 flex items-center gap-3">
+              <button className="btn-secondary" onClick={handleAuditBatch}>📊 Auditar Lote en Blockchain</button>
+              {(() => {
+                const prepared = Array.isArray(processResult?.data?.prepared) ? processResult.data.prepared : [];
+                const last = prepared[prepared.length - 1] || null;
+                const tokenId = issuanceConfig?.tokenId || last?.tokenId || '';
+                const serial = last?.mint?.serialNumber || last?.serialNumber || '';
+                if (!tokenId || !serial) return null;
+                const params = new URLSearchParams();
+                params.set('tokenId', tokenId);
+                params.set('serialNumber', String(serial));
+                return (
+                  <a className="btn-ghost" href={`/#/verificar?${params.toString()}`} target="_blank" rel="noreferrer">🔍 Verificar último emitido</a>
+                );
+              })()}
+            </div>
           </div>
         );
 
@@ -965,6 +990,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
 
   return (
     <div className="max-w-6xl mx-auto p-6 bg-white rounded-xl shadow-lg">
+      <Toaster position="top-right" toastOptions={{ style: { borderRadius: '8px', padding: '8px 12px' } }} />
       {/* Progress Tracker */}
       <ProgressTracker
         currentStep={currentStep}

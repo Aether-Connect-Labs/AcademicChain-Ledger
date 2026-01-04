@@ -3,6 +3,7 @@ import ConnectionService from './services/connectionService';
 import IssueTitleForm from './IssueTitleForm';
 import BatchIssuance from './BatchIssuance';
 import DocumentViewer from './ui/DocumentViewer';
+import demoService from './services/demoService';
 
 function EnhancedInstitutionDashboard({ demo = false }) {
   const [credentials, setCredentials] = useState([]);
@@ -10,6 +11,8 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   const [error, setError] = useState('');
   const [stats, setStats] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('checking');
+  const [issuing, setIssuing] = useState(false);
+  const [issueResult, setIssueResult] = useState(null);
 
   useEffect(() => {
     loadDashboardData();
@@ -46,7 +49,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
       // Backend disponible - cargar datos reales
       const [credsResponse, statsResponse] = await Promise.allSettled([
         ConnectionService.fetchWithFallback('/api/universities/credentials', ConnectionService.getDemoInstitutionData().credentials),
-        ConnectionService.fetchWithFallback('/api/universities/stats', ConnectionService.getDemoInstitutionData().stats)
+        ConnectionService.fetchWithFallback('/api/universities/statistics', ConnectionService.getDemoInstitutionData().stats)
       ]);
 
       if (credsResponse.status === 'fulfilled') {
@@ -54,7 +57,20 @@ function EnhancedInstitutionDashboard({ demo = false }) {
       }
 
       if (statsResponse.status === 'fulfilled') {
-        setStats(statsResponse.value.data);
+        const resp = statsResponse.value.data;
+        const payload = resp?.data || {};
+        const statsMapped = (() => {
+          const s = payload.statistics || {};
+          const recent = Array.isArray(s.recentActivity) ? s.recentActivity : [];
+          const lastMint = recent.find(e => String(e.type).toUpperCase() === 'CREDENTIAL_MINTED');
+          return {
+            totalCredentials: Number(s.totalCredentialsIssued || 0),
+            totalTokens: Number(s.activeTokens || 0),
+            totalRecipients: 0,
+            lastIssuance: lastMint ? lastMint.date : null
+          };
+        })();
+        setStats(statsMapped);
       }
 
       setConnectionStatus('connected');
@@ -201,8 +217,47 @@ function EnhancedInstitutionDashboard({ demo = false }) {
           <button className="btn-primary">Ver Todas las Credenciales</button>
           <button className="btn-secondary">Generar Reporte</button>
           <button className="btn-outline">Sincronizar con Blockchain</button>
+          <button
+            className="btn-primary"
+            disabled={issuing}
+            onClick={async () => {
+              try {
+                setIssuing(true);
+                const resp = await demoService.issueCredential({ degree: 'Demo Ingeniería', studentName: 'Juan Demo' });
+                setIssueResult(resp?.data || null);
+              } catch (e) {
+                setIssueResult({ error: e.message || 'Error' });
+              } finally {
+                setIssuing(false);
+              }
+            }}
+          >
+            {issuing ? 'Emitiendo...' : 'Emitir Credencial Demo'}
+          </button>
         </div>
       </div>
+      
+      {issueResult && (
+        <div className="mt-4 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Resultado de Emisión Demo</h3>
+          {'error' in issueResult ? (
+            <p className="text-red-600">{String(issueResult.error)}</p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-gray-700">NFT ID: <span className="font-mono">{String(issueResult.nftId || '')}</span></p>
+              {issueResult.hashscanUrl ? (
+                <a href={issueResult.hashscanUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline">Ver en HashScan</a>
+              ) : null}
+              {issueResult.anchors?.xrpl?.url ? (
+                <a href={issueResult.anchors.xrpl.url} target="_blank" rel="noreferrer" className="text-blue-600 underline">XRPL Anchor</a>
+              ) : null}
+              {issueResult.anchors?.algorand?.url ? (
+                <a href={issueResult.anchors.algorand.url} target="_blank" rel="noreferrer" className="text-blue-600 underline">Algorand Anchor</a>
+              ) : null}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

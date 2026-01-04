@@ -36,6 +36,6 @@ if (process.env.XRPL_SEED && process.env.XRPL_SEED !== 'value') {
 }
 
 process.stdout.write('\n🎯 ACCIONES REQUERIDAS:\n');
-if (missingVars.length > 0) process.stdout.write('1. Configurar variables faltantes en Render\n');
-if (!process.env.XRPL_SEED || process.env.XRPL_SEED === 'value') process.stdout.write('2. Generar wallet XRP y agregar XRPL_SEED a Render\n');
+if (missingVars.length > 0) process.stdout.write('1. Configurar variables faltantes en el entorno de despliegue\n');
+if (!process.env.XRPL_SEED || process.env.XRPL_SEED === 'value') process.stdout.write('2. Generar wallet XRP y agregar XRPL_SEED al entorno\n');
 process.stdout.write('3. Verificar que BASE_URL y CLIENT_URL sean las correctas\n');

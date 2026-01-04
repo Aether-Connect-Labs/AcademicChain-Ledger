@@ -12,6 +12,9 @@ import EnhancedStudentPortal from './components/EnhancedStudentPortal';
 import ComenzarGratisPage from './components/ComenzarGratisPage';
 import AdminLayout from './components/AdminLayout';
 import AdminDashboard from './components/AdminDashboard';
+import AdminUsage from './components/AdminUsage';
+import AdminAlerts from './components/AdminAlerts';
+import AdminReports from './components/AdminReports';
 import RateDashboard from './components/RateDashboard';
 import PendingInstitutions from './components/PendingInstitutions';
 import ApprovedInstitutions from './components/ApprovedInstitutions';
@@ -29,11 +32,20 @@ import CreateCredentialsPage from './components/CreateCredentialsPage';
 import BatchIssuance from './components/BatchIssuance';
 import DeveloperPortal from './components/DeveloperPortal';
 import ApiDocsLanding from './components/ApiDocsLanding';
+import PricingPage from './components/PricingPage';
 import PendingApproval from './components/PendingApproval';
 import DemoScheduler from './components/DemoScheduler';
+import Profile from './components/Profile';
+import BlockchainStatus from './components/BlockchainStatus';
+import CredentialEvidence from './components/credentials/CredentialEvidence';
+import InteractiveTour from './components/InteractiveTour.jsx';
+import DashboardRedirect from './components/DashboardRedirect';
+import AdminRevocationPanel from './components/admin/AdminRevocationPanel.jsx';
 
 const AppRoutes = () => {
   return (
+    <>
+    <InteractiveTour />
     <Routes>
       <Route path="/" element={<Layout><HomePage /></Layout>} />
       <Route path="/login" element={<Layout><LoginPage /></Layout>} />
@@ -48,9 +60,18 @@ const AppRoutes = () => {
       <Route path="/verify" element={<Layout><CredentialVerifier /></Layout>} />
       <Route path="/verificar" element={<Layout><VerifyCredentialPage /></Layout>} />
       <Route path="/instituciones" element={<Layout><InstitutionsPage /></Layout>} />
+      <Route path="/institutions" element={<Layout><InstitutionsPage /></Layout>} />
       <Route path="/developers" element={<Layout><DeveloperPortal /></Layout>} />
   <Route path="/developers/docs" element={<Layout><ApiDocsLanding /></Layout>} />
+      <Route path="/precios" element={<Layout><PricingPage /></Layout>} />
+      <Route path="/pricing" element={<Layout><PricingPage /></Layout>} />
       <Route path="/agenda" element={<Layout><DemoScheduler /></Layout>} />
+      <Route path="/schedule" element={<Layout><DemoScheduler /></Layout>} />
+      <Route path="/docs" element={<Layout><ApiDocsLanding /></Layout>} />
+      <Route path="/verify" element={<Layout><CredentialVerifier /></Layout>} />
+      <Route path="/status" element={<Layout><BlockchainStatus /></Layout>} />
+      <Route path="/credential/:tokenId/:serialNumber/evidence" element={<Layout><CredentialEvidence /></Layout>} />
+      <Route path="/dashboard" element={<Layout><DashboardRedirect /></Layout>} />
       {/* Rutas públicas de demo */}
       <Route path="/demo/institution" element={<Layout><EnhancedInstitutionDashboard demo={true} /></Layout>} />
       <Route path="/demo/student" element={<Layout><EnhancedStudentPortal demo={true} /></Layout>} />
@@ -123,10 +144,42 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/profile"
+        element={
+          <ProtectedRoute requiredRoles={['institution','university','admin','student']}>
+            <Layout><Profile /></Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/admin"
         element={
           <ProtectedRoute requiredRoles={['admin','institution','university']}>
             <AdminLayout><AdminDashboard /></AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/usage"
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <AdminLayout><AdminUsage /></AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/alerts"
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <AdminLayout><AdminAlerts /></AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/reports"
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <AdminLayout><AdminReports /></AdminLayout>
           </ProtectedRoute>
         }
       />
@@ -170,7 +223,16 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/credentials/revoke"
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <AdminLayout><AdminRevocationPanel /></AdminLayout>
+          </ProtectedRoute>
+        }
+      />
     </Routes>
+    </>
   );
 };
 

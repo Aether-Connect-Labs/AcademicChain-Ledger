@@ -8,6 +8,10 @@ const BookingSchema = new mongoose.Schema({
   time: { type: String, required: true },
   tz: { type: String, required: true },
   status: { type: String, default: 'requested' },
+  googleEventId: { type: String, default: null },
+  calendarLink: { type: String, default: null },
+  startTime: { type: Date },
+  endTime: { type: Date },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Booking', BookingSchema);

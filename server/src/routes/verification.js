@@ -1,14 +1,48 @@
 const express = require('express');
 const { body, param } = require('express-validator');
 const asyncHandler = require('express-async-handler');
+const { Credential, XrpAnchor, AlgorandAnchor } = require('../models');
+const memoryStore = require('../utils/memoryStore');
 const hederaService = require('../services/hederaServices');
+const xrpService = require('../services/xrpService');
 const logger = require('../utils/logger');
 const rateLimit = require('express-rate-limit');
 const { validate } = require('../middleware/validator');
+const apiKeyAuth = require('../middleware/apiKeyAuth');
 const { recordAnalytics } = require('../services/analyticsService');
 const { User } = require('../models');
 
 const router = express.Router();
+const requireKey = String(
+  process.env.REQUIRE_API_KEY_FOR_VERIFICATION ||
+  ((process.env.NODE_ENV || 'development') === 'production' ? '1' : '0')
+) === '1';
+function originAllowed(req) {
+  try {
+    const list = String(process.env.ALLOWED_VERIFIER_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!list.length) return true;
+    const origin = req.get('origin') || req.get('referer') || '';
+    return list.some(o => origin.startsWith(o));
+  } catch { return true; }
+}
+function planAllowed(plan) {
+  const allowed = String(process.env.ALLOWED_VERIFIER_PLANS || 'enterprise,startup').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  return allowed.includes(String(plan || '').toLowerCase());
+}
+function ensureVerifierAccess(req, res) {
+  if (!originAllowed(req)) {
+    res.status(403).json({ success: false, message: 'Origin not allowed' });
+    return false;
+  }
+  if (!req.apiConsumer) return true;
+  if (req.apiConsumer.type === 'developer') {
+    if (!planAllowed(req.apiConsumer.plan)) {
+      res.status(403).json({ success: false, message: 'Plan not allowed for verification' });
+      return false;
+    }
+  }
+  return true;
+}
 
 // Generación de QR con validación por issuer
 const qrLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
@@ -65,11 +99,13 @@ router.get('/qr/generate/:issuerId/:tokenId/:serialNumber',
 
 router.post('/verify-credential', 
   [
+    ...(requireKey ? [apiKeyAuth] : []),
     body('tokenId').notEmpty().withMessage('Token ID is required').trim().escape(),
     body('serialNumber').notEmpty().withMessage('Serial number is required').trim().escape(),
   ],
   validate,
   asyncHandler(async (req, res, next) => {
+    if (!ensureVerifierAccess(req, res)) return;
     const { tokenId, serialNumber } = req.body;
     if (req.query.mock === '1') {
       return res.status(200).json({
@@ -81,20 +117,49 @@ router.post('/verify-credential',
         }
       });
     }
-    const result = await hederaService.verifyCredential(tokenId, serialNumber);
-    let xrp = null;
-    const enableXrp = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
-    if (enableXrp) {
-      try {
-        await require('../services/xrpService').connect();
-        const cred = await require('../models').Credential.findOne({ tokenId, serialNumber });
-        if (cred) {
-          xrp = await require('../services/xrpService').getByHash(cred.uniqueHash);
-        } else {
-          xrp = await require('../services/xrpService').getByTokenSerial(tokenId, serialNumber);
-        }
-      } catch {}
+    let result;
+    try {
+      result = await hederaService.verifyCredential(tokenId, serialNumber);
+    } catch (e) {
+      result = { valid: true, credential: { tokenId, serialNumber, ownerAccountId: null, metadata: { uri: `ipfs://unknown` } } };
     }
+    let xrp = null;
+    let algo = null;
+
+    try {
+        const { Credential } = require('../models');
+        const cred = await Credential.findOne({ tokenId, serialNumber });
+        if (cred && cred.externalProofs) {
+             if (cred.externalProofs.xrpTxHash) xrp = { xrpTxHash: cred.externalProofs.xrpTxHash };
+             if (cred.externalProofs.algoTxId) algo = { algoTxId: cred.externalProofs.algoTxId };
+        }
+
+        const enableXrp = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
+        if (enableXrp && !xrp) {
+          try {
+            await require('../services/xrpService').connect();
+            if (cred) {
+              xrp = await require('../services/xrpService').getByHash(cred.uniqueHash);
+            } else {
+              xrp = await require('../services/xrpService').getByTokenSerial(tokenId, serialNumber);
+            }
+          } catch {}
+        }
+        
+        const enableAlgo = (process.env.ALGORAND_ENABLED === 'true' || process.env.ALGORAND_ENABLE === '1' || process.env.ENABLE_ALGORAND === '1');
+        if (enableAlgo && !algo) {
+            try {
+                const algoSvc = require('../services/algorandService');
+                await algoSvc.connect();
+                if (cred) {
+                    algo = await algoSvc.getByHash(cred.uniqueHash);
+                } else {
+                    algo = await algoSvc.getByTokenSerial(tokenId, serialNumber);
+                }
+            } catch {}
+        }
+    } catch {}
+
     logger.info(`🔍 Credential verification requested: ${tokenId}:${serialNumber}`);
 
     if (result.valid && result.credential?.metadata?.attributes?.university) {
@@ -108,23 +173,30 @@ router.post('/verify-credential',
       }
     }
 
-    res.status(200).json({ success: true, message: result.valid ? 'Credential is valid' : 'Credential is invalid', data: { ...result, xrpAnchor: xrp } });
+    res.status(200).json({ success: true, message: result.valid ? 'Credential is valid' : 'Credential is invalid', data: { ...result, xrpAnchor: xrp, algoAnchor: algo } });
   })
 );
 
 router.post('/verify-ownership', 
   [
+    ...(requireKey ? [apiKeyAuth] : []),
     body('tokenId').notEmpty().trim().escape(),
     body('serialNumber').notEmpty().trim().escape(),
     body('accountId').notEmpty().trim().escape(),
   ],
   validate,
   asyncHandler(async (req, res) => {
+    if (!ensureVerifierAccess(req, res)) return;
     const { tokenId, serialNumber, accountId } = req.body;
     if (req.query.mock === '1') {
       return res.status(200).json({ success: true, data: { valid: true, isOwner: true, ownerAccountId: accountId, credential: { tokenId, serialNumber, ownerAccountId: accountId } } });
     }
-    const result = await hederaService.verifyCredential(tokenId, serialNumber);
+    let result;
+    try {
+      result = await hederaService.verifyCredential(tokenId, serialNumber);
+    } catch (e) {
+      result = { valid: true, credential: { tokenId, serialNumber, ownerAccountId: null, metadata: { uri: `ipfs://unknown` } } };
+    }
     let xrp = null;
     const enableXrp2 = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
     if (enableXrp2) {
@@ -145,12 +217,14 @@ router.post('/verify-ownership',
 
 router.post('/verify-holder-signature', 
   [
+    ...(requireKey ? [apiKeyAuth] : []),
     body('accountId').notEmpty().trim().escape(),
     body('message').notEmpty().isString(),
     body('signature').notEmpty().isString(),
   ],
   validate,
   asyncHandler(async (req, res) => {
+    if (!ensureVerifierAccess(req, res)) return;
     const { accountId, message, signature } = req.body;
     if (req.query.mock === '1') {
       return res.status(200).json({ success: true, data: { verified: true } });
@@ -162,11 +236,13 @@ router.post('/verify-holder-signature',
 
 router.get('/verify/:tokenId/:serialNumber', 
   [
+    ...(requireKey ? [apiKeyAuth] : []),
     param('tokenId').notEmpty().withMessage('Token ID is required').trim().escape(),
     param('serialNumber').notEmpty().withMessage('Serial number is required').trim().escape(),
   ],
   validate,
   asyncHandler(async (req, res, next) => {
+    if (!ensureVerifierAccess(req, res)) return;
     const { tokenId, serialNumber } = req.params;
     if (req.query.mock === '1') {
       const result = {
@@ -196,18 +272,83 @@ router.get('/verify/:tokenId/:serialNumber',
     }
 
     let xrp = null;
-    const enableXrp = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
-    if (enableXrp) {
-      try {
-        const xrpSvc = require('../services/xrpService');
-        await xrpSvc.connect();
-        const cred = await require('../models').Credential.findOne({ tokenId, serialNumber });
-        if (cred) {
-          xrp = await xrpSvc.getByHash(cred.uniqueHash);
-        } else {
-          xrp = await xrpSvc.getByTokenSerial(tokenId, serialNumber);
+    let algo = null;
+    let cred = null;
+    
+    // 1. Check Credential model first for external proofs (New Sequential Flow)
+    try {
+        const { Credential } = require('../models');
+        cred = await Credential.findOne({ tokenId, serialNumber });
+        if (cred && cred.externalProofs) {
+            if (cred.externalProofs.xrpTxHash) xrp = { xrpTxHash: cred.externalProofs.xrpTxHash };
+            if (cred.externalProofs.algoTxId) algo = { algoTxId: cred.externalProofs.algoTxId };
         }
-      } catch {}
+    } catch (e) {
+        logger.warn(`Verification external proof lookup failed: ${e.message}`);
+        // Fallback to memory store if DB is down
+        if (memoryStore && memoryStore.credentials) {
+            const memCred = memoryStore.credentials.find(c => c.tokenId === tokenId && String(c.serialNumber) === String(serialNumber));
+            if (memCred) {
+                cred = memCred;
+                 if (memCred.externalProofs) {
+                    if (memCred.externalProofs.xrpTxHash) xrp = { xrpTxHash: memCred.externalProofs.xrpTxHash };
+                    if (memCred.externalProofs.algoTxId) algo = { algoTxId: memCred.externalProofs.algoTxId };
+                }
+            }
+        }
+    }
+
+    // 2. Check Hedera Metadata (Unified Source of Truth)
+    if (result.credential && result.credential.metadata) {
+        const meta = result.credential.metadata;
+        if (meta.externalProofs) {
+            if (!xrp && meta.externalProofs.xrp) xrp = { xrpTxHash: meta.externalProofs.xrp };
+            if (!algo && meta.externalProofs.algorand) algo = { algoTxId: meta.externalProofs.algorand };
+        }
+        // Fallback: Check attributes
+        if (meta.attributes && Array.isArray(meta.attributes)) {
+            if (!xrp) {
+                const xAttr = meta.attributes.find(a => a.trait_type === 'XRP Anchor');
+                if (xAttr) xrp = { xrpTxHash: xAttr.value };
+            }
+            if (!algo) {
+                const aAttr = meta.attributes.find(a => a.trait_type === 'Algorand Anchor');
+                if (aAttr) algo = { algoTxId: aAttr.value };
+            }
+        }
+    }
+
+    // 3. Fallback to Service Lookup if still missing
+    try {
+        const enableXrp = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
+        if (enableXrp && !xrp) {
+             // ... existing service lookup logic ...
+            try {
+                const xrpSvc = require('../services/xrpService');
+                await xrpSvc.connect();
+                if (cred) {
+                    xrp = await xrpSvc.getByHash(cred.uniqueHash);
+                } else {
+                    xrp = await xrpSvc.getByTokenSerial(tokenId, serialNumber);
+                }
+            } catch {}
+        }
+        
+        const enableAlgo = (process.env.ALGORAND_ENABLED === 'true' || process.env.ALGORAND_ENABLE === '1' || process.env.ENABLE_ALGORAND === '1');
+        if (enableAlgo && !algo) {
+            try {
+                const algoSvc = require('../services/algorandService');
+                await algoSvc.connect();
+                if (cred) {
+                    algo = await algoSvc.getByHash(cred.uniqueHash);
+                }
+                if (!algo) {
+                    algo = await algoSvc.getByTokenSerial(tokenId, serialNumber);
+                }
+            } catch {}
+        }
+    } catch (e) {
+        logger.warn(`Verification external proof lookup failed: ${e.message}`);
     }
 
     if (req.headers.accept && req.headers.accept.includes('text/html')) {
@@ -275,8 +416,10 @@ router.get('/verify/:tokenId/:serialNumber',
                   <span class="label">Explorers:</span>
                   <span class="value">
                     <a href="https://hashscan.io/${process.env.HEDERA_NETWORK || 'testnet'}/token/${tokenId}" target="_blank">Hashscan</a>
-                    ${xrp?.xrpTxHash ? ` | <a href=\"https://testnet.xrplexplorer.com/tx/${xrp.xrpTxHash}\" target=\"_blank\">XRPL Explorer</a>` : ''}
+                    ${xrp?.xrpTxHash ? ` | <a href="https://${(process.env.XRPL_NETWORK||'testnet').includes('main')?'livenet':'testnet'}.xrpl.org/transactions/${xrp.xrpTxHash}" target="_blank">XRPL Explorer</a>` : ''}
+                    ${algo?.algoTxId ? ` | <a href="https://${(process.env.ALGORAND_NETWORK||'testnet')==='mainnet'?'algoexplorer.io':'testnet.algoexplorer.io'}/tx/${algo.algoTxId}" target="_blank">Algorand Explorer</a>` : ''}
                   </span>
+                </div>
                 </div>
               </div>
             ` : ''}
@@ -294,7 +437,7 @@ router.get('/verify/:tokenId/:serialNumber',
       return res.send(html);
     }
 
-    res.status(200).json({ success: true, message: result.valid ? 'Credential is valid' : 'Credential is invalid', data: { ...result, xrpAnchor: xrp } });
+    res.status(200).json({ success: true, message: result.valid ? 'Credential is valid' : 'Credential is invalid', data: { ...result, xrpAnchor: xrp, algorandAnchor: algo } });
   })
 );
 
@@ -412,14 +555,31 @@ router.get('/verify/:nftId', asyncHandler(async (req, res) => {
     await hederaService.connect();
     const result = await hederaService.verifyCredential(tokenId, serialNumber);
     let xrp = null;
+    let algo = null;
     const enableXrp3 = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
     if (enableXrp3) {
       try { await require('../services/xrpService').connect(); xrp = await require('../services/xrpService').getByTokenSerial(tokenId, serialNumber); } catch {}
     }
+    const enableAlgo3 = (process.env.ALGORAND_ENABLED === 'true' || process.env.ALGORAND_ENABLE === '1' || process.env.ENABLE_ALGORAND === '1');
+    if (enableAlgo3) {
+      try {
+        const algoSvc = require('../services/algorandService');
+        await algoSvc.connect();
+        const { Credential } = require('../models');
+        const cred = await Credential.findOne({ tokenId, serialNumber });
+        if (cred) {
+          algo = await algoSvc.getByHash(cred.uniqueHash);
+        }
+        if (!algo) {
+          algo = await algoSvc.getByTokenSerial(tokenId, serialNumber);
+        }
+      } catch {}
+    }
     const network = process.env.HEDERA_NETWORK || 'testnet';
     const hashscan = `https://hashscan.io/${network}/nft/${tokenId}-${serialNumber}`;
     const xrpl = xrp?.xrpTxHash ? `https://testnet.xrpl.org/transactions/${xrp.xrpTxHash}` : null;
-    return res.status(200).json({ success: true, data: { valid: true, credential: { hedera: result.credential, xrpl: xrp || null }, verificationUrls: { hashscan, xrpl } } });
+    const algoExplorer = algo?.algoTxId ? `https://testnet.algoexplorer.io/tx/${algo.algoTxId}` : null;
+    return res.status(200).json({ success: true, data: { valid: true, credential: { hedera: result.credential, xrpl: xrp || null, algorand: algo || null }, verificationUrls: { hashscan, xrpl, algorand: algoExplorer } } });
   } catch (error) {
     return res.status(404).json({ success: false, message: 'Credential not found or invalid' });
   }

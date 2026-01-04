@@ -27,22 +27,22 @@ const CTASection = ({
   // Configuraciones por variante
   const variants = {
     primary: {
-      bg: 'bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700',
+      bg: 'bg-gradient-to-br from-[#020617] via-[#0b1b3a] to-[#0a0f1f]',
       text: 'text-white',
-      button: 'bg-white text-blue-600 hover:bg-gray-100',
-      secondaryButton: 'border-2 border-white text-white hover:bg-white hover:text-blue-600'
+      button: 'bg-[#0066FF] text-white hover:bg-[#0057d6]',
+      secondaryButton: 'border-2 border-white text-white hover:bg-white hover:text-[#0066FF]'
     },
     secondary: {
-      bg: 'bg-gradient-to-br from-gray-900 to-blue-900',
+      bg: 'bg-gradient-to-br from-[#020617] to-[#0b1b3a]',
       text: 'text-white',
-      button: 'bg-blue-500 text-white hover:bg-blue-600',
-      secondaryButton: 'border-2 border-blue-300 text-blue-100 hover:bg-blue-300 hover:text-gray-900'
+      button: 'bg-[#0066FF] text-white hover:bg-[#0057d6]',
+      secondaryButton: 'border-2 border-[#0066FF] text-[#cde0ff] hover:bg-[#0066FF] hover:text-white'
     },
     light: {
       bg: 'bg-gradient-to-br from-gray-50 to-blue-50',
       text: 'text-gray-900',
-      button: 'bg-blue-600 text-white hover:bg-blue-700',
-      secondaryButton: 'border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'
+      button: 'bg-[#0066FF] text-white hover:bg-[#0057d6]',
+      secondaryButton: 'border-2 border-[#0066FF] text-[#0066FF] hover:bg-[#0066FF] hover:text-white'
     }
   };
 
@@ -51,32 +51,32 @@ const CTASection = ({
   // Contenido por defecto
   const defaultContent = {
     primary: {
-      title: 'Comienza tu Revolución Educativa con Blockchain',
-      subtitle: 'Únete a las instituciones líderes que ya transforman la emisión y verificación de credenciales académicas.',
+      title: 'Blindaje Total contra el Fraude Académico',
+      subtitle: 'Fe pública digital con garantía perpetua y estándar global para credenciales verificables.',
       primaryButton: '🚀 Comenzar Gratis',
       secondaryButton: '📅 Agendar Demo',
       features: [
-        'Configuración en 5 minutos',
-        'Soporte técnico 24/7',
-        'Sin costos iniciales',
-        'Integración garantizada'
+        'Activación en minutos',
+        'Soporte 24/7',
+        'Sin costos ocultos',
+        'Integración asegurada'
       ]
     },
     secondary: {
-      title: '¿Listo para Eliminar el Fraude Académico?',
-      subtitle: 'Implementa la tecnología blockchain de Hedera y ofrece credenciales verificables instantáneamente.',
+      title: 'Garantía de Autoridad Inquebrantable',
+      subtitle: 'Títulos con verificación instantánea y trazabilidad forense, sin complejidad técnica.',
       primaryButton: '🏫 Registrar Institución',
       secondaryButton: '📚 Ver Casos de Éxito',
       features: [
-        '99.9% de disponibilidad',
-        'Verificación en 3 segundos',
-        'Cero costos de transacción',
-        'Compliance internacional'
+        'Alta disponibilidad',
+        'Verificación en segundos',
+        'Cero mantenimiento oculto',
+        'Cumplimiento internacional'
       ]
     },
     light: {
-      title: 'Transforma tu Institución Hoy Mismo',
-      subtitle: 'Prueba AcademicChain sin compromiso y descubre el poder de las credenciales blockchain.',
+      title: 'Transforma tu Institución Hoy',
+      subtitle: 'Prueba AcademicChain y certifica con fe pública digital sin fricción.',
       primaryButton: '🎯 Probar Demo',
       secondaryButton: '📞 Contactar Ventas',
       features: [
@@ -118,19 +118,7 @@ const CTASection = ({
   useEffect(() => {
     if (inView && (subtitle || content.subtitle)) {
       const fullText = subtitle || content.subtitle;
-      let i = 0;
-      setAnimatedSubtitle(''); // Reiniciar
-
-      const timer = setInterval(() => {
-        if (i < fullText.length) {
-          setAnimatedSubtitle(prev => prev + fullText.charAt(i));
-          i++;
-        } else {
-          clearInterval(timer);
-        }
-      }, 30); // Velocidad de escritura
-
-      return () => clearInterval(timer);
+      setAnimatedSubtitle(fullText);
     }
   }, [inView, subtitle, content.subtitle]);
 
@@ -147,14 +135,10 @@ const CTASection = ({
 
     switch (type) {
       case 'institution':
-        try {
-          window.dispatchEvent(new CustomEvent('openLoginModal', { detail: { userType: 'institution' } }));
-        } catch {}
+        navigate('/institution/login');
         break;
       case 'student':
-        try {
-          window.dispatchEvent(new CustomEvent('openLoginModal', { detail: { userType: 'student' } }));
-        } catch {}
+        navigate('/students/login');
         break;
       case 'demo':
         window.open('https://calendly.com/academicchain/demo', '_blank');

@@ -20,6 +20,117 @@ const apiRateLimit = require('../../middleware/apiRateLimit');
 const crypto = require('crypto');
 const axios = require('axios');
 
+router.post('/revoke', apiKeyAuth, apiRateLimit, [
+  body('tokenId').notEmpty().trim(),
+  body('serialNumber').notEmpty().trim(),
+  body('reason').optional().isString(),
+], validate, asyncHandler(async (req, res) => {
+  const { tokenId, serialNumber, reason } = req.body;
+  await hederaService.connect();
+  const hSubmit = await hederaService.submitRevocation(tokenId, serialNumber, reason);
+  if (useMem()) {
+    const idx = mem.credentials.findIndex(c => c.tokenId === tokenId && c.serialNumber === serialNumber);
+    if (idx >= 0) {
+      mem.credentials[idx].status = 'REVOKED';
+      mem.credentials[idx].revocationReason = reason || null;
+      mem.credentials[idx].revokedAt = new Date();
+      mem.credentials[idx].revocationTxId = hSubmit.transactionId;
+      mem.credentials[idx].revocationTopicId = hSubmit.topicId;
+      mem.credentials[idx].revocationSequence = hSubmit.sequence;
+      mem.credentials[idx].updatedAt = new Date();
+    } else {
+      mem.credentials.push({ tokenId, serialNumber, status: 'REVOKED', revocationReason: reason || null, revokedAt: new Date(), revocationTxId: hSubmit.transactionId, revocationTopicId: hSubmit.topicId, revocationSequence: hSubmit.sequence, createdAt: new Date(), updatedAt: new Date() });
+    }
+  } else {
+    await Credential.updateOne({ tokenId, serialNumber }, { $set: { status: 'REVOKED', revocationReason: reason || null, revokedAt: new Date(), revocationTxId: hSubmit.transactionId, revocationTopicId: hSubmit.topicId, revocationSequence: hSubmit.sequence } });
+  }
+  res.status(200).json({
+    success: true,
+    message: 'Credential revoked',
+    data: {
+      hedera: { topicId: hSubmit.topicId, sequence: hSubmit.sequence, transactionId: hSubmit.transactionId },
+    }
+  });
+}));
+
+router.get('/revocations', apiRateLimit, asyncHandler(async (req, res) => {
+  const tokenId = String(req.query.tokenId || '').trim();
+  const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '50', 10) || 50));
+  const offset = Math.max(0, parseInt(req.query.offset || '0', 10) || 0);
+  const startDateRaw = String(req.query.startDate || '').trim();
+  const endDateRaw = String(req.query.endDate || '').trim();
+  const reasonRaw = String(req.query.reason || '').trim().toLowerCase();
+  const q = { status: 'REVOKED' };
+  if (tokenId) q.tokenId = tokenId;
+  if (startDateRaw || endDateRaw) {
+    const range = {};
+    if (startDateRaw) {
+      const sd = new Date(startDateRaw);
+      if (!isNaN(sd.getTime())) range.$gte = sd;
+    }
+    if (endDateRaw) {
+      const ed = new Date(endDateRaw);
+      if (!isNaN(ed.getTime())) range.$lte = ed;
+    }
+    if (Object.keys(range).length) q.revokedAt = range;
+  }
+  const matchReason = (txt) => {
+    if (!reasonRaw) return true;
+    const s = String(txt || '').toLowerCase();
+    return s.includes(reasonRaw);
+  };
+  let list = [];
+  if (useMem()) {
+    list = mem.credentials
+      .filter(c => c.status === 'REVOKED' && (!tokenId || c.tokenId === tokenId))
+      .filter(c => {
+        if (q.revokedAt) {
+          const ts = c.revokedAt instanceof Date ? c.revokedAt : (c.updatedAt instanceof Date ? c.updatedAt : new Date(c.updatedAt || Date.now()));
+          if (q.revokedAt.$gte && ts < q.revokedAt.$gte) return false;
+          if (q.revokedAt.$lte && ts > q.revokedAt.$lte) return false;
+        }
+        return matchReason(c.revocationReason);
+      })
+      .slice(offset, offset + limit);
+  } else {
+    const base = await Credential.find(q).sort({ revokedAt: -1, updatedAt: -1 }).skip(offset).limit(limit).lean();
+    list = base.filter(c => matchReason(c.revocationReason));
+  }
+  const items = list.map(c => ({
+    tokenId: c.tokenId,
+    serialNumber: c.serialNumber,
+    status: c.status || 'REVOKED',
+    revocationReason: c.revocationReason || null,
+    revokedAt: c.revokedAt || c.updatedAt || null,
+    hedera: {
+      topicId: c.revocationTopicId || null,
+      sequence: c.revocationSequence || null,
+      transactionId: c.revocationTxId || null
+    }
+  }));
+  res.status(200).json({ success: true, data: { items, paging: { limit, offset, count: items.length } } });
+}));
+
+router.get('/status/:tokenId/:serialNumber', apiRateLimit, asyncHandler(async (req, res) => {
+  const { tokenId, serialNumber } = req.params;
+  let cred = null;
+  if (useMem()) {
+    cred = mem.credentials.find(c => c.tokenId === tokenId && c.serialNumber === serialNumber) || null;
+  } else {
+    cred = await Credential.findOne({ tokenId, serialNumber });
+  }
+  if (!cred) {
+    return res.status(404).json({ success: false, message: 'Credencial no encontrada' });
+  }
+  res.status(200).json({
+    success: true,
+    data: {
+      status: cred.status || 'ACTIVE',
+      revocationReason: cred.revocationReason || null
+    }
+  });
+}));
+
 router.post('/issue', apiKeyAuth, apiRateLimit, [
   body('tokenId').notEmpty().trim(),
   body('uniqueHash').notEmpty().trim(),

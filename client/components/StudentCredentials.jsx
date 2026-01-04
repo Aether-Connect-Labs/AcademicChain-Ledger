@@ -1,19 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './useAuth';
 import QRCode from 'react-qr-code';
-import axios from 'axios'; // Importar axios
 import DocumentViewer from './ui/DocumentViewer';
+import { studentService } from './services/studentService';
+import { toGateway } from './utils/ipfsUtils';
 
 const CredentialCard = ({ credential }) => {
-  const link = `${window.location.origin}/verificar?tokenId=${encodeURIComponent(credential.tokenId)}\u0026serialNumber=${encodeURIComponent(credential.serialNumber)}`;
+  const link = `${window.location.origin}/#/verificar?tokenId=${encodeURIComponent(credential.tokenId)}\u0026serialNumber=${encodeURIComponent(credential.serialNumber)}`;
   const [docOpen, setDocOpen] = useState(false);
-  const toGateway = (uri) => {
-    if (!uri) return '';
-    const gw = import.meta.env.VITE_IPFS_GATEWAY || 'https://ipfs.io/ipfs/';
-    if (uri.startsWith('ipfs://')) return gw + uri.replace('ipfs://','');
-    return uri;
-  };
   const docUrl = toGateway(credential.ipfsURI);
+  const evidenceUrl = `/#/credential/${encodeURIComponent(credential.tokenId)}/${encodeURIComponent(credential.serialNumber)}/evidence`;
   return (
     <div className="card space-y-3">
       <div className="flex justify-between items-center">
@@ -42,6 +38,17 @@ const CredentialCard = ({ credential }) => {
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button onClick={() => navigator.clipboard.writeText(link)} className="btn-primary btn-sm">Copiar Link</button>
             <button className="btn-secondary btn-sm" onClick={() => setDocOpen(true)} disabled={!docUrl}>Ver documento</button>
+            <a className="btn-secondary btn-sm" href={evidenceUrl}>Ver evidencias</a>
+            {credential.tokenId && credential.serialNumber && (
+              <a
+                className="btn-secondary btn-sm text-center"
+                href={`https://hashscan.io/${import.meta.env.VITE_HEDERA_NETWORK || (import.meta.env.PROD ? 'mainnet' : 'testnet')}/nft/${credential.tokenId}-${credential.serialNumber}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                HashScan
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -58,7 +65,6 @@ const StudentCredentials = ({ demo = false }) => {
   const [error, setError] = useState(null); // Estado de error
 
   useEffect(() => {
-    const API = import.meta.env.VITE_API_URL;
     let intervalId;
     const fetchData = async () => {
       setIsLoading(true);
@@ -66,41 +72,10 @@ const StudentCredentials = ({ demo = false }) => {
       try {
         if (demo) {
           // Datos demo realistas
-          const demoData = [
-            {
-              id: 'demo-1',
-              tokenId: '0.0.123456',
-              serialNumber: '1',
-              title: 'Título Profesional en Ingeniería',
-              issuer: 'Demo University',
-              ipfsURI: 'ipfs://QmDemoCid1',
-              createdAt: new Date().toISOString(),
-              recipientAccountId: '0.0.987654'
-            },
-            {
-              id: 'demo-2',
-              tokenId: '0.0.123456',
-              serialNumber: '2',
-              title: 'Certificado de Curso Avanzado',
-              issuer: 'Demo University',
-              ipfsURI: 'ipfs://QmDemoCid2',
-              createdAt: new Date().toISOString(),
-              recipientAccountId: '0.0.987655'
-            },
-            {
-              id: 'demo-3',
-              tokenId: '0.0.987654',
-              serialNumber: '1',
-              title: 'Diploma de Posgrado en Blockchain',
-              issuer: 'Demo Institute',
-              ipfsURI: 'ipfs://QmDemoCid3',
-              createdAt: new Date().toISOString(),
-              recipientAccountId: '0.0.987656'
-            }
-          ];
-          setCredentials(demoData);
+          const res = await studentService.getDemoCredentials();
+          setCredentials(res.data?.credentials || []);
         } else {
-          const res = await axios.get(`${API}/api/credentials/mine`, { headers: { Authorization: `Bearer ${token}` } });
+          const res = await studentService.getMyCredentials();
           setCredentials(res.data.credentials || []);
         }
       } catch (e) {
@@ -130,9 +105,8 @@ const StudentCredentials = ({ demo = false }) => {
         <div className="mb-4 flex items-center gap-3">
           <span className="badge badge-info">Modo demo (auto-actualiza cada 10s)</span>
           <button className="btn-secondary btn-sm" onClick={() => {
-            const API = import.meta.env.VITE_API_URL;
             setIsLoading(true);
-            axios.get(`${API}/api/demo/credentials`).then(r => setCredentials(r.data?.data || [])).catch(() => {}).finally(() => setIsLoading(false));
+            studentService.getDemoCredentials().then(r => setCredentials(r.data?.data || [])).catch(() => {}).finally(() => setIsLoading(false));
           }}>Actualizar ahora</button>
         </div>
       )}

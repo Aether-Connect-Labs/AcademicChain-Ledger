@@ -6,11 +6,19 @@ const { BadRequestError, UnauthorizedError } = require('../utils/errors');
 const didService = require('./didService');
 const { User } = require('../models');
 
+const memoryUsers = new Map();
+
 class AuthService {
   async register(userData) {
     const { email, password, name, role: requestedRole, universityName, hederaAccountId } = userData;
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    let existingUser;
+    try {
+      existingUser = await User.findOne({ email: email.toLowerCase() });
+    } catch (e) {
+      existingUser = memoryUsers.get(email.toLowerCase());
+    }
+
     if (existingUser) {
       throw new BadRequestError('User already exists');
     }
@@ -19,15 +27,29 @@ class AuthService {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const role = requestedRole === 'university' ? 'university' : 'student';
-    const user = await User.create({
-      email,
+    const userPayload = {
+      email: email.toLowerCase(),
       password: hashedPassword,
       name,
       role,
       universityName: role === 'university' ? universityName : null,
       hederaAccountId: hederaAccountId || null,
       isActive: true,
-    });
+    };
+
+    let user;
+    try {
+      user = await User.create(userPayload);
+    } catch (e) {
+      console.warn('AuthService: DB create failed, using memory', e.message);
+      user = { 
+        ...userPayload, 
+        id: uuidv4(), 
+        _id: uuidv4(),
+        save: async function() { return this; }
+      };
+      memoryUsers.set(email.toLowerCase(), user);
+    }
 
     if (user.hederaAccountId) {
       user.did = didService.generateDid(user.hederaAccountId);
@@ -44,7 +66,12 @@ class AuthService {
   async login(credentials, res) {
     const { email, password } = credentials;
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    let user;
+    try {
+      user = await User.findOne({ email: email.toLowerCase() });
+    } catch (e) {
+      user = memoryUsers.get(email.toLowerCase());
+    }
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
       throw new UnauthorizedError('Invalid credentials');
