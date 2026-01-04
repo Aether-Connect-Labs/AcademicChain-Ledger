@@ -13,6 +13,24 @@ const swaggerUi = require('swagger-ui-express');
 const { createBullBoard } = require('@bull-board/api');
 const { BullMQAdapter } = require('@bull-board/api/bullMQAdapter');
 const { ExpressAdapter } = require('@bull-board/express');
+
+// Disable BullBoard in production to save memory if needed
+const disableBullBoard = process.env.DISABLE_BULLBOARD === '1' || process.env.NODE_ENV === 'production';
+let serverAdapter;
+if (!disableBullBoard) {
+  serverAdapter = new ExpressAdapter();
+  serverAdapter.setBasePath('/admin/queues');
+  
+  try {
+    createBullBoard({
+      queues: [new BullMQAdapter(require('../queue/issuanceQueue').issuanceQueue)],
+      serverAdapter: serverAdapter,
+    });
+    app.use('/admin/queues', serverAdapter.getRouter());
+  } catch (e) {
+    console.warn('BullBoard init skipped', e.message);
+  }
+}
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
@@ -44,6 +62,8 @@ const { issuanceQueue } = require('../queue/issuanceQueue');
 const { initializeWorkers } = require('./workers');
 const { connectDB, isConnected: isMongoConnected, getConnectionStats: getMongoStats } = require('./config/database');
 const { isConnected: isRedisConnected, getStats: getRedisStats } = require('../queue/connection');
+
+// ... imports ...
 const ROLES = require('./config/roles');
 const axios = require('axios');
 const cron = require('node-cron');
@@ -287,11 +307,18 @@ const swaggerOptions = {
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+const disableSwagger = process.env.DISABLE_SWAGGER === '1' || process.env.NODE_ENV === 'production';
+if (!disableSwagger) {
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
 
 app.get('/', (req, res) => {
   try {
-    res.redirect('/api/docs');
+    if (!disableSwagger) {
+      res.redirect('/api/docs');
+    } else {
+      res.status(200).send('AcademicChain Ledger API (Production Mode)');
+    }
   } catch {
     res.status(200).send('AcademicChain Ledger API');
   }
@@ -523,7 +550,7 @@ if (require.main === module) {
       try { await getHederaService().connect(); } catch {}
       try { await getXrpService().connect(); } catch {}
       try { await getAlgorandService().connect(); } catch {}
-      if (typeof initializeWorkers === 'function') {
+      if (typeof initializeWorkers === 'function' && process.env.DISABLE_REDIS !== '1' && process.env.DISABLE_WORKERS !== '1') {
         try {
           if (isRedisConnected()) {
             initializeWorkers(io);
