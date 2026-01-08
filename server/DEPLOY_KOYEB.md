@@ -54,7 +54,7 @@ Las más críticas son:
 |----------|-------|------|
 | `NODE_ENV` | `production` | |
 | `PORT` | `3001` | Debe coincidir con el Dockerfile. |
-| `CLIENT_URL` | `https://academic-chain-ledger-client.vercel.app` | **CRÍTICO**: Sin espacios al final. |
+| `CLIENT_URL` | `https://academic-chain-ledger.vercel.app` | **CRÍTICO**: Sin espacios al final. |
 | `HEDERA_NETWORK` | `testnet` | |
 | `MONGODB_URI` | `...` | Tu conexión a Mongo Atlas. |
 | `JWT_SECRET` | `...` | Crea una contraseña segura. |
