@@ -64,6 +64,14 @@
     font-family: 'Inter', system-ui, sans-serif;
   }
 
+  :root {
+    --brand-primary: #2563eb;
+    --brand-primary-hover: #1d4ed8;
+    --brand-primary-soft: #dbeafe;
+    --brand-logo-url: '';
+    --brand-institution-name: '';
+  }
+
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 8px;
@@ -86,11 +94,20 @@
 @layer components {
   /* Button styles */
   .btn-primary {
-    @apply bg-primary-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply text-white px-6 py-3 rounded-lg font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    background-color: var(--brand-primary);
+  }
+  .btn-primary:hover {
+    background-color: var(--brand-primary-hover);
   }
 
   .btn-secondary {
-    @apply bg-white text-primary-600 border-2 border-primary-600 px-6 py-3 rounded-lg font-semibold hover:bg-primary-50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply bg-white px-6 py-3 rounded-lg font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    color: var(--brand-primary);
+    border: 2px solid var(--brand-primary);
+  }
+  .btn-secondary:hover {
+    background-color: var(--brand-primary-soft);
   }
 
   .btn-ghost {
@@ -99,11 +116,14 @@
 
   /* Card styles */
   .card {
-    @apply bg-white rounded-xl shadow-soft border border-gray-200 p-6 hover:shadow-medium transition-shadow duration-200;
+    @apply bg-white rounded-xl shadow-soft border p-6 hover:shadow-medium transition-shadow duration-200;
+    border-color: var(--brand-primary-soft);
   }
 
   .card-gradient {
-    @apply bg-gradient-to-br from-primary-50 to-secondary-50 rounded-xl shadow-soft border border-gray-200 p-6 hover:shadow-medium transition-all duration-200;
+    @apply bg-gradient-to-br rounded-xl shadow-soft border p-6 hover:shadow-medium transition-all duration-200;
+    background-image: linear-gradient(to bottom right, var(--brand-primary-soft), #eff6ff);
+    border-color: var(--brand-primary-soft);
   }
 
   /* Input styles */

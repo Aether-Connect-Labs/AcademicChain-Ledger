@@ -304,9 +304,98 @@ router.get('/reports/compliance.csv', asyncHandler(async (req, res) => {
   );
   const csv = rows.map(r => r.join(',')).join('\n');
   res.setHeader('Content-Type', 'text/csv');
-  res.setHeader('Content-Disposition', 'attachment; filename="compliance_report.csv"');
+  res.setHeader('Content-Disposition', 'attachment; filename="compliance.csv"');
   return res.status(200).send(csv);
 }));
+
+router.get('/superadmin/institutions', asyncHandler(async (req, res) => {
+  const { User } = require('../models');
+  const list = await User.find({ role: 'university' }).select('name email universityName hederaAccountId isActive credits').lean();
+  const tokenId = process.env.ACL_TOKEN_ID;
+  let balances = {};
+  try {
+    await hederaService.connect();
+    if (hederaService.isEnabled() && tokenId) {
+      const results = await Promise.all(list.map(u => u.hederaAccountId ? hederaService.getTokenBalance(u.hederaAccountId, tokenId).catch(() => '0') : Promise.resolve('0')));
+      balances = Object.fromEntries(list.map((u, i) => [String(u._id), results[i]]));
+    }
+  } catch {}
+  const items = list.map(u => ({
+    id: String(u._id),
+    name: u.name,
+    email: u.email,
+    universityName: u.universityName || null,
+    hederaAccountId: u.hederaAccountId || null,
+    isActive: !!u.isActive,
+    credits: Number(u.credits || 0),
+    aclBalance: balances[String(u._id)] || '0'
+  }));
+  return res.status(200).json({ success: true, data: { items } });
+}));
+
+router.post('/superadmin/institutions', 
+  [
+    body('name').notEmpty().trim(),
+    body('email').isEmail().normalizeEmail(),
+    body('universityName').optional().isString().trim(),
+    body('hederaAccountId').optional().isString().trim(),
+    body('credits').optional().isInt({ min: 0 }),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { User } = require('../models');
+    const { name, email, universityName, hederaAccountId, credits } = req.body;
+    const exists = await User.findOne({ email });
+    if (exists) return res.status(409).json({ success: false, message: 'Email ya existe' });
+    const bcrypt = require('bcryptjs');
+    const { v4: uuidv4 } = require('uuid');
+    const salt = await bcrypt.genSalt(10);
+    const pwd = await bcrypt.hash(uuidv4(), salt);
+    const user = await User.create({
+      name,
+      email,
+      password: pwd,
+      role: 'university',
+      universityName: universityName || null,
+      hederaAccountId: hederaAccountId || null,
+      credits: Number(credits || 0),
+      isActive: true,
+    });
+    return res.status(201).json({ success: true, data: { id: user.id } });
+  })
+);
+
+router.post('/superadmin/institutions/:id/toggle', 
+  [
+    param('id').notEmpty().trim(),
+    body('active').isBoolean(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { User } = require('../models');
+    const { id } = req.params;
+    const { active } = req.body;
+    const r = await User.updateOne({ _id: id, role: 'university' }, { $set: { isActive: !!active } });
+    if (r.matchedCount === 0) return res.status(404).json({ success: false, message: 'Institución no encontrada' });
+    return res.status(200).json({ success: true });
+  })
+);
+
+router.post('/superadmin/institutions/:id/credits', 
+  [
+    param('id').notEmpty().trim(),
+    body('credits').isInt({ min: 0 }),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { User } = require('../models');
+    const { id } = req.params;
+    const { credits } = req.body;
+    const r = await User.updateOne({ _id: id, role: 'university' }, { $set: { credits: Number(credits) } });
+    if (r.matchedCount === 0) return res.status(404).json({ success: false, message: 'Institución no encontrada' });
+    return res.status(200).json({ success: true });
+  })
+);
 
 router.get('/reports/backup-stats.pdf', asyncHandler(async (req, res) => {
   const stats = await require('../services/cacheService').get('backup_stats');
@@ -423,16 +512,23 @@ router.post('/approve-institution/:id',
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { User } = require('../models');
+    const notificationService = require('../services/notificationService');
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     user.role = ROLES.UNIVERSITY;
     user.isActive = true;
+    const bcrypt = require('bcryptjs');
+    const { v4: uuidv4 } = require('uuid');
+    const salt = await bcrypt.genSalt(10);
+    const tempPasswordPlain = uuidv4();
+    user.password = await bcrypt.hash(tempPasswordPlain, salt);
     await user.save();
     const displayName = user.universityName || user.name || `Institution_${user.id}`;
     const issued = await partnerService.generateApiKey(displayName);
     issued.partner.universityId = user.id;
     issued.partner.permissions = Array.from(new Set([...(issued.partner.permissions||[]), 'verify_credential', 'mint_credential']));
     await issued.partner.save();
+    try { await notificationService.sendWelcomeEmail(user, tempPasswordPlain, 'Starter'); } catch {}
     res.status(200).json({ success: true, message: 'Institution approved', data: { id: user.id, role: user.role, partnerId: issued.partner.id, partnerApiKey: issued.apiKey } });
   })
 );

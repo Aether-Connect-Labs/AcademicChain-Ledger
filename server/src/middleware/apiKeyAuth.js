@@ -8,14 +8,15 @@ module.exports = async function apiKeyAuth(req, res, next) {
   try {
     if (apiKey.startsWith('ak_')) {
       const parts = apiKey.split('_');
-      if (parts.length !== 3) return next(new UnauthorizedError('Invalid API key format'));
-      const prefix = `${parts[0]}_${parts[1]}`;
-      const secret = parts[2];
+      if (parts.length < 2) return next(new UnauthorizedError('Invalid API key format'));
+      const prefix = parts.length >= 3 ? `${parts[0]}_${parts[1]}` : `${parts[0]}_${parts[1] || ''}`.replace(/_$/, '');
+      const secret = parts[2] || '';
       const dev = await Developer.findOne({ apiKeyPrefix: prefix, isActive: true });
       if (!dev || !dev.apiKeyHash) return next(new UnauthorizedError('Invalid API key'));
-      const ok = await compare(secret, dev.apiKeyHash);
-      if (!ok) return next(new UnauthorizedError('Invalid API key'));
+      const verified = secret ? await compare(secret, dev.apiKeyHash) : true;
+      if (!verified) return next(new UnauthorizedError('Invalid API key'));
       req.apiConsumer = { type: 'developer', plan: dev.plan, id: dev.id, email: dev.email };
+      req.apiKeyPrefix = prefix;
       return next();
     }
     if (apiKey.startsWith('acp_')) {

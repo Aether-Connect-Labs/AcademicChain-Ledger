@@ -17,8 +17,13 @@ const mem = { tokens: [], credentials: [] };
 const { validate } = require('../../middleware/validator');
 const apiKeyAuth = require('../../middleware/apiKeyAuth');
 const apiRateLimit = require('../../middleware/apiRateLimit');
+const multer = require('multer');
+const upload = multer({ limits: { fileSize: 15 * 1024 * 1024 } });
 const crypto = require('crypto');
 const axios = require('axios');
+
+const checkCredits = require('../../middleware/checkCredits');
+const associationGuard = require('../../middleware/associationGuard');
 
 router.post('/revoke', apiKeyAuth, apiRateLimit, [
   body('tokenId').notEmpty().trim(),
@@ -131,17 +136,25 @@ router.get('/status/:tokenId/:serialNumber', apiRateLimit, asyncHandler(async (r
   });
 }));
 
-router.post('/issue', apiKeyAuth, apiRateLimit, [
+router.post('/issue', apiKeyAuth, apiRateLimit, associationGuard, upload.single('file'), checkCredits, [
   body('tokenId').notEmpty().trim(),
   body('uniqueHash').notEmpty().trim(),
-  body('ipfsURI').notEmpty().trim(),
+  body('ipfsURI').optional().isString().trim(),
   body('studentName').notEmpty().trim(),
   body('degree').notEmpty().trim(),
   body('recipientAccountId').optional().isString(),
   body('image').optional().isString(),
   body('expiryDate').optional().isString(),
 ], validate, asyncHandler(async (req, res) => {
-  const { tokenId, uniqueHash, ipfsURI, studentName, degree, recipientAccountId, image, expiryDate } = req.body;
+  const { tokenId, uniqueHash, studentName, degree, recipientAccountId, image, expiryDate } = req.body;
+  let ipfsURI = req.body.ipfsURI || null;
+  let pdfCid = null;
+  if (req.file && req.file.buffer) {
+    const ipfs = require('../../services/ipfsService');
+    const pdf = await ipfs.pinFile(req.file.buffer, req.file.originalname, req.file.mimetype);
+    pdfCid = pdf.IpfsHash;
+    ipfsURI = null;
+  }
   let token = useMem() ? mem.tokens.find(t => t.tokenId === tokenId) : await Token.findOne({ tokenId });
   if (!token && String(process.env.ALLOW_V1_TOKEN_AUTO_CREATE).toLowerCase() === 'true') {
     const name = `AcademicChain - ${degree || 'Credential'}`;
@@ -175,13 +188,18 @@ router.post('/issue', apiKeyAuth, apiRateLimit, [
     });
   } catch {}
   const creator = req.apiConsumer?.email || req.apiConsumer?.id || 'API Consumer';
-  const mintResult = await hederaService.mintAcademicCredential(tokenId, { uniqueHash, ipfsURI, degree, studentName, university: universityLabel, recipientAccountId, xrpTxHash: xrpPre?.xrpTxHash, algoTxId: algoPre?.algoTxId, image, expiryDate, creator });
+  const mintResult = await hederaService.mintAcademicCredential(tokenId, { uniqueHash, ipfsURI, pdfCid, degree, studentName, university: universityLabel, recipientAccountId, xrpTxHash: xrpPre?.xrpTxHash, algoTxId: algoPre?.algoTxId, image, expiryDate, creator });
   let transferResult = null;
   if (recipientAccountId) {
     transferResult = await hederaService.transferCredentialToStudent(tokenId, mintResult.serialNumber, recipientAccountId);
   }
-  const credRecord = { tokenId, serialNumber: mintResult.serialNumber, universityId: token?.universityId || null, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI, externalProofs: { xrpTxHash: xrpPre?.xrpTxHash, algoTxId: algoPre?.algoTxId } };
+  const finalIpfsURI = mintResult?.ipfs?.uri ? mintResult.ipfs.uri : (ipfsURI || null);
+  const credRecord = { tokenId, serialNumber: mintResult.serialNumber, universityId: token?.universityId || null, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI: finalIpfsURI, ipfsMetadataCid: mintResult?.ipfs?.cid || null, ipfsPdfCid: pdfCid || null, externalProofs: { xrpTxHash: xrpPre?.xrpTxHash, algoTxId: algoPre?.algoTxId } };
   if (useMem()) { mem.credentials.push({ ...credRecord, createdAt: new Date() }); } else { await Credential.create(credRecord); }
+  if (!useMem() && req.universityId) {
+    const { User } = require('../../models');
+    await User.updateOne({ _id: req.universityId }, { $inc: { credits: -1 } });
+  }
   let xrplAnchor = null;
   let algoAnchor = null;
   try {
@@ -205,7 +223,7 @@ router.post('/issue', apiKeyAuth, apiRateLimit, [
   res.status(201).json({ success: true, message: 'Credential issued', data: { mint: mintResult, transfer: transferResult, xrplAnchor: { txHash: xrpPre?.xrpTxHash || xrplAnchor?.xrpTxHash || null }, algorandAnchor: { txId: algoPre?.algoTxId || algoAnchor?.algoTxId || null } } });
 }));
 
-router.post('/issue-unified', apiKeyAuth, apiRateLimit, [
+router.post('/issue-unified', apiKeyAuth, apiRateLimit, associationGuard, [
   body('tokenId').notEmpty().trim(),
   body('uniqueHash').notEmpty().trim(),
   body('ipfsURI').notEmpty().trim(),

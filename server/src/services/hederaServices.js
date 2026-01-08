@@ -27,7 +27,7 @@ const {
 const logger = require('../utils/logger');
 const { TimeoutManager } = require('../utils/timeoutConfig');
 const { createError } = require('../utils/errorCodes');
-const { HederaError, BadRequestError, NotFoundError } = require('../utils/errors');
+const { HederaError, BadRequestError, NotFoundError, ServiceUnavailableError } = require('../utils/errors');
 const ipfsService = require('./ipfsService');
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
@@ -60,8 +60,10 @@ class HederaService {
     if (this.client) return true;
 
     try {
-      const acct = String(process.env.HEDERA_ACCOUNT_ID || '').trim();
-      const priv = await resolveSecretValue(process.env.HEDERA_PRIVATE_KEY, 'GCP_HEDERA_PRIVATE_KEY_SECRET');
+      const treasuryAcct = String(process.env.TREASURY_ACCOUNT_ID || '').trim();
+      const treasuryPriv = await resolveSecretValue(process.env.TREASURY_PRIVATE_KEY, 'GCP_TREASURY_PRIVATE_KEY_SECRET');
+      const acct = treasuryAcct || String(process.env.HEDERA_ACCOUNT_ID || '').trim();
+      const priv = treasuryPriv || await resolveSecretValue(process.env.HEDERA_PRIVATE_KEY, 'GCP_HEDERA_PRIVATE_KEY_SECRET');
       if (!acct || !priv) {
         logger.warn('⚠️  Missing Hedera credentials. Hedera features will be disabled.');
         return false;
@@ -289,19 +291,19 @@ class HederaService {
     const ipfsMeta = { cid: null, uri: null, gateway: null, filecoin: null };
     try {
       const crypto = require('crypto');
-      const pdfCid = metadata.ipfsURI ? String(metadata.ipfsURI).replace('ipfs://','').trim() : '';
+      const pdfCid = metadata.pdfCid ? String(metadata.pdfCid).trim() : '';
       const sName = String(metadata.studentName || '').toUpperCase();
       const sDegree = String(metadata.degree || '').toUpperCase();
       const uniId = String(metadata.universityId || metadata.university || '').trim();
       const baseStr = [sName, sDegree, uniId, String(metadata.graduationDate || ''), String(metadata.dni || ''), String(pdfCid || String(metadata.uniqueHash || ''))].join('|');
       const integrityHash = crypto.createHash('sha256').update(baseStr, 'utf8').digest('hex');
       standardizedMetadata.properties.file = {
-        uri: metadata.ipfsURI || undefined,
+        uri: pdfCid ? `ipfs://${pdfCid}` : undefined,
         hash: integrityHash
       };
     } catch {
       standardizedMetadata.properties.file = {
-        uri: metadata.ipfsURI || undefined,
+        uri: metadata.pdfCid ? `ipfs://${metadata.pdfCid}` : undefined,
         hash: metadata.uniqueHash || subjectRef
       };
     }
@@ -325,8 +327,8 @@ class HederaService {
           ipfsMeta.filecoin = ipfsResult.filecoin;
         }
       } catch (e) {
-        logger.warn('Failed to upload metadata to IPFS, using fallback URI:', e.message);
-        metadataCid = "QmDemoPlaceholderNoIpfsConfigured";
+        logger.error('Failed to upload metadata to IPFS/Filecoin:', e.message);
+        throw new ServiceUnavailableError('Failed to pin metadata to IPFS/Filecoin');
       }
       onChainMetadata = Buffer.from(`ipfs://${metadataCid}`, 'utf8');
     }
@@ -561,6 +563,56 @@ class HederaService {
       hbars: accountBalance.hbars.toString(),
       tokens: accountBalance.tokens.toString(),
     };
+  }
+
+  async getTokenBalance(accountId, tokenId) {
+    if (!accountId || !tokenId) {
+      throw new BadRequestError('Account ID and token ID are required');
+    }
+    const query = new AccountBalanceQuery().setAccountId(AccountId.fromString(accountId));
+    const bal = await TimeoutManager.promiseWithTimeout(query.execute(this.client), 'hedera');
+    try {
+      const tid = TokenId.fromString(tokenId);
+      const amount = bal.tokens.get(tid);
+      return amount ? amount.toString() : '0';
+    } catch {
+      return '0';
+    }
+  }
+
+  async hasTokenAssociation(accountId, tokenId) {
+    if (!accountId || !tokenId) {
+      throw new BadRequestError('Account ID and token ID are required');
+    }
+    if (!this.isEnabled()) {
+      return false;
+    }
+    const info = await TimeoutManager.promiseWithTimeout(
+      new AccountInfoQuery().setAccountId(AccountId.fromString(accountId)).execute(this.client),
+      'hedera'
+    );
+    try {
+      const tid = TokenId.fromString(tokenId);
+      const rel = info.tokenRelationships && (info.tokenRelationships.get ? info.tokenRelationships.get(tid) : null);
+      return !!rel;
+    } catch {
+      return false;
+    }
+  }
+
+  async prepareTokenAssociateTransaction(accountId, tokenId) {
+    if (!accountId || !tokenId) {
+      throw new BadRequestError('Account ID and token ID are required');
+    }
+    if (!this.isEnabled()) {
+      return Buffer.from('MOCK_ASSOCIATE').toString('base64');
+    }
+    const tx = new TokenAssociateTransaction()
+      .setAccountId(AccountId.fromString(accountId))
+      .setTokenIds([TokenId.fromString(tokenId)])
+      .freezeWith(this.client);
+    const bytes = tx.toBytes();
+    return Buffer.from(bytes).toString('base64');
   }
 
   async getAccountPublicKey(accountId) {

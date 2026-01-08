@@ -19,27 +19,42 @@ async function resolveSecretValue(envVal, secretEnvName) {
 }
 
 let pinataSDK = null;
+let stream = null;
 try {
   pinataSDK = require('@pinata/sdk');
 } catch (error) {
   logger.warn('@pinata/sdk not installed. IPFS functionality will be disabled.');
 }
+try { stream = require('stream'); } catch {}
 
 class IpfsService {
   constructor() {
-    if (!pinataSDK || !process.env.PINATA_API_KEY || !process.env.PINATA_SECRET_API_KEY) {
-      logger.warn('Pinata SDK or API keys not found. IPFS functionality will be disabled.');
-      this.pinata = null;
-    } else {
+    const jwt = String(process.env.PINATA_JWT || '').trim();
+    if (jwt) {
+      this.pinata = { jwt };
+      return;
+    }
+    if (pinataSDK && process.env.PINATA_API_KEY && process.env.PINATA_SECRET_API_KEY) {
       this.pinata = new pinataSDK(process.env.PINATA_API_KEY, process.env.PINATA_SECRET_API_KEY);
+    } else {
+      logger.warn('Pinata not configured. Set PINATA_JWT or API keys to enable IPFS.');
+      this.pinata = null;
     }
   }
 
   async testConnection() {
-    if (!this.pinata) return; // No fallar si no está configurado, solo advertir.
+    if (!this.pinata) return;
     try {
-      await this.pinata.testAuthentication();
-      logger.info('✅ Successfully connected to Pinata IPFS');
+      if (this.pinata.jwt) {
+        const resp = await axios.get('https://api.pinata.cloud/data/testAuthentication', {
+          headers: { Authorization: `Bearer ${this.pinata.jwt}` },
+          timeout: 8000
+        });
+        if (resp.status === 200) logger.info('✅ Successfully connected to Pinata IPFS (JWT)');
+      } else {
+        await this.pinata.testAuthentication();
+        logger.info('✅ Successfully connected to Pinata IPFS');
+      }
     } catch (error) {
       logger.error('❌ Failed to connect to Pinata IPFS. Check your API keys.', error.message);
       // No lanzamos un error para no detener el servidor, pero la funcionalidad de IPFS no estará disponible.
@@ -49,11 +64,19 @@ class IpfsService {
   async pinJson(jsonData, name) {
     if (!this.pinata) throw new ServiceUnavailableError('IPFS service is not configured.');
     try {
-      const options = {
-        pinataMetadata: { name: name || `AcademicChain-Credential-${new Date().toISOString()}` },
-        pinataOptions: { cidVersion: 0 },
-      };
-      const result = await this.pinata.pinJSONToIPFS(jsonData, options);
+      let result = null;
+      const metaName = name || `AcademicChain-Credential-${new Date().toISOString()}`;
+      if (this.pinata.jwt) {
+        const resp = await axios.post(
+          'https://api.pinata.cloud/pinning/pinJSONToIPFS',
+          { pinataContent: jsonData, pinataMetadata: { name: metaName }, pinataOptions: { cidVersion: 0 } },
+          { headers: { Authorization: `Bearer ${this.pinata.jwt}` }, timeout: 15000 }
+        );
+        result = { IpfsHash: resp.data?.IpfsHash };
+      } else {
+        const options = { pinataMetadata: { name: metaName }, pinataOptions: { cidVersion: 0 } };
+        result = await this.pinata.pinJSONToIPFS(jsonData, options);
+      }
       logger.info(`📌 JSON pinned to IPFS with CID: ${result.IpfsHash}`);
       
       // Intentar replicación en Filecoin (Lighthouse o Web3.Storage)
@@ -100,6 +123,34 @@ class IpfsService {
     } catch (error) {
       logger.error('❌ Error pinning JSON to IPFS:', error);
       throw new ServiceUnavailableError('Failed to pin JSON to IPFS.');
+    }
+  }
+
+  async pinFile(buffer, filename, mime) {
+    if (!this.pinata) throw new ServiceUnavailableError('IPFS service is not configured.');
+    try {
+      if (this.pinata.jwt) {
+        const FormData = require('form-data');
+        const form = new FormData();
+        form.append('file', buffer, { filename: filename || `document-${Date.now()}.pdf`, contentType: mime || 'application/pdf' });
+        const resp = await axios.post('https://api.pinata.cloud/pinning/pinFileToIPFS', form, {
+          headers: { Authorization: `Bearer ${this.pinata.jwt}`, ...form.getHeaders() },
+          timeout: 30000
+        });
+        return { IpfsHash: resp.data?.IpfsHash };
+      } else {
+        if (!pinataSDK || !stream) throw new ServiceUnavailableError('Pinata SDK not available');
+        const readable = new stream.Readable();
+        readable._read = () => {};
+        readable.push(buffer);
+        readable.push(null);
+        const options = { pinataMetadata: { name: filename || `document-${Date.now()}.pdf` }, pinataOptions: { cidVersion: 0 } };
+        const res = await this.pinata.pinFileToIPFS(readable, options);
+        return { IpfsHash: res.IpfsHash };
+      }
+    } catch (e) {
+      logger.error('❌ Error pinning file to IPFS:', e);
+      throw new ServiceUnavailableError('Failed to pin file to IPFS.');
     }
   }
 }

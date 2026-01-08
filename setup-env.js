@@ -64,12 +64,24 @@ HEDERA_ACCOUNT_ID=${hederaAccountId}
 HEDERA_PRIVATE_KEY=${hederaPrivateKey}
 PINATA_API_KEY=${pinataApiKey}
 PINATA_SECRET_API_KEY=${pinataSecretKey}
+PINATA_JWT=
+
+# Token ACL y Tesorería
+ACL_TOKEN_ID=0.0.7560139
+ACL_CONTRACT_ADDRESS=0x0000000000000000000000000000000000735bcb
+TREASURY_ACCOUNT_ID=0.0.7174400
+TREASURY_PRIVATE_KEY=
+
+# Frontend permitido (Vercel)
+CLIENT_URL=https://academic-chain-ledger.vercel.app
+VITE_API_URL=https://profound-uta-aether-connect-labs-b6f74389.koyeb.app
 `;
 
-  fs.writeFileSync('.env', envContent);
+  const targetPath = 'server/.env';
+  fs.writeFileSync(targetPath, envContent);
   ensureGitignore();
 
-  console.log('\n✅ Archivo .env unificado creado en la raíz del proyecto.');
+  console.log('\n✅ Archivo .env creado en server/.env.');
   
   if (dockerRunning) {
     console.log('🚀 Iniciando servicios de Docker (MongoDB y Redis). Esto puede tardar un momento la primera vez...');

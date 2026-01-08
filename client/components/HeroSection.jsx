@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowRight, ShieldCheck } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import ConnectionService from './services/connectionService';
+import { theme } from './themeConfig';
 
 // Variantes de animación
 const containerVariants = {
@@ -10,8 +11,8 @@ const containerVariants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.2,
-      delayChildren: 0.3,
+      staggerChildren: theme.animations.stagger,
+      delayChildren: theme.animations.stagger,
     },
   },
 };
@@ -96,25 +97,19 @@ export const HeroSection = () => {
         </div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32" style={{ paddingBottom: theme.spacing.sectionPb }}>
         <motion.div 
           variants={containerVariants} 
           initial="hidden" 
           animate="visible"
           className="text-center"
         >
-          {/* Badge de estado */}
-          <motion.div variants={itemVariants} className="mb-8">
-            <Link to="/status">
-              <motion.div 
-                className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-cyan-300 bg-cyan-900/30 backdrop-blur-sm rounded-2xl border border-cyan-500/30 hover:bg-cyan-900/50 transition-all duration-300 group"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <ShieldCheck className="w-5 h-5 mr-3" />
-                <span className="font-semibold">{t('hero.status', statusLabel)}</span>
-                <ArrowRight className="w-4 h-4 ml-2 transform group-hover:translate-x-1 transition-transform" />
-              </motion.div>
+          {/* Badge Ecosistema ACL */}
+          <motion.div variants={itemVariants} className="flex justify-center mb-6">
+            <Link to="/status" className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 transition-all duration-300 backdrop-blur-sm group">
+              <ShieldCheck className="text-cyan-400 w-5 h-5" />
+              <span className="text-sm font-medium text-cyan-100 group-hover:text-white transition-colors">Ecosistema ACL</span>
+              <ArrowRight className="text-cyan-400 w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           </motion.div>
 

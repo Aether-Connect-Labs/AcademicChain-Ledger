@@ -4,6 +4,7 @@ const asyncHandler = require('express-async-handler');
 const { protect, authorize } = require('../middleware/auth');
 const partnerAuth = require('../middleware/partnerAuth');
 const { validate } = require('../middleware/validator');
+const associationGuard = require('../middleware/associationGuard');
 const hederaService = require('../services/hederaServices');
 const xrpService = require('../services/xrpService');
 const partnerService = require('../services/partnerService');
@@ -82,6 +83,7 @@ router.post('/generate-key',
  */
 router.post('/institution/mint',
   partnerAuth,
+  associationGuard,
   [
     body('tokenId').notEmpty().withMessage('Token ID is required'),
     body('uniqueHash').notEmpty().withMessage('uniqueHash is required'),

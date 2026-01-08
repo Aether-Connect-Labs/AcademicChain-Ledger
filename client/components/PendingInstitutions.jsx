@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AdminAPI from './services/adminAPI';
+import { toast } from 'react-hot-toast';
 import InstitutionCard from './InstitutionCard';
 import LoadingSpinner from './ui/LoadingSpinner';
 
@@ -32,9 +33,9 @@ const PendingInstitutions = ({ onActionComplete }) => {
       await AdminAPI.approveInstitution(id);
       await load();
       onActionComplete && onActionComplete();
-      alert('✅ Institución aprobada exitosamente');
+      toast.success('Institución activada y correo de bienvenida enviado con éxito');
     } catch {
-      alert('❌ Error al aprobar institución');
+      toast.error('Error al aprobar institución');
     } finally {
       setActionLoading(null);
     }
@@ -49,9 +50,9 @@ const PendingInstitutions = ({ onActionComplete }) => {
       await AdminAPI.rejectInstitution(id);
       await load();
       onActionComplete && onActionComplete();
-      alert('❌ Institución rechazada');
+      toast('Institución rechazada', { style: { background: '#FEE2E2', color: '#7F1D1D', border: '1px solid #EF4444' } });
     } catch {
-      alert('Error al rechazar institución');
+      toast.error('Error al rechazar institución');
     } finally {
       setActionLoading(null);
     }

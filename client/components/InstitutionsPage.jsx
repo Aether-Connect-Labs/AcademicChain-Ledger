@@ -21,7 +21,13 @@ const InstitutionsPage = () => {
       console.warn('Error loading catalog, using demo data', e);
       // If error is network related, show friendly message
       const msg = e.message || 'Error al cargar instituciones';
-      const friendly = /network|fetch|fail/i.test(msg) ? 'Servicio no disponible temporalmente. Mostrando datos de demostración.' : msg;
+      const status = (e && e.response && e.response.status) || null;
+      const is500 = status === 500 || /(^|[^0-9])500([^0-9]|$)/.test(msg);
+      const friendly = is500
+        ? 'Error interno del servidor (HTTP 500). Mostrando instituciones de demostración.'
+        : /network|fetch|fail|http\s*\d+|5\d\d/i.test(msg)
+          ? 'Servicio en mantenimiento. Mostrando instituciones de demostración.'
+          : msg;
       
       setError(friendly);
       setItems(demoItems);
@@ -33,15 +39,15 @@ const InstitutionsPage = () => {
   useEffect(() => { load(); }, []);
 
   return (
-    <div className="container-responsive py-10">
-      <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Instituciones</h1>
-      <p className="text-gray-600">Directorio público de instituciones emisoras.</p>
+    <div className="container-responsive pb-10 pt-24 sm:pt-32">
+      <h1 className="text-4xl font-extrabold tracking-tight text-black mb-2">Instituciones</h1>
+      <p className="text-gray-700">Directorio público de instituciones emisoras.</p>
       <div className="mt-4 flex gap-2">
         <button className="btn-secondary" onClick={load} disabled={loading}>{loading ? 'Actualizando…' : 'Actualizar'}</button>
       </div>
       {loading && <div className="badge badge-info mt-6">Cargando…</div>}
       {error && (
-        <div className="mt-6 p-4 rounded-xl border border-yellow-200 bg-yellow-50 text-yellow-800">
+        <div className="mt-6 p-4 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-900">
           <div className="font-semibold mb-1">Aviso</div>
           <div className="text-sm">{error}</div>
         </div>

@@ -35,6 +35,18 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  credits: {
+    type: Number,
+    default: 0,
+    index: true,
+    min: 0,
+  },
+  plan: {
+    type: String,
+    enum: ['basic', 'standard', 'enterprise'],
+    default: 'basic',
+    index: true,
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

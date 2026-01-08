@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import AdminAPI from './services/adminAPI';
 
 const BlockchainStatus = () => {
@@ -39,7 +40,7 @@ const BlockchainStatus = () => {
   }
 
   return (
-    <div className="container space-y-6">
+    <div className="container space-y-6 pt-32">
       <div className="card">
         <h3 className="text-xl font-semibold mb-4" data-tour-id="blockchain-status-title">Estado de Respaldos Blockchain</h3>
         <div className="space-y-3">
@@ -105,24 +106,24 @@ const BlockchainStatus = () => {
               <div className="mt-6">
                 <h4 className="text-lg font-semibold mb-3">¿Listo para Protección Empresarial?</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="border rounded-lg p-4">
-                    <div className="font-semibold">Básico</div>
+                  <div className="border rounded-lg p-4 overflow-hidden">
+                    <div className="font-semibold">Protección Básica</div>
                     <div className="text-sm text-gray-700">Solo Hedera</div>
-                    <div className="text-sm font-mono mt-1">$0.01/credencial</div>
+                    <div className="text-sm font-mono mt-1">$0.29/credencial</div>
                     <div className="text-xs text-gray-600 mt-1">Verificación básica</div>
                   </div>
-                  <div className="border rounded-lg p-4">
-                    <div className="font-semibold">Estándar</div>
+                  <div className="border rounded-lg p-4 overflow-hidden">
+                    <div className="font-semibold">Doble Blindaje</div>
                     <div className="text-sm text-gray-700">Hedera + XRP</div>
-                    <div className="text-sm font-mono mt-1">$0.05/credencial</div>
-                    <div className="text-xs text-gray-600 mt-1">+ Evidencia inmutable</div>
+                    <div className="text-sm font-mono mt-1">$0.24/credencial</div>
+                    <div className="text-xs text-gray-600 mt-1">Evidencia inmutable avanzada</div>
                   </div>
-                  <div className="border rounded-lg p-4">
-                    <div className="font-semibold">Premium</div>
-                    <div className="text-sm text-gray-700">Triple Respaldo</div>
-                    <div className="text-sm font-mono mt-1">$0.10/credencial</div>
-                    <div className="text-xs text-gray-600 mt-1">+ Respaldo catastrófico</div>
-                    <button className="btn-primary mt-3">Activar ahora</button>
+                  <div className="border rounded-lg p-4 overflow-hidden">
+                    <div className="font-semibold">Triple Blindaje Total</div>
+                    <div className="text-sm text-gray-700">Hedera + XRP + Algorand</div>
+                    <div className="text-sm font-mono mt-1">$0.12/credencial</div>
+                    <div className="text-xs text-gray-600 mt-1">Respaldo catastrófico y auditoría global</div>
+                    <Link to="/agenda" className="btn-primary mt-3 inline-flex items-center justify-center px-4 py-2 rounded-lg w-full sm:w-auto">Agendar Demo</Link>
                   </div>
                 </div>
               </div>

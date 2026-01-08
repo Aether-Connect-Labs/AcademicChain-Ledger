@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const { Developer } = require('../../models');
 const { validate } = require('../../middleware/validator');
 const apiKeyAuth = require('../../middleware/apiKeyAuth');
+const cacheService = require('../../services/cacheService');
 
 router.post('/register', [
   body('email').isEmail().normalizeEmail(),
@@ -60,9 +61,119 @@ router.post('/api-keys/issue', [
   const secret = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
   const salt = await bcrypt.genSalt(10);
   const hash = await bcrypt.hash(secret, salt);
-  dev.apiKeyPrefix = prefix; dev.apiKeyHash = hash; await dev.save();
+  // Guardar como clave activa en historial
+  dev.apiKeyPrefix = prefix; dev.apiKeyHash = hash;
+  dev.apiKeys = Array.isArray(dev.apiKeys) ? [{ prefix, hash, status: 'active', createdAt: new Date() }, ...dev.apiKeys] : [{ prefix, hash, status: 'active', createdAt: new Date() }];
+  await dev.save();
   const fullKey = `${prefix}_${secret}`;
   res.status(201).json({ success: true, data: { apiKey: fullKey } });
+}));
+
+router.get('/api-keys', asyncHandler(async (req, res) => {
+  const auth = req.headers['authorization'];
+  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ success: false, message: 'Missing token' });
+  const token = auth.slice(7);
+  let payload; try { payload = jwt.verify(token, process.env.JWT_SECRET); } catch { return res.status(401).json({ success: false, message: 'Invalid token' }); }
+  const dev = await Developer.findById(payload.devId);
+  if (!dev) return res.status(404).json({ success: false, message: 'Developer not found' });
+  const list = (dev.apiKeys || []).map(k => ({
+    apiKey: k.prefix,
+    status: k.status,
+    createdAt: k.createdAt,
+    lastUsedAt: k.lastUsedAt
+  }));
+  res.status(200).json({ success: true, data: { apiKeys: list } });
+}));
+
+router.post('/api-keys/revoke', [
+  body('apiKey').notEmpty().isString()
+], validate, asyncHandler(async (req, res) => {
+  const auth = req.headers['authorization'];
+  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ success: false, message: 'Missing token' });
+  const token = auth.slice(7);
+  let payload; try { payload = jwt.verify(token, process.env.JWT_SECRET); } catch { return res.status(401).json({ success: false, message: 'Invalid token' }); }
+  const dev = await Developer.findById(payload.devId);
+  if (!dev) return res.status(404).json({ success: false, message: 'Developer not found' });
+  const incoming = String(req.body.apiKey || '');
+  const parts = incoming.split('_');
+  const prefix = parts.length >= 2 ? `${parts[0]}_${parts[1]}` : incoming;
+  let updated = false;
+  if (Array.isArray(dev.apiKeys)) {
+    for (const k of dev.apiKeys) {
+      if (k.prefix === prefix && k.status === 'active') {
+        k.status = 'revoked'; k.revokedAt = new Date(); updated = true;
+      }
+    }
+  }
+  if (dev.apiKeyPrefix === prefix) {
+    dev.apiKeyPrefix = null; dev.apiKeyHash = null;
+  }
+  await dev.save();
+  res.status(200).json({ success: true, data: { revoked: updated } });
+}));
+
+router.post('/api-keys/rotate', [
+  body('apiKey').notEmpty().isString()
+], validate, asyncHandler(async (req, res) => {
+  const auth = req.headers['authorization'];
+  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ success: false, message: 'Missing token' });
+  const token = auth.slice(7);
+  let payload; try { payload = jwt.verify(token, process.env.JWT_SECRET); } catch { return res.status(401).json({ success: false, message: 'Invalid token' }); }
+  const dev = await Developer.findById(payload.devId);
+  if (!dev) return res.status(404).json({ success: false, message: 'Developer not found' });
+  const incoming = String(req.body.apiKey || '');
+  const parts = incoming.split('_');
+  const prefix = parts.length >= 2 ? `${parts[0]}_${parts[1]}` : incoming;
+  if (Array.isArray(dev.apiKeys)) {
+    for (const k of dev.apiKeys) {
+      if (k.prefix === prefix && k.status === 'active') {
+        k.status = 'rotated'; k.rotatedAt = new Date();
+      }
+    }
+  }
+  if (dev.apiKeyPrefix === prefix) {
+    dev.apiKeyPrefix = null; dev.apiKeyHash = null;
+  }
+  const newPrefix = `ak_${Math.random().toString(36).slice(2, 10)}`;
+  const newSecret = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  const salt = await bcrypt.genSalt(10);
+  const newHash = await bcrypt.hash(newSecret, salt);
+  dev.apiKeyPrefix = newPrefix; dev.apiKeyHash = newHash;
+  dev.apiKeys = [{ prefix: newPrefix, hash: newHash, status: 'active', createdAt: new Date() }, ...(Array.isArray(dev.apiKeys) ? dev.apiKeys : [])];
+  await dev.save();
+  res.status(201).json({ success: true, data: { apiKey: `${newPrefix}_${newSecret}` } });
+}));
+
+router.get('/rate-limit/status', asyncHandler(async (req, res) => {
+  const auth = req.headers['authorization'];
+  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ success: false, message: 'Missing token' });
+  const token = auth.slice(7);
+  let payload; try { payload = jwt.verify(token, process.env.JWT_SECRET); } catch { return res.status(401).json({ success: false, message: 'Invalid token' }); }
+  const dev = await Developer.findById(payload.devId);
+  if (!dev) return res.status(404).json({ success: false, message: 'Developer not found' });
+  const minuteBucket = Math.floor(Date.now() / 60000);
+  const key = `api_rate:${dev.id}:${minuteBucket}`;
+  let used = 0;
+  try {
+    const v = await cacheService.get(key);
+    used = typeof v === 'number' ? v : (typeof v === 'string' ? parseInt(v, 10) || 0 : 0);
+  } catch {}
+  const plan = dev.plan || 'free';
+  const LIMITS = { free: 60, startup: 300, enterprise: 1000 };
+  const limit = LIMITS[plan] || LIMITS.free;
+  const resetsAt = new Date((minuteBucket + 1) * 60000).toISOString();
+  res.status(200).json({ success: true, data: { rateLimit: { plan, used, limit, resetsAt } } });
+}));
+
+router.get('/analytics/usage', asyncHandler(async (req, res) => {
+  const auth = req.headers['authorization'];
+  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ success: false, message: 'Missing token' });
+  const token = auth.slice(7);
+  let payload; try { payload = jwt.verify(token, process.env.JWT_SECRET); } catch { return res.status(401).json({ success: false, message: 'Invalid token' }); }
+  const dev = await Developer.findById(payload.devId);
+  if (!dev) return res.status(404).json({ success: false, message: 'Developer not found' });
+  const counters = dev.usageCounters || { hedera: 0, xrp: 0, algorand: 0 };
+  res.status(200).json({ success: true, data: { usage: counters } });
 }));
 
 module.exports = router;

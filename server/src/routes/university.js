@@ -12,6 +12,7 @@ const memoryStore = require('../utils/memoryStore');
 const { issuanceQueue, isRedisConnected } = require('../../queue/issuanceQueue');
 const { recordAnalytics, getUniversityInsights } = require('../services/analyticsService');
 const NodeCache = require('node-cache');
+const associationGuard = require('../middleware/associationGuard');
 
 const balanceCache = new NodeCache({ stdTTL: 300 });
 const useMem = () => {
@@ -24,6 +25,63 @@ const useMem = () => {
 const memStore = memoryStore;
 
 const router = express.Router();
+
+function getAllowedNetworks(planRaw) {
+  const plan = String(planRaw || 'basic').toLowerCase();
+  if (plan === 'enterprise') return ['hedera', 'xrp', 'algorand'];
+  if (plan === 'standard') return ['hedera', 'xrp'];
+  return ['hedera'];
+}
+
+router.get('/acl/association-status', protect, isUniversity, asyncHandler(async (req, res) => {
+  const tokenId = process.env.ACL_TOKEN_ID || '';
+  const accountId = req.user?.hederaAccountId || '';
+  if (!tokenId || !accountId) {
+    return res.status(200).json({ success: true, data: { associated: false, tokenId, accountId } });
+  }
+  try {
+    await hederaService.connect();
+  } catch {}
+  let associated = false;
+  try {
+    if (hederaService.isEnabled()) {
+      associated = await hederaService.hasTokenAssociation(accountId, tokenId);
+    }
+  } catch {}
+  res.status(200).json({ success: true, data: { associated, tokenId, accountId } });
+}));
+
+router.post('/acl/associate/prepare', protect, isUniversity,
+  [
+    body('accountId').optional().isString().trim(),
+    body('tokenId').optional().isString().trim(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const tokenId = String(req.body.tokenId || process.env.ACL_TOKEN_ID || '').trim();
+    const accountId = String(req.body.accountId || req.user?.hederaAccountId || '').trim();
+    if (!tokenId || !accountId) {
+      return res.status(400).json({ success: false, message: 'Faltan tokenId o accountId' });
+    }
+    try { await hederaService.connect(); } catch {}
+    const bytesBase64 = await hederaService.prepareTokenAssociateTransaction(accountId, tokenId);
+    return res.status(200).json({ success: true, data: { transactionBytesBase64: bytesBase64 } });
+  })
+);
+
+router.post('/acl/associate/submit', protect, isUniversity,
+  [
+    body('signedTransactionBytes').notEmpty().isString(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { signedTransactionBytes } = req.body;
+    try { await hederaService.connect(); } catch {}
+    const result = await hederaService.executeSignedTransaction(signedTransactionBytes);
+    const status = result?.receipt?.status?.toString ? result.receipt.status.toString() : 'SUCCESS';
+    return res.status(200).json({ success: true, data: { status, transactionId: result.transactionId } });
+  })
+);
 
 router.get('/profile', protect, isUniversity, asyncHandler(async (req, res) => {
   const { user } = req;
@@ -57,6 +115,22 @@ router.get('/profile', protect, isUniversity, asyncHandler(async (req, res) => {
       }
     }
   });
+}));
+
+router.get('/acl/balance', protect, isUniversity, asyncHandler(async (req, res) => {
+  const tokenId = String(process.env.ACL_TOKEN_ID || '').trim();
+  const accountId = String(req.user?.hederaAccountId || '').trim();
+  if (!tokenId || !accountId) {
+    return res.status(200).json({ success: true, data: { tokenId, accountId, balance: '0' } });
+  }
+  try { await hederaService.connect(); } catch {}
+  let balance = '0';
+  try {
+    if (hederaService.isEnabled()) {
+      balance = await hederaService.getTokenBalance(accountId, tokenId);
+    }
+  } catch {}
+  res.status(200).json({ success: true, data: { tokenId, accountId, balance } });
 }));
 
 router.post('/create-token', protect, isUniversity, 
@@ -164,6 +238,7 @@ router.post('/issue-credential', protect, isUniversity,
     body('tokenId').notEmpty().trim().escape(),
     body('uniqueHash').notEmpty().trim().escape(),
     body('ipfsURI').notEmpty().trim(),
+    body('networks').optional().isArray(),
     body('degree').optional().isString().trim(),
     body('studentName').optional().isString().trim(),
     body('graduationDate').optional().isString().trim(),
@@ -172,11 +247,19 @@ router.post('/issue-credential', protect, isUniversity,
     body('expiryDate').optional().isString().trim(),
   ],
   validate,
+  associationGuard,
   asyncHandler(async (req, res) => {
-    const { tokenId, uniqueHash, ipfsURI, recipientAccountId, degree, studentName, graduationDate, image, expiryDate } = req.body;
+    const { tokenId, uniqueHash, ipfsURI, recipientAccountId, degree, studentName, graduationDate, image, expiryDate, networks } = req.body;
     const { user } = req;
     const network = process.env.HEDERA_NETWORK || 'testnet';
     try {
+      const requested = Array.isArray(networks) ? networks.map(n=>String(n).toLowerCase()) : [];
+      const allowed = getAllowedNetworks(user.plan);
+      for (const n of requested) {
+        if (!allowed.includes(n)) {
+          return res.status(403).json({ success: false, message: `Tu plan actual no soporta esta red: ${n.toUpperCase()}` });
+        }
+      }
       const enableOnChain = String(process.env.ENABLE_ONCHAIN_VALIDATION || '1') === '1';
       const hasContract = !!process.env.ACADEMIC_LEDGER_CONTRACT_ID;
       const canOnChain = enableOnChain && hasContract && hederaService.isEnabled();
@@ -188,8 +271,10 @@ router.post('/issue-credential', protect, isUniversity,
       let xrp = null;
       let algo = null;
 
-      const enableXrp = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
-      if (enableXrp) {
+      const enableXrpEnv = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
+      const enableXrpByPlan = allowed.includes('xrp');
+      const enableXrpRequested = requested.length ? requested.includes('xrp') : enableXrpByPlan;
+      if (enableXrpEnv && enableXrpRequested) {
         try {
           await xrpService.connect();
           const anchorTitle = studentName ? `${degree || 'Credential'} - ${studentName} - ${user.universityName}` : `${degree || 'Credential'} - ${user.universityName}`;
@@ -208,8 +293,10 @@ router.post('/issue-credential', protect, isUniversity,
         }
       }
 
-      const enableAlgo = (process.env.ALGORAND_ENABLED === 'true' || process.env.ALGORAND_ENABLE === '1' || process.env.ENABLE_ALGORAND === '1');
-      if (enableAlgo) {
+      const enableAlgoEnv = (process.env.ALGORAND_ENABLED === 'true' || process.env.ALGORAND_ENABLE === '1' || process.env.ENABLE_ALGORAND === '1');
+      const enableAlgoByPlan = allowed.includes('algorand');
+      const enableAlgoRequested = requested.length ? requested.includes('algorand') : enableAlgoByPlan;
+      if (enableAlgoEnv && enableAlgoRequested) {
         try {
           const algorandService = require('../services/algorandService');
           await algorandService.connect();
@@ -283,12 +370,20 @@ router.post('/prepare-issuance', protect, isUniversity,
     body('tokenId').notEmpty().withMessage('Token ID is required').trim().escape(),
     body('uniqueHash').notEmpty().withMessage('uniqueHash is required').trim().escape(),
     body('ipfsURI').notEmpty().withMessage('ipfsURI is required').trim(),
+    body('networks').optional().isArray(),
   ],
   validate,
   asyncHandler(async (req, res) => {
     try {
       const { user } = req;
       const { tokenId, ...credentialData } = req.body;
+      const requested = Array.isArray(credentialData.networks) ? credentialData.networks.map(n=>String(n).toLowerCase()) : [];
+      const allowed = getAllowedNetworks(user.plan);
+      for (const n of requested) {
+        if (!allowed.includes(n)) {
+          return res.status(403).json({ success: false, message: `Tu plan actual no soporta esta red: ${n.toUpperCase()}` });
+        }
+      }
 
       const token = await Token.findOne({ tokenId, universityId: user.id });
       if (!token) {
@@ -321,10 +416,11 @@ router.post('/execute-issuance', protect, isUniversity,
     body('transactionId').notEmpty().withMessage('Transaction ID is required'),
     body('signedPaymentTransactionBytes').optional({ nullable: true }).isString(),
     body('xrpTxHash').optional({ nullable: true }).isString(),
+    body('networks').optional().isArray(),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { transactionId, signedPaymentTransactionBytes, xrpTxHash } = req.body;
+    const { transactionId, signedPaymentTransactionBytes, xrpTxHash, networks } = req.body;
     const { user } = req;
     const { Credential } = require('../models');
 
@@ -339,6 +435,15 @@ router.post('/execute-issuance', protect, isUniversity,
 
     try {
       const { credentialData } = transaction;
+      const requestedBody = Array.isArray(networks) ? networks.map(n=>String(n).toLowerCase()) : [];
+      const requestedSaved = Array.isArray(credentialData.networks) ? credentialData.networks.map(n=>String(n).toLowerCase()) : [];
+      const requested = requestedBody.length ? requestedBody : requestedSaved;
+      const allowed = getAllowedNetworks(user.plan);
+      for (const n of requested) {
+        if (!allowed.includes(n)) {
+          return res.status(403).json({ success: false, message: `Tu plan actual no soporta esta red: ${n.toUpperCase()}` });
+        }
+      }
 
       // 1. On-chain validation via Smart Contract (optional)
       const enableOnChain = String(process.env.ENABLE_ONCHAIN_VALIDATION || '1') === '1';
@@ -359,7 +464,8 @@ router.post('/execute-issuance', protect, isUniversity,
       let algoAnchor = null;
 
       const enableXrp2 = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
-      if (enableXrp2) {
+      const wantXrp = requested.length ? requested.includes('xrp') : allowed.includes('xrp');
+      if (enableXrp2 && wantXrp) {
         try {
           await xrpService.connect();
           const anchorTitle = credentialData.studentName ? `${credentialData.degree} - ${credentialData.studentName} - ${user.universityName}` : `${credentialData.degree || 'Credential'} - ${user.universityName}`;
@@ -379,16 +485,17 @@ router.post('/execute-issuance', protect, isUniversity,
       }
 
       const enableAlgo = (process.env.ALGORAND_ENABLED === 'true' || process.env.ALGORAND_ENABLE === '1' || process.env.ENABLE_ALGORAND === '1');
+      const wantAlgo = requested.length ? requested.includes('algorand') : allowed.includes('algorand');
       if (enableAlgo) {
         try {
           const algorandService = require('../services/algorandService');
           await algorandService.connect();
-          algoAnchor = await algorandService.anchor({
+          algoAnchor = wantAlgo ? await algorandService.anchor({
             certificateHash: credentialData.uniqueHash,
             hederaTokenId: credentialData.tokenId,
             serialNumber: 'pending',
             timestamp: new Date().toISOString(),
-          });
+          }) : null;
         } catch (e) {
              logger.warn(`Algorand Anchor failed pre-mint in execute-issuance: ${e.message}`);
         }

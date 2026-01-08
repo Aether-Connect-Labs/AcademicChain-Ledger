@@ -7,6 +7,7 @@ import QRCode from 'react-qr-code';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import axios from 'axios';
+import { theme } from '../themeConfig';
 
 const CredentialVerifier = () => {
   const [state, setState] = useState({ status: 'idle', mode: 'credential' });
@@ -824,7 +825,7 @@ const CredentialVerifier = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
+    <div className="max-w-2xl mx-auto" style={{ paddingLeft: theme.spacing.sectionPx, paddingRight: theme.spacing.sectionPx, paddingBottom: theme.spacing.sectionPb }}>
       <h2 className="text-2xl font-bold mb-4 gradient-text">Verificador de Credenciales</h2>
       <div className="card">
         <div className="max-w-full overflow-hidden">

@@ -89,8 +89,10 @@ const demoRoutes = require('./routes/demo');
 const scheduleDemoRoutes = require('./routes/schedule-demo');
 const utilsRoutes = require('./routes/excel-validate');
 const daoRoutes = require('./routes/dao');
+const billingRoutes = require('./routes/billing');
 const { getRuntimeHealthMonitor } = require('./middleware/runtimeHealth');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const testing = (process.env.NODE_ENV || '').toLowerCase() === 'test';
@@ -131,8 +133,11 @@ function validateEnvOnStartup() {
   if (missing.length) {
     const msg = `Missing env vars: ${missing.join(', ')}`;
     if (isProd) {
-      logger.error(msg);
-      throw new Error(msg);
+      if (!process.env.JWT_SECRET) {
+        process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex');
+        logger.warn('Generated ephemeral JWT_SECRET for production');
+      }
+      logger.warn(msg);
     } else {
       logger.warn(msg);
     }
@@ -155,11 +160,13 @@ const normalizeOrigin = (u) => {
 const configuredOrigins = clientUrl ? clientUrl.split(',').map(o => normalizeOrigin(o)).filter(Boolean) : [];
 const verifierOrigins = verifierOriginsRaw ? verifierOriginsRaw.split(',').map(o => normalizeOrigin(o)).filter(Boolean) : [];
 const extraOrigins = [process.env.SERVER_URL, process.env.BASE_URL].map(o => normalizeOrigin(o)).filter(Boolean);
-const whitelist = Array.from(new Set([
-  ...(configuredOrigins.length ? configuredOrigins : defaultOrigins),
-  ...extraOrigins,
-  ...verifierOrigins
-]));
+const whitelist = isProduction
+  ? (configuredOrigins.length ? configuredOrigins : [])
+  : Array.from(new Set([
+      ...(configuredOrigins.length ? configuredOrigins : defaultOrigins),
+      ...extraOrigins,
+      ...verifierOrigins
+    ]));
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -167,14 +174,8 @@ const corsOptions = {
     if (!origin) {
       return callback(null, true);
     }
-    // In non-production, allow any origin to avoid blocking local development
-    if (!isProduction) {
-      return callback(null, true);
-    }
-    if (!whitelist.length) {
-      // Fallback: allow when no whitelist configured (prevents hard failures in production)
-      return callback(null, true);
-    }
+    if (!isProduction) return callback(null, true);
+    if (!whitelist.length) return callback(new Error('Not allowed by CORS'));
     if (whitelist.includes(origin)) {
       return callback(null, true);
     }
@@ -504,6 +505,7 @@ app.use('/api/system', systemRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/utils', utilsRoutes);
 app.use('/api/dao', daoRoutes);
+app.use('/api/billing', billingRoutes);
 
 app.get('/excel-metrics.html', (req, res) => {
   try {

@@ -5,7 +5,7 @@ import CredentialVerifier from './credentials/CredentialVerifier.jsx';
 
 const StudentPortal = ({ demo = false }) => {
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto px-4 pb-4">
       <h1 className="text-2xl font-bold mb-4">Portal del Alumno</h1>
       {demo && (<div className="badge badge-info mb-4">Vista demo</div>)}
       <StudentCredentials demo={demo} />

@@ -1,16 +1,17 @@
 import React from 'react';
+import { theme } from './themeConfig';
 
 const Row = ({ items }) => (
   <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
     {items.map((t, i) => (
-      <div key={i} className="p-2 bg-white rounded-lg border border-gray-200">{t}</div>
+      <div key={i} className="p-2 rounded-lg border bg-gray-900/70 border-gray-700 text-white">{t}</div>
     ))}
   </div>
 );
 
 const FeaturesSection = () => {
   return (
-    <section className="py-16 relative overflow-hidden bg-[#0b1224]">
+    <section className="relative overflow-hidden bg-[#0b1224] pt-24 sm:pt-32" style={{ paddingBottom: theme.spacing.sectionPb }}>
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-10 left-1/4 w-40 h-40 rounded-full bg-[#0066FF]/20 blur-xl"></div>
         <div className="absolute top-24 right-1/5 w-52 h-52 rounded-full bg-[#0066FF]/16 blur-xl"></div>
@@ -24,7 +25,7 @@ const FeaturesSection = () => {
         <h2 className="text-3xl font-bold text-center mb-8 text-white">Infraestructura de Confianza Digital</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <div className="glass hover-lift p-6 rounded-xl">
+          <div className="p-6 rounded-xl bg-gray-900/70 border border-gray-800 shadow-soft">
             <h3 className="text-xl font-semibold mb-2 text-white">Verificación Instantánea</h3>
             <ul className="text-white/80 space-y-1">
               <li>Pruebas criptográficas · datos inalterables</li>
@@ -35,7 +36,7 @@ const FeaturesSection = () => {
             </ul>
             <div className="mt-3 text-xs text-white/60">Resumen: Certificado digital verificable.</div>
           </div>
-          <div className="glass hover-lift p-6 rounded-xl">
+          <div className="p-6 rounded-xl bg-gray-900/70 border border-gray-800 shadow-soft">
             <h3 className="text-xl font-semibold mb-2 text-white">Evidencia Temporal</h3>
             <ul className="text-white/80 space-y-1">
               <li>Anclaje con marca de tiempo</li>
@@ -46,7 +47,7 @@ const FeaturesSection = () => {
             </ul>
             <div className="mt-3 text-xs text-white/60">Resumen: Evidencia permanente de emisión.</div>
           </div>
-          <div className="glass hover-lift p-6 rounded-xl">
+          <div className="p-6 rounded-xl bg-gray-900/70 border border-gray-800 shadow-soft">
             <h3 className="text-xl font-semibold mb-2 text-white">Continuidad Operativa</h3>
             <ul className="text-white/80 space-y-1">
               <li>Redundancia multi‑red</li>
@@ -54,17 +55,18 @@ const FeaturesSection = () => {
               <li>Costos predecibles</li>
               <li>Reglas programables</li>
               <li>Performance global</li>
+              <li>Almacenamiento descentralizado (IPFS + Filecoin)</li>
             </ul>
             <div className="mt-3 text-xs text-white/60">Resumen: Operación sin interrupciones.</div>
           </div>
         </div>
 
-        <div className="glass mb-10 p-6 rounded-xl">
+        <div className="mb-10 p-6 rounded-xl bg-gray-900/70 border border-gray-800 shadow-soft">
           <h3 className="text-lg font-bold text-white">Analogía</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3 text-sm">
-            <div className="p-3 rounded-lg border border-white/20 bg-white/10 text-white">Certificado = Documento oficial</div>
-            <div className="p-3 rounded-lg border border-white/20 bg-white/10 text-white">Evidencia = Sello notarial digital</div>
-            <div className="p-3 rounded-lg border border-white/20 bg-white/10 text-white">Continuidad = Registro nacional</div>
+            <div className="p-3 rounded-lg border border-gray-700 bg-gray-900/60 text-white">Certificado = Documento oficial</div>
+            <div className="p-3 rounded-lg border border-gray-700 bg-gray-900/60 text-white">Evidencia = Sello notarial digital</div>
+            <div className="p-3 rounded-lg border border-gray-700 bg-gray-900/60 text-white">Continuidad = Registro nacional</div>
           </div>
         </div>
 

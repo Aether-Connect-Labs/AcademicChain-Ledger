@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Wallet, ChevronDown, ExternalLink } from 'lucide-react';
+import { Menu, X, Wallet, ChevronDown, ExternalLink, ShieldCheck, ArrowRight } from 'lucide-react';
 import { useHedera } from './useHedera';
 import { useAuth } from './useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toGateway, getGateways } from './utils/ipfsUtils';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -12,6 +13,27 @@ const Header = () => {
   const { isConnected, account, connectWallet, disconnectWallet } = useHedera();
   const { user } = useAuth();
   const canShowWallet = (user?.role === 'admin' || user?.role === 'university' || user?.role === 'institution');
+  const [logoSrc, setLogoSrc] = useState(toGateway('ipfs://bafkreicickkyjjn3ztitciypfh635lqowdskzbv54fiqbrhs4zbmwhjv4q'));
+  const logoGateways = useRef(getGateways('ipfs://bafkreicickkyjjn3ztitciypfh635lqowdskzbv54fiqbrhs4zbmwhjv4q'));
+  const logoGwIndex = useRef(0);
+  const handleLogoError = () => {
+    logoGwIndex.current = Math.min(logoGwIndex.current + 1, logoGateways.current.length - 1);
+    const next = logoGateways.current[logoGwIndex.current] || logoSrc;
+    setLogoSrc(next);
+  };
+  const [institutionName, setInstitutionName] = useState('');
+  useEffect(() => {
+    try {
+      const storedLogo = localStorage.getItem('acl:brand:logoUrl');
+      const storedName = localStorage.getItem('acl:brand:institutionName');
+      const storedColor = localStorage.getItem('acl:brand:primaryColor');
+      if (storedLogo) setLogoSrc(storedLogo);
+      if (storedName) setInstitutionName(storedName);
+      if (storedColor) {
+        document.documentElement.style.setProperty('--brand-primary', storedColor);
+      }
+    } catch {}
+  }, []);
 
   // Cerrar menú al cambiar de ruta
   useEffect(() => {
@@ -43,28 +65,39 @@ const Header = () => {
     { name: 'Documentación', path: '/developers/docs' },
   ];
 
+  const isHome = location.pathname === '/';
+  const effectiveScrolled = scrolled || !isHome;
+
   return (
     <header 
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'bg-white/80 backdrop-blur-md shadow-md py-3' : 'bg-transparent py-5'
+        effectiveScrolled ? 'bg-white/80 backdrop-blur-md shadow-md py-3' : 'bg-transparent py-5'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="bg-gradient-to-br from-blue-600 to-cyan-500 text-white p-2 rounded-lg group-hover:shadow-lg transition-all duration-300">
-              <span className="font-bold text-xl tracking-tighter">AC</span>
+          <div className="flex items-center gap-2 group">
+            <Link to="/">
+              <img
+                src={logoSrc}
+                onError={handleLogoError}
+                alt="Logo Institucional"
+                className="h-8 w-8 sm:h-10 sm:w-10 lg:h-14 lg:w-14 rounded-full lg:shadow-xl lg:shadow-black/20"
+                style={{ aspectRatio: '1 / 1', objectFit: 'contain' }}
+              />
+            </Link>
+            <div className="flex flex-col items-start gap-1">
+              <Link to="/" className="flex flex-col">
+                <span className={`font-bold text-lg leading-tight ${effectiveScrolled ? 'text-gray-900' : 'text-white'}`}>
+                  {institutionName || 'AcademicChain'}
+                </span>
+                <span className={`text-xs ${effectiveScrolled ? 'text-gray-800' : 'text-white/90'}`}>
+                  Powered by AcademicChain
+                </span>
+              </Link>
             </div>
-            <div className="flex flex-col">
-              <span className={`font-bold text-lg leading-tight ${scrolled ? 'text-gray-900' : 'text-white'}`}>
-                AcademicChain
-              </span>
-              <span className={`text-xs ${scrolled ? 'text-gray-500' : 'text-gray-300'}`}>
-                Powered by Hedera + XRP
-              </span>
-            </div>
-          </Link>
+          </div>
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-6">
@@ -73,7 +106,7 @@ const Header = () => {
                 key={link.name}
                 to={link.path}
                 className={`text-sm font-medium transition-colors hover:text-cyan-500 ${
-                  scrolled ? 'text-gray-700' : 'text-gray-200'
+                  effectiveScrolled ? 'text-gray-700' : 'text-gray-200'
                 } ${location.pathname === link.path ? 'text-cyan-500 font-bold' : ''}`}
               >
                 {link.name}
@@ -110,7 +143,7 @@ const Header = () => {
           <button
             onClick={toggleMenu}
             className={`lg:hidden p-2 rounded-lg transition-colors ${
-              scrolled ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'
+              effectiveScrolled ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'
             }`}
             aria-label="Toggle menu"
           >

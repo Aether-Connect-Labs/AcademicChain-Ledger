@@ -3,6 +3,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { useAuth } from '../useAuth';
 import { verificationService } from '../services/verificationService';
 import RevocationHistory from './RevocationHistory.jsx';
+import { theme } from '../themeConfig';
  
 const AdminRevocationPanel = () => {
   const { user } = useAuth();
@@ -72,7 +73,7 @@ const AdminRevocationPanel = () => {
   };
  
   return (
-    <div className="p-6">
+    <div className="" style={{ paddingLeft: theme.spacing.sectionPx, paddingRight: theme.spacing.sectionPx, paddingBottom: theme.spacing.sectionPb }}>
       <Toaster position="top-right" toastOptions={{ style: { borderRadius: '8px', padding: '8px 12px' } }} />
       <div className="bg-white rounded-xl shadow-soft border border-gray-200 p-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">🛡️ Gestión de Vigencia</h2>

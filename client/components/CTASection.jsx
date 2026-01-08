@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { useAnalytics } from './useAnalytics';
 import { useNavigate } from 'react-router-dom';
+import { theme } from './themeConfig';
+import { Building2, GraduationCap, Rocket, ShieldCheck, Wrench, Book, CircleDollarSign, ArrowRight } from 'lucide-react';
 
 const CTASection = ({ 
   variant = 'primary', 
@@ -197,14 +199,14 @@ const CTASection = ({
   return (
     <section 
       ref={ref}
-      className={`section-padding ${currentVariant.bg} ${currentVariant.text} py-16 md:py-20 lg:py-28 relative overflow-hidden`}
+      className={`section-padding ${currentVariant.bg} ${currentVariant.text} relative overflow-hidden`}
+      style={{ paddingBottom: theme.spacing.sectionPb }}
     >
-      {/* Elementos decorativos de fondo */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-10 left-10 text-6xl">🎓</div>
-        <div className="absolute top-20 right-20 text-4xl">🔗</div>
-        <div className="absolute bottom-20 left-20 text-5xl">⚡</div>
-        <div className="absolute bottom-10 right-10 text-6xl">🏫</div>
+      <div className="absolute inset-0 opacity-20 pointer-events-none">
+        <div className="absolute top-10 left-10 w-24 h-24 rounded-full bg-white/5 blur-2xl"></div>
+        <div className="absolute top-20 right-20 w-32 h-32 rounded-full bg-white/10 blur-2xl"></div>
+        <div className="absolute bottom-24 left-1/4 w-28 h-28 rounded-full bg-white/5 blur-2xl"></div>
+        <div className="absolute bottom-10 right-1/3 w-36 h-36 rounded-full bg-white/10 blur-2xl"></div>
       </div>
 
       <div className="container-responsive relative z-10">
@@ -244,30 +246,43 @@ const CTASection = ({
             ))}
           </div>
 
-          {/* Botones de acción principales */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <button
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 justify-center mb-12">
+            <div
               onClick={() => handleCTAClick('institution')}
-              className="btn-secondary px-8 py-4 rounded-xl text-lg shadow-soft hover-lift flex items-center justify-center space-x-3"
+              className="cursor-pointer bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl px-6 py-6 hover:bg-white/10 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
             >
-              <span>🏫</span>
-              <span>Portal de Institución</span>
-            </button>
-            
-            <button
+              <Building2 className="w-6 h-6 text-cyan-300" />
+              <div className="mt-3 font-semibold text-lg">Portal de Institución</div>
+              <div className="mt-1 text-sm opacity-80">Gestión y emisión de credenciales</div>
+              <div className="mt-4 inline-flex items-center text-cyan-300 group hover:text-white">
+                <span className="text-sm font-medium">Entrar</span>
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </div>
+            </div>
+            <div
               onClick={() => handleCTAClick('student')}
-              className="btn-secondary px-8 py-4 rounded-xl text-lg shadow-soft hover-lift flex items-center justify-center space-x-3"
+              className="cursor-pointer bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl px-6 py-6 hover:bg-white/10 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
             >
-              <span>🎓</span>
-              <span>Portal de Alumno</span>
-            </button>
-            <button
+              <GraduationCap className="w-6 h-6 text-cyan-300" />
+              <div className="mt-3 font-semibold text-lg">Portal de Alumno</div>
+              <div className="mt-1 text-sm opacity-80">Verificación y portabilidad segura</div>
+              <div className="mt-4 inline-flex items-center text-cyan-300 group hover:text-white">
+                <span className="text-sm font-medium">Entrar</span>
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </div>
+            </div>
+            <div
               onClick={() => handleCTAClick('free')}
-              className="btn-primary px-8 py-4 rounded-xl text-lg shadow-soft hover-lift flex items-center justify-center space-x-3"
+              className="cursor-pointer bg-[#0066FF] text-white rounded-2xl px-6 py-6 hover:bg-[#0057d6] hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
             >
-              <span>🚀</span>
-              <span>Comenzar Gratis</span>
-            </button>
+              <Rocket className="w-6 h-6" />
+              <div className="mt-3 font-semibold text-lg">Comenzar Gratis</div>
+              <div className="mt-1 text-sm opacity-90">Activación en minutos</div>
+              <div className="mt-4 inline-flex items-center">
+                <span className="text-sm font-medium">Continuar</span>
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </div>
+            </div>
           </div>
 
           {/* Formulario de demo (condicional) */}
@@ -335,26 +350,25 @@ const CTASection = ({
             </div>
           )}
 
-          {/* Información de confianza */}
           <div className="mt-12 pt-8 border-t border-white/20">
             <p className="text-sm opacity-75 mb-6 uppercase tracking-wider">
               Incluye sin costo adicional
             </p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
               <div className="flex items-center justify-center space-x-2">
-                <span className="text-green-300">🛡️</span>
+                <ShieldCheck className="w-4 h-4 text-green-300" />
                 <span>Soporte 24/7</span>
               </div>
               <div className="flex items-center justify-center space-x-2">
-                <span className="text-green-300">🔧</span>
+                <Wrench className="w-4 h-4 text-green-300" />
                 <span>Migración Asistida</span>
               </div>
               <div className="flex items-center justify-center space-x-2">
-                <span className="text-green-300">📚</span>
+                <Book className="w-4 h-4 text-green-300" />
                 <span>Training Completo</span>
               </div>
               <div className="flex items-center justify-center space-x-2">
-                <span className="text-green-300">💰</span>
+                <CircleDollarSign className="w-4 h-4 text-green-300" />
                 <span>Sin Costos Ocultos</span>
               </div>
             </div>

@@ -24,7 +24,7 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="container-responsive py-10">
+    <div className="container-responsive pb-10">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-3">Recuperar Contraseña</h1>
       <p className="text-gray-600 mb-6">Ingresa tu correo para enviarte un enlace de recuperación.</p>
       <form onSubmit={handleSubmit} className="max-w-md space-y-4">

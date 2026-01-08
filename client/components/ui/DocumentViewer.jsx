@@ -15,6 +15,8 @@ const DocumentViewer = ({ open, src, title = 'Documento', onClose }) => {
   const [numPages, setNumPages] = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [scale, setScale] = useState(1.2);
+  const [loaded, setLoaded] = useState(false);
+  const [watermarkUrl, setWatermarkUrl] = useState('');
   const storageKey = useMemo(() => (src ? `docviewer:${user?.id || 'anon'}:${src}` : ''), [src, user?.id]);
   const [preferFull, setPreferFull] = useState(false);
   const [fullTryFailed, setFullTryFailed] = useState(false);
@@ -25,6 +27,13 @@ const DocumentViewer = ({ open, src, title = 'Documento', onClose }) => {
     (ownerIdEnv && user.id === ownerIdEnv) ||
     (localStorage.getItem('previewOwner') === '1' && user.id === 'preview-owner')
   );
+
+  useEffect(() => {
+    try {
+      const u = localStorage.getItem('acl:brand:logoUrl') || '';
+      if (u) setWatermarkUrl(u);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -51,6 +60,7 @@ const DocumentViewer = ({ open, src, title = 'Documento', onClose }) => {
 
   useEffect(() => {
     if (open) {
+      setLoaded(false);
       if (isPdf(src) && storageKey) {
         try {
           const raw = localStorage.getItem(storageKey);
@@ -73,6 +83,7 @@ const DocumentViewer = ({ open, src, title = 'Documento', onClose }) => {
     const n = pdf.numPages || 1;
     setNumPages(n);
     setPageNumber((p) => Math.min(Math.max(1, p), n));
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -152,6 +163,21 @@ const DocumentViewer = ({ open, src, title = 'Documento', onClose }) => {
           </div>
         </div>
         <div className="p-4 overflow-auto bg-gray-50">
+          <div className="relative">
+            {watermarkUrl ? (
+              <div
+                className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                style={{ opacity: 0.08 }}
+              >
+                <img src={watermarkUrl} alt="" className="max-w-[60%] -rotate-12" />
+              </div>
+            ) : null}
+            {!loaded && (
+              <div className="mb-3 inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-600 text-xs font-medium">
+                <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin mr-2"></span>
+                <span>Sincronizando con la Red de Integridad...</span>
+              </div>
+            )}
           {preferFull && fullTryFailed && canUseOwnerOnly && (
             <div className="mb-2 text-xs text-yellow-800 bg-yellow-100 border border-yellow-300 px-3 py-2 rounded">
               Full-screen bloqueado por el navegador. Requiere interacción.
@@ -164,14 +190,15 @@ const DocumentViewer = ({ open, src, title = 'Documento', onClose }) => {
             </div>
           )}
           {isPdf(src) ? (
-            <div className="flex justify-center">
+            <div className="flex justify-center" style={{ opacity: loaded ? 1 : 0, transition: 'opacity 0.5s ease' }}>
               <Document file={src} onLoadSuccess={onLoadSuccess} onLoadError={() => setNumPages(1)}>
                 <Page pageNumber={pageNumber} scale={scale} renderTextLayer={false} renderAnnotationLayer={false} />
               </Document>
             </div>
           ) : (
-            <iframe title="doc" src={src} className="w-full h-[70vh] rounded border bg-white" />
+            <iframe title="doc" src={src} className="w-full h-[70vh] rounded border bg-white" onLoad={() => setLoaded(true)} style={{ opacity: loaded ? 1 : 0, transition: 'opacity 0.5s ease' }} />
           )}
+          </div>
         </div>
       </div>
     </div>

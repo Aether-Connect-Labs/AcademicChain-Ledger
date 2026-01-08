@@ -19,6 +19,8 @@ import RateDashboard from './components/RateDashboard';
 import PendingInstitutions from './components/PendingInstitutions';
 import ApprovedInstitutions from './components/ApprovedInstitutions';
 import AdminPanel from './components/AdminPanel';
+import PlanUpgrade from './components/PlanUpgrade';
+import SubscriptionManagement from './components/SubscriptionManagement';
 import BatchIssuancePage from './components/BatchIssuancePage';
 import CredentialVerifier from './components/credentials/CredentialVerifier';
 import Welcome from './components/Welcome';
@@ -38,9 +40,12 @@ import DemoScheduler from './components/DemoScheduler';
 import Profile from './components/Profile';
 import BlockchainStatus from './components/BlockchainStatus';
 import CredentialEvidence from './components/credentials/CredentialEvidence';
+import StudentCertificateView from './components/StudentCertificateView';
 import InteractiveTour from './components/InteractiveTour.jsx';
 import DashboardRedirect from './components/DashboardRedirect';
 import AdminRevocationPanel from './components/admin/AdminRevocationPanel.jsx';
+import AdminAnalytics from './components/AdminAnalytics.jsx';
+import CreditRecharge from './components/CreditRecharge.jsx';
 
 const AppRoutes = () => {
   return (
@@ -59,6 +64,7 @@ const AppRoutes = () => {
       <Route path="/welcome" element={<Layout><Welcome /></Layout>} />
       <Route path="/verify" element={<Layout><CredentialVerifier /></Layout>} />
       <Route path="/verificar" element={<Layout><VerifyCredentialPage /></Layout>} />
+      <Route path="/verify/:cid" element={<Layout><VerifyCredentialPage /></Layout>} />
       <Route path="/instituciones" element={<Layout><InstitutionsPage /></Layout>} />
       <Route path="/institutions" element={<Layout><InstitutionsPage /></Layout>} />
       <Route path="/developers" element={<Layout><DeveloperPortal /></Layout>} />
@@ -71,7 +77,9 @@ const AppRoutes = () => {
       <Route path="/verify" element={<Layout><CredentialVerifier /></Layout>} />
       <Route path="/status" element={<Layout><BlockchainStatus /></Layout>} />
       <Route path="/credential/:tokenId/:serialNumber/evidence" element={<Layout><CredentialEvidence /></Layout>} />
+      <Route path="/student/certificate/:tokenId/:serialNumber" element={<Layout><StudentCertificateView /></Layout>} />
       <Route path="/dashboard" element={<Layout><DashboardRedirect /></Layout>} />
+      <Route path="/subscription" element={<Layout><SubscriptionManagement /></Layout>} />
       {/* Rutas públicas de demo */}
       <Route path="/demo/institution" element={<Layout><EnhancedInstitutionDashboard demo={true} /></Layout>} />
       <Route path="/demo/student" element={<Layout><EnhancedStudentPortal demo={true} /></Layout>} />
@@ -134,6 +142,14 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/institution/credits"
+        element={
+          <ProtectedRoute requiredRoles={['university','institution','admin']}>
+            <Layout><CreditRecharge /></Layout>
+          </ProtectedRoute>
+        }
+      />
       
       <Route
         path="/student/portal"
@@ -148,6 +164,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute requiredRoles={['institution','university','admin','student']}>
             <Layout><Profile /></Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/analytics"
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <AdminLayout><AdminAnalytics /></AdminLayout>
           </ProtectedRoute>
         }
       />

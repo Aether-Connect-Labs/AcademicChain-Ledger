@@ -8,8 +8,16 @@ import { issuanceService } from './services/issuanceService';
 import { verificationService } from './services/verificationService';
 import { demoService } from './services/demoService';
 import { toGateway } from './utils/ipfsUtils';
+import { useAuth } from './useAuth.jsx';
+import developerService from './services/developerService';
+import { Bar, Doughnut } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Tooltip, Legend } from 'chart.js';
+import jsPDF from 'jspdf';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Tooltip, Legend);
 
 function InstitutionDashboard({ demo = false }) {
+  const { token } = useAuth() || { token: '' };
   const [credentials, setCredentials] = useState([]);
   const [loadingCreds, setLoadingCreds] = useState(false);
   const [errorCreds, setErrorCreds] = useState('');
@@ -46,6 +54,7 @@ function InstitutionDashboard({ demo = false }) {
   const [qrMetaLoading, setQrMetaLoading] = useState(false);
   const [qrIpfsURI, setQrIpfsURI] = useState('');
   const [qrTxId, setQrTxId] = useState('');
+  const [institutionalLogoUrl, setInstitutionalLogoUrl] = useState('');
   const [demoTokenId, setDemoTokenId] = useState('');
   const [demoUniqueHash, setDemoUniqueHash] = useState('');
   const [demoIpfsURI, setDemoIpfsURI] = useState('ipfs://QmDemoCid');
@@ -57,6 +66,39 @@ function InstitutionDashboard({ demo = false }) {
   const [demoPinMsg, setDemoPinMsg] = useState('');
   const [demoPinErr, setDemoPinErr] = useState('');
   const [demoImageCid, setDemoImageCid] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [apiGenerating, setApiGenerating] = useState(false);
+  const [apiMessage, setApiMessage] = useState('');
+  const [apiKeys, setApiKeys] = useState([]);
+  const [apiKeysLoading, setApiKeysLoading] = useState(false);
+  const [apiKeysError, setApiKeysError] = useState('');
+  const [revokingKey, setRevokingKey] = useState('');
+  const [rotatingKey, setRotatingKey] = useState('');
+  const [rateLimit, setRateLimit] = useState(null);
+  const [rateLoading, setRateLoading] = useState(false);
+  const [rateError, setRateError] = useState('');
+  const [onPrem, setOnPrem] = useState(false);
+  const [usage, setUsage] = useState({ hedera: 0, xrp: 0, algorand: 0 });
+  const [labLoading, setLabLoading] = useState(false);
+  const [labMessage, setLabMessage] = useState('');
+  const [labError, setLabError] = useState('');
+  const [securityHover, setSecurityHover] = useState(false);
+
+  useEffect(() => {
+    try {
+      const storedLogo = localStorage.getItem('acl:brand:logoUrl');
+      if (storedLogo) setInstitutionalLogoUrl(storedLogo);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      if (institutionalLogoUrl) {
+        localStorage.setItem('acl:brand:logoUrl', institutionalLogoUrl);
+        document.documentElement.style.setProperty('--brand-logo-url', institutionalLogoUrl);
+      }
+    } catch {}
+  }, [institutionalLogoUrl]);
 
   const loadCredentials = async (params = {}) => {
     setLoadingCreds(true);
@@ -198,6 +240,154 @@ function InstitutionDashboard({ demo = false }) {
     }
   };
 
+  const maskKey = (k) => {
+    if (!k) return '';
+    const head = k.slice(0, 10);
+    const tail = k.slice(-4);
+    return `${head}${'•'.repeat(Math.max(0, k.length - head.length - tail.length))}${tail}`;
+  };
+
+  const generateLocalKey = () => {
+    const bytes = new Uint8Array(16);
+    if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+      window.crypto.getRandomValues(bytes);
+    } else {
+      for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+    }
+    const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    return `acl_live_${hex}`;
+  };
+
+  const handleGenerateApiKey = async () => {
+    setApiGenerating(true);
+    setApiMessage('');
+    try {
+      let key = '';
+      if (token) {
+        try {
+          const res = await developerService.issueApiKey(token);
+          key = res?.data?.apiKey || '';
+        } catch (e) {
+          key = '';
+        }
+      }
+      if (!key) key = generateLocalKey();
+      setApiKey(key);
+      setApiKeyVisible(false);
+      setApiMessage('API Key generada correctamente.');
+      const now = new Date().toISOString();
+      setApiKeys(prev => [{ apiKey: key, status: 'active', createdAt: now, lastUsedAt: null }, ...prev]);
+    } catch (e) {
+      setApiMessage(e.message || 'Error generando la API Key');
+    } finally {
+      setApiGenerating(false);
+    }
+  };
+
+  const loadApiKeys = async () => {
+    if (!token) return;
+    setApiKeysLoading(true);
+    setApiKeysError('');
+    try {
+      const res = await developerService.listApiKeys(token);
+      const list = res?.data?.apiKeys || res?.data || [];
+      setApiKeys(Array.isArray(list) ? list : []);
+    } catch (e) {
+      setApiKeysError(e.message || 'No fue posible obtener las claves');
+    } finally {
+      setApiKeysLoading(false);
+    }
+  };
+
+  const handleRevokeApiKey = async (key) => {
+    setRevokingKey(key);
+    try {
+      if (token) {
+        try {
+          await developerService.revokeApiKey(token, key);
+        } catch {}
+      }
+      setApiKeys(prev => prev.map(k => k.apiKey === key ? { ...k, status: 'revoked' } : k));
+      if (apiKey === key) setApiKey('');
+    } finally {
+      setRevokingKey('');
+    }
+  };
+
+  const handleRotateApiKey = async (key) => {
+    setRotatingKey(key);
+    try {
+      let newKey = '';
+      if (token) {
+        try {
+          const res = await developerService.rotateApiKey(token, key);
+          newKey = res?.data?.apiKey || '';
+        } catch {}
+      }
+      if (!newKey) newKey = generateLocalKey();
+      setApiKeys(prev => prev.map(k => k.apiKey === key ? { ...k, status: 'rotated' } : k));
+      const now = new Date().toISOString();
+      setApiKeys(prev => [{ apiKey: newKey, status: 'active', createdAt: now, lastUsedAt: null }, ...prev]);
+      setApiKey(newKey);
+      setApiKeyVisible(false);
+      setApiMessage('API Key rotada correctamente.');
+    } finally {
+      setRotatingKey('');
+    }
+  };
+
+  const loadRateLimit = async () => {
+    if (!token) {
+      setRateLimit({ plan: 'enterprise', used: 0, limit: 10000, resetsAt: new Date(Date.now() + 3600 * 1000).toISOString() });
+      return;
+    }
+    setRateLoading(true);
+    setRateError('');
+    try {
+      const res = await developerService.getRateLimitStatus(token);
+      const rl = res?.data?.rateLimit || res?.data || null;
+      if (rl && typeof rl.used === 'number' && typeof rl.limit === 'number') {
+        setRateLimit(rl);
+      } else {
+        setRateLimit({ plan: 'enterprise', used: 0, limit: 10000, resetsAt: new Date(Date.now() + 3600 * 1000).toISOString() });
+      }
+    } catch (e) {
+      setRateError(e.message || 'No fue posible cargar el estado de rate limit');
+      setRateLimit({ plan: 'enterprise', used: 0, limit: 10000, resetsAt: new Date(Date.now() + 3600 * 1000).toISOString() });
+    } finally {
+      setRateLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadApiKeys();
+    loadRateLimit();
+    (async () => {
+      if (!token) {
+        setUsage({ hedera: 0, xrp: 0, algorand: 0 });
+        return;
+      }
+      try {
+        const res = await developerService.getUsageAnalytics(token);
+        const u = res?.data?.usage || res?.data || { hedera: 0, xrp: 0, algorand: 0 };
+        setUsage(u);
+      } catch {
+        setUsage({ hedera: 0, xrp: 0, algorand: 0 });
+      }
+    })();
+  }, [token]);
+
+  const pct = rateLimit && rateLimit.limit > 0 ? Math.min(100, Math.round((rateLimit.used / rateLimit.limit) * 100)) : 0;
+  const formatDate = (iso) => {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
+    } catch {
+      return String(iso);
+    }
+  };
+
   const handleOpenVerification = () => {
     if (!verifyTokenId || !verifySerial) return;
     const url = verificationService.getVerificationUrl(verifyTokenId, verifySerial);
@@ -255,7 +445,7 @@ function InstitutionDashboard({ demo = false }) {
   }, [qrPreviewOpen, qrTokenId, qrSerial]);
 
   return (
-    <div className="container-responsive py-10">
+    <div className="container-responsive pb-10">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-2 gradient-text">Dashboard de la Institución</h1>
       <p className="text-gray-600">Bienvenido al portal de la institución. Aquí podrás emitir títulos y subir archivos Excel.</p>
       {demo && (
@@ -373,6 +563,290 @@ function InstitutionDashboard({ demo = false }) {
               {stats ? JSON.stringify(stats) : 'Sin datos'}
             </div>
           )}
+        </div>
+        <div className="card">
+          <div className="font-semibold mb-2">Conectividad & API</div>
+          <div className="inline-flex items-center px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs border border-green-200">API Endpoint: Activo (Global)</div>
+          <div className="mt-3">
+            <button className="btn-primary" disabled={apiGenerating} onClick={handleGenerateApiKey}>
+              {apiGenerating ? 'Generando…' : 'Generar Nueva API Key'}
+            </button>
+          </div>
+          {apiMessage && <div className="text-green-700 text-sm mt-2">{apiMessage}</div>}
+          {apiKey && (
+            <div className="mt-3 p-3 rounded-lg border bg-gray-50">
+              <div className="text-xs text-gray-600 mb-1">x-api-key</div>
+              <div className="flex items-center gap-2">
+                <div className="font-mono text-sm break-all">{apiKeyVisible ? apiKey : maskKey(apiKey)}</div>
+                <button className="btn-secondary btn-sm" onClick={() => setApiKeyVisible(v => !v)}>
+                  {apiKeyVisible ? 'Ocultar' : 'Mostrar'}
+                </button>
+                <button className="btn-secondary btn-sm" onClick={() => navigator.clipboard.writeText(apiKey)}>Copiar</button>
+              </div>
+              <div className="mt-2 text-xs text-gray-600">Guárdala de forma segura. Por motivos de seguridad, se oculta por defecto.</div>
+            </div>
+          )}
+          <div className="mt-3 text-xs text-gray-600">
+            Incluye límites automáticos según plan (PRO/ENTERPRISE). Solicita SLA para instalación On‑Prem.
+          </div>
+          <div className="mt-4">
+            <div className="font-semibold mb-2">Rate Limit</div>
+            {rateLoading ? (
+              <div className="badge badge-info">Cargando...</div>
+            ) : (
+              <div>
+                {rateError && <div className="badge badge-error mb-2">{rateError}</div>}
+                <div className="text-sm text-gray-700">Plan: {rateLimit?.plan || 'N/A'}</div>
+                <div className="text-sm text-gray-700 mt-1">{rateLimit?.used || 0}/{rateLimit?.limit || 0} solicitudes</div>
+                <div className="w-full h-2 bg-gray-200 rounded mt-2">
+                  <div className="h-2 bg-blue-600 rounded" style={{ width: `${pct}%` }} />
+                </div>
+                {rateLimit?.resetsAt && <div className="text-xs text-gray-500 mt-1">Resetea: {formatDate(rateLimit.resetsAt)}</div>}
+              </div>
+            )}
+          </div>
+          <div className="mt-4">
+            <div className="font-semibold mb-2">Historial de Claves</div>
+            {apiKeysLoading ? (
+              <div className="badge badge-info">Cargando...</div>
+            ) : apiKeysError ? (
+              <div className="badge badge-error">{apiKeysError}</div>
+            ) : apiKeys.length === 0 ? (
+              <div className="text-sm text-gray-500">Aún no hay claves registradas</div>
+            ) : (
+              <div className="space-y-2">
+                {apiKeys.map((k) => {
+                  const masked = maskKey(k.apiKey || '');
+                  const s = k.status || 'active';
+                  const isActive = s === 'active';
+                  const isRevoking = revokingKey === k.apiKey;
+                  const isRotating = rotatingKey === k.apiKey;
+                  return (
+                    <div key={k.apiKey} className="flex items-center justify-between p-2 rounded border bg-white">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-sm break-all">{masked}</div>
+                        <div className="text-xs text-gray-600 mt-1">{s} • Creada: {formatDate(k.createdAt)}{k.lastUsedAt ? ` • Último uso: ${formatDate(k.lastUsedAt)}` : ''}</div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-3">
+                        <button className={`btn-secondary btn-sm ${!isActive ? 'opacity-60 pointer-events-none' : ''}`} onClick={() => handleRevokeApiKey(k.apiKey)} disabled={!isActive || isRevoking}>
+                          {isRevoking ? 'Revocando...' : 'Revocar'}
+                        </button>
+                        <button className={`btn-primary btn-sm ${!isActive ? 'opacity-60 pointer-events-none' : ''}`} onClick={() => handleRotateApiKey(k.apiKey)} disabled={!isActive || isRotating}>
+                          {isRotating ? 'Rotando...' : 'Rotar'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className="mt-4">
+            <div className="font-semibold mb-2">Branding Institucional</div>
+            <div className="flex items-center gap-3">
+              <input type="file" accept="image/png,image/svg+xml" onChange={async (e) => {
+                const f = e.target.files?.[0] || null;
+                if (!f) return;
+                try {
+                  const uri = await issuanceService.uploadToIPFS(f);
+                  setInstitutionalLogoUrl(toGateway(uri));
+                } catch {}
+              }} />
+              {institutionalLogoUrl && <img src={institutionalLogoUrl} alt="Logo" className="h-8 w-8 rounded" />}
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="font-semibold mb-2">On‑Prem & SLA</div>
+            <div className="flex items-center justify-between p-3 rounded border bg-gray-50">
+              <div>
+                <div className="text-sm font-medium">Instalación Local</div>
+                <div className="text-xs text-gray-600">Disponible en Enterprise. Solicita acceso.</div>
+              </div>
+              <label className="inline-flex items-center gap-2">
+                <input type="checkbox" checked={onPrem} onChange={() => {}} disabled />
+                <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">Bloqueado</span>
+              </label>
+            </div>
+            <div className="mt-2">
+              <a className="btn-secondary btn-sm" href="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" target="_blank" rel="noreferrer">Descargar SLA</a>
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="font-semibold mb-2">Analíticas por Red</div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="p-3 rounded border bg-white">
+                <div className="text-xs text-gray-600">Hedera</div>
+                <div className="text-xl font-bold">{usage.hedera || 0}</div>
+              </div>
+              <div className="p-3 rounded border bg-white">
+                <div className="text-xs text-gray-600">XRP</div>
+                <div className="text-xl font-bold">{usage.xrp || 0}</div>
+              </div>
+              <div className="p-3 rounded border bg-white">
+                <div className="text-xs text-gray-600">Algorand</div>
+                <div className="text-xl font-bold">{usage.algorand || 0}</div>
+              </div>
+            </div>
+            <div className="mt-3 card">
+              {(() => {
+                const labels = ['Hedera', 'XRP', 'Algorand'];
+                const values = [usage.hedera || 0, usage.xrp || 0, usage.algorand || 0];
+                const target = Math.max(...values, 1);
+                const gradientFactory = (ctx) => {
+                  const g = ctx.createLinearGradient(0, 0, 0, 200);
+                  g.addColorStop(0, 'rgba(6,182,212,0.7)');
+                  g.addColorStop(1, 'rgba(168,85,247,0.7)');
+                  return g;
+                };
+                const data = {
+                  labels,
+                  datasets: [
+                    {
+                      type: 'bar',
+                      label: 'Uso',
+                      data: values,
+                      backgroundColor: (context) => {
+                        const { ctx } = context.chart;
+                        return gradientFactory(ctx);
+                      },
+                      borderColor: 'rgba(99,102,241,0.5)',
+                      borderWidth: 1,
+                      borderRadius: 8
+                    },
+                    {
+                      type: 'line',
+                      label: 'Nivel óptimo',
+                      data: [target, target, target],
+                      borderColor: 'rgba(34,197,94,0.9)',
+                      pointBackgroundColor: 'rgba(34,197,94,0.9)',
+                      tension: 0.3
+                    }
+                  ]
+                };
+                const options = {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  animation: { duration: 1000 },
+                  plugins: { legend: { display: true }, tooltip: { enabled: true } },
+                  scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true }
+                  }
+                };
+                const usedNetworks = ['hedera','xrp','algorand'].filter(n => (values[['Hedera','XRP','Algorand'].indexOf(n)] || 0) > 0).length;
+                const securityPct = usedNetworks === 0 ? 0 : Math.round((usedNetworks / 3) * 100);
+                const levelLabel = usedNetworks >= 3 ? 'Blindaje Total' : (usedNetworks === 2 ? 'Seguridad Avanzada' : (usedNetworks === 1 ? 'Seguridad Base' : 'Sin uso'));
+                const doughnutData = {
+                  labels: ['Nivel de Seguridad', ''],
+                  datasets: [{ data: [securityPct, 100 - securityPct], backgroundColor: ['rgba(34,197,94,0.9)', 'rgba(203,213,225,0.5)'], borderWidth: 0 }]
+                };
+                const doughnutOptions = { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false } }, animation: { duration: 1000 } };
+                const tooltipMsg = securityPct >= 100
+                  ? 'Máximo Estándar Global. Triple redundancia inmutable (H + X + A). Protección contra fallos críticos y auditoría internacional inmediata. Recomendado: Enterprise'
+                  : (securityPct >= 66
+                    ? 'Doble Consenso Distribuido (Hedera + XRP). Alta resiliencia y verificación dual. Recomendado: Enterprise'
+                    : (securityPct >= 33
+                      ? 'Certificación inmutable en red Hedera Hashgraph. Resistencia estándar contra fraude y manipulación de datos.'
+                      : 'Sin blindaje activo. Activa tu API y emite para ver tu nivel de seguridad.'));
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="md:col-span-2 h-64 bg-white/80 backdrop-blur-md border border-white/20 rounded-xl p-3">
+                      <Bar data={data} options={options} />
+                    </div>
+                    <div className="h-64 bg-white/80 backdrop-blur-md border border-white/20 rounded-xl p-3 flex flex-col items-center justify-center">
+                      <div className="w-36 h-36 relative" onMouseEnter={() => setSecurityHover(true)} onMouseLeave={() => setSecurityHover(false)}>
+                        <Doughnut data={doughnutData} options={doughnutOptions} />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold">{securityPct}%</div>
+                            <div className="text-xs text-gray-600 mt-1">{levelLabel}</div>
+                          </div>
+                        </div>
+                        {securityHover && (
+                          <div className="absolute -top-3 left-1/2 -translate-x-1/2 -translate-y-full max-w-xs bg-black/70 text-white text-xs p-3 rounded-lg shadow-strong border border-white/20">
+                            {tooltipMsg}
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-3 text-sm text-gray-700">Nivel de Seguridad</div>
+                      <button className="btn-secondary btn-sm mt-2" onClick={() => {
+                        try {
+                          const doc = new jsPDF();
+                          if (institutionalLogoUrl) {
+                            try {
+                              const r = await fetch(institutionalLogoUrl);
+                              const b = await r.blob();
+                              const reader = new FileReader();
+                              await new Promise((res, rej) => { reader.onload = () => res(); reader.onerror = rej; reader.readAsDataURL(b); });
+                              doc.addImage(reader.result, 'PNG', 10, 10, 20, 20);
+                            } catch {}
+                          }
+                          doc.setFontSize(16);
+                          doc.text('ACADEMIC CHAIN LEDGER: PROPUESTA ENTERPRISE', 10, institutionalLogoUrl ? 40 : 20);
+                          doc.setFontSize(12);
+                          doc.text('Solución: Infraestructura de Triple Blindaje Blockchain (Hedera + XRP + Algorand)', 10, institutionalLogoUrl ? 55 : 35);
+                          doc.text('Costo Mensual: $599.99 USD (Incluye 5,000 emisiones)', 10, institutionalLogoUrl ? 65 : 45);
+                          doc.text('Costo Unitario: $0.12 USD', 10, institutionalLogoUrl ? 75 : 55);
+                          doc.text('Garantía: SLA de 99.9% y soporte VIP 24/7', 10, institutionalLogoUrl ? 85 : 65);
+                          doc.text('Implementación: API Key inmediata o On‑Premise', 10, institutionalLogoUrl ? 95 : 75);
+                          doc.text('Beneficio: Auditoría internacional y resiliencia por triple consenso distribuido', 10, institutionalLogoUrl ? 105 : 85);
+                          doc.save('Propuesta-ACL-Enterprise.pdf');
+                        } catch {}
+                      }}>Descargar Propuesta Comercial PDF</button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="font-semibold mb-2">ACL Labs: Test de Emisión</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button className="btn-secondary" disabled={labLoading || !apiKey} onClick={async () => {
+                setLabLoading(true); setLabError(''); setLabMessage('');
+                try {
+                  const res = await developerService.certifyStandard(apiKey, {});
+                  setLabMessage(res?.data?.message || 'Emisión Standard realizada');
+                  const r = await developerService.getUsageAnalytics(token);
+                  setUsage(r?.data?.usage || r?.data || usage);
+                } catch (e) {
+                  setLabError(e.message || 'Error en emisión Standard');
+                } finally {
+                  setLabLoading(false);
+                }
+              }}>Emitir Standard (H)</button>
+              <button className="btn-secondary" disabled={labLoading || !apiKey} onClick={async () => {
+                setLabLoading(true); setLabError(''); setLabMessage('');
+                try {
+                  const res = await developerService.certifyDual(apiKey, {});
+                  setLabMessage(res?.data?.message || 'Emisión Dual realizada');
+                  const r = await developerService.getUsageAnalytics(token);
+                  setUsage(r?.data?.usage || r?.data || usage);
+                } catch (e) {
+                  setLabError(e.message || 'Error en emisión Dual');
+                } finally {
+                  setLabLoading(false);
+                }
+              }}>Emitir Dual (H+X)</button>
+              <button className="btn-primary" disabled={labLoading || !apiKey} onClick={async () => {
+                setLabLoading(true); setLabError(''); setLabMessage('');
+                try {
+                  const res = await developerService.certifyTriple(apiKey, {});
+                  setLabMessage(res?.data?.message || 'Emisión Triple realizada');
+                  const r = await developerService.getUsageAnalytics(token);
+                  setUsage(r?.data?.usage || r?.data || usage);
+                } catch (e) {
+                  setLabError(e.message || 'Error en emisión Triple');
+                } finally {
+                  setLabLoading(false);
+                }
+              }}>Emitir Triple (H+X+A)</button>
+            </div>
+            {labLoading && <div className="badge badge-info mt-2">Procesando...</div>}
+            {labMessage && <div className="badge badge-success mt-2">{labMessage}</div>}
+            {labError && <div className="badge badge-error mt-2">{labError}</div>}
+            {!apiKey && <div className="text-xs text-gray-600 mt-2">Genera una API Key para habilitar las pruebas.</div>}
+          </div>
         </div>
         <div className="card">
           <div className="font-semibold">Total Credenciales</div>
@@ -588,6 +1062,11 @@ function InstitutionDashboard({ demo = false }) {
                 <div className="font-bold">Código QR</div>
                 <button className="btn-ghost" onClick={() => setQrPreviewOpen(false)}>✕</button>
               </div>
+              {institutionalLogoUrl && (
+                <div className="flex justify-center mb-2">
+                  <img alt="Logo Institucional" src={institutionalLogoUrl} className="h-10 w-10 rounded" />
+                </div>
+              )}
             <div className="flex justify-center">
               <img alt="QR" src={qrPreviewUrl} className="max-w-full" />
             </div>

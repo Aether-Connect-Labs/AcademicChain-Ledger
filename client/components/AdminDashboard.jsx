@@ -8,6 +8,7 @@ import { useWebSocket } from './useWebSocket';
 import { useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import SystemLatencyChart from './SystemLatencyChart';
+import { theme } from './themeConfig';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('pending');
@@ -171,7 +172,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="p-8 bg-[#0b1224] min-h-screen">
+    <div className="bg-[#0b1224] min-h-screen" style={{ paddingLeft: theme.spacing.sectionPx, paddingRight: theme.spacing.sectionPx, paddingBottom: theme.spacing.sectionPb }}>
       <Toaster position="top-right" toastOptions={{ style: { borderRadius: '8px', padding: '8px 12px' } }} />
       <h1 className="text-3xl font-bold text-white mb-6">Panel de Administración</h1>
       <div className="mb-6">

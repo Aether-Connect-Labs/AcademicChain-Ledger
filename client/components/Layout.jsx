@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './Header';
@@ -46,6 +46,8 @@ const Layout = ({
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const headerRef = useRef(null);
   const [originalTitle] = useState(() => document.title);
   const [originalFaviconHref] = useState(() => {
     const link = document.querySelector("link[rel='icon']");
@@ -79,11 +81,35 @@ const Layout = ({
       const docHeight = document.documentElement.scrollHeight - window.innerHeight;
       const progress = (scrollTop / docHeight) * 100;
       setScrollProgress(progress);
+      if (headerRef.current) {
+        setHeaderHeight(headerRef.current.offsetHeight || 0);
+      }
     };
 
     window.addEventListener('scroll', updateScrollProgress);
-    return () => window.removeEventListener('scroll', updateScrollProgress);
+    window.addEventListener('resize', updateScrollProgress);
+    window.addEventListener('orientationchange', updateScrollProgress);
+    // Inicializar altura del header
+    updateScrollProgress();
+    return () => {
+      window.removeEventListener('scroll', updateScrollProgress);
+      window.removeEventListener('resize', updateScrollProgress);
+      window.removeEventListener('orientationchange', updateScrollProgress);
+    };
   }, []);
+
+  // Observa dinámicamente el tamaño del header (incluye menú expandido en móvil)
+  useEffect(() => {
+    if (!headerRef.current || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const h = entry.target?.offsetHeight || entry.contentRect?.height || 0;
+        setHeaderHeight(h);
+      }
+    });
+    observer.observe(headerRef.current);
+    return () => observer.disconnect();
+  }, [headerRef.current]);
 
   // Scroll to top en cambio de ruta
   useEffect(() => {
@@ -160,6 +186,7 @@ const Layout = ({
           initial={{ y: -100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
+          ref={headerRef}
         >
           <Header 
             transparent={transparentNavbar}
@@ -204,7 +231,10 @@ const Layout = ({
       </AnimatePresence>
 
       {/* Contenido principal con animaciones */}
-      <main className="flex-grow relative">
+      <main 
+        className="flex-grow relative"
+        style={{ paddingTop: showNavbar && !isSpecialRoute && !transparentNavbar ? headerHeight : 0 }}
+      >
         <ErrorBoundary onReset={() => window.location.reload()} showDetails={import.meta.env.MODE === 'development'}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div

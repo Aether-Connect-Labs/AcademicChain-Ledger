@@ -4,7 +4,7 @@ import { verificationService } from './services/verificationService';
 import { Toaster, toast } from 'react-hot-toast';
 import { toGateway } from './utils/ipfsUtils';
 
-const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
+const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'] }) => {
   const [formData, setFormData] = useState({
     tokenId: '0.0.123456',
     studentName: '',
@@ -175,11 +175,13 @@ const IssueTitleForm = ({ variant = 'degree', demo = false }) => {
         graduationDate: formData.issueDate,
         grade: formData.grade,
         recipientAccountId: formData.recipientAccountId || undefined,
+        networks,
       });
 
       const transactionId = prepareRes.data?.transactionId || prepareRes.transactionId;
       const execRes = await issuanceService.executeIssuance({
         transactionId,
+        networks,
       });
       
       setResult(execRes.data || execRes);

@@ -7,6 +7,8 @@ const CredentialSchema = new mongoose.Schema({
   studentAccountId: { type: String },
   uniqueHash: { type: String, required: true, unique: true, index: true },
   ipfsURI: { type: String, required: true },
+  ipfsMetadataCid: { type: String },
+  ipfsPdfCid: { type: String },
   status: { type: String, default: 'ACTIVE', index: true },
   revocationReason: { type: String, default: null },
   revokedAt: { type: Date, default: null },

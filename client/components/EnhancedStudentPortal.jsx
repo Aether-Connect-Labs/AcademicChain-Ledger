@@ -101,24 +101,25 @@ function EnhancedStudentPortal({ demo = false }) {
 
   const renderConnectionStatus = () => {
     const statusConfig = {
-      checking: { text: 'Verificando conexión...', color: 'text-blue-600', bg: 'bg-blue-100' },
-      connected: { text: 'Conectado al sistema', color: 'text-green-600', bg: 'bg-green-100' },
-      demo: { text: 'Modo demo - Credenciales de ejemplo', color: 'text-yellow-600', bg: 'bg-yellow-100' },
-      error: { text: 'Error de conexión', color: 'text-red-600', bg: 'bg-red-100' }
+      checking: { text: 'Sincronizando con la Red de Integridad...', color: 'text-blue-600', bg: 'bg-blue-100' },
+      connected: { text: 'Conectado a la Red de Integridad', color: 'text-green-600', bg: 'bg-green-100' },
+      demo: { text: 'Modo demo — Sincronización simulada', color: 'text-yellow-600', bg: 'bg-yellow-100' },
+      error: { text: 'Restableciendo enlace de seguridad...', color: 'text-red-600', bg: 'bg-red-100' }
     };
 
     const config = statusConfig[connectionStatus] || statusConfig.checking;
 
     return (
-      <div className={`px-4 py-2 rounded-lg ${config.bg} ${config.color} text-sm font-medium mb-4`}>
-        {config.text}
+      <div className={`px-4 py-2 rounded-lg ${config.bg} ${config.color} text-sm font-medium mb-4 flex items-center gap-2`}>
+        <span className="inline-block animate-spin rounded-full border-2 border-current border-t-transparent w-4 h-4" />
+        <span>{config.text}</span>
       </div>
     );
   };
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto px-6 pb-6">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Cargando tus credenciales...</p>
@@ -128,7 +129,7 @@ function EnhancedStudentPortal({ demo = false }) {
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto px-6 pb-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Portal del Alumno</h1>
         <p className="text-gray-600">Gestiona y verifica tus credenciales académicas</p>

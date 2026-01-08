@@ -169,7 +169,7 @@ const DemoScheduler = () => {
 
   return (
     <>
-    <div className="container-responsive py-10">
+    <div className="container-responsive pb-10 pt-24 sm:pt-32">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-2 gradient-text">Agenda una Demo</h1>
       <p className="text-gray-600 mb-6">Selecciona tu horario preferido. Zona horaria: {tz}</p>
 
