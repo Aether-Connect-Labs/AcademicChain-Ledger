@@ -769,7 +769,7 @@ function InstitutionDashboard({ demo = false }) {
                         )}
                       </div>
                       <div className="mt-3 text-sm text-gray-700">Nivel de Seguridad</div>
-                      <button className="btn-secondary btn-sm mt-2" onClick={() => {
+                      <button className="btn-secondary btn-sm mt-2" onClick={async () => {
                         try {
                           const doc = new jsPDF();
                           if (institutionalLogoUrl) {
