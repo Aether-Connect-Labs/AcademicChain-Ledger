@@ -272,6 +272,47 @@ Invoke-RestMethod -Method Post -Uri 'http://localhost:3001/api/verify/multi' -Co
 - Base de Datos: MongoDB Atlas Serverless
 - Frontend: Vercel
 
+#### Despliegue en Render (Serverless Production)
+- Servicio:
+  - Crea un Web Service apuntando al directorio `server/`
+  - Build command: `npm ci`
+  - Start command: `npm start`
+  - Auto Deploy: activado
+  - Puerto: usa `PORT` (la app ya lee `process.env.PORT`)
+- Variables de Entorno (Render):
+  - Esenciales:
+    - `NODE_ENV=production`
+    - `SERVER_URL=https://academicchain-ledger.onrender.com`
+    - `CLIENT_URL=https://tu-frontend.vercel.app`
+    - `JWT_SECRET=<un_secret_robusto>`
+    - `MONGODB_URI=mongodb+srv://<usuario>:<pass>@<cluster>/<db>?retryWrites=true&w=majority`
+    - `REDIS_URL=redis://default:<PASSWORD>@redis-13743.c73.us-east-1-2.ec2.redns.redis-cloud.com:13743`
+      - Si usas Redis Cloud, el usuario suele ser `default` y la contraseña es la de tu instancia
+    - `HEDERA_NETWORK=testnet` | `mainnet`
+    - `HEDERA_ACCOUNT_ID=0.0.<ID>`
+    - `HEDERA_PRIVATE_KEY=<SECRETO>` (configúralo como Secret en Render)
+    - `ACL_TOKEN_ID=0.0.<TOKEN_ACL>` (token de control de acceso requerido por associationGuard)
+  - Opcionales/Recomendados:
+    - `FRONTEND_URL=https://tu-frontend.vercel.app` (CORS)
+    - `ALLOWED_VERIFIER_ORIGINS=https://tu-frontend.vercel.app`
+    - `DEFAULT_UNIVERSITY_PLAN=basic`
+    - `DISABLE_SWAGGER=1` (oculta documentación en producción)
+    - `REQUIRE_API_KEY_FOR_VERIFICATION=1` (protege endpoints de verificación)
+    - `ENABLE_XRP_ANCHOR=0|1` (anclajes XRPL; requiere `XRPL_ENABLED=true` y `XRPL_SEED`)
+    - `XRPL_ENABLED=true|false`, `XRPL_NETWORK=testnet|mainnet`, `XRPL_SEED=<seed>` (como Secret)
+    - `ALGORAND_ENABLED=true|false`, `ALGORAND_NETWORK=testnet|mainnet`, `ALGORAND_MNEMONIC=<mnemonic>` (Secret)
+    - `HEDERA_MIRROR_URL=https://testnet.mirrornode.hedera.com` (o mainnet)
+    - `ALLOW_V1_TOKEN_AUTO_CREATE=false` (dejar en false para producción)
+    - `ACADEMIC_CHAIN_API_KEY=<opcional>` (si lo defines, los endpoints v1 requerirán header `X-API-Key` igual a este valor)
+    - `DISABLE_MONGO=0`, `DISABLE_REDIS=0` (asegura que DB/Redis estén habilitados)
+- Health Checks:
+  - HTTP path `/health` y `/ready` para probes en Render
+- CORS:
+  - Usa `CLIENT_URL`/`FRONTEND_URL` con tu dominio público del frontend
+- Notas:
+  - Nunca publiques llaves privadas en el repositorio; usa Secrets de Render para claves sensibles
+  - Si recibes `Token no asociado a institución`, vincula tu `ACL_TOKEN_ID` a la cuenta Hedera de la universidad antes de emitir
+
 #### Despliegue en Koyeb (Alternativa Serverless)
 - Servicio:
   - Crea una App y un Service desde tu repositorio.
@@ -327,6 +368,46 @@ docker compose -f docker-compose.prod.yml up -d
 # Verificar servicios
 docker ps
 docker logs academicchain-api
+```
+
+### Producción (Render) — Ejemplos de API
+
+#### Flujo de Desarrollador (API Keys)
+```powershell
+# 1) Registrar desarrollador
+$reg = Invoke-RestMethod -Method Post -Uri 'https://academicchain-ledger.onrender.com/api/v1/developers/register' -ContentType 'application/json' -Body (@{ email='dev@example.com'; name='Dev Test'; password='Password123!' } | ConvertTo-Json)
+$tokenVerif = $reg.data.verificationToken
+
+# 2) Verificar email
+Invoke-RestMethod -Method Post -Uri 'https://academicchain-ledger.onrender.com/api/v1/developers/verify-email' -ContentType 'application/json' -Body (@{ token=$tokenVerif } | ConvertTo-Json)
+
+# 3) Login y emitir API Key
+$login = Invoke-RestMethod -Method Post -Uri 'https://academicchain-ledger.onrender.com/api/v1/developers/login' -ContentType 'application/json' -Body (@{ email='dev@example.com'; password='Password123!' } | ConvertTo-Json)
+$jwt = $login.data.token
+$apiKeyResp = Invoke-RestMethod -Method Post -Uri 'https://academicchain-ledger.onrender.com/api/v1/developers/api-keys/issue' -Headers @{ Authorization=("Bearer " + $jwt) } -ContentType 'application/json' -Body (@{ name='Prod Key' } | ConvertTo-Json)
+$apiKey = $apiKeyResp.data.apiKey
+```
+
+#### Emisión Unificada (con `X-API-Key`)
+```powershell
+$issueBody = @{
+  tokenId='0.0.<TU_TOKEN_ID_REAL>';   # Debe estar asociado a tu cuenta Hedera
+  uniqueHash='SHA256-DEL-DOCUMENTO';
+  ipfsURI='ipfs://<CID>';
+  studentName='Nombre Estudiante';
+  degree='Nombre del Programa';
+  recipientAccountId='0.0.<CUENTA_ESTUDIANTE>'
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post -Uri 'https://academicchain-ledger.onrender.com/api/v1/credentials/issue-unified' `
+  -Headers @{ 'X-API-Key' = $apiKey } `
+  -ContentType 'application/json' `
+  -Body $issueBody | ConvertTo-Json -Depth 5
+```
+
+#### Verificación Forense
+```powershell
+Invoke-RestMethod -Method Get -Uri 'https://academicchain-ledger.onrender.com/api/v1/credentials/verify/<credentialId>' | ConvertTo-Json -Depth 5
 ```
 
 ## 🔗 Enlaces de Verificación
