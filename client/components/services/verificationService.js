@@ -154,6 +154,20 @@ export const verificationService = {
     return `${API_BASE_URL}/api/verification/verify/${encodeURIComponent(tokenId)}/${encodeURIComponent(serialNumber)}`;
   },
 
+  /**
+   * Obtiene el reporte forense completo de una credencial.
+   * @param {string} credentialId - ID de la credencial (ej: "0.0.12345-1")
+   * @returns {Promise<Object>} Reporte forense JSON
+   */
+  getForensicReport: async (credentialId) => {
+    const res = await fetch(`${API_BASE_URL}/api/v1/credentials/verify/${encodeURIComponent(credentialId)}`, {
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    return handleResponse(res);
+  },
+
   merkleBatch: async (documentsOrHashes) => {
     const body = Array.isArray(documentsOrHashes?.documents) || Array.isArray(documentsOrHashes?.hashes)
       ? documentsOrHashes

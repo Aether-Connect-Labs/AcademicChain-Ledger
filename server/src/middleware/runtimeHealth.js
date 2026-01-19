@@ -42,6 +42,7 @@ class RuntimeHealthMonitor {
     const now = Date.now();
     const mongoDisabled = process.env.DISABLE_MONGO === '1';
     const redisDisabled = process.env.DISABLE_REDIS === '1' || (process.env.NODE_ENV === 'production' && !process.env.REDIS_URL && !process.env.REDIS_CLUSTER_NODES);
+    const disableRedisMetrics = String(process.env.DISABLE_REDIS_METRICS || '0') === '1';
 
     const mongoLatency = await this.measure(async () => {
       if (mongoDisabled) return true;
@@ -55,11 +56,11 @@ class RuntimeHealthMonitor {
 
     const hederaLatency = await this.measure(async () => {
       try { await hederaService.connect(); } catch {}
-      return hederaService.isEnabled();
+      return (typeof hederaService.isEnabled === 'function') ? hederaService.isEnabled() : true;
     }, 'hedera');
     const xrplLatency = await this.measure(async () => {
       try { await xrpService.connect(); } catch {}
-      return xrpService.isEnabled();
+      return (typeof xrpService.isEnabled === 'function') ? xrpService.isEnabled() : true;
     }, 'xrpl');
     const rateLatency = await this.measure(async () => {
       const nocache = String(process.env.RUNTIME_RATE_CHECK_NOCACHE || '0') === '1';
@@ -69,24 +70,26 @@ class RuntimeHealthMonitor {
 
     svc.mongodb = { healthy: mongoDisabled || isMongoConnected(), latencyMs: mongoLatency.latencyMs, timestamp: new Date(now).toISOString() };
     svc.redis = { healthy: redisDisabled || isRedisConnected(), latencyMs: redisLatency.latencyMs, timestamp: new Date(now).toISOString() };
-    svc.hedera = { healthy: hederaService.isEnabled(), latencyMs: hederaLatency.latencyMs, timestamp: new Date(now).toISOString() };
-    svc.xrpl = { healthy: xrpService.isEnabled(), latencyMs: xrplLatency.latencyMs, timestamp: new Date(now).toISOString() };
+    svc.hedera = { healthy: (typeof hederaService.isEnabled === 'function') ? hederaService.isEnabled() : true, latencyMs: hederaLatency.latencyMs, timestamp: new Date(now).toISOString() };
+    svc.xrpl = { healthy: (typeof xrpService.isEnabled === 'function') ? xrpService.isEnabled() : true, latencyMs: xrplLatency.latencyMs, timestamp: new Date(now).toISOString() };
     const rateHealth = await rateOracle.health();
     svc.rate_oracle = { healthy: !!rateHealth.healthy, latencyMs: rateLatency.latencyMs, ageSeconds: rateHealth.ageSeconds, sources: rateHealth.sourcesActive, timestamp: new Date(now).toISOString() };
 
-    await cacheService.mset({
-      'metrics:svc_health:mongodb': svc.mongodb.healthy ? 1 : 0,
-      'metrics:svc_health:redis': svc.redis.healthy ? 1 : 0,
-      'metrics:svc_health:hedera': svc.hedera.healthy ? 1 : 0,
-      'metrics:svc_health:xrpl': svc.xrpl.healthy ? 1 : 0,
-      'metrics:svc_health:rate_oracle': svc.rate_oracle.healthy ? 1 : 0,
-      'metrics:svc_latency_ms:mongodb': svc.mongodb.latencyMs,
-      'metrics:svc_latency_ms:redis': svc.redis.latencyMs,
-      'metrics:svc_latency_ms:hedera': svc.hedera.latencyMs,
-      'metrics:svc_latency_ms:xrpl': svc.xrpl.latencyMs,
-      'metrics:svc_latency_ms:rate_oracle': svc.rate_oracle.latencyMs,
-      'metrics:operation_duration_seconds:rate_fetch': Number((rateLatency.latencyMs/1000).toFixed(6))
-    }, 180);
+    if (!disableRedisMetrics) {
+      await cacheService.mset({
+        'metrics:svc_health:mongodb': svc.mongodb.healthy ? 1 : 0,
+        'metrics:svc_health:redis': svc.redis.healthy ? 1 : 0,
+        'metrics:svc_health:hedera': svc.hedera.healthy ? 1 : 0,
+        'metrics:svc_health:xrpl': svc.xrpl.healthy ? 1 : 0,
+        'metrics:svc_health:rate_oracle': svc.rate_oracle.healthy ? 1 : 0,
+        'metrics:svc_latency_ms:mongodb': svc.mongodb.latencyMs,
+        'metrics:svc_latency_ms:redis': svc.redis.latencyMs,
+        'metrics:svc_latency_ms:hedera': svc.hedera.latencyMs,
+        'metrics:svc_latency_ms:xrpl': svc.xrpl.latencyMs,
+        'metrics:svc_latency_ms:rate_oracle': svc.rate_oracle.latencyMs,
+        'metrics:operation_duration_seconds:rate_fetch': Number((rateLatency.latencyMs/1000).toFixed(6))
+      }, 180);
+    }
 
     const degrade = [];
     for (const [name, data] of Object.entries(svc)) {
@@ -94,13 +97,15 @@ class RuntimeHealthMonitor {
       if (isDegraded) degrade.push({ name, data });
     }
 
-    for (const src of ['Binance', 'Coinbase', 'Kraken', 'HederaMirror']) {
-      const active = Array.isArray(svc.rate_oracle.sources) && svc.rate_oracle.sources.includes(src);
-      const key = src.toLowerCase();
-      await cacheService.set(`metrics:rate_source_status:${key}`, active ? 1 : 0, 300);
+    if (!disableRedisMetrics) {
+      for (const src of ['Binance', 'Coinbase', 'Kraken', 'HederaMirror']) {
+        const active = Array.isArray(svc.rate_oracle.sources) && svc.rate_oracle.sources.includes(src);
+        const key = src.toLowerCase();
+        await cacheService.set(`metrics:rate_source_status:${key}`, active ? 1 : 0, 300);
+      }
     }
 
-    if (svc.hedera.healthy) {
+    if (svc.hedera.healthy && !disableRedisMetrics) {
       try {
         const bal = await hederaService.getAccountBalance(process.env.HEDERA_ACCOUNT_ID);
         const h = parseFloat(String(bal.hbars || '0')) || 0;
@@ -118,7 +123,7 @@ class RuntimeHealthMonitor {
         const payload = { timestamp: new Date().toISOString(), code: d.name === 'rate_oracle' ? 'RATE_001' : 'SVC_001', service: d.name, message: 'Service degraded', severity: 'warning', metadata: { latencyMs: d.data.latencyMs, healthy: d.data.healthy } };
         this.last.alerts.unshift(payload);
         this.last.alerts = this.last.alerts.slice(0, 20);
-        try { await cacheService.set('alerts:system:list', this.last.alerts, 3600); } catch {}
+        try { if (!disableRedisMetrics) await cacheService.set('alerts:system:list', this.last.alerts, 3600); } catch {}
         try { if (this.io && typeof this.io.emit === 'function') this.io.emit('system:alert', payload); } catch {}
         logger.warn('Service degraded', payload);
         try { await notificationService.sendAlert(`Alerta de sistema: ${d.name}`, `Servicio degradado: ${d.name}\nHealthy=${d.data.healthy}\nLatencyMs=${d.data.latencyMs}`); } catch {}
@@ -130,8 +135,8 @@ class RuntimeHealthMonitor {
     const svc = existing || {
       mongodb: { healthy: isMongoConnected(), latencyMs: await this.latencyOf(() => isMongoConnected()) },
       redis: { healthy: isRedisConnected(), latencyMs: await this.latencyOf(() => isRedisConnected()) },
-      hedera: { healthy: hederaService.isEnabled(), latencyMs: await this.latencyOf(() => hederaService.isEnabled()) },
-      xrpl: { healthy: xrpService.isEnabled(), latencyMs: await this.latencyOf(() => xrpService.isEnabled()) },
+      hedera: { healthy: (typeof hederaService.isEnabled === 'function') ? hederaService.isEnabled() : true, latencyMs: await this.latencyOf(() => (typeof hederaService.isEnabled === 'function') ? hederaService.isEnabled() : true) },
+      xrpl: { healthy: (typeof xrpService.isEnabled === 'function') ? xrpService.isEnabled() : true, latencyMs: await this.latencyOf(() => (typeof xrpService.isEnabled === 'function') ? xrpService.isEnabled() : true) },
       rate_oracle: { healthy: (await rateOracle.health()).healthy, latencyMs: await this.latencyOf(() => rateOracle.getRate()), sources: (await rateOracle.health()).sourcesActive }
     };
     const alerts = await cacheService.get('alerts:system:list') || [];

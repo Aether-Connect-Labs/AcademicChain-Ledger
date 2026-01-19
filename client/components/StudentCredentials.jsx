@@ -8,8 +8,28 @@ import { toGateway } from './utils/ipfsUtils';
 const CredentialCard = ({ credential }) => {
   const link = `${window.location.origin}/#/verificar?tokenId=${encodeURIComponent(credential.tokenId)}\u0026serialNumber=${encodeURIComponent(credential.serialNumber)}`;
   const [docOpen, setDocOpen] = useState(false);
+  const [showWidget, setShowWidget] = useState(false);
+  const [widgetCode, setWidgetCode] = useState('');
   const docUrl = toGateway(credential.ipfsURI);
   const evidenceUrl = `/#/credential/${encodeURIComponent(credential.tokenId)}/${encodeURIComponent(credential.serialNumber)}/evidence`;
+
+  const handleShowWidget = async () => {
+    if (widgetCode) {
+      setShowWidget(true);
+      return;
+    }
+    try {
+      // Use tokenId-serialNumber as ID
+      const id = `${credential.tokenId}-${credential.serialNumber}`;
+      const res = await studentService.getWidgetCode(id);
+      setWidgetCode(res.data?.html || res.html || 'Error generando widget');
+      setShowWidget(true);
+    } catch (e) {
+      console.error(e);
+      alert('No se pudo generar el widget');
+    }
+  };
+
   return (
     <div className="card space-y-3">
       <div className="flex justify-between items-center">
@@ -38,6 +58,7 @@ const CredentialCard = ({ credential }) => {
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button onClick={() => navigator.clipboard.writeText(link)} className="btn-primary btn-sm">Copiar Link</button>
             <button className="btn-secondary btn-sm" onClick={() => setDocOpen(true)} disabled={!docUrl}>Ver documento</button>
+            <button className="btn-secondary btn-sm" onClick={handleShowWidget}>Embed Widget</button>
             <a className="btn-secondary btn-sm" href={evidenceUrl}>Ver evidencias</a>
             {credential.tokenId && credential.serialNumber && (
               <a
@@ -53,6 +74,35 @@ const CredentialCard = ({ credential }) => {
         </div>
       </div>
       <DocumentViewer open={docOpen} src={docUrl} title={credential.title || 'Documento'} onClose={() => setDocOpen(false)} />
+      
+      {/* Widget Modal */}
+      {showWidget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full">
+            <h3 className="text-lg font-bold mb-4">Trust Widget & LinkedIn</h3>
+            <p className="text-sm text-gray-600 mb-4">Copia este código para insertar el sello de verificación en tu sitio web o blog.</p>
+            <textarea 
+              className="w-full h-32 p-2 border rounded font-mono text-xs bg-gray-50 mb-4"
+              readOnly
+              value={widgetCode}
+            />
+            <div className="flex justify-between">
+                <button 
+                  className="btn-primary"
+                  onClick={() => navigator.clipboard.writeText(widgetCode)}
+                >
+                  Copiar Código
+                </button>
+                <button 
+                  className="btn-secondary"
+                  onClick={() => setShowWidget(false)}
+                >
+                  Cerrar
+                </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

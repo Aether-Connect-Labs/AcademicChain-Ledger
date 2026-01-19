@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 const BASE_URL = 'http://localhost:3001/api';
-const UNI_EMAIL = 'uni_test_seq@test.com';
+const UNI_EMAIL = `uni_test_seq_${Date.now()}@test.com`;
 const UNI_PASS = 'password123';
 const UNI_NAME = 'Sequential Test Uni';
 
@@ -58,6 +58,7 @@ async function main() {
         tokenId: tokenId,
         uniqueHash: uniqueHash,
         ipfsURI: 'ipfs://QmTest',
+        networks: ['xrp','algorand'],
         studentName: 'Juan Perez',
         degree: 'Master of Chains'
     }, { headers });

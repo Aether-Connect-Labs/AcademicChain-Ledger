@@ -84,6 +84,20 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const registerCreator = useCallback(async (email, password) => {
+    setError('');
+    try {
+      const { user: u, token: t } = await authService.registerCreator(email, password);
+      localStorage.setItem('authToken', t);
+      setToken(t);
+      setUser(u || (await authService.getCurrentUser(t)));
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     await authService.logout();
     localStorage.removeItem('authToken');
@@ -93,7 +107,7 @@ export const AuthProvider = ({ children }) => {
   }, [navigate]);
 
   const value = React.useMemo(
-    () => ({ user, token, isAuthenticated, isLoading, error, login, register, registerInstitution, logout, setSession, verifyCode: async (email, code) => {
+    () => ({ user, token, isAuthenticated, isLoading, error, login, register, registerInstitution, registerCreator, logout, setSession, verifyCode: async (email, code) => {
       try {
         await new Promise(resolve => setTimeout(resolve, 300));
         return /^\d{6}$/.test(code);

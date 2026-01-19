@@ -48,6 +48,13 @@ export const studentService = {
         ]
       }
     };
+  },
+
+  getWidgetCode: async (credentialId) => {
+    const res = await fetch(`${API_BASE_URL}/api/v1/widgets/student/${credentialId}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(res);
   }
 };
 

@@ -13,7 +13,7 @@ const cacheService = require('../services/cacheService');
 const rateOracle = require('../services/rateOracle');
 const ROLES = require('../config/roles');
 const { recordAnalytics } = require('../services/analyticsService');
-const { User, Token } = require('../models');
+const { User, Token, Credential, Partner, AnalyticsEvent } = require('../models');
 
 /**
  * @route   POST /api/partner/verify
@@ -73,6 +73,232 @@ router.post('/generate-key',
         partnerId: partner._id,
         apiKey: apiKey, // Only show the full key on creation
       }
+    });
+  }));
+
+router.get('/dashboard/overview',
+  partnerAuth,
+  asyncHandler(async (req, res) => {
+    const [totalEmissions, revokedCount, activeInstitutions] = await Promise.all([
+      Credential.countDocuments({}).catch(() => 0),
+      Credential.countDocuments({ status: 'REVOKED' }).catch(() => 0),
+      User.countDocuments({ role: ROLES.UNIVERSITY, isActive: true }).catch(() => 0),
+    ]);
+
+    let totalVerifications = 0;
+    try {
+      if (AnalyticsEvent && typeof AnalyticsEvent.countDocuments === 'function') {
+        totalVerifications = await AnalyticsEvent.countDocuments({
+          type: { $in: ['CREDENTIAL_VERIFIED', 'PARTNER_VERIFICATION'] },
+        });
+      }
+    } catch {}
+
+    let hbarBalance = 0;
+    try {
+      await hederaService.connect();
+      const accountId = process.env.HEDERA_ACCOUNT_ID || null;
+      if (accountId && typeof hederaService.getAccountBalance === 'function') {
+        const bal = await hederaService.getAccountBalance(accountId);
+        hbarBalance = Number(bal || 0);
+      }
+    } catch {}
+
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    let usageSeries = [];
+    try {
+      const usage = await Credential.aggregate([
+        { $match: { createdAt: { $gte: sevenDaysAgo } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]);
+      usageSeries = usage.map((u) => ({ date: u._id, count: u.count }));
+    } catch {}
+
+    let byInstitution = [];
+    try {
+      const agg = await Credential.aggregate([
+        { $match: { universityId: { $ne: null } } },
+        {
+          $group: {
+            _id: '$universityId',
+            emissions: { $sum: 1 },
+            revoked: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'REVOKED'] }, 1, 0],
+              },
+            },
+          },
+        },
+        { $sort: { emissions: -1 } },
+        { $limit: 20 },
+      ]);
+      const ids = agg.map((a) => a._id).filter(Boolean);
+      const institutions = await User.find({ _id: { $in: ids } })
+        .select('universityName name')
+        .lean();
+      const map = new Map(
+        institutions.map((u) => [String(u._id), u.universityName || u.name || '']),
+      );
+      byInstitution = agg.map((a) => ({
+        institutionId: a._id,
+        name: map.get(String(a._id)) || null,
+        emissions: a.emissions,
+        revoked: a.revoked,
+      }));
+    } catch {}
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalEmissions,
+        totalVerifications,
+        revokedCount,
+        activeInstitutions,
+        hbarBalance,
+        usageSeries,
+        byInstitution,
+      },
+    });
+  }));
+
+router.get('/institutions',
+  partnerAuth,
+  asyncHandler(async (req, res) => {
+    const institutions = await User.find({ role: ROLES.UNIVERSITY })
+      .select('name email universityName hederaAccountId isActive plan')
+      .lean();
+
+    const ids = institutions.map((u) => String(u._id));
+
+    const [tokens, emissionsAgg] = await Promise.all([
+      Token.find({ universityId: { $in: ids } }).select('tokenId universityId').lean(),
+      Credential.aggregate([
+        { $match: { universityId: { $in: ids } } },
+        {
+          $group: {
+            _id: '$universityId',
+            emissions: { $sum: 1 },
+            revoked: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'REVOKED'] }, 1, 0],
+              },
+            },
+          },
+        },
+      ]).catch(() => []),
+    ]);
+
+    const tokenByUniversity = new Map();
+    for (const t of tokens) {
+      const uid = String(t.universityId);
+      if (!tokenByUniversity.has(uid)) {
+        tokenByUniversity.set(uid, t.tokenId);
+      }
+    }
+
+    const emissionsByUniversity = new Map();
+    for (const e of emissionsAgg) {
+      emissionsByUniversity.set(String(e._id), {
+        emissions: e.emissions,
+        revoked: e.revoked,
+      });
+    }
+
+    const items = institutions.map((u) => {
+      const key = String(u._id);
+      const stats = emissionsByUniversity.get(key) || { emissions: 0, revoked: 0 };
+      return {
+        id: key,
+        name: u.universityName || u.name,
+        email: u.email,
+        tokenId: tokenByUniversity.get(key) || null,
+        plan: u.plan || 'basic',
+        emissions: stats.emissions,
+        revoked: stats.revoked,
+        status: u.isActive ? 'active' : 'inactive',
+        hederaAccountId: u.hederaAccountId || null,
+      };
+    });
+
+    res.status(200).json({ success: true, data: { items } });
+  }));
+
+router.get('/api-keys',
+  partnerAuth,
+  asyncHandler(async (req, res) => {
+    const partners = await Partner.find({ isActive: true })
+      .select('name contactEmail keyPrefix plan universityId createdAt updatedAt')
+      .lean();
+
+    const items = partners.map((p) => ({
+      id: String(p._id),
+      label: p.name,
+      prefix: p.keyPrefix,
+      lastDigits: '****',
+      role: p.universityId ? 'institution' : 'partner',
+      plan: p.plan || 'enterprise',
+      contactEmail: p.contactEmail || null,
+      universityId: p.universityId || null,
+      rateLimit: null,
+      lastUsedAt: null,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
+    }));
+
+    res.status(200).json({ success: true, data: { items } });
+  }));
+
+router.get('/emissions',
+  partnerAuth,
+  asyncHandler(async (req, res) => {
+    const institutionId = String(req.query.institutionId || '').trim();
+    const statusFilter = String(req.query.status || '').trim().toLowerCase();
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '100', 10) || 100));
+    const offset = Math.max(0, parseInt(req.query.offset || '0', 10) || 0);
+
+    const q = {};
+    if (institutionId) q.universityId = institutionId;
+    if (statusFilter === 'revocada') q.status = 'REVOKED';
+    if (statusFilter === 'emitida') q.status = { $ne: 'REVOKED' };
+
+    const [list, count] = await Promise.all([
+      Credential.find(q).sort({ createdAt: -1 }).skip(offset).limit(limit).lean(),
+      Credential.countDocuments(q),
+    ]);
+
+    const universityIds = Array.from(
+      new Set(list.map((c) => c.universityId).filter(Boolean)),
+    );
+    const universities = await User.find({ _id: { $in: universityIds } })
+      .select('universityName name')
+      .lean();
+    const uniMap = new Map(
+      universities.map((u) => [String(u._id), u.universityName || u.name || '']),
+    );
+
+    const items = list.map((c) => ({
+      tokenId: c.tokenId,
+      serialNumber: c.serialNumber,
+      institutionId: c.universityId || null,
+      institutionName: c.universityId ? uniMap.get(String(c.universityId)) || null : null,
+      status: c.status || 'ACTIVE',
+      issuedAt: c.createdAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        items,
+        paging: { limit, offset, total: count },
+      },
     });
   }));
 

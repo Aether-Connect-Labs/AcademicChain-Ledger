@@ -27,6 +27,7 @@ class AuthService {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const role = requestedRole === 'university' ? 'university' : 'student';
+    const defaultUniversityPlan = (process.env.DEFAULT_UNIVERSITY_PLAN || ((process.env.NODE_ENV || 'development') === 'production' ? 'basic' : 'enterprise'));
     const userPayload = {
       email: email.toLowerCase(),
       password: hashedPassword,
@@ -35,6 +36,7 @@ class AuthService {
       universityName: role === 'university' ? universityName : null,
       hederaAccountId: hederaAccountId || null,
       isActive: true,
+      plan: role === 'university' ? defaultUniversityPlan : 'basic',
     };
 
     let user;
@@ -100,6 +102,9 @@ class AuthService {
       userId: user.id,
       email: user.email,
       role: user.role,
+      universityName: user.universityName || null,
+      plan: user.plan || 'basic',
+      hederaAccountId: user.hederaAccountId || null,
     };
 
     return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });

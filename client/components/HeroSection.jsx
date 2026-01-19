@@ -85,7 +85,7 @@ export const HeroSection = () => {
   }, [health, latencyMs]);
   
   return (
-    <section className="section-padding relative min-h-screen overflow-hidden bg-gradient-to-br from-[#020617] via-[#0b1224] to-[#0a0f1f]">
+    <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#020617] via-[#0b1224] to-[#0a0f1f] px-4 sm:px-6 lg:px-8 py-16 md:py-24">
       {/* Efectos de fondo mejorados */}
       <div className="absolute inset-0">
         <div className="absolute top-0 left-0 w-72 h-72 bg-[#0066FF]/12 rounded-full blur-3xl animate-pulse"></div>
@@ -97,7 +97,7 @@ export const HeroSection = () => {
         </div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32" style={{ paddingBottom: theme.spacing.sectionPb }}>
+      <div className="relative z-10 max-w-7xl mx-auto pt-32" style={{ paddingBottom: theme.spacing.sectionPb }}>
         <motion.div 
           variants={containerVariants} 
           initial="hidden" 
@@ -115,7 +115,7 @@ export const HeroSection = () => {
 
           {/* Título principal con efectos mejorados */}
           <motion.div variants={itemVariants} className="mb-8">
-            <h1 className="hero-title text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold tracking-tight">
+            <h1 className="text-4xl leading-tight sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight">
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-gray-400 block">
                 {t('hero.title.line1', 'El Futuro de las')}
               </span>
@@ -127,8 +127,8 @@ export const HeroSection = () => {
 
           {/* Subtítulo mejorado */}
           <motion.div variants={itemVariants} className="mb-10">
-            <p className="hero-subtitle text-base sm:text-xl lg:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed font-light">
-              {t('hero.subtitle', 'Fe pública digital con garantía perpetua y estándar global. Blindaje total contra el fraude académico, verificación instantánea en cualquier lugar.')}
+            <p className="text-lg sm:text-xl lg:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed font-light">
+              {t('hero.subtitle', 'Fe pública digital con garantía perpetua y estándar global. Blindaje total contra el fraude académico, verificación instantánea en any lugar.')}
             </p>
             <motion.p 
               variants={itemVariants}

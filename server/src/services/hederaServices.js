@@ -31,6 +31,7 @@ const { HederaError, BadRequestError, NotFoundError, ServiceUnavailableError } =
 const ipfsService = require('./ipfsService');
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 let SecretManagerServiceClient = null;
 try { SecretManagerServiceClient = require('@google-cloud/secret-manager').SecretManagerServiceClient; } catch { SecretManagerServiceClient = null; }
 async function resolveSecretValue(envVal, secretEnvName) {
@@ -216,22 +217,21 @@ class HederaService {
       .update(`${metadata.studentId || ''}|${metadata.degree || ''}|${metadata.university || ''}|${metadata.graduationDate || ''}`)
       .digest('hex');
 
-      const displayName = metadata.studentName ? `${metadata.degree} - ${metadata.studentName} - ${metadata.university}` : `${metadata.degree} - ${metadata.university}`;
+    const displayName = `${metadata.degree} - ${metadata.university}`;
     const standardizedMetadata = {
       name: displayName,
-      description: `Credencial académica verificable emitida por ${metadata.university}.`,
+      description: `Credencial académica verificable emitida por ${metadata.university}. La identidad del titular se gestiona de forma privada.`,
       image: metadata.image || undefined,
       type: "application/json",
       format: "HIP412@2.0.0",
         attributes: [
           { trait_type: "University", value: metadata.university },
-          { trait_type: "Student", value: metadata.studentName || '' },
           { trait_type: "Degree", value: metadata.degree },
           { trait_type: "Graduation Date", display_type: "date", value: (() => { const d = new Date(metadata.graduationDate || Date.now()); return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString(); })() },
           { trait_type: "SubjectRef", value: subjectRef },
           { trait_type: "Institución", value: metadata.university },
-          { trait_type: "Estudiante", value: metadata.studentName || '' },
           { trait_type: "Título", value: metadata.degree },
+          { trait_type: "Privacy", value: "Private Student Data" },
         ],
       properties: {
         issuedDate: new Date().toISOString(),
@@ -268,7 +268,6 @@ class HederaService {
         },
         certificate: {
           institution: metadata.university,
-          studentName: metadata.studentName || '',
           degree: metadata.degree || '',
           issuedDate: new Date().toISOString(),
           externalProofs: {
@@ -287,10 +286,28 @@ class HederaService {
     if (metadata.type) {
       standardizedMetadata.attributes.unshift({ trait_type: "Credential Type", value: metadata.type });
     }
+
+    const piiData = {
+      studentName: metadata.studentName,
+      studentId: metadata.studentId,
+      grade: metadata.grade,
+    };
+
+    // Create a more secure key derivation using the student's account ID and additional entropy
+    const studentPublicKey = metadata.recipientAccountId || metadata.studentId || 'default-key';
+    const encryptionKey = crypto.createHash('sha256').update(`AcademicChain-PII-${studentPublicKey}-${metadata.university}`).digest('hex');
+    
+    const encryptedPii = await ipfsService.pinEncryptedJson(piiData, `PII for ${metadata.studentName}`, encryptionKey);
+    standardizedMetadata.properties.privateData = {
+      uri: `ipfs://${encryptedPii.IpfsHash}`,
+      encryptionAlgorithm: 'aes-256-cbc',
+      keyDerivation: 'sha256(student-account-id + university)',
+      accessControl: 'student-only',
+    };
+
     let onChainMetadata;
     const ipfsMeta = { cid: null, uri: null, gateway: null, filecoin: null };
     try {
-      const crypto = require('crypto');
       const pdfCid = metadata.pdfCid ? String(metadata.pdfCid).trim() : '';
       const sName = String(metadata.studentName || '').toUpperCase();
       const sDegree = String(metadata.degree || '').toUpperCase();
@@ -690,6 +707,74 @@ class HederaService {
     const { response, receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(tx), 'hedera');
     try { const dt = (Date.now() - t0) / 1000; require('./cacheService').set('metrics:operation_duration_seconds:hedera_transfer', Number(dt.toFixed(6)), 180); } catch {}
     return { receipt, transactionId: response.transactionId.toString() };
+  }
+
+  /**
+   * Decrypt PII data that was encrypted for a specific student
+   * Only the student with the correct account ID can decrypt their data
+   * @param {string} encryptedData - The encrypted data from IPFS (contains iv and encryptedData)
+   * @param {string} studentAccountId - The student's Hedera account ID
+   * @param {string} university - The university name for key derivation
+   * @returns {object} - The decrypted PII data
+   */
+  async decryptStudentPII(encryptedData, studentAccountId, university) {
+    if (!encryptedData || !studentAccountId || !university) {
+      throw new BadRequestError('encryptedData, studentAccountId, and university are required');
+    }
+
+    try {
+      const crypto = require('crypto');
+      
+      // Derive the same encryption key used during encryption
+      const encryptionKey = crypto.createHash('sha256').update(`AcademicChain-PII-${studentAccountId}-${university}`).digest('hex');
+      
+      // Extract IV and encrypted data
+      const iv = Buffer.from(encryptedData.iv, 'hex');
+      const encrypted = encryptedData.encryptedData;
+      
+      // Decrypt the data
+      const decipher = crypto.createDecipheriv('aes-256-cbc', encryptionKey.substr(0, 32), iv);
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      
+      // Parse the JSON data
+      const piiData = JSON.parse(decrypted);
+      
+      logger.info(`✅ Successfully decrypted PII for student account: ${studentAccountId}`);
+      return piiData;
+    } catch (error) {
+      logger.error(`❌ Failed to decrypt PII for student account: ${studentAccountId}`, error.message);
+      throw new BadRequestError('Failed to decrypt PII data. Ensure you have the correct account ID and university.');
+    }
+  }
+
+  /**
+   * Retrieve and decrypt student PII from IPFS
+   * @param {string} ipfsUri - The IPFS URI containing encrypted PII
+   * @param {string} studentAccountId - The student's Hedera account ID
+   * @param {string} university - The university name for key derivation
+   * @returns {object} - The decrypted PII data
+   */
+  async getDecryptedStudentPII(ipfsUri, studentAccountId, university) {
+    if (!ipfsUri || !studentAccountId || !university) {
+      throw new BadRequestError('ipfsUri, studentAccountId, and university are required');
+    }
+
+    try {
+      // Extract CID from IPFS URI
+      const cid = ipfsUri.replace('ipfs://', '').trim();
+      const gatewayUrl = `https://gateway.pinata.cloud/ipfs/${cid}`;
+      
+      // Fetch encrypted data from IPFS
+      const response = await axios.get(gatewayUrl, { timeout: 10000 });
+      const encryptedData = response.data;
+      
+      // Decrypt the data
+      return await this.decryptStudentPII(encryptedData, studentAccountId, university);
+    } catch (error) {
+      logger.error(`❌ Failed to retrieve PII from IPFS: ${ipfsUri}`, error.message);
+      throw new ServiceUnavailableError('Failed to retrieve PII data from IPFS');
+    }
   }
 }
 

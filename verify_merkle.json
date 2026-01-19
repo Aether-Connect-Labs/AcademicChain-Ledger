@@ -1,0 +1,8 @@
+{
+  "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "hederaTopicId": "0.0.7659967",
+  "proof": [
+    { "position": "right", "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+    { "position": "right", "hash": "16da1e97ac6e07f5b2c20e0d0eb3dcda692f32344528f698aab2c07373ab538e" }
+  ]
+}

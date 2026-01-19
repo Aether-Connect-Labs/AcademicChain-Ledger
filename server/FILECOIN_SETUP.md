@@ -1,25 +1,34 @@
-# Configuración de Filecoin (Redundancia)
+# Configuración de Almacenamiento Persistente con Filecoin
 
-Tu código ahora soporta dos métodos para conectar con Filecoin y asegurar la redundancia de datos. No es obligatorio usar ambos, elige uno.
+AcademicChain utiliza **Lighthouse** como gateway para interactuar con la red **Filecoin**. Esto nos permite asegurar la permanencia a largo plazo de los diplomas y credenciales académicas, cumpliendo con los estándares de archivo digital.
 
-## Opción A: Lighthouse (Recomendada y Moderna)
-Lighthouse permite almacenamiento perpetuo en Filecoin con un pago único (o nivel gratuito generoso).
+## ¿Por qué Filecoin?
+Mientras que IPFS permite un acceso rápido y descentralizado a través de CIDs (Content Identifiers), por defecto no garantiza que el contenido persista si el nodo que lo aloja se desconecta. Filecoin añade una capa de incentivos económicos donde los mineros de almacenamiento firman contratos ("Deals") para guardar la información por periodos definidos, asegurando redundancia y disponibilidad.
 
-1. Ve a [lighthouse.storage](https://lighthouse.storage/) y regístrate.
-2. Crea una **API Key**.
-3. En **Koyeb > Settings > Environment Variables**:
-   - Agrega `LIGHTHOUSE_API_KEY` con tu clave.
+## Configuración Requerida
 
-## Opción B: Web3.Storage (Legacy)
-Si ya tienes una cuenta antigua en web3.storage.
+Para habilitar esta funcionalidad en tu entorno local o de producción, necesitas obtener una API Key gratuita de Lighthouse.
 
-1. Consigue tu token API.
-2. En **Koyeb > Settings > Environment Variables**:
-   - Agrega `WEB3_STORAGE_TOKEN` con tu token.
+### Pasos:
 
-## ¿Qué hace esto?
-Cada vez que emitas una credencial, el sistema:
-1. La subirá a **IPFS** (vía Pinata) para acceso rápido.
-2. Automáticamente hará una copia en **Filecoin** (vía Lighthouse o Web3.Storage) para garantizar que nunca se pierda, incluso si Pinata falla.
+1.  Ve a [Lighthouse Storage](https://lighthouse.storage/).
+2.  Inicia sesión (puedes usar tu wallet o Google).
+3.  Ve a la sección "API Key" y genera una nueva llave.
+4.  Agrega esta llave a tu archivo `.env` en la carpeta `server/`:
 
-> **Nota:** El código ya está actualizado (`server/src/services/ipfsService.js`) para detectar automáticamente cuál de las dos variables configuraste y usarla.
+```env
+LIGHTHOUSE_API_KEY=tu_api_key_aqui
+```
+
+### Verificación
+
+Una vez configurada la variable, el sistema automáticamente detectará la llave y cambiará el modo de subida de "Solo IPFS" a "IPFS + Filecoin".
+
+Puedes verificar que está funcionando al emitir una credencial:
+1.  El sistema mostrará en los logs: `✅ Archivo subido exitosamente a Filecoin`.
+2.  En la base de datos, el registro de la credencial tendrá `storageProtocol: 'IPFS+Filecoin'`.
+3.  Podrás ver el estado del almacenamiento en el dashboard de Lighthouse.
+
+## Fallback Automático
+
+Si la API Key no está configurada o el servicio de Lighthouse falla momentáneamente, el sistema está diseñado para hacer un "fallback" automático al servicio de IPFS estándar (Pinata o nodo local) para no interrumpir la emisión de títulos.

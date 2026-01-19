@@ -27,6 +27,7 @@ const AdminSidebar = ({
       title: 'Principal',
       items: [
         { id: 'dashboard', name: 'Dashboard', path: '/admin', icon: '📊', permission: 'view_dashboard' },
+        { id: 'audit', name: 'Auditoría', path: '/admin/audit', icon: '📋', permission: 'view_logs' },
         { id: 'usage', name: 'Uso por institución', path: '/admin/usage', icon: '📈', permission: 'manage_settings' },
         { id: 'alerts', name: 'Alertas', path: '/admin/alerts', icon: '⚠️', permission: 'manage_settings' },
         { id: 'reports', name: 'Reportes', path: '/admin/reports', icon: '📄', permission: 'manage_settings' },
@@ -287,7 +288,7 @@ const AdminSidebar = ({
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-800 truncate">
+                <p className="text-sm font-semibold text-gray-800 overflow-wrap">
                   {user.name}
                 </p>
                 <p className="text-xs text-gray-500 capitalize">

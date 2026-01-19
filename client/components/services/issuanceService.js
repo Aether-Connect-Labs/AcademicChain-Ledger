@@ -50,6 +50,15 @@ export const issuanceService = {
     return handleResponse(res);
   },
 
+  validateBatchWithAi: async (batch) => {
+    const res = await fetch(`${API_BASE_URL}/api/v1/ai/validate-batch`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ batch }),
+    });
+    return handleResponse(res);
+  },
+
   prepareIssuance: async (data) => {
     const res = await fetch(`${API_BASE_URL}/api/universities/prepare-issuance`, {
       method: 'POST',
@@ -89,6 +98,68 @@ export const issuanceService = {
       headers: getAuthHeaders(),
     });
     return handleResponse(res);
+  },
+
+  // Creator Methods
+  getCreatorProfile: async () => {
+    try {
+      if (API_BASE_URL) {
+        const res = await fetch(`${API_BASE_URL}/api/creators/profile`, { headers: getAuthHeaders() });
+        if (res.ok) return handleResponse(res);
+      }
+    } catch {}
+    // Mock
+    return {
+      success: true,
+      data: {
+        name: 'Creador Demo',
+        did: 'did:hedera:testnet:z6Mkp...',
+        brand: 'Academia Digital',
+        apiKey: 'key_test_123'
+      }
+    };
+  },
+
+  getCreatorCredentials: async () => {
+    try {
+      if (API_BASE_URL) {
+        const res = await fetch(`${API_BASE_URL}/api/creators/credentials`, { headers: getAuthHeaders() });
+        if (res.ok) return handleResponse(res);
+      }
+    } catch {}
+    // Mock
+    return {
+      success: true,
+      data: [
+        { id: 1, type: 'Curso', title: 'Curso React Avanzado', student: 'Juan Pérez', issuedAt: new Date().toISOString() },
+        { id: 2, type: 'Mentoria', title: 'Mentoria 1:1', student: 'Ana Gómez', issuedAt: new Date(Date.now() - 86400000).toISOString() }
+      ]
+    };
+  },
+
+  issueCreatorCredential: async (data) => {
+    try {
+      if (API_BASE_URL) {
+        const res = await fetch(`${API_BASE_URL}/api/creators/issue`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(data)
+        });
+        if (res.ok) return handleResponse(res);
+      }
+    } catch {}
+    
+    // Mock Simulation
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    return {
+      success: true,
+      data: {
+        id: crypto.randomUUID(),
+        txId: '0.0.123456@1700000000.000000000',
+        status: 'issued',
+        ...data
+      }
+    };
   },
 
   verifyCredential: async (tokenId, serialNumber) => {
@@ -143,6 +214,23 @@ export const issuanceService = {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.blob();
+  },
+
+  updateCreatorProfile: async (profileData) => {
+    const res = await fetch(`${API_BASE_URL}/api/creator/profile`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(profileData),
+    });
+    return handleResponse(res);
+  },
+
+  generateCreatorApiKey: async () => {
+    const res = await fetch(`${API_BASE_URL}/api/creator/api-key`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return handleResponse(res);
   }
 };
 

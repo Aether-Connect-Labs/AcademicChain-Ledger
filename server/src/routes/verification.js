@@ -8,7 +8,7 @@ const xrpService = require('../services/xrpService');
 const logger = require('../utils/logger');
 const rateLimit = require('express-rate-limit');
 const { validate } = require('../middleware/validator');
-const apiKeyAuth = require('../middleware/apiKeyAuth');
+const { requireApiKey } = require('../middleware/apiKeyAuth');
 const { recordAnalytics } = require('../services/analyticsService');
 const { User } = require('../models');
 
@@ -99,7 +99,7 @@ router.get('/qr/generate/:issuerId/:tokenId/:serialNumber',
 
 router.post('/verify-credential', 
   [
-    ...(requireKey ? [apiKeyAuth] : []),
+    ...(requireKey ? [requireApiKey()] : []),
     body('tokenId').notEmpty().withMessage('Token ID is required').trim().escape(),
     body('serialNumber').notEmpty().withMessage('Serial number is required').trim().escape(),
   ],
@@ -179,7 +179,7 @@ router.post('/verify-credential',
 
 router.post('/verify-ownership', 
   [
-    ...(requireKey ? [apiKeyAuth] : []),
+    ...(requireKey ? [requireApiKey()] : []),
     body('tokenId').notEmpty().trim().escape(),
     body('serialNumber').notEmpty().trim().escape(),
     body('accountId').notEmpty().trim().escape(),

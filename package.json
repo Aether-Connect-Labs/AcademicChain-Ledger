@@ -42,7 +42,14 @@
     "cross-env": "^7.0.3"
   },
   "dependencies": {
-    "mongodb": "^6.20.0"
+    "@veramo/core": "^6.0.0",
+    "@veramo/data-store": "^6.0.0",
+    "@veramo/did-manager": "^6.0.0",
+    "@veramo/did-provider-web": "^6.0.0",
+    "@veramo/key-manager": "^6.0.0",
+    "@veramo/kms-local": "^6.0.0",
+    "mongodb": "^6.20.0",
+    "sqlite3": "^5.1.7"
   },
   "engines": {
     "node": "22.x"

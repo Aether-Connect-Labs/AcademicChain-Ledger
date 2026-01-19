@@ -46,6 +46,9 @@ import DashboardRedirect from './components/DashboardRedirect';
 import AdminRevocationPanel from './components/admin/AdminRevocationPanel.jsx';
 import AdminAnalytics from './components/AdminAnalytics.jsx';
 import CreditRecharge from './components/CreditRecharge.jsx';
+import CreatorDashboard from './components/CreatorDashboard';
+import CreatorsPage from './components/CreatorsPage';
+import AuditDashboard from './components/admin/AuditDashboard.jsx';
 
 const AppRoutes = () => {
   return (
@@ -59,6 +62,8 @@ const AppRoutes = () => {
       <Route path="/institution/register" element={<Layout><LoginPage userType="institution" mode="register" /></Layout>} />
       <Route path="/students/login" element={<Layout><LoginPage userType="student" /></Layout>} />
       <Route path="/students/register" element={<Layout><LoginPage userType="student" mode="register" /></Layout>} />
+      <Route path="/creators/login" element={<Layout><LoginPage userType="creator" /></Layout>} />
+      <Route path="/creators/register" element={<Layout><LoginPage userType="creator" mode="register" /></Layout>} />
       <Route path="/auth/callback" element={<Layout><AuthCallback /></Layout>} />
       <Route path="/comenzar-gratis" element={<Layout><ComenzarGratisPage /></Layout>} />
       <Route path="/welcome" element={<Layout><Welcome /></Layout>} />
@@ -73,6 +78,15 @@ const AppRoutes = () => {
       <Route path="/pricing" element={<Layout><PricingPage /></Layout>} />
       <Route path="/agenda" element={<Layout><DemoScheduler /></Layout>} />
       <Route path="/schedule" element={<Layout><DemoScheduler /></Layout>} />
+      <Route path="/creators" element={<Layout><CreatorsPage /></Layout>} />
+      <Route
+        path="/portal-creadores"
+        element={
+          <ProtectedRoute requiredRoles={['CREATOR']}>
+            <Layout><CreatorDashboard /></Layout>
+          </ProtectedRoute>
+        }
+      />
       <Route path="/docs" element={<Layout><ApiDocsLanding /></Layout>} />
       <Route path="/verify" element={<Layout><CredentialVerifier /></Layout>} />
       <Route path="/status" element={<Layout><BlockchainStatus /></Layout>} />
@@ -184,6 +198,14 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/admin/audit"
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <AdminLayout><AuditDashboard /></AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/admin/usage"
         element={
           <ProtectedRoute requiredRoles={['admin']}>
@@ -252,6 +274,15 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute requiredRoles={['admin']}>
             <AdminLayout><AdminRevocationPanel /></AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      {/* Portal de Creadores */}
+      <Route
+        path="/portal-creadores"
+        element={
+          <ProtectedRoute requiredRoles={['CREATOR','admin']}>
+            <Layout><CreatorDashboard /></Layout>
           </ProtectedRoute>
         }
       />

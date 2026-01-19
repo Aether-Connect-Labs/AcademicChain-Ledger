@@ -9,7 +9,7 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, register } = useAuth();
+  const { login, register, registerInstitution, registerCreator } = useAuth();
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -26,14 +26,20 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
       try {
         let ok = false;
         if (mode === 'register') {
-          ok = await register(email, password);
+          if (userType === 'institution') {
+            ok = await registerInstitution(email, password);
+          } else if (userType === 'creator') {
+            ok = await registerCreator(email, password);
+          } else {
+            ok = await register(email, password);
+          }
         } else {
           ok = await login(email, password, userType);
         }
         if (!ok) throw new Error('Credenciales inválidas');
         const params = new URLSearchParams(location.search);
         const nextParam = params.get('next');
-        const target = nextParam || (userType === 'institution' ? '/institution/dashboard' : userType === 'student' ? '/student/portal' : '/');
+        const target = nextParam || (userType === 'institution' ? '/institution/dashboard' : userType === 'creator' ? '/portal-creadores' : userType === 'student' ? '/student/portal' : '/');
         navigate(target, { replace: true });
       } catch (e) {
         setError(e.message || 'Error de inicio de sesión');

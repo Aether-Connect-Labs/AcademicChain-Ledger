@@ -4,6 +4,7 @@ const asyncHandler = require('express-async-handler');
 const hederaService = require('../../services/hederaServices');
 const xrpService = require('../../services/xrpService');
 const algorandService = require('../../services/algorandService');
+const verificationReportService = require('../../services/verificationReport');
 const { decideChainFromRequest } = require('../../services/routingService');
 const { Token, Credential } = require('../../models');
 const { isConnected: isMongoConnected } = require('../../config/database');
@@ -15,7 +16,7 @@ const useMem = () => {
 };
 const mem = { tokens: [], credentials: [] };
 const { validate } = require('../../middleware/validator');
-const apiKeyAuth = require('../../middleware/apiKeyAuth');
+const { verifyApiKey } = require('../../middleware/auth');
 const apiRateLimit = require('../../middleware/apiRateLimit');
 const multer = require('multer');
 const upload = multer({ limits: { fileSize: 15 * 1024 * 1024 } });
@@ -25,7 +26,22 @@ const axios = require('axios');
 const checkCredits = require('../../middleware/checkCredits');
 const associationGuard = require('../../middleware/associationGuard');
 
-router.post('/revoke', apiKeyAuth, apiRateLimit, [
+router.get('/verify/:credentialId', apiRateLimit, asyncHandler(async (req, res) => {
+    const { credentialId } = req.params;
+    
+    if (!credentialId) {
+        return res.status(400).json({ error: 'Credential ID is required' });
+    }
+
+    try {
+        const report = await verificationReportService.generateForenseReport(credentialId);
+        res.json(report);
+    } catch (error) {
+        res.status(500).json({ error: 'Verification failed', details: error.message });
+    }
+}));
+
+router.post('/revoke', verifyApiKey, apiRateLimit, [
   body('tokenId').notEmpty().trim(),
   body('serialNumber').notEmpty().trim(),
   body('reason').optional().isString(),
@@ -136,7 +152,9 @@ router.get('/status/:tokenId/:serialNumber', apiRateLimit, asyncHandler(async (r
   });
 }));
 
-router.post('/issue', apiKeyAuth, apiRateLimit, associationGuard, upload.single('file'), checkCredits, [
+const issuanceService = require('../../services/issuanceService');
+
+router.post('/issue', verifyApiKey, apiRateLimit, associationGuard, upload.single('file'), checkCredits, [
   body('tokenId').notEmpty().trim(),
   body('uniqueHash').notEmpty().trim(),
   body('ipfsURI').optional().isString().trim(),
@@ -147,83 +165,108 @@ router.post('/issue', apiKeyAuth, apiRateLimit, associationGuard, upload.single(
   body('expiryDate').optional().isString(),
 ], validate, asyncHandler(async (req, res) => {
   const { tokenId, uniqueHash, studentName, degree, recipientAccountId, image, expiryDate } = req.body;
-  let ipfsURI = req.body.ipfsURI || null;
-  let pdfCid = null;
-  if (req.file && req.file.buffer) {
-    const ipfs = require('../../services/ipfsService');
-    const pdf = await ipfs.pinFile(req.file.buffer, req.file.originalname, req.file.mimetype);
-    pdfCid = pdf.IpfsHash;
-    ipfsURI = null;
-  }
+  
+  // 1. Obtener token y universidad
   let token = useMem() ? mem.tokens.find(t => t.tokenId === tokenId) : await Token.findOne({ tokenId });
   if (!token && String(process.env.ALLOW_V1_TOKEN_AUTO_CREATE).toLowerCase() === 'true') {
-    const name = `AcademicChain - ${degree || 'Credential'}`;
-    const created = await hederaService.createAcademicToken({ tokenName: name, tokenSymbol: `AC-${(degree||'EDU').slice(0,4).toUpperCase()}`, tokenMemo: `Auto-created for v1 issuance`, treasuryAccountId: process.env.HEDERA_ACCOUNT_ID || null });
-    if (useMem()) {
-      token = { tokenId: created.tokenId, tokenName: name, tokenSymbol: `AC-${(degree||'EDU').slice(0,4).toUpperCase()}` };
-      mem.tokens.push(token);
-    } else {
-      token = await Token.create({ tokenId: created.tokenId, tokenName: name, tokenSymbol: `AC-${(degree||'EDU').slice(0,4).toUpperCase()}` });
-    }
+     const name = `AcademicChain - ${degree || 'Credential'}`;
+     const created = await hederaService.createAcademicToken({ tokenName: name, tokenSymbol: `AC-${(degree||'EDU').slice(0,4).toUpperCase()}`, tokenMemo: `Auto-created for v1 issuance`, treasuryAccountId: process.env.HEDERA_ACCOUNT_ID || null });
+     if (useMem()) {
+       token = { tokenId: created.tokenId, tokenName: name, tokenSymbol: `AC-${(degree||'EDU').slice(0,4).toUpperCase()}` };
+       mem.tokens.push(token);
+     } else {
+       token = await Token.create({ tokenId: created.tokenId, tokenName: name, tokenSymbol: `AC-${(degree||'EDU').slice(0,4).toUpperCase()}` });
+     }
   }
   const universityLabel = token?.tokenName || 'AcademicChain';
-  let xrpPre = null;
-  let algoPre = null;
-  try {
-    await xrpService.connect();
-    xrpPre = await xrpService.anchor({
-      certificateHash: uniqueHash,
-      hederaTokenId: tokenId,
-      serialNumber: 'pending',
-      timestamp: new Date().toISOString(),
-    });
-  } catch {}
-  try {
-    await algorandService.connect();
-    algoPre = await algorandService.anchor({
-      certificateHash: uniqueHash,
-      hederaTokenId: tokenId,
-      serialNumber: 'pending',
-      timestamp: new Date().toISOString(),
-    });
-  } catch {}
+
+  // 2. Ejecutar Lógica de Emisión Legal (Identidad + Filecoin + Anclajes)
+  const legalIssuance = await issuanceService.mintLegalCredential({
+      studentName,
+      institution: universityLabel,
+      degree,
+      uniqueHash
+  }, (req.file && req.file.buffer) ? req.file.buffer : null);
+
+  const { content, blockchainEvidence } = legalIssuance;
+  
+  // 3. Minting en Hedera (Consenso Final)
   const creator = req.apiConsumer?.email || req.apiConsumer?.id || 'API Consumer';
-  const mintResult = await hederaService.mintAcademicCredential(tokenId, { uniqueHash, ipfsURI, pdfCid, degree, studentName, university: universityLabel, recipientAccountId, xrpTxHash: xrpPre?.xrpTxHash, algoTxId: algoPre?.algoTxId, image, expiryDate, creator });
+  
+  // Preparamos metadatos extendidos con la evidencia legal
+  const mintResult = await hederaService.mintAcademicCredential(tokenId, { 
+      uniqueHash, 
+      ipfsURI: null, 
+      pdfCid: blockchainEvidence.storage ? blockchainEvidence.storage.cid : null, 
+      degree, 
+      studentName, 
+      university: universityLabel, 
+      recipientAccountId, 
+      xrpTxHash: blockchainEvidence.xrpKey, 
+      algoTxId: blockchainEvidence.algorandKey, 
+      image, 
+      expiryDate, 
+      creator,
+      // Nuevos campos legales en metadata
+      legalId: content.id, 
+      storageProtocol: blockchainEvidence.storageProtocol
+  });
+
   let transferResult = null;
   if (recipientAccountId) {
     transferResult = await hederaService.transferCredentialToStudent(tokenId, mintResult.serialNumber, recipientAccountId);
   }
-  const finalIpfsURI = mintResult?.ipfs?.uri ? mintResult.ipfs.uri : (ipfsURI || null);
-  const credRecord = { tokenId, serialNumber: mintResult.serialNumber, universityId: token?.universityId || null, studentAccountId: recipientAccountId || null, uniqueHash, ipfsURI: finalIpfsURI, ipfsMetadataCid: mintResult?.ipfs?.cid || null, ipfsPdfCid: pdfCid || null, externalProofs: { xrpTxHash: xrpPre?.xrpTxHash, algoTxId: algoPre?.algoTxId } };
+
+  // 4. Guardar en Base de Datos
+  const finalIpfsURI = mintResult?.ipfs?.uri ? mintResult.ipfs.uri : (blockchainEvidence.storage ? blockchainEvidence.storage.persistentUrl : null);
+  
+  const credRecord = { 
+    tokenId, 
+    serialNumber: mintResult.serialNumber, 
+    universityId: token?.universityId || null, 
+    studentAccountId: recipientAccountId || null, 
+    uniqueHash, 
+    ipfsURI: finalIpfsURI, 
+    ipfsMetadataCid: mintResult?.ipfs?.cid || null, 
+    ipfsPdfCid: blockchainEvidence.storage ? blockchainEvidence.storage.cid : null, 
+    storageDeal: blockchainEvidence.storage || null,
+    storageProtocol: blockchainEvidence.storageProtocol || 'IPFS',
+    externalProofs: { 
+      xrpTxHash: blockchainEvidence.xrpKey, 
+      algoTxId: blockchainEvidence.algorandKey 
+    } 
+  };
+  
   if (useMem()) { mem.credentials.push({ ...credRecord, createdAt: new Date() }); } else { await Credential.create(credRecord); }
+  
   if (!useMem() && req.universityId) {
-    const { User } = require('../../models');
-    await User.updateOne({ _id: req.universityId }, { $inc: { credits: -1 } });
+    const metricsService = require('../../services/metricsService');
+    metricsService.increment('issuance_count', 1, { universityId: req.universityId });
   }
-  let xrplAnchor = null;
-  let algoAnchor = null;
-  try {
-    await xrpService.connect();
-    xrplAnchor = await xrpService.anchor({
-      certificateHash: uniqueHash,
-      hederaTokenId: tokenId,
+
+  res.status(201).json({
+    success: true,
+    message: 'Credential issued successfully with Legal & Forensic Evidence',
+    data: {
       serialNumber: mintResult.serialNumber,
-      timestamp: new Date().toISOString(),
-    });
-  } catch {}
-  try {
-    await algorandService.connect();
-    algoAnchor = await algorandService.anchor({
-      certificateHash: uniqueHash,
-      hederaTokenId: tokenId,
-      serialNumber: mintResult.serialNumber,
-      timestamp: new Date().toISOString(),
-    });
-  } catch {}
-  res.status(201).json({ success: true, message: 'Credential issued', data: { mint: mintResult, transfer: transferResult, xrplAnchor: { txHash: xrpPre?.xrpTxHash || xrplAnchor?.xrpTxHash || null }, algorandAnchor: { txId: algoPre?.algoTxId || algoAnchor?.algoTxId || null } } });
+      tokenId,
+      studentId: content.id, 
+      ipfs: { 
+          uri: finalIpfsURI, 
+          cid: blockchainEvidence.storage ? blockchainEvidence.storage.cid : null,
+          storageProtocol: blockchainEvidence.storageProtocol
+      },
+      evidence: {
+          hederaTransactionId: mintResult.transactionId || 'available-on-ledger',
+          algorandTxId: blockchainEvidence.algorandKey,
+          filecoinStatus: blockchainEvidence.storage ? 'PERSISTENT' : 'STANDARD'
+      },
+      transferStatus: transferResult ? 'TRANSFERRED' : 'MINTED_TO_TREASURY'
+    }
+  });
 }));
 
-router.post('/issue-unified', apiKeyAuth, apiRateLimit, associationGuard, [
+router.post('/issue-unified', verifyApiKey, apiRateLimit, associationGuard, [
   body('tokenId').notEmpty().trim(),
   body('uniqueHash').notEmpty().trim(),
   body('ipfsURI').notEmpty().trim(),
@@ -348,7 +391,7 @@ async function fetchLatestMerkleRootFromTopic(topicId) {
   return null;
 }
 
-router.post('/merkle/batch', apiKeyAuth, apiRateLimit, [
+router.post('/merkle/batch', verifyApiKey, apiRateLimit, [
   body('hashes').optional().isArray(),
   body('documents').optional().isArray(),
 ], validate, asyncHandler(async (req, res) => {
@@ -394,7 +437,7 @@ router.post('/merkle/batch', apiKeyAuth, apiRateLimit, [
   });
 }));
 
-router.post('/merkle/verify', apiKeyAuth, apiRateLimit, [
+router.post('/merkle/verify', verifyApiKey, apiRateLimit, [
   body('hash').notEmpty().isString(),
   body('proof').isArray(),
   body('merkleRoot').optional().isString(),

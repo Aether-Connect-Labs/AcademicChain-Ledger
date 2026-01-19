@@ -1,0 +1,8 @@
+{
+  "tokenId": "0.0.12345",
+  "uniqueHash": "aaaa1234bbbb5678cccc9101",
+  "ipfsURI": "ipfs://QmDummyHash",
+  "studentName": "Trae AI Student",
+  "degree": "Test Degree",
+  "recipientAccountId": "0.0.54321"
+}

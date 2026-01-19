@@ -40,6 +40,7 @@ const PartnerSchema = new mongoose.Schema({
   plan: { type: String, enum: ['free','startup','enterprise'], default: 'enterprise', index: true },
   keyPrefix: { type: String, unique: true, sparse: true, index: true },
   keyHash: { type: String },
+  keySha256: { type: String, index: true },
   isActive: { type: Boolean, default: true },
   permissions: [{ type: String }],
 }, { timestamps: true });

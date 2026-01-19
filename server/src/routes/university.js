@@ -937,4 +937,58 @@ router.get('/statistics', protect, isUniversity, asyncHandler(async (req, res) =
   });
 }));
 
+// Student PII Decryption Endpoint
+router.post('/credentials/decrypt-pii', protect,
+  [
+    body('ipfsUri').notEmpty().withMessage('ipfsUri is required').isString().trim(),
+    body('studentAccountId').notEmpty().withMessage('studentAccountId is required').isString().trim(),
+    body('university').notEmpty().withMessage('university is required').isString().trim()
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { ipfsUri, studentAccountId, university } = req.body;
+    const { user } = req;
+
+    // Security check: Only the student themselves can decrypt their PII
+    if (user.hederaAccountId !== studentAccountId) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Forbidden: You can only decrypt your own personal data.' 
+      });
+    }
+
+    try {
+      // Decrypt the PII data
+      const decryptedPII = await hederaService.getDecryptedStudentPII(ipfsUri, studentAccountId, university);
+      
+      logger.info(`🔓 PII decrypted successfully for student: ${studentAccountId}`);
+      
+      res.status(200).json({
+        success: true,
+        message: 'PII decrypted successfully',
+        data: {
+          studentName: decryptedPII.studentName,
+          studentId: decryptedPII.studentId,
+          grade: decryptedPII.grade,
+          decryptedAt: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      logger.error(`❌ Failed to decrypt PII for student ${studentAccountId}:`, error.message);
+      
+      if (error.message.includes('Failed to decrypt')) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Failed to decrypt PII data. Ensure you have the correct account ID and university name.' 
+        });
+      }
+      
+      res.status(500).json({ 
+        success: false, 
+        message: 'An error occurred while decrypting your personal data.' 
+      });
+    }
+  })
+);
+
 module.exports = router;

@@ -153,6 +153,30 @@ class IpfsService {
       throw new ServiceUnavailableError('Failed to pin file to IPFS.');
     }
   }
+
+  async pinEncryptedJson(jsonData, name, secretKey) {
+    if (!this.pinata) throw new ServiceUnavailableError('IPFS service is not configured.');
+    try {
+      const crypto = require('crypto');
+      const algorithm = 'aes-256-cbc';
+      const key = crypto.createHash('sha256').update(String(secretKey)).digest('base64').substr(0, 32);
+      const iv = crypto.randomBytes(16);
+
+      const cipher = crypto.createCipheriv(algorithm, key, iv);
+      let encrypted = cipher.update(JSON.stringify(jsonData), 'utf8', 'hex');
+      encrypted += cipher.final('hex');
+
+      const encryptedData = {
+        iv: iv.toString('hex'),
+        encryptedData: encrypted,
+      };
+
+      return this.pinJson(encryptedData, name);
+    } catch (error) {
+      logger.error('❌ Error pinning encrypted JSON to IPFS:', error);
+      throw new ServiceUnavailableError('Failed to pin encrypted JSON to IPFS.');
+    }
+  }
 }
 
 module.exports = new IpfsService();

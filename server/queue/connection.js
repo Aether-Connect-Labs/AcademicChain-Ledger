@@ -15,6 +15,17 @@ if ((process.env.NODE_ENV === 'production') && !process.env.REDIS_URL && !proces
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
+const CMD_TIMEOUT = parseInt(process.env.REDIS_COMMAND_TIMEOUT_MS || ((process.env.NODE_ENV === 'production') ? '15000' : '5000'), 10);
+const isRediss = String(REDIS_URL).startsWith('rediss://');
+let tlsOpt = null;
+try {
+  if (isRediss) {
+    const u = new URL(REDIS_URL);
+    const reject = String(process.env.REDIS_TLS_REJECT_UNAUTHORIZED || '0') === '1';
+    tlsOpt = { servername: u.hostname };
+    if (!reject) tlsOpt.rejectUnauthorized = false;
+  }
+} catch {}
 
 const REDIS_CLUSTER_NODES = process.env.REDIS_CLUSTER_NODES 
   ? process.env.REDIS_CLUSTER_NODES.split(',').map(node => {
@@ -57,9 +68,10 @@ const redisOptions = {
   },
   // Timeouts
   connectTimeout: 10000,
-  commandTimeout: 5000,
+  commandTimeout: CMD_TIMEOUT,
   // Keep alive
   keepAlive: 30000,
+  ...(tlsOpt ? { tls: tlsOpt } : {}),
 };
 
 let connection;
@@ -84,6 +96,7 @@ if (isRedisDisabled) {
       ...redisOptions,
       password: process.env.REDIS_PASSWORD,
       username: process.env.REDIS_USERNAME,
+      ...(tlsOpt ? { tls: tlsOpt } : {}),
     },
     clusterRetryStrategy: (times) => {
       const delay = Math.min(times * 50, 2000);
@@ -119,6 +132,7 @@ if (isRedisDisabled) {
       password: process.env.REDIS_PASSWORD,
       username: process.env.REDIS_USERNAME,
       ...redisOptions,
+      ...(tlsOpt ? { tls: tlsOpt } : {}),
     });
   } else {
     // Standalone Redis simple
@@ -126,6 +140,7 @@ if (isRedisDisabled) {
       ...redisOptions,
       password: process.env.REDIS_PASSWORD,
       username: process.env.REDIS_USERNAME,
+      ...(tlsOpt ? { tls: tlsOpt } : {}),
     });
   }
 }

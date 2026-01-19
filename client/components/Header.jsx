@@ -11,7 +11,7 @@ const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
   const { isConnected, account, connectWallet, disconnectWallet } = useHedera();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const canShowWallet = (user?.role === 'admin' || user?.role === 'university' || user?.role === 'institution');
   const [logoSrc, setLogoSrc] = useState(toGateway('ipfs://bafkreicickkyjjn3ztitciypfh635lqowdskzbv54fiqbrhs4zbmwhjv4q'));
   const logoGateways = useRef(getGateways('ipfs://bafkreicickkyjjn3ztitciypfh635lqowdskzbv54fiqbrhs4zbmwhjv4q'));
@@ -58,12 +58,21 @@ const Header = () => {
 
   const navLinks = [
     { name: 'Inicio', path: '/' },
+    { name: 'Creadores', path: '/creators' },
     { name: 'Instituciones', path: '/instituciones' },
     { name: 'Verificar', path: '/verificar' },
     { name: 'Agenda', path: '/agenda' },
     { name: 'Precios', path: '/precios' },
     { name: 'Documentación', path: '/developers/docs' },
   ];
+
+  if (user?.role === 'CREATOR') {
+    navLinks.push({ name: 'Portal', path: '/portal-creadores' });
+  } else if (user?.role === 'student') {
+    navLinks.push({ name: 'Portal', path: '/student/portal' });
+  } else if (user?.role === 'university' || user?.role === 'institution') {
+    navLinks.push({ name: 'Dashboard', path: '/institution/dashboard' });
+  }
 
   const isHome = location.pathname === '/';
   const effectiveScrolled = scrolled || !isHome;
@@ -100,7 +109,7 @@ const Header = () => {
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-6">
+          <nav className="hidden lg:flex items-center gap-x-6">
             {navLinks.map((link) => (
               <Link
                 key={link.name}
@@ -112,7 +121,10 @@ const Header = () => {
                 {link.name}
               </Link>
             ))}
-            
+          </nav>
+
+          {/* Actions */}
+          <div className="hidden lg:flex items-center gap-x-4">
             {/* Hedera Badge */}
             <div className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-xs font-semibold flex items-center gap-1 border border-red-200">
               <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
@@ -123,7 +135,7 @@ const Header = () => {
             {canShowWallet && (
               <button
                 onClick={isConnected ? disconnectWallet : connectWallet}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all duration-300 shadow-lg hover:shadow-xl active:scale-95 ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl active:scale-95 ${
                   isConnected 
                     ? 'bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200'
                     : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700'
@@ -131,13 +143,23 @@ const Header = () => {
               >
                 <Wallet className="w-4 h-4" />
                 {isConnected ? (
-                  <span>{account?.accountId || 'Conectado'}</span>
+                  <span>{formatAccountId(account?.accountId)}</span>
                 ) : (
                   <span>Conectar Wallet</span>
                 )}
               </button>
             )}
-          </nav>
+
+            {/* Logout Button */}
+            {user && (
+              <button
+                onClick={logout}
+                className="px-4 py-2 rounded-lg font-medium text-sm bg-red-500 hover:bg-red-600 text-white transition-colors shadow-md"
+              >
+                Salir
+              </button>
+            )}
+          </div>
 
           {/* Mobile Menu Button */}
           <button
@@ -156,50 +178,46 @@ const Header = () => {
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="lg:hidden bg-white border-t border-gray-100 shadow-xl overflow-hidden"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2 }}
+            className="lg:hidden absolute top-full left-0 right-0 bg-white shadow-lg"
           >
-            <div className="px-4 py-6 space-y-4">
-              <div className="space-y-2">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.name}
-                    to={link.path}
-                    className={`block px-4 py-3 rounded-xl text-base font-medium transition-colors ${
-                      location.pathname === link.path
-                        ? 'bg-cyan-50 text-cyan-700'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                  >
-                    {link.name}
-                  </Link>
-                ))}
-              </div>
-
-              <div className="pt-4 border-t border-gray-100">
-                <div className="flex items-center justify-between mb-4 px-4">
-                  <span className="text-sm font-medium text-gray-500">Red</span>
-                  <div className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-xs font-semibold flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    Hedera Testnet
-                  </div>
+            <div className="px-4 pt-2 pb-6 space-y-1">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  to={link.path}
+                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                    location.pathname === link.path
+                      ? 'bg-cyan-50 text-cyan-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              ))}
+            </div>
+            <div className="px-4 py-4 border-t border-gray-200">
+              {canShowWallet && (
+                <button
+                  onClick={isConnected ? disconnectWallet : connectWallet}
+                  className={`w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold transition-all shadow-md ${
+                    isConnected
+                      ? 'bg-gray-100 text-gray-800 border border-gray-200'
+                      : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white'
+                  }`}
+                >
+                  <Wallet className="w-5 h-5" />
+                  {isConnected ? `Desconectar (${formatAccountId(account?.accountId)})` : 'Conectar Wallet'}
+                </button>
+              )}
+              <div className="mt-4 flex items-center justify-center">
+                <div className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-xs font-semibold flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                  Hedera Testnet
                 </div>
-
-                {canShowWallet && (
-                  <button
-                    onClick={isConnected ? disconnectWallet : connectWallet}
-                    className={`w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold transition-all shadow-md ${
-                      isConnected
-                        ? 'bg-gray-100 text-gray-800 border border-gray-200'
-                        : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white'
-                    }`}
-                  >
-                    <Wallet className="w-5 h-5" />
-                    {isConnected ? 'Desconectar' : 'Conectar Wallet'}
-                  </button>
-                )}
               </div>
             </div>
           </motion.div>

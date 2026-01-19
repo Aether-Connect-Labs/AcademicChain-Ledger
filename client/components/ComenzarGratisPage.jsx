@@ -36,6 +36,16 @@ const ComenzarGratisPage = () => {
           </ul>
         </div>
         <div className="card p-6">
+          <h2 className="text-xl font-bold mb-2">¿Eres Creador de Contenido?</h2>
+          <p className="text-gray-700 mb-4">
+            Emite certificaciones de tus cursos, mentorías y bootcamps sin burocracia. Ideal para sectores sin jurisdicción.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link to="/creators/register" className="btn-primary">Comenzar como Creador</Link>
+            <Link to="/creators" className="btn-secondary">Ver beneficios</Link>
+          </div>
+        </div>
+        <div className="card p-6">
           <h2 className="text-xl font-bold mb-2">Cómo comenzar</h2>
           <ol className="text-gray-700 space-y-2 list-decimal list-inside">
             <li>Regístrate con tu correo institucional</li>

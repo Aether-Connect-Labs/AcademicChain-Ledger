@@ -9,6 +9,8 @@ const CredentialSchema = new mongoose.Schema({
   ipfsURI: { type: String, required: true },
   ipfsMetadataCid: { type: String },
   ipfsPdfCid: { type: String },
+  storageDeal: { type: mongoose.Schema.Types.Mixed }, // Información del deal de Filecoin
+  storageProtocol: { type: String, default: 'IPFS' }, // 'IPFS' o 'IPFS+Filecoin'
   status: { type: String, default: 'ACTIVE', index: true },
   revocationReason: { type: String, default: null },
   revokedAt: { type: Date, default: null },

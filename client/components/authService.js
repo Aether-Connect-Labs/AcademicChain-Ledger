@@ -62,6 +62,22 @@ export const authService = {
     } catch {}
 
     const forInstitution = userType === 'institution';
+    const forCreator = userType === 'creator'; // Detectar tipo creador
+
+    if (forCreator) {
+       // Mock login para creador
+       const user = {
+         id: `creator-${crypto.randomUUID()}`,
+         name: 'Creador Demo',
+         email,
+         role: 'CREATOR',
+         brand: 'Mi Marca Personal',
+         permissions: ['issue_credentials', 'view_dashboard']
+       };
+       const token = `mock-jwt-token-for-creator-${Date.now()}`;
+       return mockApiCall({ user, token });
+    }
+
     if (forInstitution) {
       const allowInstitutionMock = (import.meta.env.DEV || import.meta.env.VITE_ALLOW_INSTITUTION_LOGIN === '1');
       if (allowInstitutionMock) {
@@ -159,6 +175,35 @@ export const authService = {
     return mockApiCall({ user, token });
   },
 
+  registerCreator: async (email, password) => {
+    try {
+      if (API_BASE_URL) {
+        const res = await fetch(`${API_BASE_URL}/api/auth/creators/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        if (!res.ok) throw new Error('Registro inválido');
+        const data = await res.json();
+        return data;
+      }
+    } catch {}
+
+    if (!isValidPassword(password)) {
+      return mockApiCall(null, true, 'La contraseña debe tener 6 o más caracteres.');
+    }
+    const user = {
+      id: `creator-${crypto.randomUUID()}`,
+      name: 'Creador Demo',
+      email,
+      role: 'CREATOR',
+      brand: 'Mi Marca Personal',
+      permissions: ['issue_credentials', 'view_dashboard']
+    };
+    const token = `mock-jwt-token-for-creator-${Date.now()}`;
+    return mockApiCall({ user, token });
+  },
+
   logout: () => Promise.resolve(),
 
   getCurrentUser: async (token) => {
@@ -182,6 +227,9 @@ export const authService = {
 
     if (token && token.startsWith('mock-jwt-token-for-admin')) {
       return mockApiCall({ id: 'admin-123', name: 'Administrador Principal', email: 'admin@academicchain.com', role: 'admin', permissions: ['view_dashboard', 'bulk_issue', 'view_job_monitor', 'manage_institutions', 'manage_users', 'manage_settings'] });
+    }
+    if (token && token.startsWith('mock-jwt-token-for-creator')) {
+      return mockApiCall({ id: 'creator-123', name: 'Creador Demo', email: 'creator@demo.com', role: 'CREATOR', brand: 'Academia Digital', permissions: ['issue_credentials', 'view_dashboard'] });
     }
     if (token && token.startsWith('mock-jwt-token-for-student')) {
       return mockApiCall({ id: 'student-456', name: 'Usuario Free', email: 'demo@gmail.com', role: 'student', permissions: [] });

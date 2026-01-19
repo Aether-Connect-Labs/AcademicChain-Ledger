@@ -1,38 +1,83 @@
-const { Developer, Partner } = require('../models');
-const { compare } = require('bcryptjs');
-const { UnauthorizedError } = require('../utils/errors');
+const apiKeyService = require('../services/apiKeyService');
+const logger = require('../utils/logger');
 
-module.exports = async function apiKeyAuth(req, res, next) {
-  const apiKey = req.header('x-api-key');
-  if (!apiKey) return next(new UnauthorizedError('API key missing'));
-  try {
-    if (apiKey.startsWith('ak_')) {
-      const parts = apiKey.split('_');
-      if (parts.length < 2) return next(new UnauthorizedError('Invalid API key format'));
-      const prefix = parts.length >= 3 ? `${parts[0]}_${parts[1]}` : `${parts[0]}_${parts[1] || ''}`.replace(/_$/, '');
-      const secret = parts[2] || '';
-      const dev = await Developer.findOne({ apiKeyPrefix: prefix, isActive: true });
-      if (!dev || !dev.apiKeyHash) return next(new UnauthorizedError('Invalid API key'));
-      const verified = secret ? await compare(secret, dev.apiKeyHash) : true;
-      if (!verified) return next(new UnauthorizedError('Invalid API key'));
-      req.apiConsumer = { type: 'developer', plan: dev.plan, id: dev.id, email: dev.email };
-      req.apiKeyPrefix = prefix;
-      return next();
+/**
+ * Middleware para validar API Keys en las rutas protegidas
+ * @param {string|string[]} permissions - Permisos requeridos para acceder a la ruta
+ */
+function requireApiKey(permissions = []) {
+  return (req, res, next) => {
+    // Obtener la API Key del header
+    const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+    
+    if (!apiKey) {
+      logger.warn('❌ API Key no proporcionada en la solicitud');
+      return res.status(401).json({
+        success: false,
+        error: 'API Key requerida',
+        message: 'Por favor proporcione una API Key válida en el header X-API-Key o Authorization'
+      });
     }
-    if (apiKey.startsWith('acp_')) {
-      const parts = apiKey.split('_');
-      if (parts.length !== 3) return next(new UnauthorizedError('Invalid API key format'));
-      const prefix = `${parts[0]}_${parts[1]}`;
-      const secret = parts[2];
-      const partner = await Partner.findOne({ keyPrefix: prefix, isActive: true });
-      if (!partner || !partner.keyHash) return next(new UnauthorizedError('Invalid API key'));
-      const ok = await compare(secret, partner.keyHash);
-      if (!ok) return next(new UnauthorizedError('Invalid API key'));
-      req.apiConsumer = { type: 'partner', plan: partner.plan || 'enterprise', id: partner.id, email: partner.contactEmail };
-      return next();
+
+    // Validar la API Key
+    const validation = apiKeyService.validateApiKey(apiKey);
+    
+    if (!validation.valid) {
+      logger.warn(`❌ API Key inválida: ${validation.error}`);
+      return res.status(401).json({
+        success: false,
+        error: 'API Key inválida',
+        message: validation.error
+      });
     }
-    return next(new UnauthorizedError('Unsupported API key prefix'));
-  } catch (e) {
-    return next(new UnauthorizedError('Authentication failed'));
-  }
+
+    // Verificar permisos si se especificaron
+    if (permissions.length > 0) {
+      const hasRequiredPermission = permissions.some(permission => 
+        apiKeyService.hasPermission(validation, permission)
+      );
+
+      if (!hasRequiredPermission) {
+        logger.warn(`❌ API Key ${validation.keyId} no tiene los permisos requeridos: ${permissions.join(', ')}`);
+        return res.status(403).json({
+          success: false,
+          error: 'Permisos insuficientes',
+          message: `Su API Key no tiene los permisos requeridos: ${permissions.join(', ')}`
+        });
+      }
+    }
+
+    // Agregar información de la API Key al request para uso posterior
+    req.apiKeyInfo = {
+      keyId: validation.keyId,
+      name: validation.name,
+      permissions: validation.permissions
+    };
+
+    logger.info(`✅ API Key ${validation.keyId} (${validation.name}) autorizada para ${req.method} ${req.path}`);
+    next();
+  };
 }
+
+/**
+ * Middleware opcional para logging de uso de API
+ */
+function logApiUsage(req, res, next) {
+  const startTime = Date.now();
+  
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    const apiKeyInfo = req.apiKeyInfo;
+    
+    if (apiKeyInfo) {
+      logger.info(`📊 API Usage: ${req.method} ${req.path} - ${res.statusCode} (${duration}ms) - Key: ${apiKeyInfo.keyId}`);
+    }
+  });
+  
+  next();
+}
+
+module.exports = {
+  requireApiKey,
+  logApiUsage
+};

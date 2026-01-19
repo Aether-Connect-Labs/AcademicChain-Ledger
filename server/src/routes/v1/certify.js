@@ -2,7 +2,7 @@ const router = require('express').Router();
 const asyncHandler = require('express-async-handler');
 const { body } = require('express-validator');
 const { validate } = require('../../middleware/validator');
-const apiKeyAuth = require('../../middleware/apiKeyAuth');
+const { requireApiKey } = require('../../middleware/apiKeyAuth');
 const apiRateLimit = require('../../middleware/apiRateLimit');
 const planGate = require('../../middleware/planGate');
 const { Developer } = require('../../models');
@@ -25,7 +25,7 @@ async function logUsage(devId, networks = {}) {
 }
 
 router.post('/standard',
-  apiKeyAuth,
+  requireApiKey(),
   apiRateLimit,
   planGate('free'),
   [
@@ -43,7 +43,7 @@ router.post('/standard',
 );
 
 router.post('/dual',
-  apiKeyAuth,
+  requireApiKey(),
   apiRateLimit,
   planGate('startup'),
   [
@@ -61,7 +61,7 @@ router.post('/dual',
 );
 
 router.post('/triple',
-  apiKeyAuth,
+  requireApiKey(),
   apiRateLimit,
   planGate('enterprise'),
   [

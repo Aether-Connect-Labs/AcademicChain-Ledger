@@ -70,6 +70,25 @@ const FeaturesSection = () => {
           </div>
         </div>
 
+        <div className="mb-10 p-6 rounded-xl bg-gray-900/70 border border-gray-800 shadow-soft">
+          <h3 className="text-xl font-semibold mb-2 text-white">🛡️ Cumplimiento de Privacidad y Gobernanza de Datos</h3>
+          <p className="text-white/80 mt-4">
+            AcademicChain Ledger opera bajo un modelo de <strong>Privacidad por Diseño</strong>, separando la identidad del usuario de la evidencia pública. En cumplimiento con regulaciones internacionales de protección de datos:
+          </p>
+          <ul className="text-white/80 space-y-2 mt-4 pl-5 list-disc">
+            <li>
+              <strong>Anclaje Criptográfico (Hashing):</strong> No almacenamos datos personales (PII) de forma legible en la red blockchain. Solo se registra un hash criptográfico inmutable que sirve como huella digital del título.
+            </li>
+            <li>
+              <strong>Almacenamiento Off-Chain Seguro:</strong> La información sensible reside en bases de datos privadas encriptadas o en nodos IPFS privados con acceso controlado, asegurando que solo los actores autorizados (universidad y estudiante) posean la clave de lectura.
+            </li>
+            <li>
+              <strong>Arquitectura de Verificación Selectiva:</strong> El sistema permite la verificación de autenticidad sin exponer el registro completo, utilizando un modelo de 'fuente de verdad' que puede integrarse vía API con registros gubernamentales o sistemas internos universitarios (SIS).
+            </li>
+          </ul>
+        </div>
+
+
         <div className="space-y-8">
           <div>
             <h3 className="text-2xl font-semibold text-white mb-3">Para Universidades</h3>
@@ -79,6 +98,11 @@ const FeaturesSection = () => {
           <div>
             <h3 className="text-2xl font-semibold text-white mb-3">Para Estudiantes</h3>
             <p className="text-white/80">Control total sobre credenciales y verificación instantánea.</p>
+          </div>
+
+          <div>
+            <h3 className="text-2xl font-semibold text-white mb-3">Para Creadores de Contenido</h3>
+            <p className="text-white/80">Certifica cursos, mentorías y marca personal en sectores sin jurisdicción, otorgando valor verificable a tu comunidad.</p>
           </div>
 
           <div>

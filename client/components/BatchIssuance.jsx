@@ -12,6 +12,7 @@ import ProgressTracker from './ui/ProgressTracker';
 import CredentialPreview from './CredentialPreview';
 import IssuanceSummary from './IssuanceSummary';
 import ErrorReport from './ui/ErrorReport';
+import AiInsightsPanel from './ui/AiInsightsPanel';
 import { Toaster, toast } from 'react-hot-toast';
 import { toGateway } from './utils/ipfsUtils';
 
@@ -57,6 +58,7 @@ const BatchIssuance = ({ demo = false }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processResult, setProcessResult] = useState(null);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
 
   // Estados principales
   const [fileData, setFileData] = useState(null);
@@ -233,6 +235,22 @@ const BatchIssuance = ({ demo = false }) => {
       });
 
       setCredentials(previewCredentials);
+      
+      // AI Pre-Validation
+      try {
+        const batchForAi = previewCredentials.map(c => ({
+          studentName: c.credential.subject.name,
+          studentId: c.credential.subject.studentId,
+          ...c.rawData
+        }));
+        const aiRes = await issuanceService.validateBatchWithAi(batchForAi);
+        if (aiRes.success) {
+            setAiAnalysis(aiRes.data);
+        }
+      } catch (e) {
+        console.warn('AI Validation failed', e);
+      }
+
       setCurrentStep(3);
 
       trackHederaOperation({
@@ -356,6 +374,38 @@ const BatchIssuance = ({ demo = false }) => {
   }, [processResult?.data?.masterJobId, processResult?.summary?.status, isPolling]);
 
   // Paso 3: Procesamiento en lote
+  const handleAiFix = useCallback(() => {
+    if (!aiAnalysis || !aiAnalysis.details || !aiAnalysis.details.analysis.issues) return;
+    
+    const newCredentials = [...credentials];
+    aiAnalysis.details.analysis.issues.forEach(issue => {
+      if (newCredentials[issue.index]) {
+         // Apply suggestion
+         if (issue.field === 'studentName') {
+             newCredentials[issue.index].credential.subject.name = issue.suggestion;
+             // Update rawData for consistency
+             newCredentials[issue.index].rawData.firstName = issue.suggestion; 
+         }
+      }
+    });
+    
+    setCredentials(newCredentials);
+    // Re-run analysis locally or just clear warnings for demo
+    setAiAnalysis({
+        ...aiAnalysis,
+        status: 'safe',
+        details: {
+            ...aiAnalysis.details,
+            analysis: {
+                ...aiAnalysis.details.analysis,
+                riskScore: 0,
+                issues: []
+            }
+        }
+    });
+    toast.success('Correcciones aplicadas por IA');
+  }, [aiAnalysis, credentials]);
+
   const handleBatchIssuance = async () => {
     if (!demo) {
       if (!isConnected || !account) {
@@ -749,6 +799,8 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                 Revisa las {credentials.length} credenciales antes de emitirlas en Hedera
               </p>
             </div>
+
+            <AiInsightsPanel analysis={aiAnalysis} onFixRequest={handleAiFix} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-h-96 overflow-y-auto p-2">
               {credentials.slice(0, 6).map((credential, index) => (

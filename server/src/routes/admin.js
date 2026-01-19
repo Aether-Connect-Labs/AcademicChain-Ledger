@@ -13,6 +13,7 @@ const xrpService = require('../services/xrpService');
 const algorandService = require('../services/algorandService');
 const partnerService = require('../services/partnerService');
 const { cacheMiddleware } = require('../middleware/cache');
+const crypto = require('crypto');
 
 const router = express.Router();
 
@@ -306,6 +307,39 @@ router.get('/reports/compliance.csv', asyncHandler(async (req, res) => {
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="compliance.csv"');
   return res.status(200).send(csv);
+}));
+
+router.post('/validate', asyncHandler(async (req, res) => {
+  const { hash, endpoint, method } = req.body || {};
+  if (!hash || typeof hash !== 'string') {
+    return res.status(400).json({ success: false, valid: false, message: 'hash is required' });
+  }
+  const Partner = require('../models/Partner');
+  const partner = await Partner.findOne({ keySha256: hash, isActive: true }).lean();
+  if (!partner) {
+    return res.status(200).json({ success: true, valid: false });
+  }
+  try {
+    const AnalyticsEvent = require('../models/AnalyticsEvent');
+    const ev = new AnalyticsEvent({
+      type: 'EXTERNAL_API_USAGE',
+      source: 'EXTERNAL_PROJECT',
+      metadata: {
+        partnerId: String(partner._id),
+        partnerName: partner.name,
+        universityId: partner.universityId || null,
+        endpoint: endpoint || null,
+        method: method || null,
+      },
+    });
+    await ev.save().catch(() => {});
+  } catch {}
+  return res.status(200).json({
+    success: true,
+    valid: true,
+    institution: partner.universityId ? partner.name : null,
+    institutionId: partner.universityId || null,
+  });
 }));
 
 router.get('/superadmin/institutions', asyncHandler(async (req, res) => {

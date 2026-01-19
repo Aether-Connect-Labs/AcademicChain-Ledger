@@ -964,7 +964,7 @@ function InstitutionDashboard({ demo = false }) {
               {credentials.map((c) => (
                 <div key={`${c.tokenId}-${c.serialNumber}`} className="credential-card">
                   <div className="flex items-center justify-between">
-                    <div className="font-mono text-sm truncate max-w-[60%]">{c.tokenId}</div>
+                    <div className="font-mono text-sm max-w-[60%] overflow-wrap">{c.tokenId}</div>
                     <div className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">#{c.serialNumber}</div>
                   </div>
                   <div className="mt-2 text-xs text-gray-600 break-all">

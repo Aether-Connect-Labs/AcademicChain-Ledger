@@ -264,6 +264,187 @@ Invoke-RestMethod -Method Post -Uri 'http://localhost:3001/api/verify/multi' -Co
 - **Institution Reports**: Reportes personalizados por institución
 - **Exportación CSV/JSON**: Todos los datos exportables
 
+## 🔑 API Keys: Admin, Partners e Instituciones
+
+### 1️⃣ Tipos de API Keys que usa tu proyecto
+- API Keys de **Partner/Institución** (formato `acp_xxxxx_xxxxxxxxxx`), usadas por:
+  - Panel administrativo externo (dashboard tipo CTO).
+  - Integraciones B2B (n8n, backends externos, verificación masiva).
+  - Widgets de verificación/issuing que hablen directo con `/api/partner/...`.
+- API Keys de **Developer** (vía `/api/v1/developers`), usadas para:
+  - Probar la API unificada `/api/v1/...` desde Postman, n8n, etc.
+
+Todas viajan en la cabecera:
+```http
+X-API-Key: acp_xxxxx_xxxxxxxxxx
+```
+
+### 2️⃣ API Key de ADMIN para tu dashboard externo
+
+Esta key es solo para el administrador/CTO. Tiene permisos ampliados:
+- Ver métricas globales (`/api/partner/dashboard/overview`).
+- Ver instituciones (`/api/partner/institutions`).
+- Ver API keys (`/api/partner/api-keys`).
+- Ver emisiones (`/api/partner/emissions`).
+
+#### Opción A: Generarla por script (entorno local)
+
+Requisitos:
+- MongoDB corriendo (`mongodb://localhost:27017/academicchain`).
+
+Script:
+- `server/scripts/generate_dashboard_keys.js`
+
+Ejecuta:
+```bash
+cd AcademicChain-Ledger
+node server/scripts/generate_dashboard_keys.js
+```
+
+El script:
+- Conecta a MongoDB.
+- Genera una API key de tipo **Admin Dashboard**.
+- Intenta generar 1–2 API keys de institución (si ya existen universidades).
+- Imprime en consola algo como:
+```text
+--- Generando Admin Dashboard Key ---
+NOMBRE: Dashboard Admin
+ROL: Admin / CTO
+PERMISOS: verify_credential, mint_credential, revoke_credential, view_dashboard, manage_institutions, manage_api_keys
+API KEY: acp_xxxxx_xxxxxxxxxx
+```
+
+Guarda esa key en un lugar seguro (no se vuelve a mostrar completa).
+
+#### Opción B: Generarla vía API (Render / producción)
+
+1. Inicia sesión como **admin** en tu backend (`/api/auth/login`).
+2. Copia el `token` JWT del login.
+3. Llama al endpoint:
+
+```http
+POST /api/partner/generate-key
+Authorization: Bearer <JWT_ADMIN>
+Content-Type: application/json
+
+{
+  "partnerName": "Dashboard Admin"
+}
+```
+
+Respuesta típica:
+```json
+{
+  "success": true,
+  "data": {
+    "partnerId": "653f....",
+    "apiKey": "acp_xxxxx_xxxxxxxxxx"
+  }
+}
+```
+
+Usa ese `apiKey` como **API Key de ADMIN** para:
+- Tu dashboard externo (campo “API Key”).
+- n8n / Postman cuando quieras ver métricas globales.
+
+### 3️⃣ API Keys para instituciones (multi‑institución)
+
+Cada universidad/academia debería tener su propia API key, para:
+- Emitir credenciales vía `/api/partner/institution/mint`.
+- Ver solo sus propias emisiones en `/api/partner/emissions`.
+
+#### A) Generarlas por script (local)
+
+El mismo script `generate_dashboard_keys.js`:
+- Busca usuarios con `role: 'university'` en MongoDB.
+- Genera una API key por institución encontrada.
+- Si no hay instituciones, crea claves demo con `universityId` ficticio.
+
+Salida ejemplo:
+```text
+--- Generando Key para Institución: Universidad Demo 1 ---
+API KEY: acp_xxxxx_xxxxxxxxxx
+University ID: 65ab....
+```
+
+#### B) Generarlas vía API (producción/Render)
+
+1. Ten el `JWT` de un admin.
+2. Conoce el `universityId` de la institución (colección `User` o panel).
+3. Llama:
+
+```http
+POST /api/partner/generate-key
+Authorization: Bearer <JWT_ADMIN>
+Content-Type: application/json
+
+{
+  "partnerName": "Universidad de Ejemplo",
+  "universityId": "65ab..."
+}
+```
+
+La API:
+- Crea un `Partner` con permisos:
+  - `verify_credential`
+  - `mint_credential`
+- Devuelve una API key `acp_...` asociada a esa universidad.
+
+Esa key se usa:
+- En tu dashboard (filtro por institución).
+- En integraciones externas específicas de esa institución.
+
+### 4️⃣ Cómo se usan las API Keys en el dashboard externo
+
+Supongamos que tu backend está en:
+- `http://localhost:3001/api` (local) o
+- `https://api.tu-dominio.com/api` (Render/producción)
+
+Y tu dashboard React externo usa un cliente HTTP (ej. `dashboardService.js`).
+
+Para cada llamada:
+```http
+GET /partner/dashboard/overview
+X-API-Key: acp_xxxxx_xxxxxxxxxx
+```
+
+Endpoints clave ya soportados:
+- `GET /api/partner/dashboard/overview`
+  - API key de **Admin**.
+  - Devuelve: `totalEmissions`, `totalVerifications`, `revokedCount`, `activeInstitutions`, `hbarBalance`, `usageSeries`, `byInstitution`.
+- `GET /api/partner/institutions`
+  - API key de **Admin**.
+  - Lista instituciones con emisiones y estado.
+- `GET /api/partner/api-keys`
+  - API key de **Admin**.
+  - Lista prefijos de keys, roles y último uso.
+- `GET /api/partner/emissions?institutionId=...&status=...`
+  - Con API key de Admin: ve todas las emisiones.
+  - Con API key de Institución: ve solo sus propias emisiones.
+
+En tu dashboard React:
+- En pantalla de login:
+  - URL base API: `http://localhost:3001/api` o tu URL en Render.
+  - API Key: `acp_...` (admin o institución, según vista).
+- El cliente HTTP añade siempre:
+  - `baseURL = <URL base API>`
+  - `headers['X-API-Key'] = <tu apiKey>`
+
+### 5️⃣ Conexión desde n8n / Postman
+
+Ejemplo n8n (HTTP Request):
+- Method: `GET`
+- URL: `https://api.tu-dominio.com/api/partner/dashboard/overview`
+- Headers:
+  - `X-API-Key: acp_xxxxx_xxxxxxxxxx`
+
+Ejemplo Postman:
+- Añade header `X-API-Key` con tu key `acp_...`.
+- Llama a:
+  - `GET /api/partner/dashboard/overview`
+  - `GET /api/partner/institutions`
+  - `GET /api/partner/emissions`
+
 ## 🚀 Deployment en Producción
 
 ### Infraestructura Recomendada (Enero 2026)
@@ -292,6 +473,7 @@ Invoke-RestMethod -Method Post -Uri 'http://localhost:3001/api/verify/multi' -Co
     - `HEDERA_ACCOUNT_ID=0.0.<ID>`
     - `HEDERA_PRIVATE_KEY=<SECRETO>` (configúralo como Secret en Render)
     - `ACL_TOKEN_ID=0.0.<TOKEN_ACL>` (token de control de acceso requerido por associationGuard)
+    - `ACADEMIC_CHAIN_API_KEY=<clave_global>` (requerida por Veramo y protege endpoints v1 mediante header `X-API-Key`)
   - Opcionales/Recomendados:
     - `FRONTEND_URL=https://tu-frontend.vercel.app` (CORS)
     - `ALLOWED_VERIFIER_ORIGINS=https://tu-frontend.vercel.app`
@@ -409,6 +591,68 @@ Invoke-RestMethod -Method Post -Uri 'https://academicchain-ledger.onrender.com/a
 ```powershell
 Invoke-RestMethod -Method Get -Uri 'https://academicchain-ledger.onrender.com/api/v1/credentials/verify/<credentialId>' | ConvertTo-Json -Depth 5
 ```
+
+### API Keys por Universidad (Partner, Multi‑tenant)
+
+#### Generar API Key para una institución
+```powershell
+# Requiere JWT de admin (protect + authorize)
+$login = Invoke-RestMethod -Method Post `
+  -Uri 'https://academicchain-ledger.onrender.com/api/auth/google/mock' `
+  -ContentType 'application/json'
+$jwt = $login.token
+
+$headers = @{ "Authorization" = "Bearer $jwt"; "Content-Type" = "application/json" }
+$body = @{ partnerName = "Universidad X"; universityId = "64abc..." } | ConvertTo-Json
+$res = Invoke-RestMethod -Method Post `
+  -Uri 'https://academicchain-ledger.onrender.com/api/partner/generate-key' `
+  -Headers $headers -Body $body
+$apiKey = $res.data.apiKey  # Formato: acp_<prefijo>_<secreto>
+```
+
+#### Usar la API Key de institución
+- Header: `X-API-Key: acp_<prefijo>_<secreto>`
+- Crear token académico:
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri 'https://academicchain-ledger.onrender.com/api/partner/institution/create-token' `
+  -Headers @{ "X-API-Key" = $apiKey; "Content-Type" = "application/json" } `
+  -Body (@{ tokenName="Grado Ingeniería"; tokenSymbol="ENGR"; tokenMemo="Token institucional" } | ConvertTo-Json)
+```
+- Emitir credencial NFT:
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri 'https://academicchain-ledger.onrender.com/api/partner/institution/mint' `
+  -Headers @{ "X-API-Key" = $apiKey; "Content-Type" = "application/json" } `
+  -Body (@{ tokenId="0.0.<TOKEN>"; uniqueHash="sha256"; ipfsURI="ipfs://<CID>"; degree="Ingeniería"; studentName="Nombre" } | ConvertTo-Json)
+```
+- Verificar credencial:
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri 'https://academicchain-ledger.onrender.com/api/partner/verify' `
+  -Headers @{ "Content-Type" = "application/json" } `
+  -Body (@{ tokenId="0.0.<TOKEN>"; serialNumber="1" } | ConvertTo-Json)
+```
+
+#### Generar muchas API Keys (batch)
+```powershell
+# universidades.csv: partnerName,universityId
+Import-Csv .\universidades.csv | ForEach-Object {
+  $body = @{ partnerName = $_.partnerName; universityId = $_.universityId } | ConvertTo-Json
+  $res = Invoke-RestMethod -Method Post `
+    -Uri 'https://academicchain-ledger.onrender.com/api/partner/generate-key' `
+    -Headers $headers -Body $body
+  [PSCustomObject]@{ partnerName = $_.partnerName; universityId = $_.universityId; apiKey = $res.data.apiKey }
+} | Export-Csv .\api_keys_emitidas.csv -NoTypeInformation
+```
+
+### n8n: Integración rápida
+- Nodo HTTP Request
+  - URL: `https://academicchain-ledger.onrender.com/api/partner/institution/mint`
+  - Method: `POST`
+  - Headers: `Content-Type: application/json`, `X-API-Key: acp_<prefijo>_<secreto>`
+  - Body (JSON): `tokenId`, `uniqueHash`, `ipfsURI`, `degree`, `studentName`, `recipientAccountId` opcional
+- Respuesta: `serialNumber`, `transactionId`, y si está habilitado, `xrpTxHash`/`algoTxId`
 
 ## 🔗 Enlaces de Verificación
 

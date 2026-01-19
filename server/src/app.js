@@ -14,21 +14,23 @@ const { createBullBoard } = require('@bull-board/api');
 const { BullMQAdapter } = require('@bull-board/api/bullMQAdapter');
 const { ExpressAdapter } = require('@bull-board/express');
 
-// Disable BullBoard in production to save memory if needed
-const disableBullBoard = process.env.DISABLE_BULLBOARD === '1' || process.env.NODE_ENV === 'production';
-let serverAdapter;
-if (!disableBullBoard) {
-  serverAdapter = new ExpressAdapter();
-  serverAdapter.setBasePath('/admin/queues');
-  
-  try {
-    createBullBoard({
-      queues: [new BullMQAdapter(require('../queue/issuanceQueue').issuanceQueue)],
-      serverAdapter: serverAdapter,
-    });
-    app.use('/admin/queues', serverAdapter.getRouter());
-  } catch (e) {
-    console.warn('BullBoard init skipped', e.message);
+async function setupBullBoard(app) {
+  const disableBullBoard = process.env.DISABLE_BULLBOARD === '1' || process.env.NODE_ENV === 'production' || (String(process.env.NODE_ENV || '').toLowerCase() === 'test');
+  if (!disableBullBoard) {
+    const serverAdapter = new ExpressAdapter();
+    serverAdapter.setBasePath('/admin/queues');
+    
+    try {
+      const { issuanceQueue } = require('../queue/issuanceQueue');
+      createBullBoard({
+        queues: [new BullMQAdapter(issuanceQueue)],
+        serverAdapter: serverAdapter,
+      });
+      app.use('/admin/queues', serverAdapter.getRouter());
+      logger.info('BullBoard for queue management is active at /admin/queues');
+    } catch (e) {
+      logger.warn('BullBoard init skipped:', e.message);
+    }
   }
 }
 const passport = require('passport');
@@ -58,7 +60,6 @@ const { errorHandler } = require('./utils/errorCodes');
 const ipfsService = require('./services/ipfsService');
 const cacheService = require('./services/cacheService');
 const { protect, authorize } = require('./middleware/auth');
-const { issuanceQueue } = require('../queue/issuanceQueue');
 const { initializeWorkers } = require('./workers');
 const { connectDB, isConnected: isMongoConnected, getConnectionStats: getMongoStats } = require('./config/database');
 const { isConnected: isRedisConnected, getStats: getRedisStats } = require('../queue/connection');
@@ -77,12 +78,15 @@ const universityRoutes = require('./routes/university');
 const qrRoutes = require('./routes/qr');
 const partnerRoutes = require('./routes/partner');
 const adminRoutes = require('./routes/admin');
+const auditRoutes = require('./routes/admin/audit');
 const rateAdminRoutes = require('./routes/admin/rate');
 const metricsRoutes = require('./routes/metrics');
 const rateOracle = require('./services/rateOracle');
 const systemRoutes = require('./routes/system');
 const publicRoutes = require('./routes/public');
 const studentRoutes = require('./routes/student');
+let creatorRoutes;
+try { creatorRoutes = require('./routes/creator.routes'); } catch { creatorRoutes = express.Router(); }
 const v1Routes = require('./routes/v1');
 const contactRoutes = require('./routes/contact');
 const demoRoutes = require('./routes/demo');
@@ -91,8 +95,32 @@ const utilsRoutes = require('./routes/excel-validate');
 const daoRoutes = require('./routes/dao');
 const billingRoutes = require('./routes/billing');
 const { getRuntimeHealthMonitor } = require('./middleware/runtimeHealth');
+let agent = null;
 const path = require('path');
 const crypto = require('crypto');
+
+let didDocument = null;
+
+async function initializeVeramo() {
+  if ((process.env.NODE_ENV || '').toLowerCase() === 'test') return;
+  if (!agent) {
+    try { agent = require('./services/veramo'); } catch { return; }
+  }
+  const didIdentifier = `did:web:localhost:${PORT}`;
+  try {
+    didDocument = await agent.resolveDid({ didUrl: didIdentifier });
+    console.log(`DID ${didIdentifier} already exists.`);
+  } catch (e) {
+    console.log(`DID ${didIdentifier} not found, creating...`);
+    const newDid = await agent.didManagerCreate({
+      provider: 'did:web',
+      alias: `localhost:${PORT}`,
+    });
+    didDocument = newDid;
+    console.log('New DID created:', JSON.stringify(didDocument, null, 2));
+  }
+}
+
 
 const app = express();
 const testing = (process.env.NODE_ENV || '').toLowerCase() === 'test';
@@ -161,7 +189,7 @@ const configuredOrigins = clientUrl ? clientUrl.split(',').map(o => normalizeOri
 const verifierOrigins = verifierOriginsRaw ? verifierOriginsRaw.split(',').map(o => normalizeOrigin(o)).filter(Boolean) : [];
 const extraOrigins = [process.env.SERVER_URL, process.env.BASE_URL].map(o => normalizeOrigin(o)).filter(Boolean);
 const whitelist = isProduction
-  ? (configuredOrigins.length ? configuredOrigins : [])
+  ? Array.from(new Set([...(configuredOrigins.length ? configuredOrigins : []), 'http://localhost:5173', 'http://localhost:3000']))
   : Array.from(new Set([
       ...(configuredOrigins.length ? configuredOrigins : defaultOrigins),
       ...extraOrigins,
@@ -270,6 +298,10 @@ app.use(compression());
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Setup BullBoard for queue management
+setupBullBoard(app);
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 300,
@@ -378,24 +410,24 @@ app.get('/healthz', async (req, res) => {
   }
 });
 
-if (!testing) { (async () => {
+if (!testing && !process.env.JEST_WORKER_ID) { (async () => {
   try {
     const disableHedera = process.env.DISABLE_HEDERA === '1';
     if (!disableHedera) await getHederaService().connect();
   } catch {}
 })(); }
 
-if (!testing) {
+if (!testing && !process.env.JEST_WORKER_ID) {
   try { const monitor = getRuntimeHealthMonitor(io); monitor.start(); } catch {}
   try { ipfsService.testConnection(); } catch {}
 }
 
-if (!testing) {
+if (!testing && !process.env.JEST_WORKER_ID) {
   try { startBackupStatsJob(); } catch {}
 }
 
 // Rate oracle: refresh hourly and on startup
-if (!testing) {
+if (!testing && !process.env.JEST_WORKER_ID) {
   const refreshJob = async () => {
     try {
       const payload = await rateOracle.refresh();
@@ -486,6 +518,13 @@ app.get('/api/metrics/json', protect, authorize(ROLES.ADMIN), async (req, res) =
 });
 
 // Rutas de la API
+app.get('/.well-known/did.json', (req, res) => {
+  if (didDocument) {
+    res.json(didDocument);
+  } else {
+    res.status(404).send('DID document not found.');
+  }
+});
 app.use('/api/auth', authRoutes);
 app.use('/api/nfts', nftRoutes);
 app.use('/api/verification', verificationRoutes);
@@ -494,9 +533,11 @@ app.use('/api/qr', qrRoutes);
 app.use('/api/partners', partnerRoutes);
 app.use('/api/partner', partnerRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/audit', auditRoutes);
 app.use('/api/admin/rate', rateAdminRoutes);
 app.use('/metrics', metricsRoutes);
 app.use('/api/credentials', studentRoutes); // Ruta para credenciales de estudiantes
+app.use('/api/creators', creatorRoutes);
 app.use('/api/v1', v1Routes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/demo', demoRoutes);
@@ -570,21 +611,31 @@ if (require.main === module) {
           await new Promise((resolve, reject) => {
             const onError = (err) => {
               server.off('error', onError);
-              if (err && err.code === 'EADDRINUSE') reject(err);
-              else reject(err || new Error('listen error'));
+              if (err && err.code === 'EADDRINUSE') {
+                reject(err);
+              } else {
+                reject(err || new Error('listen error'));
+              }
             };
             server.once('error', onError);
-            server.listen(p, () => {
-              server.off('error', onError);
-              process.env.PORT = String(p);
-              process.env.SERVER_URL = process.env.SERVER_URL || `http://localhost:${p}`;
-              started = true;
-              if (process.send) process.send('ready');
-              resolve();
+            initializeVeramo().then(() => {
+              server.listen(p, () => {
+                server.off('error', onError);
+                process.env.PORT = String(p);
+                process.env.SERVER_URL = process.env.SERVER_URL || `http://localhost:${p}`;
+                started = true;
+                if (process.send) process.send('ready');
+                logger.info(`Server listening on port ${p}`);
+                resolve();
+              });
             });
           });
-          if (started) break;
-        } catch {}
+          if (started) return;
+        } catch (e) {
+          if (e.code !== 'EADDRINUSE') {
+            logger.error(`Could not start server: ${e.message}`);
+          }
+        }
       }
       if (!started) throw new Error('No available port to start server');
     } catch (err) {

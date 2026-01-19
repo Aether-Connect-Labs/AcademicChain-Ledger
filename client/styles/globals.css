@@ -27,33 +27,7 @@
   color: #004499;
 }
 
-/* Ajustes responsive para móviles */
-@media (max-width: 768px) {
-  .hero-title {
-    font-size: 1.8rem !important;
-    line-height: 1.2 !important;
-  }
 
-  .hero-subtitle {
-    font-size: 1rem !important;
-    margin-bottom: 1.5rem !important;
-  }
-
-  .section-padding {
-    padding: 2rem 1rem !important;
-  }
-
-  .modal-content {
-    margin: 1rem;
-    padding: 1.5rem;
-  }
-
-  .code-inputs input {
-    width: 40px;
-    height: 40px;
-    font-size: 1rem;
-  }
-}
 
 @layer base {
   html {
