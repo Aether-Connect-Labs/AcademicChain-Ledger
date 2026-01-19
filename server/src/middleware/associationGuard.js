@@ -16,6 +16,13 @@ module.exports = asyncHandler(async function associationGuard(req, res, next) {
   const accountId = String(uni.hederaAccountId || '').trim();
   if (!accountId) return res.status(400).json({ success: false, message: 'hederaAccountId no configurado para la institución' });
   const aclTokenId = String(process.env.ACL_TOKEN_ID || '0.0.7560139');
+  
+  // Bypass ACL check for main platform account (Treasury)
+  if (accountId === process.env.HEDERA_ACCOUNT_ID) {
+    req.universityId = String(token.universityId);
+    return next();
+  }
+
   try { await hederaService.connect(); } catch {}
   let associated = false;
   try {
