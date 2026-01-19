@@ -1,5 +1,5 @@
 // Usaremos MongoDB/PostgreSQL para almacenar los partners y sus keys
-const { Partner } = require('../models');
+const Partner = require('../models/Partner');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../utils/logger');
 const bcrypt = require('bcryptjs');
