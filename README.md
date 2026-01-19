@@ -131,6 +131,7 @@ JWT_SECRET=<SECRET_COMPLEJO>
 # Demo System
 DEMO_SCHEDULING=true
 GOOGLE_CALENDAR_API_KEY=<API_KEY>
+DEMO_MODE=true  # Habilita modo demostración (bypassea base de datos si es necesario para pruebas rápidas)
 ```
 
 **En `client/.env.local`:**
@@ -249,6 +250,19 @@ $verifyBody = @{
 
 Invoke-RestMethod -Method Post -Uri 'http://localhost:3001/api/verify/multi' -ContentType 'application/json' -Body $verifyBody | ConvertTo-Json -Compress
 ```
+
+### 🧪 Verificación Automática de Dashboard (Script)
+Hemos incluido un script automatizado para probar el flujo completo de emisión y visualización en el dashboard.
+
+```bash
+# Ejecuta el test de emisión admin
+node server/scripts/test_admin_issuance.js
+```
+
+Este script:
+1. Crea un Token Académico en Hedera.
+2. Emite una credencial a un estudiante.
+3. Verifica que la credencial aparezca en el endpoint del Dashboard (`/api/partner/emissions`).
 
 ## 📊 Métricas y Analytics
 

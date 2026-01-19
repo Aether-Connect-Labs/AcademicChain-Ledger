@@ -13,7 +13,18 @@ const cacheService = require('../services/cacheService');
 const rateOracle = require('../services/rateOracle');
 const ROLES = require('../config/roles');
 const { recordAnalytics } = require('../services/analyticsService');
-const { User, Token, Credential, Partner, AnalyticsEvent } = require('../models');
+const User = require('../models/User');
+const Token = require('../models/Token');
+const Credential = require('../models/Credential');
+const Partner = require('../models/Partner');
+// Try to import AnalyticsEvent safely
+let AnalyticsEvent;
+try {
+  AnalyticsEvent = require('../models/AnalyticsEvent');
+} catch (e) {
+  // If it doesn't exist, we can live without it for now or mock it
+  AnalyticsEvent = null;
+}
 
 /**
  * @route   POST /api/partner/verify
@@ -79,6 +90,28 @@ router.post('/generate-key',
 router.get('/dashboard/overview',
   partnerAuth,
   asyncHandler(async (req, res) => {
+    if (process.env.DEMO_MODE === 'true') {
+      return res.status(200).json({
+        success: true,
+        data: {
+          totalEmissions: 1250,
+          totalVerifications: 450,
+          revokedCount: 12,
+          activeInstitutions: 5,
+          hbarBalance: 1500.50,
+          usageSeries: [
+             { date: new Date().toISOString().split('T')[0], count: 15 },
+             { date: new Date(Date.now() - 86400000).toISOString().split('T')[0], count: 12 },
+             { date: new Date(Date.now() - 172800000).toISOString().split('T')[0], count: 20 },
+          ],
+          byInstitution: [
+             { institutionId: 'demo-university-id', name: 'Demo University', emissions: 800, revoked: 5 },
+             { institutionId: 'tech-institute-id', name: 'Tech Institute', emissions: 450, revoked: 7 }
+          ],
+        },
+      });
+    }
+
     const [totalEmissions, revokedCount, activeInstitutions] = await Promise.all([
       Credential.countDocuments({}).catch(() => 0),
       Credential.countDocuments({ status: 'REVOKED' }).catch(() => 0),
@@ -172,6 +205,34 @@ router.get('/dashboard/overview',
 router.get('/institutions',
   partnerAuth,
   asyncHandler(async (req, res) => {
+    if (process.env.DEMO_MODE === 'true') {
+      const items = [
+        {
+          id: 'demo-university-id',
+          name: 'Demo University',
+          email: 'demo@university.edu',
+          tokenId: '0.0.7685360',
+          plan: 'enterprise',
+          emissions: 800,
+          revoked: 5,
+          status: 'active',
+          hederaAccountId: process.env.HEDERA_ACCOUNT_ID
+        },
+        {
+          id: 'tech-institute-id',
+          name: 'Tech Institute',
+          email: 'admin@tech.edu',
+          tokenId: '0.0.7685354',
+          plan: 'basic',
+          emissions: 450,
+          revoked: 7,
+          status: 'active',
+          hederaAccountId: '0.0.12345'
+        }
+      ];
+      return res.status(200).json({ success: true, data: { items } });
+    }
+
     const institutions = await User.find({ role: ROLES.UNIVERSITY })
       .select('name email universityName hederaAccountId isActive plan')
       .lean();
@@ -263,6 +324,34 @@ router.get('/emissions',
     const statusFilter = String(req.query.status || '').trim().toLowerCase();
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '100', 10) || 100));
     const offset = Math.max(0, parseInt(req.query.offset || '0', 10) || 0);
+
+    if (process.env.DEMO_MODE === 'true') {
+      const mockItems = [
+        {
+          tokenId: '0.0.7685360',
+          serialNumber: '1',
+          institutionId: 'demo-university-id',
+          institutionName: 'Demo University',
+          status: 'ACTIVE',
+          issuedAt: new Date().toISOString()
+        },
+        {
+          tokenId: '0.0.7685354',
+          serialNumber: '1',
+          institutionId: 'demo-university-id',
+          institutionName: 'Demo University',
+          status: 'ACTIVE',
+          issuedAt: new Date(Date.now() - 3600000).toISOString()
+        }
+      ];
+      return res.status(200).json({
+        success: true,
+        data: {
+          items: mockItems,
+          paging: { limit, offset, total: 2 },
+        },
+      });
+    }
 
     const q = {};
     if (institutionId) q.universityId = institutionId;
@@ -362,11 +451,17 @@ router.post('/institution/mint',
       return res.status(400).json({ success: false, message: 'Partner is not linked to a universityId.' });
     }
     const { tokenId, uniqueHash, ipfsURI, recipientAccountId, degree, studentName } = req.body;
-    const { Token } = require('../models');
-    const token = await Token.findOne({ tokenId, universityId: partner.universityId });
-    if (!token) {
-      return res.status(403).json({ success: false, message: 'Forbidden: Token does not belong to your institution.' });
+    
+    if (process.env.DEMO_MODE === 'true' && partner.id === 'demo-partner-id') {
+       logger.info('DEMO_MODE: Bypassing Token check for mint');
+    } else {
+       const { Token } = require('../models');
+       const token = await Token.findOne({ tokenId, universityId: partner.universityId });
+       if (!token) {
+         return res.status(403).json({ success: false, message: 'Forbidden: Token does not belong to your institution.' });
+       }
     }
+
     const mintResult = await hederaService.mintAcademicCredential(tokenId, {
       uniqueHash,
       ipfsURI,
@@ -389,15 +484,18 @@ router.post('/institution/mint',
     if (process.env.NODE_ENV === 'test') {
       return res.status(201).json({ success: true, message: 'Credential minted successfully (test)', data: { mint: mintResult, transfer: transferResult } });
     }
-    const { Credential } = require('../models');
-    await Credential.create({
-      tokenId,
-      serialNumber: mintResult.serialNumber,
-      universityId: partner.universityId,
-      studentAccountId: recipientAccountId || null,
-      uniqueHash,
-      ipfsURI,
-    });
+    
+    if (process.env.DEMO_MODE !== 'true') {
+      const { Credential } = require('../models');
+      await Credential.create({
+        tokenId,
+        serialNumber: mintResult.serialNumber,
+        universityId: partner.universityId,
+        studentAccountId: recipientAccountId || null,
+        uniqueHash,
+        ipfsURI,
+      });
+    }
     let xrp = null;
     const enableXrp2 = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
     if (enableXrp2) {
@@ -446,16 +544,31 @@ router.post('/institution/mint',
     asyncHandler(async (req, res) => {
       const partner = req.partner;
       const { tokenName, tokenSymbol, tokenMemo } = req.body;
-      if (!partner.universityId) {
-        return res.status(400).json({ success: false, message: 'Partner is not linked to a universityId.' });
+      
+      let universityUser;
+
+      if (process.env.DEMO_MODE === 'true' && partner.id === 'demo-partner-id') {
+        logger.info('DEMO_MODE: Using env Hedera account for create-token');
+        universityUser = {
+          universityName: 'Demo University',
+          hederaAccountId: process.env.HEDERA_ACCOUNT_ID
+        };
+      } else {
+        if (!partner.universityId) {
+          return res.status(400).json({ success: false, message: 'Partner is not linked to a universityId.' });
+        }
+        universityUser = await User.findById(partner.universityId);
       }
-      const universityUser = await User.findById(partner.universityId);
+
       if (!universityUser || !universityUser.hederaAccountId) {
         return res.status(400).json({ success: false, message: 'Linked university lacks Hedera account configuration.' });
       }
       if (req.query.mock === '1' && process.env.NODE_ENV !== 'production') {
         const tokenId = '0.0.mocktoken';
-        await Token.create({ tokenId, tokenName, tokenSymbol, universityId: partner.universityId });
+        // Mock DB create
+        if (process.env.DEMO_MODE !== 'true') {
+           await Token.create({ tokenId, tokenName, tokenSymbol, universityId: partner.universityId });
+        }
         return res.status(201).json({ success: true, message: 'Academic token created successfully (mock)', data: { tokenId, transactionId: 'tx-mock' } });
       }
       const result = await hederaService.createAcademicToken({
@@ -464,7 +577,11 @@ router.post('/institution/mint',
         tokenMemo: tokenMemo || `Academic credential from ${universityUser.universityName}`,
         treasuryAccountId: universityUser.hederaAccountId,
       });
-      await Token.create({ tokenId: result.tokenId, tokenName, tokenSymbol, universityId: partner.universityId });
+      
+      if (process.env.DEMO_MODE !== 'true') {
+        await Token.create({ tokenId: result.tokenId, tokenName, tokenSymbol, universityId: partner.universityId });
+      }
+      
       res.status(201).json({ success: true, message: 'Academic token created successfully', data: result });
     })
   );

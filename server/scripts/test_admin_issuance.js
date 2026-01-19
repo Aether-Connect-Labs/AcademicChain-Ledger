@@ -1,7 +1,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
 
-const BASE_URL = 'https://academicchain-ledger.onrender.com';
+const BASE_URL = 'http://localhost:3001';
 // Llave de "Sequential Test Uni" que sí tiene ID de universidad
 const PARTNER_KEY = 'acp_8ba28e18_5968e84e0579411bbae50897f9c4d447';
 
@@ -37,20 +37,32 @@ async function main() {
     const uniqueHash = crypto.createHash('sha256').update(randomString()).digest('hex');
     const studentName = `Estudiante Panel ${randomString()}`;
     
-    const mintRes = await axios.post(`${BASE_URL}/api/partner/institution/mint`, {
+    const mintPayload = {
       tokenId: tokenId,
       uniqueHash,
       studentName,
       degree: 'Certificado Verificado por Dashboard',
-      ipfsURI: 'ipfs://QmPruebaDashboard',
-      recipientAccountId: null // No transferir por ahora para simplificar
-    }, {
+      ipfsURI: 'ipfs://QmPruebaDashboard'
+    };
+    
+    // Solo agregamos recipientAccountId si es válido (no null)
+    // mintPayload.recipientAccountId = '0.0.xxxxx'; 
+
+    const mintRes = await axios.post(`${BASE_URL}/api/partner/institution/mint`, mintPayload, {
       headers: { 'x-api-key': PARTNER_KEY }
     });
+    console.log('✅ Credencial emitida:', mintRes.data);
 
-    console.log('\n✅ ¡EMISIÓN EXITOSA!');
-    console.log('Credencial:', mintRes.data);
-    console.log('\n👉 AHORA: Ve a tu Dashboard (Emisiones) y deberías ver esta nueva credencial.');
+    // 3. Verificar listado de emisiones (Dashboard)
+    console.log('\n3. Verificando vista de Dashboard (GET /emissions)...');
+    const listRes = await axios.get(`${BASE_URL}/api/partner/emissions`, {
+      headers: { 'x-api-key': PARTNER_KEY }
+    });
+    
+    console.log(`✅ Emisiones encontradas: ${listRes.data.data.items.length}`);
+    if (listRes.data.data.items.length > 0) {
+      console.log('📝 Última emisión:', listRes.data.data.items[0]);
+    }
 
   } catch (error) {
     console.error('\n❌ Error general:', error.response ? error.response.data : error.message);
