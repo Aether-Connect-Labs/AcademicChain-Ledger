@@ -546,7 +546,11 @@ router.get('/credential-history/:tokenId/:serialNumber',
                  serialNumber,
                  ownerAccountId: "0.0.555555",
                  metadata: mockMeta,
-                 transactionId: "0.0.12345@1234567890.000000000"
+                 transactionId: "0.0.12345@1234567890.000000000",
+                 externalProofs: {
+                    xrpTxHash: "A1B2C3D4E5F67890A1B2C3D4E5F67890A1B2C3D4E5F67890",
+                    algoTxId: "ALGORANDTRANSACTIONID1234567890"
+                 }
              },
              valid: true
          };
