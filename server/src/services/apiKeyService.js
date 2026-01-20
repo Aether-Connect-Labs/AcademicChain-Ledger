@@ -53,6 +53,11 @@ class ApiKeyService {
 
   async loadCreatorApiKeys() {
     try {
+      if (process.env.DEMO_MODE === 'true' || process.env.DISABLE_MONGO === '1' || process.env.DISABLE_SQLITE === '1') {
+        logger.info('⚠️ DEMO_MODE: Saltando carga de API Keys de creadores (SQLite).');
+        return;
+      }
+      
       const creators = await CreatorProfile.findAll({
         where: { apiKey: { [Op.ne]: null } }
       });
