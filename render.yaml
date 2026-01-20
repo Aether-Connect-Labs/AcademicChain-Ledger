@@ -14,6 +14,8 @@ services:
         value: 0
       - key: DEMO_MODE
         value: true
+      - key: ADMIN_DASHBOARD_URL
+        value: https://academicchain-dashboard.onrender.com # Update this after Dashboard deployment
     autoDeploy: true
 
   # Frontend Service (Dashboard)
