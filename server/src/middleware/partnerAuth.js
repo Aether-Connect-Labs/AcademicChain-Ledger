@@ -6,38 +6,36 @@ const axios = require('axios');
 
 const validateIssuance = async (req, res, next) => {
     // Si no está configurada la URL del dashboard, permitimos pasar (modo standalone)
-    // o bloqueamos si es producción estricta. Por ahora, si no hay URL, asumimos local/bypass.
     if (!process.env.ADMIN_DASHBOARD_URL) {
-        // Opción: Loguear warning y continuar
-        // logger.warn('ADMIN_DASHBOARD_URL no configurada. Saltando validación externa.');
         return next();
     }
 
     const apiKey = req.header('x-api-key');
+    let action = 'ISSUE_CREDENTIAL';
+    
+    if (req.originalUrl.includes('revoke')) {
+      action = 'REVOKE_CREDENTIAL';
+    }
 
     try {
         // El Ledger le pregunta al Dashboard de Render
         const response = await axios.post(`${process.env.ADMIN_DASHBOARD_URL}/api/validate`, {
             apiKey: apiKey,
-            action: 'ISSUE_CREDENTIAL'
+            action: action
         });
 
         if (response.data.valid) {
-            // El Dashboard dio el OK y ya descontó el crédito
-            // Opcional: inyectar datos extra si el dashboard los devuelve
+            // El Dashboard dio el OK
             if (response.data.institution) {
                 req.institutionData = response.data.institution;
             }
             next();
         } else {
-            // El Dashboard bloqueó la acción (Sin créditos o Botón de Pánico)
+            // El Dashboard bloqueó la acción
             return res.status(403).json({ success: false, message: response.data.reason || 'Blocked by Admin Dashboard' });
         }
     } catch (error) {
         logger.error(`Error contactando Dashboard: ${error.message}`);
-        // Si falla la conexión, ¿bloqueamos o permitimos?
-        // Por seguridad, si el dashboard es la fuente de verdad de créditos, deberíamos bloquear.
-        // Pero si es "demo", tal vez permitir.
         if (process.env.DEMO_MODE === 'true') return next();
         
         res.status(500).json({ success: false, error: "No se pudo contactar con el Centro de Mando" });

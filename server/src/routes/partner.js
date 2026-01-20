@@ -26,6 +26,28 @@ try {
   AnalyticsEvent = null;
 }
 
+// In-memory store for DEMO_MODE to make it interactive
+const demoStore = {
+  emissions: [
+     {
+          tokenId: '0.0.7685360',
+          serialNumber: '1',
+          institutionId: 'demo-university-id',
+          institutionName: 'Demo University',
+          status: 'ACTIVE',
+          issuedAt: new Date().toISOString()
+     },
+     {
+          tokenId: '0.0.7685354',
+          serialNumber: '1',
+          institutionId: 'demo-university-id',
+          institutionName: 'Demo University',
+          status: 'ACTIVE',
+          issuedAt: new Date(Date.now() - 3600000).toISOString()
+     }
+  ]
+};
+
 /**
  * @route   POST /api/partner/verify
  * @desc    Allows a partner to verify a credential using its on-chain identifiers.
@@ -326,29 +348,20 @@ router.get('/emissions',
     const offset = Math.max(0, parseInt(req.query.offset || '0', 10) || 0);
 
     if (req.isDemo || process.env.DEMO_MODE === 'true') {
-      const mockItems = [
-        {
-          tokenId: '0.0.7685360',
-          serialNumber: '1',
-          institutionId: 'demo-university-id',
-          institutionName: 'Demo University',
-          status: 'ACTIVE',
-          issuedAt: new Date().toISOString()
-        },
-        {
-          tokenId: '0.0.7685354',
-          serialNumber: '1',
-          institutionId: 'demo-university-id',
-          institutionName: 'Demo University',
-          status: 'ACTIVE',
-          issuedAt: new Date(Date.now() - 3600000).toISOString()
-        }
-      ];
+      const mockItems = demoStore.emissions;
+      // Simple filter support
+      const filtered = mockItems.filter(item => {
+          if (institutionId && item.institutionId !== institutionId) return false;
+          if (statusFilter === 'revocada' && item.status !== 'REVOKED') return false;
+          if (statusFilter === 'emitida' && item.status === 'REVOKED') return false;
+          return true;
+      });
+
       return res.status(200).json({
         success: true,
         data: {
-          items: mockItems,
-          paging: { limit, offset, total: 2 },
+          items: filtered,
+          paging: { limit, offset, total: filtered.length },
         },
       });
     }
@@ -413,6 +426,17 @@ router.post('/institution/mint',
     const partner = req.partner;
     if (req.query.mock === '1' && process.env.NODE_ENV !== 'production') {
       const serialNumber = 1;
+      
+      // Update Demo Store
+      demoStore.emissions.unshift({
+        tokenId: req.body.tokenId,
+        serialNumber: String(serialNumber),
+        institutionId: partner.universityId || 'demo-university-id',
+        institutionName: partner.name || 'Demo University',
+        status: 'ACTIVE',
+        issuedAt: new Date().toISOString()
+      });
+
       await recordAnalytics('CREDENTIAL_MINTED_PARTNER', {
         partnerId: partner.id,
         partnerName: partner.name,
@@ -471,6 +495,19 @@ router.post('/institution/mint',
       university: partner.name,
       recipientAccountId,
     });
+    
+    // Update Demo Store if applicable
+    if (req.isDemo || process.env.DEMO_MODE === 'true') {
+        demoStore.emissions.unshift({
+            tokenId,
+            serialNumber: String(mintResult.serialNumber),
+            institutionId: partner.universityId || 'demo-university-id',
+            institutionName: partner.name || 'Demo University',
+            status: 'ACTIVE',
+            issuedAt: new Date().toISOString()
+        });
+    }
+
     let transferResult = null;
     if (recipientAccountId) {
       transferResult = await hederaService.transferCredentialToStudent(tokenId, mintResult.serialNumber, recipientAccountId);
@@ -658,5 +695,67 @@ router.post('/bridge/convert', partnerAuth,
     }
   })
 );
+
+/**
+ * @route   POST /api/partner/institution/revoke
+ * @desc    Allows an institution (via API key) to revoke a credential.
+ * @access  Private (Institution via API key)
+ */
+router.post('/institution/revoke',
+  partnerAuth,
+  validateIssuance,
+  associationGuard,
+  [
+    body('tokenId').notEmpty().withMessage('Token ID is required'),
+    body('serialNumber').notEmpty().withMessage('Serial number is required'),
+    body('reason').notEmpty().withMessage('Reason is required'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const partner = req.partner;
+    const { tokenId, serialNumber, reason } = req.body;
+
+    if (req.isDemo || process.env.DEMO_MODE === 'true') {
+        logger.info(`DEMO_MODE: Revoking credential ${tokenId}#${serialNumber} for ${partner.name}`);
+        
+        // Update in memory store
+        const item = demoStore.emissions.find(i => i.tokenId === tokenId && i.serialNumber === String(serialNumber));
+        if (item) {
+            item.status = 'REVOKED';
+        }
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Credential revoked successfully (DEMO)',
+            data: {
+                transactionId: '0.0.12345@1234567890.000000000',
+                status: 'REVOKED'
+            }
+        });
+    }
+
+    const burnResult = await hederaService.burnCredential(tokenId, serialNumber);
+
+    // Update DB
+    const { Credential } = require('../models');
+    await Credential.updateOne(
+        { tokenId, serialNumber }, 
+        { $set: { status: 'REVOKED', revocationReason: reason, revokedAt: new Date() } }
+    );
+
+    await recordAnalytics('CREDENTIAL_REVOKED_PARTNER', {
+      partnerId: partner.id,
+      partnerName: partner.name,
+      tokenId,
+      serialNumber,
+      reason
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Credential revoked successfully',
+      data: burnResult,
+    });
+  }));
  
  module.exports = router;
