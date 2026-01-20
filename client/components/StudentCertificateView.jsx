@@ -4,6 +4,9 @@ import { useParams } from 'react-router-dom';
 import { API_BASE_URL } from './services/config';
 
 const toGateway = (uri) => {
+  if (uri && (uri.startsWith('http://') || uri.startsWith('https://'))) {
+    return uri;
+  }
   const cid = String(uri || '').replace('ipfs://','').trim();
   return cid ? `https://gateway.pinata.cloud/ipfs/${cid}` : '';
 };
