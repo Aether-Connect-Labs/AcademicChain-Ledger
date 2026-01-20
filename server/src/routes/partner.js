@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { body } = require('express-validator');
 const asyncHandler = require('express-async-handler');
 const { protect, authorize } = require('../middleware/auth');
-const partnerAuth = require('../middleware/partnerAuth');
+const { partnerAuth, validateIssuance } = require('../middleware/partnerAuth');
 const { validate } = require('../middleware/validator');
 const associationGuard = require('../middleware/associationGuard');
 const hederaService = require('../services/hederaServices');
@@ -90,7 +90,7 @@ router.post('/generate-key',
 router.get('/dashboard/overview',
   partnerAuth,
   asyncHandler(async (req, res) => {
-    if (process.env.DEMO_MODE === 'true') {
+    if (req.isDemo || process.env.DEMO_MODE === 'true') {
       return res.status(200).json({
         success: true,
         data: {
@@ -205,7 +205,7 @@ router.get('/dashboard/overview',
 router.get('/institutions',
   partnerAuth,
   asyncHandler(async (req, res) => {
-    if (process.env.DEMO_MODE === 'true') {
+    if (req.isDemo || process.env.DEMO_MODE === 'true') {
       const items = [
         {
           id: 'demo-university-id',
@@ -325,7 +325,7 @@ router.get('/emissions',
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '100', 10) || 100));
     const offset = Math.max(0, parseInt(req.query.offset || '0', 10) || 0);
 
-    if (process.env.DEMO_MODE === 'true') {
+    if (req.isDemo || process.env.DEMO_MODE === 'true') {
       const mockItems = [
         {
           tokenId: '0.0.7685360',
@@ -398,6 +398,7 @@ router.get('/emissions',
  */
 router.post('/institution/mint',
   partnerAuth,
+  validateIssuance,
   associationGuard,
   [
     body('tokenId').notEmpty().withMessage('Token ID is required'),
@@ -452,7 +453,7 @@ router.post('/institution/mint',
     }
     const { tokenId, uniqueHash, ipfsURI, recipientAccountId, degree, studentName } = req.body;
     
-    if (process.env.DEMO_MODE === 'true' && partner.id === 'demo-partner-id') {
+    if ((req.isDemo || process.env.DEMO_MODE === 'true') && partner.id === 'demo-partner-id') {
        logger.info('DEMO_MODE: Bypassing Token check for mint');
     } else {
        const { Token } = require('../models');
@@ -485,7 +486,7 @@ router.post('/institution/mint',
       return res.status(201).json({ success: true, message: 'Credential minted successfully (test)', data: { mint: mintResult, transfer: transferResult } });
     }
     
-    if (process.env.DEMO_MODE !== 'true') {
+    if (!req.isDemo && process.env.DEMO_MODE !== 'true') {
       const { Credential } = require('../models');
       await Credential.create({
         tokenId,
@@ -547,7 +548,7 @@ router.post('/institution/mint',
       
       let universityUser;
 
-      if (process.env.DEMO_MODE === 'true' && partner.id === 'demo-partner-id') {
+      if ((req.isDemo || process.env.DEMO_MODE === 'true') && partner.id === 'demo-partner-id') {
         logger.info('DEMO_MODE: Using env Hedera account for create-token');
         universityUser = {
           universityName: 'Demo University',
@@ -566,7 +567,7 @@ router.post('/institution/mint',
       if (req.query.mock === '1' && process.env.NODE_ENV !== 'production') {
         const tokenId = '0.0.mocktoken';
         // Mock DB create
-        if (process.env.DEMO_MODE !== 'true') {
+        if (!req.isDemo && process.env.DEMO_MODE !== 'true') {
            await Token.create({ tokenId, tokenName, tokenSymbol, universityId: partner.universityId });
         }
         return res.status(201).json({ success: true, message: 'Academic token created successfully (mock)', data: { tokenId, transactionId: 'tx-mock' } });
@@ -578,7 +579,7 @@ router.post('/institution/mint',
         treasuryAccountId: universityUser.hederaAccountId,
       });
       
-      if (process.env.DEMO_MODE !== 'true') {
+      if (!req.isDemo && process.env.DEMO_MODE !== 'true') {
         await Token.create({ tokenId: result.tokenId, tokenName, tokenSymbol, universityId: partner.universityId });
       }
       

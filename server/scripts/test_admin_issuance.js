@@ -1,7 +1,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
 
-const BASE_URL = 'http://localhost:3001';
+const BASE_URL = 'https://academicchain-ledger.onrender.com';
 // Llave de "Sequential Test Uni" que sí tiene ID de universidad
 const PARTNER_KEY = 'acp_8ba28e18_5968e84e0579411bbae50897f9c4d447';
 

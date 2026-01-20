@@ -8,7 +8,7 @@ module.exports = asyncHandler(async function associationGuard(req, res, next) {
   const isTest = (process.env.NODE_ENV || '').toLowerCase() === 'test';
   const disableMongo = process.env.DISABLE_MONGO === '1';
   if (isTest || disableMongo) return next();
-  if (process.env.DEMO_MODE === 'true') {
+  if (req.isDemo || process.env.DEMO_MODE === 'true') {
      // If demo mode, try to find token but don't block strictly on ACL if it's the demo partner
      if (req.partner && req.partner.id === 'demo-partner-id') {
        return next();
