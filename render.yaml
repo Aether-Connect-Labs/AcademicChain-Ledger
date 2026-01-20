@@ -1,0 +1,33 @@
+services:
+  # Backend Service
+  - type: web
+    name: academicchain-ledger-backend
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DISABLE_MONGO
+        value: 0
+      - key: DEMO_MODE
+        value: true
+    autoDeploy: true
+
+  # Frontend Service (Dashboard)
+  - type: static
+    name: academicchain-dashboard
+    env: static
+    plan: free
+    region: oregon
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: client/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://academicchain-ledger.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
