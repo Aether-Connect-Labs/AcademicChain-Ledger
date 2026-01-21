@@ -84,7 +84,7 @@
     "socket.io": "^4.7.4",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",
-    "twilio": "^4.19.3",
+    "twilio": "^5.11.2",
     "uuid": "^9.0.1",
     "web-did-resolver": "^2.0.32",
     "winston": "^3.11.0",
