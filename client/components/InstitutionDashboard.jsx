@@ -785,8 +785,8 @@ function InstitutionDashboard({ demo = false }) {
                           doc.text('ACADEMIC CHAIN LEDGER: PROPUESTA ENTERPRISE', 10, institutionalLogoUrl ? 40 : 20);
                           doc.setFontSize(12);
                           doc.text('Solución: Infraestructura de Triple Blindaje Blockchain (Hedera + XRP + Algorand)', 10, institutionalLogoUrl ? 55 : 35);
-                          doc.text('Costo Mensual: $599.99 USD (Incluye 5,000 emisiones)', 10, institutionalLogoUrl ? 65 : 45);
-                          doc.text('Costo Unitario: $0.12 USD', 10, institutionalLogoUrl ? 75 : 55);
+                          doc.text('Costo Mensual: A medida (Volumen corporativo)', 10, institutionalLogoUrl ? 65 : 45);
+                          doc.text('Costo Unitario: $0.80 USD', 10, institutionalLogoUrl ? 75 : 55);
                           doc.text('Garantía: SLA de 99.9% y soporte VIP 24/7', 10, institutionalLogoUrl ? 85 : 65);
                           doc.text('Implementación: API Key inmediata o On‑Premise', 10, institutionalLogoUrl ? 95 : 75);
                           doc.text('Beneficio: Auditoría internacional y resiliencia por triple consenso distribuido', 10, institutionalLogoUrl ? 105 : 85);

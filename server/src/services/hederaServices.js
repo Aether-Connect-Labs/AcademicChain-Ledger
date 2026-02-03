@@ -95,6 +95,13 @@ class HederaService {
     }
   }
 
+  async getOperatorBalance() {
+    if (!this.isEnabled()) {
+      return '0';
+    }
+    return (await this.getAccountBalance(this.operatorId.toString())).hbars;
+  }
+
   isEnabled() {
     return !!(this.client && this.operatorId && this.operatorKey);
   }
@@ -264,6 +271,7 @@ class HederaService {
         },
         file: {
           uri: metadata.ipfsURI || undefined,
+          cid: metadata.cid || (metadata.ipfsURI ? metadata.ipfsURI.replace('ipfs://', '') : undefined),
           hash: metadata.uniqueHash || undefined
         },
         certificate: {
@@ -390,7 +398,40 @@ class HederaService {
     const tx = new TopicCreateTransaction().setTopicMemo('AcademicChain Merkle Root Ledger');
     const { response, receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(tx), 'hedera');
     const topicId = receipt.topicId?.toString() || (response?.receipt?.topicId?.toString() || '');
+    logger.info(`✅ Merkle Topic ensured: ${topicId}`);
     return topicId;
+  }
+
+  async submitRevocationStatus(statusListIndex, reason, credentialId) {
+    if (!this.isEnabled()) {
+      return { transactionId: `mock-${uuidv4()}`, topicId: '0.0.0000' };
+    }
+    
+    // Get or Create Topic for Status List
+    const topicId = await this.ensureMerkleTopic();
+
+    // Create Revocation Message (Bitstring update simulation)
+    const message = JSON.stringify({
+      op: 'revoke',
+      index: statusListIndex,
+      credentialId: credentialId,
+      reason: reason,
+      timestamp: new Date().toISOString()
+    });
+
+    const transaction = new TopicMessageSubmitTransaction()
+      .setTopicId(topicId)
+      .setMessage(message);
+
+    const { response, receipt } = await TimeoutManager.promiseWithTimeout(this._executeTransaction(transaction), 'hedera');
+    
+    logger.info(`✅ Revocation logged on Hedera Topic ${topicId} for index ${statusListIndex}`);
+    
+    return {
+      transactionId: response.transactionId.toString(),
+      topicId: topicId,
+      sequenceNumber: receipt.topicSequenceNumber.toString()
+    };
   }
 
   async submitMerkleRoot(root, meta = {}) {

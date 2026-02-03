@@ -13,6 +13,8 @@ const { recordAnalytics } = require('../services/analyticsService');
 const { User } = require('../models');
 
 const router = express.Router();
+const zlib = require('zlib');
+
 const requireKey = String(
   process.env.REQUIRE_API_KEY_FOR_VERIFICATION ||
   ((process.env.NODE_ENV || 'development') === 'production' ? '1' : '0')
@@ -44,6 +46,44 @@ function ensureVerifierAccess(req, res) {
   return true;
 }
 
+// Status List Credential Endpoint (Bitstring Status List)
+router.get('/status-list', asyncHandler(async (req, res) => {
+  const { Credential } = require('../models');
+  // Find all revoked credentials to set their bits using the global statusListIndex
+  const revoked = await Credential.find({ status: 'REVOKED', statusListIndex: { $exists: true } }).select('statusListIndex');
+  
+  const sizeBytes = 16 * 1024; // 16KB supports ~131k credentials
+  const buffer = Buffer.alloc(sizeBytes); 
+  
+  revoked.forEach(r => {
+    const idx = r.statusListIndex;
+    if (typeof idx === 'number' && idx < sizeBytes * 8) {
+       const byteIndex = Math.floor(idx / 8);
+       const bitIndex = 7 - (idx % 8); 
+       buffer[byteIndex] |= (1 << bitIndex);
+    }
+  });
+  
+  const encodedList = zlib.gzipSync(buffer).toString('base64');
+  const baseUrl = process.env.VITE_API_URL || 'http://localhost:3001';
+  
+  const vc = {
+      "@context": ["https://www.w3.org/2018/credentials/v1", "https://w3id.org/vc/status-list/2021/v1"],
+      "id": `${baseUrl}/api/verification/status-list`,
+      "type": ["VerifiableCredential", "StatusList2021Credential"],
+      "issuer": "did:web:localhost:3001",
+      "issuanceDate": new Date().toISOString(),
+      "credentialSubject": {
+        "id": `${baseUrl}/api/verification/status-list#list`,
+        "type": "StatusList2021",
+        "statusPurpose": "revocation",
+        "encodedList": encodedList
+      }
+  };
+  
+  res.json(vc);
+}));
+
 // Generación de QR con validación por issuer
 const qrLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
 router.get('/qr/generate/:issuerId/:tokenId/:serialNumber',
@@ -72,28 +112,117 @@ router.get('/qr/generate/:issuerId/:tokenId/:serialNumber',
       return res.status(422).json({ success: false, message: 'Credential not valid on Hedera' });
     }
 
-    const attrs = verification.credential?.metadata?.attributes || [];
-    const payload = {
-      tokenId,
-      serialNumber,
-      issuerId,
-      issuerName: attrs.find(a => a.trait_type === 'University')?.value || undefined,
-      degree: attrs.find(a => a.trait_type === 'Degree')?.value || undefined,
-      date: attrs.find(a => a.display_type === 'date')?.value || undefined,
-      subjectRef: attrs.find(a => a.trait_type === 'SubjectRef')?.value || undefined,
-      ipfsURI: record.ipfsURI,
-      link: `${req.protocol}://${req.get('host')}/api/verification/verify/${tokenId}/${serialNumber}`,
-      qrVersion: 1,
-    };
+    const link = `${process.env.CLIENT_URL || 'http://localhost:5173'}/verify/${tokenId}/${serialNumber}`;
 
     if (format === 'svg') {
-      const svg = await QRCode.toString(JSON.stringify(payload), { type: 'svg', errorCorrectionLevel: 'M' });
+      const svg = await QRCode.toString(link, { type: 'svg', errorCorrectionLevel: 'M' });
       res.setHeader('Content-Type', 'image/svg+xml');
       return res.status(200).send(svg);
     }
-    const png = await QRCode.toBuffer(JSON.stringify(payload), { type: 'png', errorCorrectionLevel: 'M', width: pngWidth });
+    const png = await QRCode.toBuffer(link, { type: 'png', errorCorrectionLevel: 'M', width: pngWidth });
     res.setHeader('Content-Type', 'image/png');
     return res.status(200).send(png);
+  })
+);
+
+// Verify by Unique Hash
+router.get('/hash/:uniqueHash',
+  [
+    param('uniqueHash').notEmpty().withMessage('Hash is required').trim().escape(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { uniqueHash } = req.params;
+    const { Credential, User } = require('../models');
+    
+    const record = await Credential.findOne({ uniqueHash });
+    if (!record) {
+      return res.status(404).json({ success: false, message: 'Credential not found' });
+    }
+
+    let universityName = 'Unknown University';
+    try {
+        const uni = await User.findById(record.universityId);
+        if (uni) universityName = uni.universityName;
+    } catch {}
+
+    const response = {
+      success: true,
+      status: record.status, // ACTIVE / REVOKED
+      revocationDetails: record.status === 'REVOKED' ? {
+        reason: record.revocationReason,
+        revokedAt: record.revokedAt
+      } : null,
+      credential: {
+        tokenId: record.tokenId,
+        serialNumber: record.serialNumber,
+        universityId: record.universityId,
+        universityName,
+        issuanceDate: record.createdAt,
+        uniqueHash: record.uniqueHash
+      },
+      proofs: {
+        hedera: `https://hashscan.io/testnet/nft/${record.tokenId}/${record.serialNumber}`,
+        xrp: record.externalProofs?.xrpTxHash ? `https://testnet.xrpl.org/transactions/${record.externalProofs.xrpTxHash}` : null,
+        algorand: record.externalProofs?.algoTxId ? `https://lora.algokit.io/testnet/transaction/${record.externalProofs.algoTxId}` : null,
+        ipfs: record.ipfsURI,
+        filecoin: record.storageProtocol.includes('Filecoin') ? 'Verified' : 'N/A'
+      },
+      verifiableCredential: record.vcJwt // The W3C VC
+    };
+    
+    res.json(response);
+  })
+);
+
+// Public Verification Endpoint
+router.get('/:tokenId/:serialNumber',
+  [
+    param('tokenId').notEmpty().withMessage('Token ID is required').trim().escape(),
+    param('serialNumber').notEmpty().withMessage('Serial number is required').trim().escape(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { tokenId, serialNumber } = req.params;
+    const { Credential, User } = require('../models');
+    
+    const record = await Credential.findOne({ tokenId, serialNumber });
+    if (!record) {
+      return res.status(404).json({ success: false, message: 'Credential not found' });
+    }
+
+    let universityName = 'Unknown University';
+    try {
+        const uni = await User.findById(record.universityId);
+        if (uni) universityName = uni.universityName;
+    } catch {}
+
+    const response = {
+      success: true,
+      status: record.status, // ACTIVE / REVOKED
+      revocationDetails: record.status === 'REVOKED' ? {
+        reason: record.revocationReason,
+        revokedAt: record.revokedAt
+      } : null,
+      credential: {
+        tokenId: record.tokenId,
+        serialNumber: record.serialNumber,
+        universityId: record.universityId,
+        universityName,
+        issuanceDate: record.createdAt,
+        uniqueHash: record.uniqueHash
+      },
+      proofs: {
+        hedera: `https://hashscan.io/testnet/nft/${record.tokenId}/${record.serialNumber}`,
+        xrp: record.externalProofs?.xrpTxHash ? `https://testnet.xrpl.org/transactions/${record.externalProofs.xrpTxHash}` : null,
+        algorand: record.externalProofs?.algoTxId ? `https://lora.algokit.io/testnet/transaction/${record.externalProofs.algoTxId}` : null,
+        ipfs: record.ipfsURI,
+        filecoin: record.storageProtocol.includes('Filecoin') ? 'Verified' : 'N/A'
+      },
+      verifiableCredential: record.vcJwt // The W3C VC
+    };
+    
+    res.json(response);
   })
 );
 
@@ -162,9 +291,11 @@ router.post('/verify-credential',
 
     logger.info(`🔍 Credential verification requested: ${tokenId}:${serialNumber}`);
 
+    let issuerBranding = null;
     if (result.valid && result.credential?.metadata?.attributes?.university) {
       const university = await User.findOne({ universityName: result.credential.metadata.attributes.university });
       if (university) {
+        issuerBranding = { name: university.universityName, logoUrl: university.logoUrl };
         await recordAnalytics('CREDENTIAL_VERIFIED', {
           universityId: university.id,
           tokenId,
@@ -173,7 +304,7 @@ router.post('/verify-credential',
       }
     }
 
-    res.status(200).json({ success: true, message: result.valid ? 'Credential is valid' : 'Credential is invalid', data: { ...result, xrpAnchor: xrp, algoAnchor: algo } });
+    res.status(200).json({ success: true, message: result.valid ? 'Credential is valid' : 'Credential is invalid', data: { ...result, xrpAnchor: xrp, algoAnchor: algo, issuerBranding } });
   })
 );
 
@@ -259,9 +390,11 @@ router.get('/verify/:tokenId/:serialNumber',
     const result = await hederaService.verifyCredential(tokenId, serialNumber);
     logger.info(`🔍 Credential verification via URL: ${tokenId}:${serialNumber}`);
 
+    let issuerBranding = null;
     if (result.valid && result.credential?.metadata?.attributes?.university) {
       const university = await User.findOne({ universityName: result.credential.metadata.attributes.university });
       if (university) {
+        issuerBranding = { name: university.universityName, logoUrl: university.logoUrl };
         await recordAnalytics('CREDENTIAL_VERIFIED', {
           universityId: university.id,
           tokenId,
@@ -376,7 +509,8 @@ router.get('/verify/:tokenId/:serialNumber',
         <body>
           <div class="container">
             <div class="logo">
-              <h1>🎓 AcademicChain Ledger</h1>
+              ${issuerBranding && issuerBranding.logoUrl ? `<img src="${issuerBranding.logoUrl}" alt="${issuerBranding.name}" style="max-height: 80px; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;">` : ''}
+              <h1>${issuerBranding ? issuerBranding.name : '🎓 AcademicChain Ledger'}</h1>
               <p>Academic Credential Verification</p>
             </div>
             
@@ -437,7 +571,7 @@ router.get('/verify/:tokenId/:serialNumber',
       return res.send(html);
     }
 
-    res.status(200).json({ success: true, message: result.valid ? 'Credential is valid' : 'Credential is invalid', data: { ...result, xrpAnchor: xrp, algorandAnchor: algo } });
+    res.status(200).json({ success: true, message: result.valid ? 'Credential is valid' : 'Credential is invalid', data: { ...result, xrpAnchor: xrp, algorandAnchor: algo, issuerBranding } });
   })
 );
 

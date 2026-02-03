@@ -5,7 +5,7 @@ const tiers = [
   {
     name: 'Protección Básica',
     infra: 'Solo Hedera',
-    cost: '$0.29 / credencial',
+    cost: '$0.50 / credencial',
     storage: 'IPFS + Filecoin',
     verification: 'Verificación básica',
     integration: 'Portal estándar',
@@ -15,7 +15,7 @@ const tiers = [
   {
     name: 'Doble Blindaje',
     infra: 'Hedera + XRP Ledger',
-    cost: '$0.24 / credencial',
+    cost: '$0.62 / credencial',
     storage: 'IPFS + Filecoin',
     verification: 'Evidencia inmutable avanzada',
     integration: 'API de integración',
@@ -25,7 +25,7 @@ const tiers = [
   {
     name: 'Triple Blindaje Total',
     infra: 'Hedera + XRP + Algorand',
-    cost: '$0.12 / credencial',
+    cost: '$0.80 / credencial',
     storage: 'Bóveda Dedicada (Filecoin)',
     verification: 'Respaldo catastrófico y auditoría global',
     integration: 'On‑prem + SLA personalizado',

@@ -109,19 +109,19 @@ const BlockchainStatus = () => {
                   <div className="border rounded-lg p-4 overflow-hidden">
                     <div className="font-semibold">Protección Básica</div>
                     <div className="text-sm text-gray-700">Solo Hedera</div>
-                    <div className="text-sm font-mono mt-1">$0.29/credencial</div>
+                    <div className="text-sm font-mono mt-1">$0.50/credencial</div>
                     <div className="text-xs text-gray-600 mt-1">Verificación básica</div>
                   </div>
                   <div className="border rounded-lg p-4 overflow-hidden">
                     <div className="font-semibold">Doble Blindaje</div>
                     <div className="text-sm text-gray-700">Hedera + XRP</div>
-                    <div className="text-sm font-mono mt-1">$0.24/credencial</div>
+                    <div className="text-sm font-mono mt-1">$0.62/credencial</div>
                     <div className="text-xs text-gray-600 mt-1">Evidencia inmutable avanzada</div>
                   </div>
                   <div className="border rounded-lg p-4 overflow-hidden">
                     <div className="font-semibold">Triple Blindaje Total</div>
                     <div className="text-sm text-gray-700">Hedera + XRP + Algorand</div>
-                    <div className="text-sm font-mono mt-1">$0.12/credencial</div>
+                    <div className="text-sm font-mono mt-1">$0.80/credencial</div>
                     <div className="text-xs text-gray-600 mt-1">Respaldo catastrófico y auditoría global</div>
                     <Link to="/agenda" className="btn-primary mt-3 inline-flex items-center justify-center px-4 py-2 rounded-lg w-full sm:w-auto">Agendar Demo</Link>
                   </div>

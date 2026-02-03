@@ -65,7 +65,7 @@ const HomePage = () => {
               <div className="text-sm text-gray-500">Plan Esencial</div>
               <div className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">🛡️ IPFS + Filecoin</div>
             </div>
-            <div className="text-3xl font-extrabold mt-1">$49/mes</div>
+            <div className="text-3xl font-extrabold mt-1">$50/mes</div>
             <ul className="mt-4 text-gray-700 space-y-2">
               <li>Sello de Veracidad Hedera</li>
               <li>Verificación instantánea</li>
@@ -80,10 +80,10 @@ const HomePage = () => {
               <div className="text-sm text-gray-500">Plan Profesional</div>
               <div className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">🛡️ IPFS + Filecoin</div>
             </div>
-            <div className="text-3xl font-extrabold mt-1">$99/mes</div>
+            <div className="text-3xl font-extrabold mt-1">$155/mes</div>
             <ul className="mt-4 text-gray-700 space-y-2">
               <li>Doble Sello: Hedera + XRP Ledger</li>
-              <li>1000 emisiones</li>
+              <li>250 emisiones</li>
               <li>API de integración</li>
             </ul>
             <div className="mt-6">
@@ -95,7 +95,7 @@ const HomePage = () => {
               <div className="text-sm text-gray-500">Plan Global Enterprise</div>
               <div className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">🛡️ IPFS + Filecoin</div>
             </div>
-            <div className="text-3xl font-extrabold mt-1">A medida</div>
+            <div className="text-3xl font-extrabold mt-1">Enterprise</div>
             <ul className="mt-4 text-gray-700 space-y-2">
               <li>Triple Blindaje: Hedera + XRP + Algorand</li>
               <li>On-prem + SLA</li>

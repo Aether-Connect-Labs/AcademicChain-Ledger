@@ -5,6 +5,7 @@ const { protect, isUniversity } = require('../middleware/auth');
 const { validate } = require('../middleware/validator');
 const hederaService = require('../services/hederaServices');
 const xrpService = require('../services/xrpService');
+const veramoSecure = require('../services/veramoSecure');
 const logger = require('../utils/logger');
 const { Token, Transaction, Credential, User } = require('../models');
 const { isConnected: isMongoConnected } = require('../config/database');
@@ -13,6 +14,28 @@ const { issuanceQueue, isRedisConnected } = require('../../queue/issuanceQueue')
 const { recordAnalytics, getUniversityInsights } = require('../services/analyticsService');
 const NodeCache = require('node-cache');
 const associationGuard = require('../middleware/associationGuard');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const ipfsService = require('../services/ipfsService');
+
+const uploadDir = 'uploads/temp';
+if (!fs.existsSync(uploadDir)){
+    try { fs.mkdirSync(uploadDir, { recursive: true }); } catch {}
+}
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir)
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
+  }
+});
+const upload = multer({ 
+    storage: storage, 
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit to avoid memory saturation
+});
 
 const balanceCache = new NodeCache({ stdTTL: 300 });
 const useMem = () => {
@@ -24,7 +47,69 @@ const useMem = () => {
 // const memStore = { tokens: [], credentials: [] }; 
 const memStore = memoryStore;
 
+// Lazy load AuditLog and EncryptionService
+const AuditLog = require('../models/AuditLog');
+const EncryptionService = require('../services/EncryptionService');
+const encryptionService = new EncryptionService();
+
 const router = express.Router();
+
+/**
+ * @route POST /api/university/upload-secure
+ * @desc Encrypts and uploads a credential file to IPFS
+ * @access Private (University only)
+ */
+router.post('/upload-secure', protect, isUniversity, upload.single('file'), asyncHandler(async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    const { user } = req;
+    
+    // Legal Check
+    if (!user.legalTermsAccepted) {
+        // Clean up temp file
+        try { fs.unlinkSync(req.file.path); } catch {}
+        return res.status(403).json({ success: false, message: 'Must accept legal terms (DPA) before uploading credentials.' });
+    }
+
+    try {
+        const fileBuffer = fs.readFileSync(req.file.path);
+        
+        // 1. Generate Encryption Key
+        const fileKey = encryptionService.generateKey();
+        
+        // 2. Encrypt Content
+        const encryptedBuffer = encryptionService.encryptBuffer(fileBuffer, fileKey);
+        
+        // 3. Upload to IPFS
+        const storageResult = await ipfsService.pinFile(
+            encryptedBuffer, 
+            `encrypted-${req.file.originalname}`, 
+            req.file.mimetype
+        );
+
+        // Clean up temp file
+        try { fs.unlinkSync(req.file.path); } catch {}
+
+        res.status(200).json({
+            success: true,
+            data: {
+                ipfsURI: `ipfs://${storageResult.IpfsHash}`,
+                encryption: {
+                    isEncrypted: true,
+                    key: fileKey,
+                    algo: 'aes-256-gcm'
+                }
+            }
+        });
+    } catch (error) {
+        // Clean up temp file
+        try { fs.unlinkSync(req.file.path); } catch {}
+        logger.error(`Secure upload failed: ${error.message}`);
+        res.status(500).json({ success: false, message: 'Secure upload failed.' });
+    }
+}));
 
 function getAllowedNetworks(planRaw) {
   const plan = String(planRaw || 'basic').toLowerCase();
@@ -233,6 +318,51 @@ router.post('/create-payment-token', protect, isUniversity,
   })
 );
 
+/**
+ * @route POST /api/university/sign-dpa
+ * @desc Sign the Data Processing Agreement (DPA)
+ * @access Private (University only)
+ */
+router.post('/sign-dpa', protect, isUniversity, asyncHandler(async (req, res) => {
+    const { user } = req;
+    
+    if (user.dpaAccepted) {
+        return res.status(200).json({ success: true, message: 'DPA already signed.', data: { dpaSignedAt: user.dpaSignedAt } });
+    }
+
+    user.legalTermsAccepted = true;
+    user.dpaAccepted = true;
+    user.dpaSignedAt = new Date();
+    
+    // Generate a Master Encryption Key if not exists
+    if (!user.masterEncryptionKey) {
+        user.masterEncryptionKey = encryptionService.generateKey();
+    }
+
+    await user.save();
+
+    // Log the agreement signing
+    await AuditLog.create({
+        institutionId: user.id,
+        action: 'AGREEMENT_SIGNED',
+        ipAddress: req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+        timestamp: new Date(),
+        details: {
+            signedAt: user.dpaSignedAt,
+            agreementVersion: 'v1.0-2026'
+        }
+    });
+
+    res.status(200).json({ 
+        success: true, 
+        message: 'Data Processing Agreement (DPA) signed successfully.',
+        data: {
+            dpaSignedAt: user.dpaSignedAt,
+            legalTermsAccepted: true
+        }
+    });
+}));
+
 router.post('/issue-credential', protect, isUniversity,
   [
     body('tokenId').notEmpty().trim().escape(),
@@ -245,12 +375,22 @@ router.post('/issue-credential', protect, isUniversity,
     body('recipientAccountId').optional().isString().trim(),
     body('image').optional().isString().trim(),
     body('expiryDate').optional().isString().trim(),
+    body('consentConfirmed').isBoolean().withMessage('You must confirm consent/legal basis for issuance'),
   ],
   validate,
   associationGuard,
   asyncHandler(async (req, res) => {
-    const { tokenId, uniqueHash, ipfsURI, recipientAccountId, degree, studentName, graduationDate, image, expiryDate, networks } = req.body;
+    const { tokenId, uniqueHash, ipfsURI, recipientAccountId, degree, studentName, graduationDate, image, expiryDate, networks, consentConfirmed, encryption } = req.body;
     const { user } = req;
+    
+    // Legal Checks
+    if (!user.legalTermsAccepted) {
+        return res.status(403).json({ success: false, message: 'Must accept legal terms (DPA) before issuing credentials.' });
+    }
+    if (!consentConfirmed) {
+        return res.status(400).json({ success: false, message: 'Consent confirmation is required for legal compliance.' });
+    }
+
     const network = process.env.HEDERA_NETWORK || 'testnet';
     try {
       const requested = Array.isArray(networks) ? networks.map(n=>String(n).toLowerCase()) : [];
@@ -327,6 +467,54 @@ router.post('/issue-credential', protect, isUniversity,
         algoTxId: algo?.algoTxId
       });
 
+      // 2.4 Get next Global Status List Index
+      let nextStatusListIndex = 0;
+      try {
+        const Sequence = require('../models/Sequence');
+        nextStatusListIndex = await Sequence.getNext('statusListIndex');
+      } catch (e) {
+        logger.warn(`Failed to get next statusListIndex (using fallback): ${e.message}`);
+        // Fallback (unsafe for high concurrency but better than 0)
+        const lastCred = await Credential.findOne({ statusListIndex: { $exists: true } }).sort({ statusListIndex: -1 });
+        nextStatusListIndex = (lastCred && typeof lastCred.statusListIndex === 'number') ? lastCred.statusListIndex + 1 : 0;
+      }
+
+      // 2.5 Generate W3C Verifiable Credential (VC)
+      let vcJwt = null;
+      try {
+        const agent = veramoSecure.getBaseAgent();
+        const vc = await agent.createVerifiableCredential({
+          credential: {
+            '@context': ['https://www.w3.org/2018/credentials/v1', 'https://w3id.org/vc/status-list/2021/v1'],
+            type: ['VerifiableCredential', 'AcademicCredential'],
+            issuer: { id: user.did || `did:web:localhost:3001` }, 
+            issuanceDate: new Date().toISOString(),
+            credentialStatus: {
+              id: `${process.env.VITE_API_URL || 'http://localhost:3001'}/api/verification/status-list#${nextStatusListIndex}`,
+              type: 'StatusList2021Entry',
+              statusPurpose: 'revocation',
+              statusListIndex: String(nextStatusListIndex),
+              statusListCredential: `${process.env.VITE_API_URL || 'http://localhost:3001'}/api/verification/status-list`
+            },
+            credentialSubject: {
+              id: recipientAccountId ? `did:pkh:hedera:testnet:${recipientAccountId}` : `did:web:example.com:${(studentName||'student').replace(/\s+/g, '')}`,
+              degree: degree || 'Academic Credential',
+              studentName,
+              university: user.universityName,
+              uniqueHash,
+              ipfsURI,
+              tokenId,
+              serialNumber: mint.serialNumber
+            }
+          },
+          proofFormat: 'jwt',
+          save: false
+        });
+        vcJwt = typeof vc === 'string' ? vc : (vc.proof && vc.proof.jwt ? vc.proof.jwt : JSON.stringify(vc));
+      } catch (vcErr) {
+        logger.warn(`VC Generation failed: ${vcErr.message}`);
+      }
+
       // 3. Save to DB
       try {
         const credData = { 
@@ -336,6 +524,9 @@ router.post('/issue-credential', protect, isUniversity,
             studentAccountId: recipientAccountId || null, 
             uniqueHash, 
             ipfsURI,
+            vcJwt, // Store the W3C VC
+            statusListIndex: nextStatusListIndex,
+            encryption: encryption || { isEncrypted: false }, // Store encryption metadata
             externalProofs: {
                 xrpTxHash: xrp?.xrpTxHash,
                 algoTxId: algo?.algoTxId
@@ -344,10 +535,29 @@ router.post('/issue-credential', protect, isUniversity,
 
         if (!useMem()) {
           await Credential.create(credData);
+          
+          // Audit Log
+          await AuditLog.create({
+              institutionId: user.id,
+              action: 'CREDENTIAL_ISSUED',
+              ipAddress: req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+              blockchainTxHash: mint.transactionId, // Store Hedera Tx ID
+              documentHash: uniqueHash,
+              cid: ipfsURI ? ipfsURI.replace('ipfs://', '') : 'unknown',
+              timestamp: new Date(),
+              details: {
+                  tokenId,
+                  serialNumber: mint.serialNumber,
+                  studentName,
+                  isEncrypted: !!encryption?.isEncrypted
+              }
+          });
         } else {
           memStore.credentials.push({ ...credData, createdAt: new Date() });
         }
-      } catch {}
+      } catch (dbErr) {
+         logger.error(`Failed to save credential/audit to DB: ${dbErr.message}`);
+      }
 
       let transfer = null;
       if (recipientAccountId) {
@@ -358,11 +568,120 @@ router.post('/issue-credential', protect, isUniversity,
       const hashscanUrl = `https://hashscan.io/${network}/nft/${nftId}`;
       const xrplUrl = xrp?.xrpTxHash ? `https://testnet.xrpl.org/transactions/${xrp.xrpTxHash}` : null;
       
-      res.status(201).json({ success: true, data: { nftId, hashscanUrl, mintTxId: mint.transactionId, transfer, xrpTxHash: xrp?.xrpTxHash || null, xrplUrl, algoTxId: algo?.algoTxId || null } });
+      // Generate LinkedIn One-Click URL for n8n/Webhook
+      let linkedInUrl = null;
+      try {
+        const certName = degree || 'Academic Credential';
+        const cid = ipfsURI ? ipfsURI.replace('ipfs://', '') : '';
+        const certUrl = `https://gateway.lighthouse.storage/ipfs/${cid}`;
+        const issueDate = new Date();
+        const issueYear = issueDate.getFullYear();
+        const issueMonth = issueDate.getMonth() + 1;
+        
+        const liUrl = new URL('https://www.linkedin.com/profile/add');
+        liUrl.searchParams.append('startTask', 'CERTIFICATION_NAME');
+        liUrl.searchParams.append('name', certName);
+        liUrl.searchParams.append('issueYear', issueYear.toString());
+        liUrl.searchParams.append('issueMonth', issueMonth.toString());
+        liUrl.searchParams.append('certUrl', certUrl);
+        liUrl.searchParams.append('certId', cid);
+        linkedInUrl = liUrl.toString();
+      } catch (e) {}
+
+      // Trigger Automation for direct issuance
+      try {
+        const automationService = require('../services/automationService');
+        await automationService.triggerEvent('credential_issued', {
+          university: user.universityName,
+          studentName: studentName || 'Student',
+          degree: degree || 'Academic Credential',
+          tokenId: tokenId,
+          serialNumber: mint.serialNumber,
+          txId: mint.transactionId,
+          ipfsCid: mint.ipfs?.cid || (ipfsURI ? ipfsURI.replace('ipfs://', '') : ''),
+          timestamp: new Date().toISOString(),
+          linkedInUrl
+        });
+      } catch (autoErr) {
+        logger.warn('Automation trigger failed in issue-credential:', autoErr.message);
+      }
+
+      res.status(201).json({ success: true, data: { nftId, hashscanUrl, mintTxId: mint.transactionId, transfer, xrpTxHash: xrp?.xrpTxHash || null, xrplUrl, algoTxId: algo?.algoTxId || null, linkedInUrl } });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
     }
   })
+);
+
+/**
+ * @route DELETE /api/university/credential/:id/forget
+ * @desc Implements "Right to be Forgotten" by deleting encryption keys
+ * @access Private (University only)
+ */
+router.delete('/credential/:id/forget', protect, isUniversity, asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { user } = req;
+    
+    const credential = await Credential.findOne({ _id: id, universityId: user.id });
+    if (!credential) {
+        return res.status(404).json({ success: false, message: 'Credential not found' });
+    }
+
+    if (!credential.encryption || !credential.encryption.isEncrypted) {
+        return res.status(400).json({ success: false, message: 'Credential is not encrypted. Cannot perform cryptographic deletion.' });
+    }
+
+    // "Forget" the key
+    credential.encryption.key = null;
+    credential.encryption.algo = 'deleted';
+    credential.isRevoked = true; // Also mark as revoked
+    credential.revocationReason = 'RIGHT_TO_BE_FORGOTTEN';
+    
+    await credential.save();
+
+    // Log the action
+    await AuditLog.create({
+        institutionId: user.id,
+        action: 'CREDENTIAL_REVOKED',
+        ipAddress: req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+        timestamp: new Date(),
+        details: {
+            credentialId: id,
+            reason: 'Right to be Forgotten (GDPR)',
+            action: 'Encryption Key Deletion'
+        }
+    });
+
+    res.status(200).json({ success: true, message: 'Credential encryption key deleted. File is now permanently inaccessible.' });
+}));
+
+/**
+ * @route PATCH /api/university/credential/:id/revoke
+ * @desc Revoke a credential (updates Status List and DB)
+ * @access Private (University only)
+ */
+router.patch('/credential/:id/revoke', protect, isUniversity, 
+    [
+        body('reason').notEmpty().withMessage('Revocation reason is required').trim().escape()
+    ],
+    validate,
+    asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const { reason } = req.body;
+        const { user } = req;
+        const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+        // Lazy load service to avoid circular dependency if any
+        const issuanceService = require('../services/issuanceService');
+
+        const result = await issuanceService.revokeCredential(id, user.id, reason, ipAddress);
+
+        res.status(200).json({
+            success: true,
+            message: 'Credential revoked successfully.',
+            data: result
+        });
+    })
 );
 
 router.post('/prepare-issuance', protect, isUniversity, 
@@ -422,7 +741,12 @@ router.post('/execute-issuance', protect, isUniversity,
   asyncHandler(async (req, res) => {
     const { transactionId, signedPaymentTransactionBytes, xrpTxHash, networks } = req.body;
     const { user } = req;
-    const { Credential } = require('../models');
+    const { Credential, Partner } = require('../models');
+
+    // Credit Check
+    if ((user.credits || 0) < 1) {
+      return res.status(402).json({ success: false, message: 'Créditos insuficientes. Por favor recarga tu saldo.' });
+    }
 
     const transaction = await Transaction.findById(transactionId);
     if (!transaction || transaction.universityId !== user.id) {
@@ -462,6 +786,7 @@ router.post('/execute-issuance', protect, isUniversity,
       // 2.5 Anchor to External Chains FIRST
       let xrpAnchor = null;
       let algoAnchor = null;
+      const cid = credentialData.ipfsURI ? credentialData.ipfsURI.replace('ipfs://', '') : null;
 
       const enableXrp2 = String(process.env.ENABLE_XRP_ANCHOR || '0') === '1';
       const wantXrp = requested.length ? requested.includes('xrp') : allowed.includes('xrp');
@@ -478,9 +803,19 @@ router.post('/execute-issuance', protect, isUniversity,
             timestamp: new Date().toISOString(),
             title: anchorTitle,
             issuer: user.universityName,
+            cid: cid // Pass CID for dual verification
           });
         } catch (e) {
              logger.warn(`XRP Anchor failed pre-mint in execute-issuance: ${e.message}`);
+             // Retry Logic: Enqueue for background retry
+             if (isRedisConnected()) {
+                issuanceQueue.add('retry-anchor', {
+                    type: 'xrp',
+                    credentialData: { ...credentialData, cid },
+                    universityName: user.universityName,
+                    reason: e.message
+                }).catch(err => logger.error('Failed to enqueue XRP retry', err));
+             }
         }
       }
 
@@ -495,9 +830,19 @@ router.post('/execute-issuance', protect, isUniversity,
             hederaTokenId: credentialData.tokenId,
             serialNumber: 'pending',
             timestamp: new Date().toISOString(),
+            cid: cid // Pass CID for dual verification
           }) : null;
         } catch (e) {
              logger.warn(`Algorand Anchor failed pre-mint in execute-issuance: ${e.message}`);
+             // Retry Logic
+             if (isRedisConnected()) {
+                issuanceQueue.add('retry-anchor', {
+                    type: 'algorand',
+                    credentialData: { ...credentialData, cid },
+                    universityName: user.universityName,
+                    reason: e.message
+                }).catch(err => logger.error('Failed to enqueue Algorand retry', err));
+             }
         }
       }
 
@@ -510,8 +855,83 @@ router.post('/execute-issuance', protect, isUniversity,
       });
 
       transaction.issuanceTransactionId = mintResult.transactionId;
+
+      // Generate LinkedIn One-Click URL (Moved up for Automation)
+      let linkedInUrl = null;
+      try {
+        const certName = credentialData.degree || 'Academic Credential';
+        const cid = credentialData.ipfsURI ? credentialData.ipfsURI.replace('ipfs://', '') : '';
+        const certUrl = `https://gateway.lighthouse.storage/ipfs/${cid}`;
+        const issueDate = new Date();
+        const issueYear = issueDate.getFullYear();
+        const issueMonth = issueDate.getMonth() + 1;
+        
+        const liUrl = new URL('https://www.linkedin.com/profile/add');
+        liUrl.searchParams.append('startTask', 'CERTIFICATION_NAME');
+        liUrl.searchParams.append('name', certName);
+        liUrl.searchParams.append('issueYear', issueYear.toString());
+        liUrl.searchParams.append('issueMonth', issueMonth.toString());
+        liUrl.searchParams.append('certUrl', certUrl);
+        liUrl.searchParams.append('certId', cid);
+        linkedInUrl = liUrl.toString();
+      } catch (e) {}
+
+      // 4. Trigger Automation (n8n)
+      try {
+        const automationService = require('../services/automationService');
+        await automationService.triggerEvent('credential_issued', {
+          university: user.universityName,
+          studentName: credentialData.studentName,
+          degree: credentialData.degree,
+          tokenId: credentialData.tokenId,
+          serialNumber: mintResult.serialNumber,
+          txId: mintResult.transactionId,
+          ipfsCid: mintResult.ipfs?.cid,
+          filecoinCid: mintResult.filecoin?.cid,
+          timestamp: new Date().toISOString(),
+          linkedInUrl // Added for n8n Agéntico
+        });
+      } catch (autoErr) {
+        logger.warn('Automation trigger failed:', autoErr.message);
+      }
       transaction.status = 'ISSUANCE_COMPLETE';
       await transaction.save();
+
+      // 4.5 Generate W3C VC
+      let vcJwt = null;
+      try {
+        const agent = veramoSecure.getBaseAgent();
+        const vc = await agent.createVerifiableCredential({
+          credential: {
+            '@context': ['https://www.w3.org/2018/credentials/v1', 'https://w3id.org/vc/status-list/2021/v1'],
+            type: ['VerifiableCredential', 'AcademicCredential'],
+            issuer: { id: `did:web:localhost:3001` },
+            issuanceDate: new Date().toISOString(),
+            credentialStatus: {
+              id: `${process.env.VITE_API_URL || 'http://localhost:3001'}/api/verification/status-list#${mintResult.serialNumber}`,
+              type: 'StatusList2021Entry',
+              statusPurpose: 'revocation',
+              statusListIndex: mintResult.serialNumber,
+              statusListCredential: `${process.env.VITE_API_URL || 'http://localhost:3001'}/api/verification/status-list`
+            },
+            credentialSubject: {
+              id: credentialData.recipientAccountId ? `did:pkh:hedera:testnet:${credentialData.recipientAccountId}` : `did:web:example.com:${(credentialData.studentName||'student').replace(/\s+/g, '')}`,
+              degree: credentialData.degree || 'Academic Credential',
+              studentName: credentialData.studentName,
+              university: user.universityName,
+              uniqueHash: credentialData.uniqueHash,
+              ipfsURI: credentialData.ipfsURI,
+              tokenId: credentialData.tokenId,
+              serialNumber: mintResult.serialNumber
+            }
+          },
+          proofFormat: 'jwt',
+          save: false
+        });
+        vcJwt = typeof vc === 'string' ? vc : (vc.proof && vc.proof.jwt ? vc.proof.jwt : JSON.stringify(vc));
+      } catch (vcErr) {
+        logger.warn(`VC Generation failed in execute-issuance: ${vcErr.message}`);
+      }
 
       // 4. Save credential record to local DB
       try {
@@ -522,6 +942,7 @@ router.post('/execute-issuance', protect, isUniversity,
             studentAccountId: credentialData.recipientAccountId || null,
             uniqueHash: credentialData.uniqueHash,
             ipfsURI: credentialData.ipfsURI,
+            vcJwt,
             externalProofs: {
                 xrpTxHash: xrpAnchor?.xrpTxHash,
                 algoTxId: algoAnchor?.algoTxId
@@ -556,7 +977,15 @@ router.post('/execute-issuance', protect, isUniversity,
         degree: credentialData.degree,
       });
 
+      // Deduct Credit
+      await User.updateOne({ _id: user.id }, { $inc: { credits: -1 } });
+      try {
+        await Partner.updateMany({ universityId: user.id }, { $inc: { credits: -1 } });
+      } catch {}
+
       logger.info(`🎓 Credential issued for DB transaction ${transaction.id}. NFT TxID: ${mintResult.transactionId}`);
+
+      // linkedInUrl is already generated above for automation
 
       res.status(201).json({
         success: true,
@@ -564,6 +993,7 @@ router.post('/execute-issuance', protect, isUniversity,
         data: {
           mint: mintResult,
           transfer: transferResult,
+          linkedInUrl
         }
       });
     } catch (error) {
@@ -637,6 +1067,7 @@ router.post('/issue-bulk', protect, isUniversity,
       const job = await issuanceQueue.add('bulk-issuance', {
         tokenId,
         credentials,
+        universityId: user.id,
         universityName: user.universityName,
         roomId: roomId || user.id,
       });
@@ -688,6 +1119,42 @@ router.post('/issue-bulk', protect, isUniversity,
             algoTxId: algo?.algoTxId
           });
 
+          // 2.5 Generate W3C Verifiable Credential (VC)
+          let vcJwt = null;
+          try {
+            const agent = veramoSecure.getBaseAgent();
+            const vc = await agent.createVerifiableCredential({
+              credential: {
+                '@context': ['https://www.w3.org/2018/credentials/v1', 'https://w3id.org/vc/status-list/2021/v1'],
+                type: ['VerifiableCredential', 'AcademicCredential'],
+                issuer: { id: user.did || `did:web:localhost:3001` }, 
+              issuanceDate: new Date().toISOString(),
+              credentialStatus: {
+                id: `${process.env.VITE_API_URL || 'http://localhost:3001'}/api/verification/status-list#${mintResult.serialNumber}`,
+                type: 'StatusList2021Entry',
+                statusPurpose: 'revocation',
+                statusListIndex: mintResult.serialNumber,
+                statusListCredential: `${process.env.VITE_API_URL || 'http://localhost:3001'}/api/verification/status-list`
+              },
+              credentialSubject: {
+                id: credentialData.recipientAccountId ? `did:pkh:hedera:testnet:${credentialData.recipientAccountId}` : `did:web:example.com:${(credentialData.studentName||'student').replace(/\s+/g, '')}`,
+                degree: credentialData.degree || 'Academic Credential',
+                studentName: credentialData.studentName,
+                university: user.universityName,
+                uniqueHash: credentialData.uniqueHash,
+                ipfsURI: credentialData.ipfsURI,
+                tokenId: tokenId,
+                serialNumber: mintResult.serialNumber
+              }
+              },
+              proofFormat: 'jwt',
+              save: false
+            });
+            vcJwt = typeof vc === 'string' ? vc : (vc.proof && vc.proof.jwt ? vc.proof.jwt : JSON.stringify(vc));
+          } catch (vcErr) {
+            logger.warn(`VC Generation failed in bulk fallback: ${vcErr.message}`);
+          }
+
           // 3. Save
           try {
             const credData = {
@@ -697,6 +1164,7 @@ router.post('/issue-bulk', protect, isUniversity,
                 studentAccountId: credentialData.recipientAccountId || null,
                 uniqueHash: credentialData.uniqueHash,
                 ipfsURI: credentialData.ipfsURI,
+                vcJwt, // Store W3C VC
                 externalProofs: {
                     xrpTxHash: xrp?.xrpTxHash,
                     algoTxId: algo?.algoTxId
@@ -874,18 +1342,30 @@ router.get('/token/:tokenId', protect, isUniversity,
 router.post('/batch-issue', protect, isUniversity, 
   [
     body('tokenId').notEmpty().withMessage('Token ID is required'),
-    body('credentials').isArray({ min: 1 }).withMessage('At least one credential is required')
+    body('credentials').isArray({ min: 1 }).withMessage('At least one credential is required'),
+    body('consentConfirmed').isBoolean().withMessage('You must confirm consent/legal basis for issuance'),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { tokenId, credentials } = req.body;
+    const { tokenId, credentials, consentConfirmed } = req.body;
     const { user } = req;
+    
+    // Legal Checks
+    if (!user.legalTermsAccepted) {
+        return res.status(403).json({ success: false, message: 'Must accept legal terms (DPA) before issuing credentials.' });
+    }
+    if (!consentConfirmed) {
+        return res.status(400).json({ success: false, message: 'Consent confirmation is required for legal compliance.' });
+    }
 
     const job = await issuanceQueue.add('batch-issuance', {
       tokenId,
       credentials,
       universityName: user.universityName,
       universityId: user.id,
+      universityDid: user.did,
+      institutionId: user.id, // For Audit Log in worker
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress
     });
 
     logger.info(`Batch issuance job ${job.id} queued for ${user.universityName}`);
@@ -990,5 +1470,38 @@ router.post('/credentials/decrypt-pii', protect,
     }
   })
 );
+
+router.post('/upload-credential-asset', protect, isUniversity, upload.single('file'), asyncHandler(async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+    
+    try {
+        const filePath = req.file.path;
+        // Parallel Uploads to Pinata (Hot) and Lighthouse (Cold) via ipfsService
+        const result = await ipfsService.pinFile(filePath, req.file.originalname, req.file.mimetype);
+        
+        // Clean up temp file immediately after upload to free disk space
+        fs.unlink(filePath, (err) => {
+            if (err) logger.warn(`Failed to delete temp file: ${filePath}`);
+        });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                ipfsURI: `ipfs://${result.IpfsHash}`,
+                cid: result.IpfsHash,
+                filecoin: result.filecoin,
+                gatewayUrl: `https://gateway.pinata.cloud/ipfs/${result.IpfsHash}`
+            }
+        });
+    } catch (error) {
+        // Clean up on error too
+        if (req.file && req.file.path) {
+             fs.unlink(req.file.path, () => {});
+        }
+        res.status(500).json({ success: false, message: error.message });
+    }
+}));
 
 module.exports = router;

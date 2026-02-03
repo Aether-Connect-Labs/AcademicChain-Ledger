@@ -1,15 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { useParams } from 'react-router-dom';
-import { API_BASE_URL } from '../services/config';
-
-const toGateway = (uri) => {
-  if (uri && (uri.startsWith('http://') || uri.startsWith('https://'))) {
-    return uri;
-  }
-  const cid = String(uri || '').replace('ipfs://','').trim();
-  return cid ? `https://gateway.pinata.cloud/ipfs/${cid}` : '';
-};
+import { motion } from "framer-motion"
+import { useParams } from "react-router-dom"
+import { API_BASE_URL } from "./services/config"
+import LinkedInButton from "./ui/LinkedInButton";
+import { toGateway } from "./utils/ipfsUtils";
 
 const BlockchainBadge = ({ network, id, color, icon, link }) => (
   <a 
@@ -217,6 +211,11 @@ const StudentCertificateView = () => {
                         icon="📦"
                         link={ipfsLink}
                     />
+                </div>
+                
+                <div className="mt-6 border-t pt-6">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Compartir Logro</h4>
+                    <LinkedInButton credential={credential} />
                 </div>
             </motion.div>
 

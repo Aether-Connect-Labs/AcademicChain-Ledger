@@ -118,6 +118,7 @@ class AuthService {
       role: user.role,
       universityName: user.universityName,
       hederaAccountId: user.hederaAccountId,
+      credits: user.credits || 0,
       createdAt: user.createdAt,
     };
   }

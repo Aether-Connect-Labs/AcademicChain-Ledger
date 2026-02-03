@@ -170,6 +170,36 @@ export const issuanceService = {
   },
 
   uploadToIPFS: async (file) => {
+    // 1. Try backend authenticated upload first (Secure & Preferred)
+    if (API_BASE_URL) {
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        
+        const headers = getAuthHeaders();
+        delete headers['Content-Type']; // Let browser set multipart/form-data with boundary
+
+        const res = await fetch(`${API_BASE_URL}/api/upload/image`, {
+          method: 'POST',
+          headers,
+          body: fd
+        });
+        
+        // Note: fetch automatically sets Content-Type to multipart/form-data with boundary when body is FormData
+        // We might need to ensure getAuthHeaders doesn't override it with application/json
+        
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data?.ipfsURI) {
+             return json.data.ipfsURI;
+          }
+        }
+      } catch (e) {
+        console.warn('Backend upload failed, falling back to client-side...', e);
+      }
+    }
+
+    // 2. Client-side Fallbacks (Legacy)
     const pinataJwt = import.meta.env.VITE_PINATA_JWT || '';
     const pinataApiKey = import.meta.env.VITE_PINATA_API_KEY || '';
     const pinataSecretKey = import.meta.env.VITE_PINATA_SECRET_KEY || '';

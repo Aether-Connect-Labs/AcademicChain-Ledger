@@ -148,6 +148,8 @@ async function refresh({ nocache = false } = {}) {
 
   const payload = {
     rate,
+    xrpUsd: weighted.xrpUsd || null,
+    hbarUsd: weighted.hbarUsd || null,
     formatted: `1 XRP = ${rate.toFixed(6)} HBAR`,
     timestamp: now.toISOString(),
     sources: weighted.sources,

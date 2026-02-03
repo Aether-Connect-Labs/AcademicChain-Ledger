@@ -13,15 +13,31 @@ const plans = [
   { id: 'enterprise', name: 'Enterprise', credits: 1000, priceUsd: 800, priceAcl: 640 },
 ];
 
+const XRP_WALLET = 'rSimulatedWalletAddressForBanxa'; // Wallet de Recaudación
+
 const CreditRecharge = () => {
   const [method, setMethod] = useState('ACL');
   const [selected, setSelected] = useState(plans[0]);
   const [showModal, setShowModal] = useState(false);
   const [txId, setTxId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [xrpPrice, setXrpPrice] = useState(0.5); // Default fallback price
   const [logoSrc, setLogoSrc] = useState(toGateway('ipfs://bafkreicickkyjjn3ztitciypfh635lqowdskzbv54fiqbrhs4zbmwhjv4q'));
   const logoGateways = useRef(getGateways('ipfs://bafkreicickkyjjn3ztitciypfh635lqowdskzbv54fiqbrhs4zbmwhjv4q'));
   const logoGwIndex = useRef(0);
+  
+  // Fetch XRP Price
+  React.useEffect(() => {
+    if (method === 'XRP') {
+      fetch('/api/billing/xrp-price')
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.price) setXrpPrice(data.price);
+        })
+        .catch(console.error);
+    }
+  }, [method]);
+
   const handleLogoError = () => {
     logoGwIndex.current = Math.min(logoGwIndex.current + 1, logoGateways.current.length - 1);
     const next = logoGateways.current[logoGwIndex.current] || logoSrc;
@@ -29,28 +45,44 @@ const CreditRecharge = () => {
   };
 
   const aclBonusMultiplier = 1.25;
+  const xrpBonusMultiplier = 1.10;
+
   const displayCredits = useMemo(() => {
     if (method === 'ACL') return Math.round(selected.priceAcl * aclBonusMultiplier);
+    if (method === 'XRP') return Math.round(selected.credits * xrpBonusMultiplier); // 10% bonus for XRP
     return selected.credits;
   }, [method, selected]);
 
   const verifyAclPayment = async () => {
     if (!txId.trim()) {
-      toast.error('Ingresa el Transaction ID de Hedera');
+      toast.error('Ingresa el Transaction ID');
       return;
     }
     setLoading(true);
     try {
-      const res = await fetch('/api/billing/verify-acl-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
+      let endpoint, body;
+
+      if (method === 'ACL') {
+        endpoint = '/api/billing/verify-acl-payment';
+        body = {
           transactionId: txId.trim(),
           tokenId: ACL_TOKEN_ID,
           treasuryAccountId: TREASURY_ACCOUNT_ID,
           expectedAmountAcl: selected.priceAcl,
-        }),
+        };
+      } else if (method === 'XRP') {
+        endpoint = '/api/billing/verify-xrp-payment';
+        body = {
+          transactionId: txId.trim(),
+          planId: selected.id
+        };
+      }
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -66,17 +98,59 @@ const CreditRecharge = () => {
     }
   };
 
+  const handlePurchase = async (plan) => {
+    try {
+      toast.loading('Generando link de pago seguro...', { id: 'banxa-load' });
+      // 1. Llamamos a nuestro backend para crear una intención de compra
+      const response = await fetch('/api/billing/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          planId: plan.id,
+          amountFiat: plan.priceUsd 
+          // universityId se inyecta desde req.user en backend si está logueado
+        })
+      });
+      
+      const data = await response.json();
+
+      if (data.success && data.checkoutUrl) {
+          toast.dismiss('banxa-load');
+          toast.success('Redirigiendo a Banxa...');
+          // 2. Redirigimos a la ventana segura de Banxa (Tarjeta/Cripto)
+          // Cuando te den la API, esta URL será la oficial de Banxa
+          setTimeout(() => {
+             window.location.href = data.checkoutUrl;
+          }, 1500);
+      } else {
+          toast.dismiss('banxa-load');
+          toast.error('Error al iniciar pago. Intenta nuevamente.');
+      }
+      
+    } catch (error) {
+        console.error("Error al iniciar la compra:", error);
+        toast.dismiss('banxa-load');
+        toast.error('Error de conexión.');
+    }
+  };
+
   return (
     <div className="container-responsive pb-10">
       <Toaster />
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
         <h1 className="text-2xl md:text-3xl font-extrabold text-white">Recargar Créditos</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             className={`px-3 py-2 rounded-lg border ${method === 'USD' ? 'bg-white text-gray-900 border-white' : 'bg-gray-900 text-gray-300 border-gray-700'}`}
             onClick={() => setMethod('USD')}
           >
             USD (Tarjeta)
+          </button>
+          <button
+            className={`px-3 py-2 rounded-lg border ${method === 'XRP' ? 'bg-blue-600 text-white border-blue-500' : 'bg-gray-900 text-gray-300 border-gray-700'}`}
+            onClick={() => setMethod('XRP')}
+          >
+            XRP Ledger
           </button>
           <button
             className={`px-3 py-2 rounded-lg border ${method === 'ACL' ? 'bg-purple-600 text-white border-purple-500' : 'bg-gray-900 text-gray-300 border-gray-700'}`}
@@ -90,7 +164,7 @@ const CreditRecharge = () => {
                 className="h-6 w-6 rounded-full"
                 style={{ aspectRatio: '1 / 1', objectFit: 'contain' }}
               />
-              ACL Token (20% OFF)
+              ACL Token
             </span>
           </button>
         </div>
@@ -104,31 +178,37 @@ const CreditRecharge = () => {
       >
         {plans.map((p, i) => {
           const active = selected.id === p.id;
-          const price = method === 'USD' ? `$${p.priceUsd} USD` : `${p.priceAcl} ACL`;
-          const bonus = method === 'ACL' ? Math.round(p.priceAcl * aclBonusMultiplier) : p.credits;
+          let priceLabel = `$${p.priceUsd} USD`;
+          if (method === 'ACL') priceLabel = `${p.priceAcl} ACL`;
+          if (method === 'XRP') priceLabel = `${(p.priceUsd * 2).toFixed(0)} XRP`; // Mock rate 1 USD = 2 XRP
+
+          const bonus = displayCredits; // Simplification for card display logic, ideally per card
+
+          // Correct bonus calculation for card display
+          let cardCredits = p.credits;
+          if (method === 'ACL') cardCredits = Math.round(p.priceAcl * aclBonusMultiplier);
+          if (method === 'XRP') cardCredits = Math.round(p.credits * xrpBonusMultiplier);
+
           return (
             <motion.div
               key={p.id}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.05 * i }}
-              className={`card p-6 ${method === 'ACL' ? 'border-2 border-purple-500' : ''} ${active ? 'ring-2 ring-green-400' : ''}`}
+              className={`card p-6 ${method === 'ACL' ? 'border-2 border-purple-500' : method === 'XRP' ? 'border-2 border-blue-500' : ''} ${active ? 'ring-2 ring-green-400' : ''}`}
             >
               <div className="flex items-center justify-between">
                 <div className="text-xl font-bold text-white">{p.name}</div>
                 {method === 'ACL' && (
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="text-xs px-2 py-1 rounded bg-green-600 text-white"
-                  >
-                    Ahorro 20%
-                  </motion.span>
+                  <span className="text-xs px-2 py-1 rounded bg-purple-600 text-white">Ahorro 20%</span>
+                )}
+                {method === 'XRP' && (
+                  <span className="text-xs px-2 py-1 rounded bg-blue-600 text-white">Instantáneo</span>
                 )}
               </div>
-              <div className="mt-2 text-2xl font-extrabold text-white">{price}</div>
+              <div className="mt-2 text-2xl font-extrabold text-white">{priceLabel}</div>
               <div className="mt-1 text-sm text-gray-400">
-                Créditos: <span className="font-semibold text-white">{bonus}</span>
+                Créditos: <span className="font-semibold text-white">{cardCredits}</span>
               </div>
               <ul className="mt-4 text-sm text-gray-300 space-y-1">
                 <li>Emisiones instantáneas</li>
@@ -145,8 +225,8 @@ const CreditRecharge = () => {
                 <button
                   className="btn-primary"
                   onClick={() => {
-                    if (method === 'ACL') setShowModal(true);
-                    else toast('Checkout con tarjeta disponible próximamente');
+                    if (method === 'ACL' || method === 'XRP') setShowModal(true);
+                    else handlePurchase(p);
                   }}
                 >
                   Comprar
@@ -162,34 +242,41 @@ const CreditRecharge = () => {
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 w-full max-w-xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <img
-                  src={logoSrc}
-                  onError={handleLogoError}
-                  alt="Logo ACL"
-                  className="h-7 w-7 rounded-full"
-                  style={{ aspectRatio: '1 / 1', objectFit: 'contain' }}
-                />
-                <div className="text-lg font-bold text-white">Pagar con ACL</div>
+                {method === 'ACL' ? (
+                   <>
+                    <img src={logoSrc} onError={handleLogoError} alt="Logo ACL" className="h-7 w-7 rounded-full" />
+                    <div className="text-lg font-bold text-white">Pagar con ACL</div>
+                   </>
+                ) : (
+                   <div className="text-lg font-bold text-blue-400">Pagar con XRP Ledger</div>
+                )}
               </div>
               <button className="text-gray-400 hover:text-white" onClick={() => setShowModal(false)}>✕</button>
             </div>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex flex-col items-center">
-                <div className="text-sm text-gray-400 mb-2">Envia {selected.priceAcl} ACL al tesoro</div>
+                <div className="text-sm text-gray-400 mb-2">
+                    {method === 'ACL' ? `Envía ${selected.priceAcl} ACL` : `Envía ${(selected.priceUsd / xrpPrice).toFixed(0)} XRP`}
+                </div>
                 <QRCode
-                  value={`ACL:${ACL_TOKEN_ID}|TO:${TREASURY_ACCOUNT_ID}|AMT:${selected.priceAcl}`}
+                  value={method === 'ACL' 
+                    ? `ACL:${ACL_TOKEN_ID}|TO:${TREASURY_ACCOUNT_ID}|AMT:${selected.priceAcl}`
+                    : `XRP:${XRP_WALLET}?dt=123456&amount=${(selected.priceUsd / xrpPrice).toFixed(6)}` // Standard XRP URI format
+                  }
                   size={160}
                   bgColor="#111827"
                   fgColor="#ffffff"
                 />
-                <div className="mt-2 text-xs text-gray-400">Cuenta: {TREASURY_ACCOUNT_ID}</div>
-                <div className="text-xs text-gray-400">Token: {ACL_TOKEN_ID}</div>
+                <div className="mt-2 text-xs text-gray-400 text-center break-all">
+                    {method === 'ACL' ? `Cuenta: ${TREASURY_ACCOUNT_ID}` : `Wallet: ${XRP_WALLET}`}
+                </div>
+                {method === 'ACL' && <div className="text-xs text-gray-400">Token: {ACL_TOKEN_ID}</div>}
               </div>
               <div>
-                <div className="text-sm text-gray-300">Transaction ID de Hedera</div>
+                <div className="text-sm text-gray-300">Transaction ID / Hash</div>
                 <input
                   className="mt-2 w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-                  placeholder="0.0.x-ssss-nnnn"
+                  placeholder={method === 'ACL' ? "0.0.x-ssss-nnnn" : "E2B8..."}
                   value={txId}
                   onChange={(e) => setTxId(e.target.value)}
                 />

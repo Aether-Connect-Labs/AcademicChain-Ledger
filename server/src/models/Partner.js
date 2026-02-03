@@ -42,6 +42,7 @@ const PartnerSchema = new mongoose.Schema({
   keyHash: { type: String },
   keySha256: { type: String, index: true },
   isActive: { type: Boolean, default: true },
+  credits: { type: Number, default: 0, min: 0 },
   permissions: [{ type: String }],
 }, { timestamps: true });
 

@@ -366,7 +366,7 @@ const AdminDashboard = () => {
         <div className="space-y-6">
           <div className="flex flex-wrap gap-2">
             <button className={`btn-primary ${planTab==='basic'?'':'btn-secondary'}`} onClick={()=>setPlanTab('basic')}>📊 Básico</button>
-            <button className={`btn-primary ${planTab==='standard'?'':'btn-secondary'}`} onClick={()=>setPlanTab('standard')}>🚀 Estándar</button>
+            <button className={`btn-primary ${planTab==='standard'?'':'btn-secondary'}`} onClick={()=>setPlanTab('standard')}>🚀 Profesional</button>
             <button className={`btn-primary ${planTab==='premium'?'':'btn-secondary'}`} onClick={()=>setPlanTab('premium')}>🏆 Premium</button>
             <button className={`btn-primary ${planTab==='enterprise'?'':'btn-secondary'}`} onClick={()=>setPlanTab('enterprise')}>🏢 Enterprise</button>
           </div>
@@ -378,8 +378,8 @@ const AdminDashboard = () => {
                   <div className="font-semibold text-gray-800 mb-2">📈 Resumen</div>
                   <ul className="text-gray-700 space-y-1 text-sm">
                     <li>• Títulos emitidos: 85/100</li>
-                    <li>• Costo promedio: $0.0002 c/u</li>
-                    <li>• Próxima factura: $99 (30 días)</li>
+                    <li>• Costo promedio: $0.50 c/u</li>
+                    <li>• Próxima factura: $155 (30 días)</li>
                   </ul>
                 </div>
                 <div>
@@ -401,7 +401,7 @@ const AdminDashboard = () => {
           )}
           {planTab==='standard' && (
             <div className="bg-white rounded-xl border border-gray-200 shadow-soft p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">🚀 DASHBOARD ESTÁNDAR</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">🚀 DASHBOARD PROFESIONAL</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <div className="font-semibold text-gray-800 mb-2">📈 Resumen Detallado</div>
@@ -485,7 +485,7 @@ const AdminDashboard = () => {
             <h3 className="text-lg font-bold text-gray-900 mb-4">CHECKLIST DE IMPLEMENTACIÓN</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
               <div>
-                <div className="font-semibold text-gray-800 mb-2">Plan BÁSICO</div>
+                <div className="font-semibold text-gray-800 mb-2">Plan ESENCIAL</div>
                 <ul className="text-gray-700 space-y-1">
                   <li>• Cuenta Hedera Mainnet configurada</li>
                   <li>• Sistema de generación NFT HIP-412</li>
@@ -496,20 +496,20 @@ const AdminDashboard = () => {
                 </ul>
               </div>
               <div>
-                <div className="font-semibold text-gray-800 mb-2">Plan ESTÁNDAR</div>
+                <div className="font-semibold text-gray-800 mb-2">Plan PROFESIONAL</div>
                 <ul className="text-gray-700 space-y-1">
-                  <li>• Integración XRP Ledger</li>
+                  <li>• Integración XRP Ledger + Hedera</li>
                   <li>• Sistema de anchors diarios</li>
-                  <li>• Batch processing (hasta 1,000)</li>
+                  <li>• Batch processing (hasta 250)</li>
                   <li>• Dashboard con comparativas de costos</li>
-                  <li>• Migración automática de Básico a Estándar</li>
+                  <li>• Migración automática de Esencial a Profesional</li>
                   <li>• Alertas de optimización</li>
                 </ul>
               </div>
               <div>
-                <div className="font-semibold text-gray-800 mb-2">Plan PREMIUM</div>
+                <div className="font-semibold text-gray-800 mb-2">Plan ENTERPRISE</div>
                 <ul className="text-gray-700 space-y-1">
-                  <li>• Integración Algorand</li>
+                  <li>• Integración Algorand + Hedera + XRP</li>
                   <li>• Sistema inteligente de distribución</li>
                   <li>• Orquestador multi-blockchain</li>
                   <li>• Analytics predictivos</li>

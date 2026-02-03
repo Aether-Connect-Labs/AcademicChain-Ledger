@@ -77,6 +77,24 @@ router.post('/verify',
   }));
 
 /**
+ * @route   GET /api/partner/status
+ * @desc    Get partner status and credits
+ * @access  Private (Partner only)
+ */
+router.get('/status', partnerAuth, asyncHandler(async (req, res) => {
+  res.status(200).json({
+    success: true,
+    data: {
+      id: req.partner._id,
+      name: req.partner.name,
+      credits: req.partner.credits || 0,
+      plan: req.partner.plan,
+      isActive: req.partner.isActive
+    }
+  });
+}));
+
+/**
  * @route   POST /api/partner/generate-key
  * @desc    Generates a new API key for a partner.
  * @access  Private (Admin only)

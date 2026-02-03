@@ -113,6 +113,7 @@ class XrpService {
         timestamp: base.timestamp.toISOString(),
         title: data.title || null,
         issuer: data.issuer || null,
+        cid: data.cid || null, // Filecoin/IPFS CID
         format: 'ACAD@1.0'
       });
       const memoDataHex = Buffer.from(memoJson, 'utf8').toString('hex').toUpperCase();
@@ -180,6 +181,17 @@ class XrpService {
     try { const dt = (Date.now() - t0) / 1000; require('./cacheService').set('metrics:operation_duration_seconds:xrpl_payment', Number(dt.toFixed(6)), 180); } catch {}
     return { hash: submit.result.hash, result: submit.result };
   }
+
+  async revoke(data) {
+    // Wrapper around anchor to send a revocation signal
+    return this.anchor({
+        ...data,
+        title: 'CREDENTIAL REVOCATION',
+        status: 'revoked',
+        memoType: 'REVOCATION' // Custom field logic inside anchor might be needed or just rely on JSON content
+    });
+  }
+
   async verifyPayment({ txHash, destination, minDrops, memoContains }) {
     if (!this.client) throw new Error('XRPL client not connected');
     if (!txHash) throw new Error('txHash is required');

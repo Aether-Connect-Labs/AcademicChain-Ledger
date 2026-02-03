@@ -126,32 +126,129 @@ class IpfsService {
     }
   }
 
-  async pinFile(buffer, filename, mime) {
+  async pinFile(fileInput, filename, mime) {
     if (!this.pinata) throw new ServiceUnavailableError('IPFS service is not configured.');
-    try {
-      if (this.pinata.jwt) {
-        const FormData = require('form-data');
-        const form = new FormData();
-        form.append('file', buffer, { filename: filename || `document-${Date.now()}.pdf`, contentType: mime || 'application/pdf' });
-        const resp = await axios.post('https://api.pinata.cloud/pinning/pinFileToIPFS', form, {
-          headers: { Authorization: `Bearer ${this.pinata.jwt}`, ...form.getHeaders() },
-          timeout: 30000
-        });
-        return { IpfsHash: resp.data?.IpfsHash };
-      } else {
-        if (!pinataSDK || !stream) throw new ServiceUnavailableError('Pinata SDK not available');
-        const readable = new stream.Readable();
-        readable._read = () => {};
-        readable.push(buffer);
-        readable.push(null);
-        const options = { pinataMetadata: { name: filename || `document-${Date.now()}.pdf` }, pinataOptions: { cidVersion: 0 } };
-        const res = await this.pinata.pinFileToIPFS(readable, options);
-        return { IpfsHash: res.IpfsHash };
-      }
-    } catch (e) {
-      logger.error('❌ Error pinning file to IPFS:', e);
-      throw new ServiceUnavailableError('Failed to pin file to IPFS.');
+    const fs = require('fs');
+    
+    // Determine if fileInput is a Buffer or a Path
+    const isBuffer = Buffer.isBuffer(fileInput);
+    const isPath = typeof fileInput === 'string' && fs.existsSync(fileInput);
+
+    if (!isBuffer && !isPath) {
+        throw new Error('pinFile expects a Buffer or a valid file path.');
     }
+
+    const pinataPromise = (async () => {
+      try {
+        if (this.pinata.jwt) {
+          const FormData = require('form-data');
+          const form = new FormData();
+          
+          if (isPath) {
+             form.append('file', fs.createReadStream(fileInput), { filename: filename || 'document.pdf', contentType: mime || 'application/pdf' });
+          } else {
+             form.append('file', fileInput, { filename: filename || `document-${Date.now()}.pdf`, contentType: mime || 'application/pdf' });
+          }
+          
+          const resp = await axios.post('https://api.pinata.cloud/pinning/pinFileToIPFS', form, {
+            headers: { Authorization: `Bearer ${this.pinata.jwt}`, ...form.getHeaders() },
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
+            timeout: 60000 
+          });
+          logger.info(`📌 Pinata Upload Success: ${resp.data?.IpfsHash}`);
+          return { cid: resp.data?.IpfsHash, provider: 'pinata' };
+        } else {
+            // SDK Fallback (supports streams)
+            if (!pinataSDK || !stream) throw new ServiceUnavailableError('Pinata SDK not available');
+            const readable = isPath ? fs.createReadStream(fileInput) : new stream.Readable();
+            if (!isPath) {
+                readable._read = () => {};
+                readable.push(fileInput);
+                readable.push(null);
+            }
+            const options = { pinataMetadata: { name: filename || `document-${Date.now()}.pdf` }, pinataOptions: { cidVersion: 0 } };
+            const res = await this.pinata.pinFileToIPFS(readable, options);
+            logger.info(`📌 Pinata SDK Upload Success: ${res.IpfsHash}`);
+            return { cid: res.IpfsHash, provider: 'pinata' };
+        }
+      } catch (e) {
+        logger.error(`❌ Pinata Upload Failed: ${e.message}`);
+        throw e;
+      }
+    })();
+
+    const lighthousePromise = (async () => {
+        const lighthouseKey = process.env.LIGHTHOUSE_API_KEY;
+        if (!lighthouseKey) return null;
+        try {
+            const lighthouse = require('@lighthouse-web3/sdk');
+            let uploadResponse;
+            
+            // Retry logic for Lighthouse
+            const uploadWithRetry = async (retries = 3) => {
+                try {
+                    if (isPath) {
+                        return await lighthouse.upload(fileInput, lighthouseKey);
+                    } else {
+                        return await lighthouse.uploadBuffer(fileInput, lighthouseKey);
+                    }
+                } catch (err) {
+                    if (retries > 0) {
+                        logger.warn(`⚠️ Retrying Lighthouse upload... (${retries} attempts left)`);
+                        await new Promise(r => setTimeout(r, 1000));
+                        return uploadWithRetry(retries - 1);
+                    }
+                    throw err;
+                }
+            };
+
+            uploadResponse = await uploadWithRetry();
+            
+            const cid = uploadResponse.data.Hash;
+            logger.info(`✅ Lighthouse (Filecoin) Upload Success: CID ${cid}`);
+            return { 
+                cid, 
+                provider: 'lighthouse', 
+                gateway: `https://gateway.lighthouse.storage/ipfs/${cid}` 
+            };
+        } catch (e) {
+             logger.error(`❌ Lighthouse Upload Failed: ${e.message}`);
+             throw e;
+        }
+    })();
+
+    // "Atomic" / Parallel Execution
+    const results = await Promise.allSettled([pinataPromise, lighthousePromise]);
+    
+    const pinataResult = results[0];
+    const lighthouseResult = results[1];
+
+    let finalResult = {};
+
+    // Critical: Pinata (Hot Layer) must succeed for immediate availability
+    if (pinataResult.status === 'fulfilled') {
+        finalResult = { IpfsHash: pinataResult.value.cid };
+    } else {
+        // If Pinata fails, check if Lighthouse succeeded
+        if (lighthouseResult.status === 'fulfilled' && lighthouseResult.value) {
+             logger.warn('⚠️ Pinata failed, but Lighthouse succeeded. Using Lighthouse CID as primary.');
+             finalResult = { IpfsHash: lighthouseResult.value.cid };
+        } else {
+             throw new ServiceUnavailableError('Failed to upload to both Pinata and Lighthouse.');
+        }
+    }
+
+    // Attach Filecoin result if available
+    if (lighthouseResult.status === 'fulfilled' && lighthouseResult.value) {
+        finalResult.filecoin = lighthouseResult.value;
+    } else {
+        // If Lighthouse failed, we might want to queue a retry (handled by "avisar" part of prompt)
+        finalResult.filecoin = { error: 'Upload failed', provider: 'lighthouse' };
+        logger.warn('⚠️ Filecoin replication failed. Needs background retry.');
+    }
+
+    return finalResult;
   }
 
   async pinEncryptedJson(jsonData, name, secretKey) {

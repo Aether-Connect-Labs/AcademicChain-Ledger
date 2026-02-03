@@ -16,7 +16,7 @@ const PlanUpgrade = ({ open, onClose, currentPlan = 'basic' }) => {
         </div>
         <div className="mt-4 space-y-2 text-sm text-gray-700">
           <div className="flex items-center gap-2">
-            <span className="font-semibold">Standard ($99/mes)</span>
+            <span className="font-semibold">Profesional ($155/mes)</span>
             <span>Hedera + XRP</span>
           </div>
           <div className="flex items-center gap-2">

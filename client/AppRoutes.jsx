@@ -70,6 +70,8 @@ const AppRoutes = () => {
       <Route path="/verify" element={<Layout><CredentialVerifier /></Layout>} />
       <Route path="/verificar" element={<Layout><VerifyCredentialPage /></Layout>} />
       <Route path="/verify/:cid" element={<Layout><VerifyCredentialPage /></Layout>} />
+      <Route path="/verify/hash/:uniqueHash" element={<Layout><VerifyCredentialPage /></Layout>} />
+      <Route path="/verify/:tokenId/:serialNumber" element={<Layout><VerifyCredentialPage /></Layout>} />
       <Route path="/instituciones" element={<Layout><InstitutionsPage /></Layout>} />
       <Route path="/institutions" element={<Layout><InstitutionsPage /></Layout>} />
       <Route path="/developers" element={<Layout><DeveloperPortal /></Layout>} />

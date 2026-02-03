@@ -94,6 +94,7 @@ const scheduleDemoRoutes = require('./routes/schedule-demo');
 const utilsRoutes = require('./routes/excel-validate');
 const daoRoutes = require('./routes/dao');
 const billingRoutes = require('./routes/billing');
+const automationRoutes = require('./routes/automation');
 const { getRuntimeHealthMonitor } = require('./middleware/runtimeHealth');
 let agent = null;
 const path = require('path');
@@ -141,8 +142,8 @@ if (process.env.NODE_ENV === 'test') {
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
   process.env.SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
   // Disable external dependencies in dev to avoid using real services
-  process.env.DISABLE_MONGO = '1';
-  process.env.DISABLE_REDIS = '1';
+  process.env.DISABLE_MONGO = process.env.DISABLE_MONGO !== undefined ? process.env.DISABLE_MONGO : '1';
+  process.env.DISABLE_REDIS = process.env.DISABLE_REDIS !== undefined ? process.env.DISABLE_REDIS : '1';
   // Enable public demo in dev
   process.env.DEMO_PUBLIC = process.env.DEMO_PUBLIC || '1';
   process.env.HEDERA_NETWORK = process.env.HEDERA_NETWORK || 'testnet';
@@ -528,6 +529,7 @@ app.get('/.well-known/did.json', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/nfts', nftRoutes);
 app.use('/api/verification', verificationRoutes);
+app.use('/api/billing', billingRoutes);
 app.use('/api/universities', universityRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/partners', partnerRoutes);
@@ -547,6 +549,7 @@ app.use('/api/public', publicRoutes);
 app.use('/api/utils', utilsRoutes);
 app.use('/api/dao', daoRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/automation', automationRoutes);
 
 app.get('/excel-metrics.html', (req, res) => {
   try {

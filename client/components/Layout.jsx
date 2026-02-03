@@ -8,6 +8,7 @@ import { useAnalytics } from './useAnalytics';
 import ErrorBoundary from './ErrorBoundary';
 import { useHedera } from './useHedera';
 import { useAuth } from './useAuth';
+import SupportWidget from './SupportWidget';
 
 // Variantes de animación para transiciones de página
 const pageVariants = {
@@ -270,7 +271,7 @@ const Layout = ({
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0, opacity: 0 }}
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-8 right-8 w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-full shadow-2xl shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all duration-300 z-40 flex items-center justify-center group"
+          className="fixed bottom-24 right-8 w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-full shadow-2xl shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all duration-300 z-40 flex items-center justify-center group"
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
         >
@@ -283,6 +284,9 @@ const Layout = ({
           <div className="absolute inset-0 bg-white/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         </motion.button>
       )}
+
+      {/* Support Widget */}
+      {!isSpecialRoute && <SupportWidget />}
 
       {/* Notificación de conexión Hedera */}
       {isConnected && (

@@ -12,6 +12,8 @@ import { toGateway, getGateways } from './utils/ipfsUtils';
 import { motion } from 'framer-motion';
 import { theme } from './themeConfig';
 import jsPDF from 'jspdf';
+import CreditRecharge from './CreditRecharge';
+import CertificateDesigner from './CertificateDesigner';
 
 function EnhancedInstitutionDashboard({ demo = false }) {
   const [credentials, setCredentials] = useState([]);
@@ -25,6 +27,8 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   const [aclChecking, setAclChecking] = useState(false);
   const [aclAssociating, setAclAssociating] = useState(false);
   const [aclBalance, setAclBalance] = useState('0');
+  const [showRecharge, setShowRecharge] = useState(false);
+  const [showDesigner, setShowDesigner] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [stepError, setStepError] = useState('');
@@ -360,13 +364,15 @@ function EnhancedInstitutionDashboard({ demo = false }) {
         <div className={`fixed md:static top-0 left-0 h-full md:h-auto w-64 md:w-64 z-40 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} transition-transform bg-gray-900 text-white border-r border-gray-800`}>
           <div className="p-4 font-bold text-lg">Herramientas</div>
           <nav className="space-y-1 px-2">
-            <a href="#emitir" className="block px-3 py-2 rounded hover:bg-gray-800">Emitir</a>
-            <a href="#masiva" className="block px-3 py-2 rounded hover:bg-gray-800">Emisión Masiva</a>
-            <a href="#credenciales" className="block px-3 py-2 rounded hover:bg-gray-800">Credenciales</a>
+            <a href="#emitir" onClick={() => { setShowRecharge(false); setShowDesigner(false); }} className="block px-3 py-2 rounded hover:bg-gray-800">Emitir</a>
+            <a href="#masiva" onClick={() => { setShowRecharge(false); setShowDesigner(false); }} className="block px-3 py-2 rounded hover:bg-gray-800">Emisión Masiva</a>
+            <a href="#credenciales" onClick={() => { setShowRecharge(false); setShowDesigner(false); }} className="block px-3 py-2 rounded hover:bg-gray-800">Credenciales</a>
+            <a href="#designer" onClick={() => { setShowRecharge(false); setShowDesigner(true); }} className="block px-3 py-2 rounded hover:bg-gray-800 text-purple-400 font-semibold">Diseñador (Canvas)</a>
+            <a href="#recargar" onClick={() => { setShowRecharge(true); setShowDesigner(false); }} className="block px-3 py-2 rounded hover:bg-gray-800 text-green-400 font-semibold">Recargar Créditos</a>
           </nav>
           <div className="m-3 mt-4 rounded-lg border border-gray-800 bg-gray-800 p-3">
             <div className="text-sm font-semibold">Estado de Plan</div>
-            <div className="text-xs text-gray-300 mt-1">{plan === 'basic' ? 'Esencial ($49/mes)' : (plan === 'standard' ? 'Profesional ($99/mes)' : 'Global Enterprise (Custom)')}</div>
+            <div className="text-xs text-gray-300 mt-1">{plan === 'basic' ? 'Esencial ($50/mes - 100 Emisiones)' : (plan === 'standard' ? 'Profesional ($155/mes - Doble Sello)' : 'Global Enterprise (Triple Blindaje)')}</div>
             <div className="mt-2 space-y-1 text-sm">
               <div className="flex items-center justify-between">
                 <span>Hedera</span>
@@ -497,8 +503,8 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                           doc.text('ACADEMIC CHAIN LEDGER: PROPUESTA ENTERPRISE', 10, customLogoUrl ? 40 : 20);
                           doc.setFontSize(12);
                           doc.text('Solución: Infraestructura de Triple Blindaje Blockchain (Hedera + XRP + Algorand)', 10, (customLogoUrl ? 55 : 35));
-                          doc.text('Costo Mensual: $599.99 USD (Incluye 5,000 emisiones)', 10, (customLogoUrl ? 65 : 45));
-                          doc.text('Costo Unitario: $0.12 USD', 10, (customLogoUrl ? 75 : 55));
+                          doc.text('Costo Mensual: Enterprise (Volumen corporativo)', 10, (customLogoUrl ? 65 : 45));
+                          doc.text('Costo Unitario: $0.80 USD', 10, (customLogoUrl ? 75 : 55));
                           doc.text('Garantía: SLA de 99.9% y soporte VIP 24/7', 10, (customLogoUrl ? 85 : 65));
                           doc.text('Implementación: API Key inmediata o On‑Premise', 10, (customLogoUrl ? 95 : 75));
                           doc.text('Beneficio: Auditoría internacional y resiliencia por triple consenso distribuido', 10, (customLogoUrl ? 105 : 85));
@@ -568,6 +574,45 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                 <p className="text-red-800">{error}</p>
               </div>
             )}
+            {showDesigner ? (
+              <CertificateDesigner 
+                onClose={() => setShowDesigner(false)} 
+                onSave={async (file) => {
+                  try {
+                    toast.loading('Guardando diseño en IPFS...', { id: 'save-design' });
+                    const uri = await issuanceService.uploadToIPFS(file);
+                    
+                    // Prepare dashboard for issuance with this file
+                    setUploadedUri(uri);
+                    setUploadedCid(uri.replace('ipfs://',''));
+                    
+                    // Calculate hash for integrity check
+                    const buf = await file.arrayBuffer();
+                    const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(buf));
+                    const hex = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+                    setUploadedHash(hex);
+                    
+                    toast.dismiss('save-design');
+                    toast.success('Diseño guardado. Listo para emitir.');
+                    
+                    // Switch to issuance view and advance step
+                    setShowDesigner(false);
+                    setStep(2);
+                    
+                    // Optional: Scroll to emitir section
+                    const element = document.getElementById('emitir');
+                    if(element) element.scrollIntoView({ behavior: 'smooth' });
+                    
+                  } catch (e) {
+                    toast.dismiss('save-design');
+                    toast.error('Error al guardar: ' + e.message);
+                  }
+                }}
+              />
+            ) : showRecharge ? (
+               <CreditRecharge />
+            ) : (
+            <>
             <div id="emitir" className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               <div className={`bg-white rounded-lg border border-gray-200 p-6 shadow-sm ${(!aclAssociated && connectionStatus === 'connected' && !demo) ? 'opacity-60 pointer-events-none' : ''}`}>
                 <h2 className="text-xl font-semibold mb-4">Emitir Credencial Individual</h2>
@@ -700,6 +745,8 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                   </div>
                 )}
               </div>
+            )}
+            </>
             )}
           </div>
         </div>

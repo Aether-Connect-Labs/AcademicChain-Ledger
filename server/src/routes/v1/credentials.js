@@ -41,6 +41,32 @@ router.get('/verify/:credentialId', apiRateLimit, asyncHandler(async (req, res) 
     }
 }));
 
+router.post('/share', apiRateLimit, [
+    body('tokenId').notEmpty(),
+    body('serialNumber').notEmpty(),
+    body('platform').isIn(['linkedin', 'twitter', 'facebook', 'copyLink'])
+], validate, asyncHandler(async (req, res) => {
+    const { tokenId, serialNumber, platform } = req.body;
+    
+    if (useMem()) {
+         return res.json({ success: true, message: 'Social share tracked (memory mode)' });
+    }
+
+    // Increment specific counter atomically
+    const updateField = `socialShares.${platform}`;
+    const result = await Credential.findOneAndUpdate(
+        { tokenId, serialNumber },
+        { $inc: { [updateField]: 1 } },
+        { new: true }
+    );
+    
+    if (!result) {
+        return res.status(404).json({ success: false, message: 'Credential not found' });
+    }
+    
+    res.json({ success: true, shares: result.socialShares });
+}));
+
 router.post('/revoke', verifyApiKey, apiRateLimit, [
   body('tokenId').notEmpty().trim(),
   body('serialNumber').notEmpty().trim(),

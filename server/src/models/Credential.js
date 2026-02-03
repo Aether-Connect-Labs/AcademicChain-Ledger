@@ -7,10 +7,18 @@ const CredentialSchema = new mongoose.Schema({
   studentAccountId: { type: String },
   uniqueHash: { type: String, required: true, unique: true, index: true },
   ipfsURI: { type: String, required: true },
-  ipfsMetadataCid: { type: String },
-  ipfsPdfCid: { type: String },
+  ipfsMetadataCid: { type: String, index: true },
+  ipfsPdfCid: { type: String, index: true },
   storageDeal: { type: mongoose.Schema.Types.Mixed }, // Información del deal de Filecoin
   storageProtocol: { type: String, default: 'IPFS' }, // 'IPFS' o 'IPFS+Filecoin'
+  vcJwt: { type: String, default: null }, // W3C Verifiable Credential JWT
+  statusListIndex: { type: Number, index: true }, // Global index for Bitstring Status List
+  socialShares: {
+    linkedin: { type: Number, default: 0 },
+    twitter: { type: Number, default: 0 },
+    facebook: { type: Number, default: 0 },
+    copyLink: { type: Number, default: 0 }
+  },
   status: { type: String, default: 'ACTIVE', index: true },
   revocationReason: { type: String, default: null },
   revokedAt: { type: Date, default: null },
@@ -21,6 +29,11 @@ const CredentialSchema = new mongoose.Schema({
     xrpTxHash: { type: String },
     algoTxId: { type: String },
   },
+  encryption: {
+    isEncrypted: { type: Boolean, default: false },
+    key: { type: String }, // The file-specific decryption key (encrypted with MasterKey ideally, or plain for MVP if MasterKey wraps it)
+    algo: { type: String, default: 'aes-256-gcm' }
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Credential', CredentialSchema);

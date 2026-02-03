@@ -47,6 +47,25 @@ const UserSchema = new mongoose.Schema({
     default: 'basic',
     index: true,
   },
+  logoUrl: {
+    type: String,
+    default: null,
+  },
+  legalTermsAccepted: {
+    type: Boolean,
+    default: false,
+  },
+  dpaAccepted: {
+    type: Boolean,
+    default: false,
+  },
+  dpaSignedAt: {
+    type: Date,
+  },
+  masterEncryptionKey: {
+    type: String, // Encrypted or plain (depending on KMS strategy). For this scope, we store a generated hex string.
+    select: false // Do not return by default
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

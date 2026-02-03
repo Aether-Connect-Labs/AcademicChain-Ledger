@@ -12,7 +12,7 @@ const SubscriptionManagement = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="card p-6">
           <div className="text-xl font-semibold">Plan Actual</div>
-          <div className="mt-1 text-2xl font-bold">{plan === 'basic' ? 'Básico ($49/mes)' : (plan === 'standard' ? 'Standard ($99/mes)' : 'Enterprise (Custom)')}</div>
+          <div className="mt-1 text-2xl font-bold">{plan === 'basic' ? 'Esencial ($50/mes)' : (plan === 'standard' ? 'Profesional ($155/mes)' : 'Enterprise')}</div>
           <div className="mt-4">
             <div className="font-semibold mb-2">Redes activas</div>
             <div className="flex flex-wrap gap-2">
@@ -28,7 +28,7 @@ const SubscriptionManagement = () => {
           <div className="mt-4 space-y-2">
             <div className="flex items-center justify-between">
               <div>
-                <div className="font-semibold">Standard</div>
+                <div className="font-semibold">Profesional</div>
                 <div className="text-sm text-gray-600">Hedera + XRP</div>
               </div>
               <a href="/precios" className="btn-secondary">Ver</a>

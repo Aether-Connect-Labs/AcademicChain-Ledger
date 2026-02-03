@@ -130,6 +130,7 @@ class AlgorandService extends BaseService {
       timestamp: base.timestamp.toISOString(),
       title: data.title || null,
       issuer: data.issuer || null,
+      cid: data.cid || null, // Filecoin/IPFS CID
       format: 'ACAD@1.0'
     });
     const note = new Uint8Array(Buffer.from(memoJson, 'utf8'));
