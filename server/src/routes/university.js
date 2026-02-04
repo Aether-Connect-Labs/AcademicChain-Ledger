@@ -1058,11 +1058,20 @@ router.post('/issue-bulk', protect, isUniversity,
     body('tokenId').notEmpty().withMessage('Token ID is required').trim().escape(),
     body('credentials').isArray({ min: 1 }).withMessage('At least one credential is required'),
     body('roomId').optional().isString(),
+    body('consentConfirmed').custom(val => val === true).withMessage('Debe confirmar legalmente que cuenta con el consentimiento de los titulares o base legal para la emisión.'),
   ],
   validate,
   asyncHandler(async (req, res) => {
     const { tokenId, credentials, roomId } = req.body;
     const { user } = req;
+
+    // 0. Legal Check: Institution must have accepted terms
+    if (!user.legalTermsAccepted) {
+        return res.status(403).json({ 
+            success: false, 
+            message: 'Debe aceptar los Términos Legales y DPA antes de emitir credenciales.' 
+        });
+    }
     if (isRedisConnected()) {
       const job = await issuanceQueue.add('bulk-issuance', {
         tokenId,

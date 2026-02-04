@@ -1,6 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
+/* Tailwind directives are already in index.css, but we keep them here if this file is used standalone. 
+   However, to avoid duplication warnings or conflicts, we can rely on index.css or just keep them if scope is isolated.
+   For safety in this project structure, we will keep them but user should be aware of double inclusion.
+*/
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
