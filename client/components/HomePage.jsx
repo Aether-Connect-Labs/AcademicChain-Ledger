@@ -9,112 +9,130 @@ import CTASection from './CTASection';
 const HomePage = () => {
   return (
     <>
-      <div className="relative bg-gray-900">
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(800px 600px at 10% 10%, rgba(16,185,129,0.15), transparent), radial-gradient(600px 400px at 90% 20%, rgba(168,85,247,0.12), transparent)' }} />
+      <div className="relative overflow-hidden">
+        {/* Ambient Glows */}
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary-500/20 rounded-full blur-[128px] pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-secondary-500/20 rounded-full blur-[128px] pointer-events-none" />
+
         <HeroSection />
       </div>
+
       <motion.section
         initial={{ opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.2 }}
         transition={{ duration: 0.5 }}
-        className="container-responsive pb-16"
+        className="container-responsive py-24 relative z-10"
       >
-        <div className="text-center mb-10">
-          <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-900">Cómo Funciona</h2>
-          <p className="mt-2 text-gray-800 md:text-gray-900 font-medium">Sube, sella y verifica títulos con integridad criptográfica</p>
+        <div className="text-center mb-16">
+          <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-secondary-400">
+              Protocolo de Verificación
+            </span>
+          </h2>
+          <p className="text-xl text-slate-400 max-w-2xl mx-auto">
+            Infraestructura descentralizada para la emisión y validación de credenciales académicas.
+          </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <motion.div className="p-6 rounded-xl bg-gray-900/80 border border-gray-800 shadow-soft" initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <div className="text-2xl mb-3">📤</div>
-            <div className="font-semibold text-white">Subida de PDF</div>
-            <div className="text-sm text-gray-300 mt-1">Carga el diploma al sistema y genera su hash.</div>
-          </motion.div>
-          <motion.div className="p-6 rounded-xl bg-gray-900/80 border border-gray-800 shadow-soft" initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <div className="text-2xl mb-3">🔒</div>
-            <div className="font-semibold text-white">Sello ACL</div>
-            <div className="text-sm text-gray-300 mt-1">Validación de asociación al token ACL antes de emitir.</div>
-          </motion.div>
-          <motion.div className="p-6 rounded-xl bg-gray-900/80 border border-gray-800 shadow-soft" initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-            <div className="text-2xl mb-3">🧾</div>
-            <div className="font-semibold text-white">Registro Hedera</div>
-            <div className="text-sm text-gray-300 mt-1">Emisión del NFT con metadatos inmutables.</div>
-          </motion.div>
-          <motion.div className="p-6 rounded-xl bg-gray-900/80 border border-gray-800 shadow-soft" initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-            <div className="text-2xl mb-3">✅</div>
-            <div className="font-semibold text-white">Verificación Pública</div>
-            <div className="text-sm text-gray-300 mt-1">Consulta abierta vía HashScan y portal público.</div>
-          </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          {[
+            { icon: "📤", title: "Ingesta segura", desc: "Hash SHA-256 generado localmente." },
+            { icon: "🔒", title: "Sello ACL", desc: "Firma criptográfica inmutable." },
+            { icon: "🧾", title: "Consenso Hedera", desc: "Registro público en DLT." },
+            { icon: "✅", title: "Validación Universal", desc: "Verificable en cualquier explorador." }
+          ].map((item, idx) => (
+            <motion.div
+              key={idx}
+              className="glass-card p-8 border-t border-white/10"
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.1 }}
+            >
+              <div className="text-4xl mb-4">{item.icon}</div>
+              <div className="font-bold text-lg text-white mb-2 font-display">{item.title}</div>
+              <div className="text-sm text-slate-400">{item.desc}</div>
+            </motion.div>
+          ))}
         </div>
       </motion.section>
+
       <FeaturesSection />
+
       <motion.section
-        initial={{ opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.2 }}
-        transition={{ duration: 0.5 }}
-        className="container-responsive pb-16"
+        className="container-responsive py-24 relative z-10"
       >
-        <div className="text-center mb-10">
-          <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">Planes y Precios</h2>
-          <p className="text-gray-600">Escala según tus necesidades. Sin fricción.</p>
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-extrabold mb-4 font-display">Niveles de Servicio</h2>
+          <p className="text-slate-400">Escalabilidad Enterprise para instituciones modernas.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="card p-6">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-500">Plan Esencial</div>
-              <div className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">🛡️ IPFS + Filecoin</div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Plan Esencial */}
+          <div className="glass-panel p-8 relative overflow-hidden group hover:border-primary-500/50 transition-colors">
+            <div className="absolute top-0 right-0 p-4 opacity-50">
+              <span className="text-xs font-mono border border-primary-500/30 px-2 py-1 rounded text-primary-400">CORE</span>
             </div>
-            <div className="text-3xl font-extrabold mt-1">$50/mes</div>
-            <ul className="mt-4 text-gray-700 space-y-2">
-              <li>Sello de Veracidad Hedera</li>
-              <li>Verificación instantánea</li>
-              <li>Portal alumno</li>
+            <h3 className="text-xl font-bold font-display text-white mb-2">Esencial</h3>
+            <div className="text-4xl font-bold text-primary-400 mb-6">$50<span className="text-sm text-slate-500">/mo</span></div>
+            <ul className="space-y-4 text-slate-300 text-sm mb-8">
+              <li className="flex items-center gap-2"><span className="text-primary-500">❖</span> Registro en Hedera Testnet</li>
+              <li className="flex items-center gap-2"><span className="text-primary-500">❖</span> 50 Emisiones / mes</li>
+              <li className="flex items-center gap-2"><span className="text-primary-500">❖</span> Soporte Básico</li>
             </ul>
-            <div className="mt-6">
-              <Link to="/comenzar-gratis" className="btn-primary w-full">Comenzar</Link>
-            </div>
+            <Link to="/comenzar-gratis" className="btn-primary w-full block text-center bg-primary-600/20 border border-primary-500/50 text-primary-300 hover:bg-primary-500 hover:text-black">
+              Iniciar
+            </Link>
           </div>
-          <div className="card p-6 border-2 border-purple-500">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-500">Plan Profesional</div>
-              <div className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">🛡️ IPFS + Filecoin</div>
+
+          {/* Plan Profesional (Featured) */}
+          <div className="glass-panel p-8 relative overflow-hidden ring-1 ring-secondary-500 shadow-neon-purple transform md:-translate-y-4">
+            <div className="absolute inset-0 bg-secondary-500/5 pointer-events-none" />
+            <div className="absolute top-0 right-0 p-4">
+              <span className="text-xs font-mono bg-secondary-500 text-white px-2 py-1 rounded shadow-lg uppercase tracking-wider">Recomendado</span>
             </div>
-            <div className="text-3xl font-extrabold mt-1">$155/mes</div>
-            <ul className="mt-4 text-gray-700 space-y-2">
-              <li>Doble Sello: Hedera + XRP Ledger</li>
-              <li>250 emisiones</li>
-              <li>API de integración</li>
+            <h3 className="text-xl font-bold font-display text-white mb-2">Profesional</h3>
+            <div className="text-4xl font-bold text-secondary-400 mb-6">$155<span className="text-sm text-slate-500">/mo</span></div>
+            <ul className="space-y-4 text-slate-300 text-sm mb-8">
+              <li className="flex items-center gap-2"><span className="text-secondary-400">◈</span> Hedera Mainnet + XRPL</li>
+              <li className="flex items-center gap-2"><span className="text-secondary-400">◈</span> 500 Emisiones / mes</li>
+              <li className="flex items-center gap-2"><span className="text-secondary-400">◈</span> API Access (Headless)</li>
+              <li className="flex items-center gap-2"><span className="text-secondary-400">◈</span> Soporte Prioritario 24/7</li>
             </ul>
-            <div className="mt-6">
-              <Link to="/precios" className="btn-secondary w-full">Ver detalles</Link>
-            </div>
+            <Link to="/precios" className="btn-primary w-full block text-center bg-secondary-600 hover:bg-secondary-500 text-white shadow-lg shadow-secondary-500/25">
+              Mejorar Plan
+            </Link>
           </div>
-          <div className="card p-6">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-500">Plan Global Enterprise</div>
-              <div className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">🛡️ IPFS + Filecoin</div>
-            </div>
-            <div className="text-3xl font-extrabold mt-1">Enterprise</div>
-            <ul className="mt-4 text-gray-700 space-y-2">
-              <li>Triple Blindaje: Hedera + XRP + Algorand</li>
-              <li>On-prem + SLA</li>
-              <li>Cumplimiento y auditoría</li>
+
+          {/* Plan Enterprise */}
+          <div className="glass-panel p-8 relative overflow-hidden group hover:border-slate-500 transition-colors">
+            <h3 className="text-xl font-bold font-display text-white mb-2">Enterprise</h3>
+            <div className="text-4xl font-bold text-white mb-6">Custom</div>
+            <ul className="space-y-4 text-slate-300 text-sm mb-8">
+              <li className="flex items-center gap-2"><span className="text-white">❖</span> Nodos Dedicados</li>
+              <li className="flex items-center gap-2"><span className="text-white">❖</span> Emisiones Ilimitadas</li>
+              <li className="flex items-center gap-2"><span className="text-white">❖</span> SLA 99.99%</li>
+              <li className="flex items-center gap-2"><span className="text-white">❖</span> On-Premise Option</li>
             </ul>
-            <div className="mt-6">
-              <Link to="/agenda" className="btn-secondary w-full">Agendar demo</Link>
-            </div>
+            <Link to="/agenda" className="btn-primary w-full block text-center bg-transparent border border-slate-600 text-slate-300 hover:bg-white hover:text-black">
+              Contactar Ventas
+            </Link>
           </div>
         </div>
       </motion.section>
+
       <CTASection variant="secondary" />
-      <div id="demo" className="container mx-auto px-4 pb-10">
-        <div className="card p-6 text-center">
-          <h3 className="text-xl font-semibold mb-2">Explorar sin Registro</h3>
-          <p className="text-gray-600 mb-4">Prueba la experiencia en tiempo real: emisión y verificación instantánea.</p>
-          <div className="flex justify-center gap-3">
-            <Link to="/demo/institution" className="btn-secondary">Ver Demo Institución</Link>
-            <Link to="/demo/student" className="btn-primary">Ver Demo Alumno</Link>
+
+      <div id="demo" className="container mx-auto px-4 pb-24">
+        <div className="glass-card p-12 text-center relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary-900/20 to-secondary-900/20" />
+          <div className="relative z-10">
+            <h3 className="text-2xl font-bold mb-4 font-display">Zona de Pruebas Holográfica</h3>
+            <p className="text-slate-400 mb-8 max-w-2xl mx-auto">Experimenta la emisión y verificación en tiempo real sin compromisos. Acceso instantáneo al entorno sandbox.</p>
+            <div className="flex flex-col sm:flex-row justify-center gap-4">
+              <Link to="/demo/institution" className="btn-primary bg-slate-800 border border-slate-700 hover:border-primary-500">Simular Institución</Link>
+              <Link to="/demo/student" className="btn-primary bg-slate-800 border border-slate-700 hover:border-secondary-500">Simular Alumno</Link>
+            </div>
           </div>
         </div>
       </div>

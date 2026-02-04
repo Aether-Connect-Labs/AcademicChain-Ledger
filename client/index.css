@@ -1,4 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Orbitron:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+    --neon-cyan: #00F0FF;
+    --neon-purple: #7000FF;
+    --dark-bg: #030014;
+}
+
+@layer base {
+    body {
+        @apply bg-background text-white antialiased overflow-x-hidden;
+        background-image:
+            radial-gradient(circle at 15% 50%, rgba(112, 0, 255, 0.15), transparent 25%),
+            radial-gradient(circle at 85% 30%, rgba(0, 240, 255, 0.15), transparent 25%);
+        background-attachment: fixed;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        @apply font-display tracking-wide;
+    }
+}
+
+@layer components {
+    .glass-panel {
+        @apply bg-glass-100 backdrop-blur-md border border-glass-200 rounded-xl shadow-glass;
+    }
+
+    .glass-card {
+        @apply bg-glass-200 backdrop-blur-lg border border-glass-300 rounded-2xl shadow-lg hover:shadow-neon-blue transition-all duration-300 hover:scale-[1.02];
+    }
+
+    .btn-primary {
+        @apply px-6 py-3 bg-primary hover:bg-primary-400 text-black font-bold rounded-lg shadow-neon-blue transition-all duration-300 hover:scale-105 active:scale-95;
+    }
+
+    .btn-secondary {
+        @apply px-6 py-3 bg-secondary hover:bg-secondary-400 text-white font-bold rounded-lg shadow-neon-purple transition-all duration-300 hover:scale-105 active:scale-95;
+    }
+
+    .btn-ghost {
+        @apply px-4 py-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200;
+    }
+
+    .input-primary {
+        @apply w-full px-4 py-3 bg-gray-900/50 border border-gray-700 text-white rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 placeholder-gray-500 backdrop-blur-sm;
+    }
+
+    .label-text {
+        @apply block text-sm font-medium text-slate-300 mb-2;
+    }
+
+    .text-gradient {
+        @apply text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-secondary-400;
+    }
+
+    .text-glow {
+        text-shadow: 0 0 10px currentColor;
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    @apply bg-background;
+}
+
+::-webkit-scrollbar-thumb {
+    @apply bg-slate-700 rounded-full border-2 border-background hover:bg-primary;
+}

@@ -70,7 +70,8 @@ const connectDB = async () => {
       return connectDB();
     }
     
-    throw error;
+    logger.error('❌ MongoDB connection failed after retries. Server will continue without DB (Limited Functionality).');
+    return null; // Don't throw, just return null so app doesn't crash
   }
 };
 

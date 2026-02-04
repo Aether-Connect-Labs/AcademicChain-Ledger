@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import ConnectionService from './services/connectionService';
 import CredentialVerifier from './credentials/CredentialVerifier';
 import demoService from './services/demoService';
-import { toGateway } from './utils/ipfsUtils';
+import { motion } from 'framer-motion';
 
 function EnhancedStudentPortal({ demo = false }) {
   const [credentials, setCredentials] = useState([]);
@@ -22,76 +22,31 @@ function EnhancedStudentPortal({ demo = false }) {
       setLoading(true);
       setConnectionStatus('checking');
 
-      if (demo) {
-        // Modo demo: intentar sincronizar con backend demo si está disponible
-        try {
-          const resp = await demoService.getCredentials();
-          const list = Array.isArray(resp?.data) ? resp.data : [];
-          const mapped = list.map((c) => ({
-            id: c.id || `${c.tokenId}-${c.serialNumber}`,
-            title: c.title || 'Credential',
-            issuer: c.issuer || 'Demo Institution',
-            issueDate: c.createdAt ? new Date(c.createdAt) : new Date(),
-            expirationDate: null,
-            metadata: {
-              tokenId: c.tokenId,
-              serialNumber: c.serialNumber,
-              ipfsURI: c.ipfsURI
-            }
-          }));
-          setCredentials(mapped);
-        } catch {
-          const demoData = ConnectionService.getDemoStudentData();
-          setCredentials(demoData.credentials);
-        }
-        setConnectionStatus('demo');
-        setLoading(false);
-        return;
-      }
-
-      // Intentar conectar con backend real
+      // Check Real Backend first
       const isBackendAvailable = await ConnectionService.healthCheck();
-      
-      if (!isBackendAvailable) {
-        // Fallback a datos demo
+
+      if (!isBackendAvailable || demo) {
+        // Fallback/Demo Logic (simplified for brevity, keeping existing fetch logic structure)
         try {
           const resp = await demoService.getCredentials();
           const list = Array.isArray(resp?.data) ? resp.data : [];
-          const mapped = list.map((c) => ({
-            id: c.id || `${c.tokenId}-${c.serialNumber}`,
-            title: c.title || 'Credential',
-            issuer: c.issuer || 'Demo Institution',
-            issueDate: c.createdAt ? new Date(c.createdAt) : new Date(),
-            expirationDate: null,
-            metadata: {
-              tokenId: c.tokenId,
-              serialNumber: c.serialNumber,
-              ipfsURI: c.ipfsURI
-            }
-          }));
-          setCredentials(mapped);
+          setCredentials(list.map(mapCredential));
         } catch {
-          const demoData = ConnectionService.getDemoStudentData();
-          setCredentials(demoData.credentials);
+          setCredentials(ConnectionService.getDemoStudentData().credentials);
         }
         setConnectionStatus('demo');
-        setLoading(false);
-        return;
+      } else {
+        // Real Backend
+        const credsResponse = await ConnectionService.fetchWithFallback(
+          '/api/students/credentials',
+          ConnectionService.getDemoStudentData().credentials
+        );
+        if (credsResponse.success) {
+          setCredentials(credsResponse.data);
+        }
+        setConnectionStatus('connected');
       }
-
-      // Backend disponible - cargar datos reales
-      const credsResponse = await ConnectionService.fetchWithFallback(
-        '/api/students/credentials', 
-        ConnectionService.getDemoStudentData().credentials
-      );
-
-      if (credsResponse.success) {
-        setCredentials(credsResponse.data);
-      }
-
-      setConnectionStatus('connected');
     } catch (err) {
-      console.error('Error loading student data:', err);
       setError('Error al cargar tus credenciales');
       setConnectionStatus('error');
     } finally {
@@ -99,217 +54,182 @@ function EnhancedStudentPortal({ demo = false }) {
     }
   };
 
+  const mapCredential = (c) => ({
+    id: c.id || `${c.tokenId}-${c.serialNumber}`,
+    title: c.title || 'Credential',
+    issuer: c.issuer || 'Demo Institution',
+    issueDate: c.createdAt ? new Date(c.createdAt) : new Date(),
+    expirationDate: null,
+    metadata: {
+      tokenId: c.tokenId,
+      serialNumber: c.serialNumber,
+      ipfsURI: c.ipfsURI,
+      ...c.metadata
+    }
+  });
+
   const renderConnectionStatus = () => {
     const statusConfig = {
-      checking: { text: 'Sincronizando con la Red de Integridad...', color: 'text-blue-600', bg: 'bg-blue-100' },
-      connected: { text: 'Conectado a la Red de Integridad', color: 'text-green-600', bg: 'bg-green-100' },
-      demo: { text: 'Modo demo — Sincronización simulada', color: 'text-yellow-600', bg: 'bg-yellow-100' },
-      error: { text: 'Restableciendo enlace de seguridad...', color: 'text-red-600', bg: 'bg-red-100' }
+      checking: { text: 'Sincronizando red...', color: 'text-blue-400', bg: 'bg-blue-900/40 border-blue-500/30' },
+      connected: { text: 'Red Activa', color: 'text-green-400', bg: 'bg-green-900/40 border-green-500/30' },
+      demo: { text: 'Modo Simulación', color: 'text-yellow-400', bg: 'bg-yellow-900/40 border-yellow-500/30' },
+      error: { text: 'Error de Red', color: 'text-red-400', bg: 'bg-red-900/40 border-red-500/30' }
     };
-
     const config = statusConfig[connectionStatus] || statusConfig.checking;
-
     return (
-      <div className={`px-4 py-2 rounded-lg ${config.bg} ${config.color} text-sm font-medium mb-4 flex items-center gap-2`}>
-        <span className="inline-block animate-spin rounded-full border-2 border-current border-t-transparent w-4 h-4" />
+      <div className={`px-3 py-1 rounded-full border ${config.bg} ${config.color} text-xs font-mono flex items-center gap-2`}>
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-current"></span>
+        </span>
         <span>{config.text}</span>
       </div>
     );
   };
 
-  if (loading) {
-    return (
-      <div className="container mx-auto px-6 pb-6">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando tus credenciales...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary"></div></div>;
 
   return (
-    <div className="container mx-auto px-6 pb-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Portal del Alumno</h1>
-        <p className="text-gray-600">Gestiona y verifica tus credenciales académicas</p>
-        {renderConnectionStatus()}
-      </div>
+    <div className="min-h-screen bg-background text-slate-100 flex flex-col relative overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, #7c3aed 0%, transparent 40%), radial-gradient(circle at 20% 80%, #06b6d4 0%, transparent 40%)' }}></div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-red-800">{error}</p>
-        </div>
-      )}
-
-      {/* Credenciales del estudiante */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm mb-8">
-        <h2 className="text-xl font-semibold mb-4">Mis Credenciales</h2>
-        
-        {credentials.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No tienes credenciales registradas</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {credentials.map((credential) => (
-              <div key={credential.id} className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{credential.title}</h3>
-                  <p className="text-sm text-gray-600 mb-1">Institución: {credential.issuer}</p>
-                  <p className="text-sm text-gray-600 mb-1">
-                    Emitido: {new Date(credential.issueDate).toLocaleDateString()}
-                  </p>
-                  {credential.expirationDate && (
-                    <p className="text-sm text-gray-600">
-                      Expira: {new Date(credential.expirationDate).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-                
-                <div className="space-y-2">
-                  <button className="btn-primary w-full text-sm">Ver Detalles</button>
-                  <button className="btn-outline w-full text-sm">Compartir</button>
-                  <button className="btn-secondary w-full text-sm">Verificar</button>
-                </div>
-                
-                {credential.metadata && (
-                  <div className="mt-4 pt-4 border-t border-blue-200">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Detalles:</h4>
-                    <div className="text-xs text-gray-600 space-y-1">
-                      {credential.metadata.studentId && (
-                        <p>ID Estudiante: {credential.metadata.studentId}</p>
-                      )}
-                      {credential.metadata.gpa && (
-                        <p>GPA: {credential.metadata.gpa}</p>
-                      )}
-                      {credential.metadata.honors && (
-                        <p>Honores: {credential.metadata.honors}</p>
-                      )}
-                      {credential.metadata.tokenId && (
-                        <p>Token ID: <span className="font-mono">{credential.metadata.tokenId}</span></p>
-                      )}
-                      {credential.metadata.serialNumber && (
-                        <p>Serial: <span className="font-mono">{credential.metadata.serialNumber}</span></p>
-                      )}
-                      {credential.metadata.ipfsURI && (
-                        <p>
-                          IPFS:{' '}
-                          <a
-                            href={String(credential.metadata.ipfsURI).replace('ipfs://', 'https://dweb.link/ipfs/')}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-blue-600 underline"
-                          >
-                            {String(credential.metadata.ipfsURI).slice(0, 28)}…
-                          </a>
-                        </p>
-                      )}
-                      {credential.metadata.ipfsURI && (
-                        <p>
-                          Filecoin:{' '}
-                          <a
-                            href={String(credential.metadata.ipfsURI).replace('ipfs://', 'https://w3s.link/ipfs/')}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-blue-600 underline"
-                          >
-                            Copia verificada (web3.storage)
-                          </a>
-                        </p>
-                      )}
-                      {credential.metadata.tokenId && credential.metadata.serialNumber && (
-                        <p>
-                          Explorer:{' '}
-                          <a
-                            href={`https://hashscan.io/${import.meta.env.VITE_HEDERA_NETWORK || (import.meta.env.PROD ? 'mainnet' : 'testnet')}/nft/${credential.metadata.tokenId}-${credential.metadata.serialNumber}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-blue-600 underline"
-                          >
-                            Ver en HashScan
-                          </a>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+      {/* Header */}
+      <header className="sticky top-0 z-40 backdrop-blur-md bg-background/80 border-b border-slate-800 p-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-secondary-400">Portal Académico</h1>
+            <div className="mt-1">{renderConnectionStatus()}</div>
           </div>
-        )}
-      </div>
-
-      {/* Verificación con cámara */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm mb-8">
-        <h2 className="text-xl font-semibold mb-4">Verificar Credencial con Cámara</h2>
-        <CredentialVerifier />
-      </div>
-
-      {/* Acciones rápidas */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-green-900 mb-4">Acciones Rápidas</h3>
-        <div className="flex flex-wrap gap-4">
-          <button className="btn-secondary">Descargar Todas</button>
-          <button className="btn-outline">Compartir Portfolio</button>
-          <Link to="/agenda" className="btn-primary">Agendar Asesoría</Link>
-          <button
-            className="btn-primary"
-            disabled={issuing}
-            onClick={async () => {
-              try {
-                setIssuing(true);
-                const resp = await demoService.issueCredential({ degree: 'Demo Ingeniería', studentName: 'Alumno Demo' });
-                setIssueResult(resp?.data || null);
-                await loadStudentData();
-              } catch (e) {
-                setIssueResult({ error: e.message || 'Error' });
-              } finally {
-                setIssuing(false);
-              }
-            }}
-          >
-            {issuing ? 'Emitiendo...' : 'Obtener Credencial Demo'}
-          </button>
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col items-end hidden sm:flex">
+              <span className="text-sm font-medium text-slate-200">Alumno</span>
+              <span className="text-xs text-slate-400">ID: 2024-8592</span>
+            </div>
+            <div className="h-10 w-10 rounded-full border border-primary p-1">
+              <div className="h-full w-full rounded-full bg-slate-800 flex items-center justify-center text-xs">IMG</div>
+            </div>
+          </div>
         </div>
-      </div>
+      </header>
 
-      {issueResult && (
-        <div className="mt-4 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Resultado de Emisión Demo</h3>
-          {'error' in issueResult ? (
-            <p className="text-red-600">{String(issueResult.error)}</p>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-gray-700">NFT ID: <span className="font-mono">{String(issueResult.nftId || '')}</span></p>
-              {issueResult.hashscanUrl ? (
-                <a href={issueResult.hashscanUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline">Ver en HashScan</a>
-              ) : null}
-              {issueResult.anchors?.xrpl?.url ? (
-                <a href={issueResult.anchors.xrpl.url} target="_blank" rel="noreferrer" className="text-blue-600 underline">XRPL Anchor</a>
-              ) : null}
-              {issueResult.anchors?.algorand?.url ? (
-                <a href={issueResult.anchors.algorand.url} target="_blank" rel="noreferrer" className="text-blue-600 underline">Algorand Anchor</a>
-              ) : null}
+      <main className="flex-1 overflow-y-auto p-4 md:p-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+
+          {error && (
+            <div className="p-4 bg-red-900/30 border border-red-500/50 rounded-lg text-red-300">
+              {error}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Información adicional */}
-      <div className="mt-8 bg-gray-50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">¿Necesitas ayuda?</h3>
-        <p className="text-gray-600 mb-4">
-          Si tienes problemas con tus credenciales o necesitas asistencia, contáctanos:
-        </p>
-        <div className="flex flex-wrap gap-4">
-          <a href="mailto:soporte@academicchain.com" className="text-blue-600 hover:text-blue-800">
-            soporte@academicchain.com
-          </a>
-          <span className="text-gray-400">|</span>
-          <Link to="/agenda" className="text-blue-600 hover:text-blue-800">
-            Agendar cita con soporte
-          </Link>
+          {/* Credentials Grid */}
+          <section>
+            <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+              <span className="text-primary">✦</span> Mis Credenciales
+            </h2>
+
+            {credentials.length === 0 ? (
+              <div className="text-center py-12 glass-panel">
+                <p className="text-slate-400">No tienes credenciales registradas aún.</p>
+                <button
+                  className="mt-4 btn-primary btn-sm"
+                  disabled={issuing}
+                  onClick={async () => {
+                    try {
+                      setIssuing(true);
+                      const resp = await demoService.issueCredential({ degree: 'Ingeniería Demo', studentName: 'Alumno Demo' });
+                      setIssueResult(resp?.data || null);
+                      await loadStudentData();
+                    } catch (e) {
+                      setIssueResult({ error: e.message });
+                    } finally {
+                      setIssuing(false);
+                    }
+                  }}
+                >
+                  {issuing ? 'Minteando...' : 'Obtener Credencial Demo'}
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {credentials.map((cred) => (
+                  <motion.div
+                    key={cred.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="glass-card p-6 relative group hover:shadow-neon-blue transition-all duration-300 border-t-2 border-t-transparent hover:border-t-primary"
+                  >
+                    <div className="absolute top-4 right-4">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                        🎓
+                      </div>
+                    </div>
+                    <div className="mb-4">
+                      <div className="text-xs text-secondary-400 font-mono mb-1">{cred.issuer}</div>
+                      <h3 className="text-lg font-bold text-white line-clamp-2">{cred.title}</h3>
+                      <div className="text-xs text-slate-500 mt-2">Emitido: {new Date(cred.issueDate).toLocaleDateString()}</div>
+                    </div>
+
+                    <div className="space-y-2 mt-4">
+                      <div className="flex justify-between text-xs bg-black/30 p-2 rounded">
+                        <span className="text-slate-400">Token ID</span>
+                        <span className="font-mono text-primary-300">{cred.metadata?.tokenId || 'Pending'}</span>
+                      </div>
+                      <div className="flex justify-between text-xs bg-black/30 p-2 rounded">
+                        <span className="text-slate-400">Serial</span>
+                        <span className="font-mono text-secondary-300">#{cred.metadata?.serialNumber || '00'}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 flex gap-2">
+                      <a
+                        href={`https://hashscan.io/${import.meta.env.VITE_HEDERA_NETWORK || 'testnet'}/nft/${cred.metadata?.tokenId}-${cred.metadata?.serialNumber}`}
+                        target="_blank" rel="noreferrer"
+                        className="flex-1 btn-ghost text-center text-xs border border-slate-700 hover:border-primary"
+                      >
+                        HashScan
+                      </a>
+                      <button className="flex-1 btn-primary text-xs py-2">
+                        Verificar
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Quick Actions & Verifier */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="glass-panel p-6">
+              <h2 className="text-xl font-bold mb-4">Verificador Holográfico</h2>
+              <p className="text-sm text-slate-400 mb-4">Escanea un código QR para verificar la autenticidad de un título en tiempo real.</p>
+              <div className="bg-black/40 rounded-xl p-4 min-h-[200px] flex items-center justify-center border border-slate-700 border-dashed">
+                <CredentialVerifier />
+              </div>
+            </div>
+
+            <div className="glass-panel p-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+              <h2 className="text-xl font-bold mb-4">Portfolio Académico</h2>
+              <div className="space-y-3">
+                <button className="w-full text-left p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-slate-700 flex items-center justify-between group">
+                  <span className="text-slate-300 group-hover:text-white">Exportar CV Verificado (PDF)</span>
+                  <span className="text-slate-500">⬇</span>
+                </button>
+                <button className="w-full text-left p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-slate-700 flex items-center justify-between group">
+                  <span className="text-slate-300 group-hover:text-white">Compartir enlace público</span>
+                  <span className="text-slate-500">🔗</span>
+                </button>
+                <button className="w-full text-left p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-slate-700 flex items-center justify-between group">
+                  <span className="text-slate-300 group-hover:text-white">Agendar Asesoría</span>
+                  <span className="text-slate-500">📅</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
         </div>
-      </div>
+      </main>
     </div>
   );
 }

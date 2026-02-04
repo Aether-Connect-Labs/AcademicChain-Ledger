@@ -1,0 +1,15 @@
+{
+    "mcpServers": {
+        "n8n-mcp": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "supergateway",
+                "--streamableHttp",
+                "https://n8n-b0be.onrender.com/mcp-server/http",
+                "--header",
+                "authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4YTQxMzQyOC02NTQyLTQ2YmItOTVhMi1jYzAzMzVkNTg5MmIiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjZlZTdkZDgzLTliNzctNGFhNS1iY2VjLWE2MTA5NjAyMDc0MiIsImlhdCI6MTc3MDIyNTY4OX0.48YAHMU33MKeHdRfHvOtnQgHAX7ougugZ-v_K6LyE7Q"
+            ]
+        }
+    }
+}

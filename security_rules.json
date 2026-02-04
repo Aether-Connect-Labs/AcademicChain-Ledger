@@ -1,0 +1,47 @@
+{
+    "rules": [
+        {
+            "name": "N8n Brute Force Detector",
+            "description": "Monitors n8n logs for repeated 401/403 errors from the same IP.",
+            "source": "n8n_logs",
+            "trigger": {
+                "type": "threshold",
+                "field": "response_code",
+                "value": 401,
+                "operator": "equals",
+                "count": 10,
+                "window_seconds": 60
+            },
+            "action": {
+                "type": "alert",
+                "severity": "high",
+                "message": "Potential Brute Force Attack detected on n8n Webhook Endpoint."
+            }
+        },
+        {
+            "name": "Global Kill Switch",
+            "description": "Emergency switch to pause all blockchain write operations.",
+            "type": "manual_trigger",
+            "config": {
+                "endpoint": "/api/security/kill-switch",
+                "method": "POST",
+                "required_permission": "ADMIN_SUPERUSER",
+                "actions": [
+                    {
+                        "target": "HEDERA_SERVICE",
+                        "command": "PAUSE_QUEUE"
+                    },
+                    {
+                        "target": "XRP_SERVICE",
+                        "command": "PAUSE_QUEUE"
+                    },
+                    {
+                        "target": "NOTIFY_ADMIN",
+                        "channel": "slack/discord",
+                        "message": "KILL SWITCH ACTIVATED: All blockchain operations paused by User."
+                    }
+                ]
+            }
+        }
+    ]
+}

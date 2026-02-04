@@ -32,8 +32,8 @@ const pageTransition = {
   duration: 0.4
 };
 
-const Layout = ({ 
-  children, 
+const Layout = ({
+  children,
   className = '',
   showNavbar = true,
   showFooter = true,
@@ -136,14 +136,14 @@ const Layout = ({
   }, [location.pathname, originalTitle, originalFaviconHref]);
 
   // Determinar si es una ruta especial (sin navbar/footer)
-  const isSpecialRoute = location.pathname.includes('/auth') || 
-                        location.pathname.includes('/admin') || 
-                        location.pathname === '/404';
+  const isSpecialRoute = location.pathname.includes('/auth') ||
+    location.pathname.includes('/admin') ||
+    location.pathname === '/404';
 
   // Clases dinámicas para el layout
   const getLayoutClasses = () => {
-    const baseClasses = "flex flex-col min-h-screen bg-white dark:bg-gray-900";
-    
+    const baseClasses = "flex flex-col min-h-screen bg-background text-slate-100 overflow-hidden relative";
+
     // Agregar clases específicas basadas en la ruta
     const routeClasses = {
       '/': 'home-layout',
@@ -157,10 +157,13 @@ const Layout = ({
 
   return (
     <div className={getLayoutClasses()}>
+      {/* Cinematic Noise Overlay */}
+      <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
+
       {/* Progress Bar Global */}
       <div className="fixed top-0 left-0 w-full h-1 bg-transparent z-50">
         <div className="fixed top-0 left-0 w-full h-1 bg-gray-200 z-50">
-          <motion.div 
+          <motion.div
             className="h-full bg-gradient-to-r from-cyan-500 to-blue-500"
             initial={{ width: 0 }}
             animate={{ width: `${scrollProgress}%` }}
@@ -189,7 +192,7 @@ const Layout = ({
           transition={{ duration: 0.6, ease: "easeOut" }}
           ref={headerRef}
         >
-          <Header 
+          <Header
             transparent={transparentNavbar}
           />
         </motion.header>
@@ -232,7 +235,7 @@ const Layout = ({
       </AnimatePresence>
 
       {/* Contenido principal con animaciones */}
-      <main 
+      <main
         className="flex-grow relative"
         style={{ paddingTop: showNavbar && !isSpecialRoute && !transparentNavbar ? headerHeight : 0 }}
       >
@@ -311,8 +314,8 @@ Layout.Default = ({ children, ...props }) => (
 );
 
 Layout.Auth = ({ children, ...props }) => (
-  <Layout 
-    showNavbar={false} 
+  <Layout
+    showNavbar={false}
     showFooter={false}
     className="auth-layout"
     {...props}
@@ -322,7 +325,7 @@ Layout.Auth = ({ children, ...props }) => (
 );
 
 Layout.Admin = ({ children, ...props }) => (
-  <Layout 
+  <Layout
     showNavbar={false}
     showFooter={false}
     className="admin-layout"
@@ -333,7 +336,7 @@ Layout.Admin = ({ children, ...props }) => (
 );
 
 Layout.Landing = ({ children, ...props }) => (
-  <Layout 
+  <Layout
     transparentNavbar={true}
     footerVariant="premium"
     className="landing-layout"
@@ -344,7 +347,7 @@ Layout.Landing = ({ children, ...props }) => (
 );
 
 Layout.Dashboard = ({ children, ...props }) => (
-  <Layout 
+  <Layout
     showFooter={false}
     className="dashboard-layout"
     {...props}

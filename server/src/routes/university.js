@@ -49,8 +49,8 @@ const memStore = memoryStore;
 
 // Lazy load AuditLog and EncryptionService
 const AuditLog = require('../models/AuditLog');
-const EncryptionService = require('../services/EncryptionService');
-const encryptionService = new EncryptionService();
+const encryptionService = require('../services/encryptionService');
+
 
 const router = express.Router();
 
