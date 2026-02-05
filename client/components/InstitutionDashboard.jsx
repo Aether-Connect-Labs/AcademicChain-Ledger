@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import IssueTitleForm from './IssueTitleForm';
 import BatchIssuance from './BatchIssuance';
 import DocumentViewer from './ui/DocumentViewer';
+import { institutionService } from './services/institutionService';
 import { issuanceService } from './services/issuanceService';
 import { verificationService } from './services/verificationService';
 import { demoService } from './services/demoService';
@@ -17,7 +18,9 @@ import jsPDF from 'jspdf';
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Tooltip, Legend);
 
 function InstitutionDashboard({ demo = false }) {
-  const { token } = useAuth() || { token: '' };
+  const { token, user, setSession } = useAuth() || { token: '', user: null, setSession: () => {} };
+  const [dpaSigning, setDpaSigning] = useState(false);
+  const [dpaError, setDpaError] = useState('');
   const [credentials, setCredentials] = useState([]);
   const [loadingCreds, setLoadingCreds] = useState(false);
   const [errorCreds, setErrorCreds] = useState('');
@@ -25,6 +28,10 @@ function InstitutionDashboard({ demo = false }) {
   const [filterAccountId, setFilterAccountId] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const [revokeModalOpen, setRevokeModalOpen] = useState(false);
+  const [revokeReason, setRevokeReason] = useState('');
+  const [selectedCredential, setSelectedCredential] = useState(null);
+  const [revoking, setRevoking] = useState(false);
   const [sort, setSort] = useState('desc');
   const [sortBy, setSortBy] = useState('createdAt');
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 10, pages: 1, hasMore: false, from: 0, to: 0 });
@@ -84,6 +91,9 @@ function InstitutionDashboard({ demo = false }) {
   const [labMessage, setLabMessage] = useState('');
   const [labError, setLabError] = useState('');
   const [securityHover, setSecurityHover] = useState(false);
+  
+
+
 
   useEffect(() => {
     try {
@@ -99,6 +109,26 @@ function InstitutionDashboard({ demo = false }) {
       }
     } catch {}
   }, [institutionalLogoUrl]);
+
+  const handleRevokeClick = (cred) => {
+    setSelectedCredential(cred);
+    setRevokeReason('');
+    setRevokeModalOpen(true);
+  };
+
+  const confirmRevocation = async () => {
+    if (!selectedCredential || !revokeReason) return;
+    setRevoking(true);
+    try {
+      await institutionService.revokeCredential(token, selectedCredential._id, revokeReason);
+      setRevokeModalOpen(false);
+      loadCredentials({ page }); 
+    } catch (e) {
+      alert('Error revoking credential: ' + e.message);
+    } finally {
+      setRevoking(false);
+    }
+  };
 
   const loadCredentials = async (params = {}) => {
     setLoadingCreds(true);
@@ -444,10 +474,59 @@ function InstitutionDashboard({ demo = false }) {
       .catch(() => { setQrMetaLoading(false); });
   }, [qrPreviewOpen, qrTokenId, qrSerial]);
 
+  const handleSignDPA = async () => {
+    setDpaSigning(true);
+    setDpaError('');
+    try {
+      const res = await institutionService.signDPA(token);
+      if (res.success) {
+        // Refresh session to update user.dpaAccepted
+        await setSession(token);
+        alert('Data Processing Agreement (DPA) signed successfully. You can now issue credentials.');
+      }
+    } catch (e) {
+      setDpaError(e.message || 'Error signing DPA');
+    } finally {
+      setDpaSigning(false);
+    }
+  };
+
   return (
     <div className="container-responsive pb-10">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-2 gradient-text">Dashboard de la Institución</h1>
       <p className="text-gray-600">Bienvenido al portal de la institución. Aquí podrás emitir títulos y subir archivos Excel.</p>
+      
+      {!demo && user && !user.dpaAccepted && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 shadow-md rounded-md">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-lg leading-6 font-medium text-yellow-800">Acción Requerida: Firma de Acuerdo de Procesamiento de Datos (DPA)</h3>
+              <div className="mt-2 text-sm text-yellow-700">
+                <p className="mb-2">
+                  Para cumplir con las normativas internacionales (GDPR, SOC2) y el modelo de "Transferencia de Responsabilidad", debe firmar digitalmente el acuerdo de procesamiento de datos antes de emitir credenciales.
+                </p>
+                <p className="mb-4">
+                  Al firmar, usted confirma que su institución cuenta con el consentimiento legal de los estudiantes para la emisión de sus títulos en blockchain.
+                </p>
+                {dpaError && <div className="text-red-600 font-bold mb-2">{dpaError}</div>}
+                <button
+                  onClick={handleSignDPA}
+                  disabled={dpaSigning}
+                  className={`bg-yellow-800 text-white px-4 py-2 rounded hover:bg-yellow-900 transition-colors ${dpaSigning ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {dpaSigning ? 'Firmando...' : 'Firmar DPA Digitalmente'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {demo && (
         <div className="mt-6 grid grid-cols-1 gap-4">
           <div className="card p-4">
@@ -932,6 +1011,9 @@ function InstitutionDashboard({ demo = false }) {
                     <td className="px-4 py-2"><button className="btn-secondary btn-sm" onClick={() => { setDocUrl(toGateway(c.ipfsURI)); setDocOpen(true); }}>Ver</button></td>
                     <td className="px-4 py-2">{c.xrpAnchor?.xrpTxHash ? <a href={`https://testnet.xrplexplorer.com/tx/${c.xrpAnchor.xrpTxHash}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{c.xrpAnchor.xrpTxHash.slice(0, 8)}...</a> : 'N/A'}</td>
                     <td className="px-4 py-2 space-x-2">
+                      <button className="btn-secondary btn-sm text-red-600 hover:bg-red-50 border-red-200" disabled={demo || c.status === 'REVOKED'} onClick={() => handleRevokeClick(c)}>
+                        {c.status === 'REVOKED' ? 'Revocada' : 'Revocar'}
+                      </button>
                       <button className="btn-secondary btn-sm" disabled={demo} onClick={() => {
                         const base = import.meta.env.VITE_API_URL;
                         const u = `${base}/api/verification/qr/generate/${c.universityId}/${c.tokenId}/${c.serialNumber}?format=svg`;
@@ -1168,6 +1250,35 @@ function InstitutionDashboard({ demo = false }) {
                     <div>IPFS: {qrIpfsURI ? (<a className="text-blue-600 hover:underline" href={toGateway(qrIpfsURI)} target="_blank" rel="noreferrer">{toGateway(qrIpfsURI)}</a>) : 'N/A'}</div>
                   </div>
                 ) : null}
+              </div>
+            </div>
+          </div>
+        )}
+        {revokeModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setRevokeModalOpen(false)} />
+            <div className="relative bg-white rounded-xl shadow-strong w-full max-w-md p-6">
+              <h3 className="text-lg font-bold mb-4">Revocar Credencial</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Estás a punto de revocar la credencial <strong>{selectedCredential?.tokenId}</strong> (Serial #{selectedCredential?.serialNumber}).
+                Esta acción actualizará el estado en la lista de revocación global (Bitstring Status List).
+              </p>
+              <div className="form-control mb-4">
+                <label className="label-text">Razón de revocación</label>
+                <select className="input-primary" value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)}>
+                  <option value="">Selecciona una razón...</option>
+                  <option value="PrivilegeWithdrawn">Privilegio Retirado (Expulsión/Suspensión)</option>
+                  <option value="CessationOfOperation">Cese de Operaciones</option>
+                  <option value="AffiliationChanged">Cambio de Afiliación</option>
+                  <option value="Superseded">Reemplazada por nueva versión</option>
+                  <option value="Compromised">Llave comprometida / Fraude</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button className="btn-ghost" onClick={() => setRevokeModalOpen(false)} disabled={revoking}>Cancelar</button>
+                <button className="btn-primary bg-red-600 hover:bg-red-700 border-red-600 text-white" onClick={confirmRevocation} disabled={!revokeReason || revoking}>
+                  {revoking ? 'Revocando...' : 'Confirmar Revocación'}
+                </button>
               </div>
             </div>
           </div>

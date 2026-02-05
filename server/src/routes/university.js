@@ -2,6 +2,7 @@ const express = require('express');
 const { body, param } = require('express-validator');
 const asyncHandler = require('express-async-handler');
 const { protect, isUniversity } = require('../middleware/auth');
+const { requireApiKey } = require('../middleware/apiKeyAuth');
 const { validate } = require('../middleware/validator');
 const hederaService = require('../services/hederaServices');
 const xrpService = require('../services/xrpService');
@@ -11,6 +12,7 @@ const { Token, Transaction, Credential, User } = require('../models');
 const { isConnected: isMongoConnected } = require('../config/database');
 const memoryStore = require('../utils/memoryStore');
 const { issuanceQueue, isRedisConnected } = require('../../queue/issuanceQueue');
+const issuanceService = require('../services/issuanceService');
 const { recordAnalytics, getUniversityInsights } = require('../services/analyticsService');
 const NodeCache = require('node-cache');
 const associationGuard = require('../middleware/associationGuard');
@@ -167,6 +169,74 @@ router.post('/acl/associate/submit', protect, isUniversity,
     return res.status(200).json({ success: true, data: { status, transactionId: result.transactionId } });
   })
 );
+
+router.get('/credentials', protect, isUniversity, asyncHandler(async (req, res) => {
+    const { user } = req;
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const sortDir = req.query.sort === 'asc' ? 1 : -1;
+    const sortBy = req.query.sortBy || 'createdAt';
+    const skip = (page - 1) * limit;
+
+    const query = { universityId: user.id };
+    if (req.query.tokenId) query.tokenId = { $regex: req.query.tokenId, $options: 'i' };
+    if (req.query.accountId) query.studentAccountId = { $regex: req.query.accountId, $options: 'i' };
+
+    try {
+        const total = await Credential.countDocuments(query);
+        const credentials = await Credential.find(query)
+            .sort({ [sortBy]: sortDir })
+            .skip(skip)
+            .limit(limit);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                credentials,
+                meta: {
+                    page,
+                    limit,
+                    total,
+                    pages: Math.ceil(total / limit),
+                    hasMore: page * limit < total,
+                    from: skip + 1,
+                    to: Math.min(skip + limit, total)
+                }
+            }
+        });
+    } catch (error) {
+        logger.error(`Error fetching credentials for ${user.universityName}: ${error.message}`);
+        res.status(500).json({ success: false, message: 'Error fetching credentials' });
+    }
+}));
+
+router.patch('/credential/:id/revoke', protect, isUniversity, asyncHandler(async (req, res) => {
+    const { user } = req;
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+        return res.status(400).json({ success: false, message: 'Revocation reason is required' });
+    }
+
+    try {
+        const result = await issuanceService.revokeCredential(
+            id,
+            user.id,
+            reason,
+            req.ip || req.socket.remoteAddress
+        );
+
+        res.status(200).json({
+            success: true,
+            message: 'Credential revoked successfully',
+            data: result
+        });
+    } catch (error) {
+        logger.error(`Error revoking credential ${id}: ${error.message}`);
+        res.status(500).json({ success: false, message: error.message || 'Error revoking credential' });
+    }
+}));
 
 router.get('/profile', protect, isUniversity, asyncHandler(async (req, res) => {
   const { user } = req;
@@ -363,7 +433,7 @@ router.post('/sign-dpa', protect, isUniversity, asyncHandler(async (req, res) =>
     });
 }));
 
-router.post('/issue-credential', protect, isUniversity,
+router.post('/issue-credential', protect, isUniversity, requireApiKey(),
   [
     body('tokenId').notEmpty().trim().escape(),
     body('uniqueHash').notEmpty().trim().escape(),

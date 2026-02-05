@@ -43,7 +43,7 @@ const Layout = ({
 }) => {
   const location = useLocation();
   const { trackPageView } = useAnalytics();
-  const { isConnected } = useHedera();
+  const { isConnected, networkStatus } = useHedera();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -54,6 +54,15 @@ const Layout = ({
     const link = document.querySelector("link[rel='icon']");
     return link ? link.getAttribute('href') : null;
   });
+
+  // Auto Dark Mode Effect based on Hedera Network Status
+  useEffect(() => {
+    if (networkStatus === 'High Traffic') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [networkStatus]);
 
   // Track page views
   useEffect(() => {
@@ -302,6 +311,37 @@ const Layout = ({
           <span className="text-sm font-medium">Conectado a Hedera</span>
         </motion.div>
       )}
+
+      {/* High Traffic / Dark Mode Notification */}
+      <AnimatePresence>
+        {networkStatus === 'High Traffic' && (
+          <motion.div
+            initial={{ x: 100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 100, opacity: 0 }}
+            className="fixed top-24 right-4 md:right-8 bg-[#0B0B15] border border-[#7c3aed]/50 text-white p-0 rounded-2xl shadow-[0_0_30px_rgba(124,58,237,0.2)] z-50 overflow-hidden max-w-sm w-full"
+          >
+            {/* Notification Glow Line */}
+            <div className="absolute top-0 left-0 w-1 h-full bg-[#7c3aed] shadow-[0_0_10px_#7c3aed]"></div>
+            
+            <div className="flex items-start p-5 gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-12 h-12 bg-[#1A1A2E] rounded-xl flex items-center justify-center border border-[#7c3aed]/30 shadow-inner">
+                  <span className="text-2xl drop-shadow-[0_0_5px_rgba(124,58,237,0.5)]">🛡️</span>
+                </div>
+              </div>
+              <div className="flex-1">
+                <h4 className="font-display font-bold text-[#E9D5FF] text-sm tracking-widest uppercase mb-1 drop-shadow-sm">
+                  High Traffic Detected
+                </h4>
+                <p className="text-xs text-slate-300 leading-relaxed font-light">
+                  Activating <span className="text-white font-medium">Dark Mode</span> for visual comfort & energy efficiency.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

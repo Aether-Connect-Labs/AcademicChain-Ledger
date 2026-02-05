@@ -8,14 +8,15 @@ const logger = require('../utils/logger');
 function requireApiKey(permissions = []) {
   return (req, res, next) => {
     // Obtener la API Key del header
-    const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+    // Added support for x-acl-auth-key as per security requirements
+    const apiKey = req.headers['x-api-key'] || req.headers['x-acl-auth-key'] || req.headers['authorization']?.replace('Bearer ', '');
     
     if (!apiKey) {
       logger.warn('❌ API Key no proporcionada en la solicitud');
       return res.status(401).json({
         success: false,
         error: 'API Key requerida',
-        message: 'Por favor proporcione una API Key válida en el header X-API-Key o Authorization'
+        message: 'Por favor proporcione una API Key válida en el header X-API-Key, x-acl-auth-key o Authorization'
       });
     }
 

@@ -44,11 +44,11 @@ class AuthService {
       user = await User.create(userPayload);
     } catch (e) {
       console.warn('AuthService: DB create failed, using memory', e.message);
-      user = { 
-        ...userPayload, 
-        id: uuidv4(), 
+      user = {
+        ...userPayload,
+        id: uuidv4(),
         _id: uuidv4(),
-        save: async function() { return this; }
+        save: async function () { return this; }
       };
       memoryUsers.set(email.toLowerCase(), user);
     }
@@ -121,6 +121,23 @@ class AuthService {
       credits: user.credits || 0,
       createdAt: user.createdAt,
     };
+  }
+
+  /**
+   * Generates a short-lived token specifically for Antigravity automated operations.
+   * @param {string} purpose - The specific operation (e.g., 'ISSUANCE_BATCH')
+   * @param {string} ttl - Time to live (default '10m')
+   */
+  generateTemporaryToken(purpose, ttl = '10m') {
+    const payload = {
+      sub: 'antigravity-autonomous-agent',
+      purpose: purpose,
+      role: 'system_admin',
+      generatedAt: new Date().toISOString()
+    };
+    // Use a specific or default secret. Ideally ANTIGRAVITY_SECRET, falling back to JWT_SECRET
+    const secret = process.env.ANTIGRAVITY_SECRET || process.env.JWT_SECRET;
+    return jwt.sign(payload, secret, { expiresIn: ttl });
   }
 }
 

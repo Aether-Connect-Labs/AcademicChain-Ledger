@@ -1,0 +1,22 @@
+{
+    "integrityProtocol": {
+        "role": "Lead Architect",
+        "project": "AcademicChain Ledger",
+        "corePrinciples": [
+            "Triple Shield Architecture (Hedera + XRP + Algorand)",
+            "Autonomous Defense First",
+            "Unique & Futuristic UI/UX",
+            "GDPR & Data Privacy via Encryption"
+        ],
+        "codingStandards": {
+            "encryption": "AES-256-GCM",
+            "documentation": "Antigravity Integrity Header required on all critical modules",
+            "errorHandling": "Fail-safe with n8n notification",
+            "style": "clean, async/await, modular"
+        },
+        "security": {
+            "tokenValidation": "Periodic x-antigravity-token checks",
+            "bruteForceProtection": "IP Blocking after 3 failed attempts (Mock/App Level)"
+        }
+    }
+}

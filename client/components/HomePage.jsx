@@ -124,14 +124,38 @@ const HomePage = () => {
       <CTASection variant="secondary" />
 
       <div id="demo" className="container mx-auto px-4 pb-24">
-        <div className="glass-card p-12 text-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary-900/20 to-secondary-900/20" />
+        <div className="relative overflow-hidden rounded-3xl border border-primary-500/30 bg-[#0B0B15]/90 p-12 text-center shadow-[0_0_50px_rgba(6,182,212,0.15)] backdrop-blur-xl">
+          {/* Holographic Grid Effect */}
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary-900/5 to-primary-900/20"></div>
+          
           <div className="relative z-10">
-            <h3 className="text-2xl font-bold mb-4 font-display">Zona de Pruebas Holográfica</h3>
-            <p className="text-slate-400 mb-8 max-w-2xl mx-auto">Experimenta la emisión y verificación en tiempo real sin compromisos. Acceso instantáneo al entorno sandbox.</p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <Link to="/demo/institution" className="btn-primary bg-slate-800 border border-slate-700 hover:border-primary-500">Simular Institución</Link>
-              <Link to="/demo/student" className="btn-primary bg-slate-800 border border-slate-700 hover:border-secondary-500">Simular Alumno</Link>
+            <h3 className="text-3xl md:text-4xl font-extrabold mb-6 font-display text-white tracking-tight drop-shadow-lg">
+              Zona de Pruebas <br/>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Holográfica</span>
+            </h3>
+            
+            <p className="text-slate-300 mb-10 max-w-2xl mx-auto text-lg leading-relaxed">
+              Experimenta la emisión y verificación en tiempo real sin compromisos. 
+              <span className="block mt-2 text-cyan-200/80">Acceso instantáneo al entorno sandbox.</span>
+            </p>
+
+            <div className="flex flex-col sm:flex-col gap-6 max-w-md mx-auto">
+              <Link 
+                to="/demo/institution" 
+                className="group relative px-8 py-4 bg-[#0F172A] border border-cyan-500/30 rounded-xl overflow-hidden transition-all duration-300 hover:border-cyan-400 hover:shadow-[0_0_20px_rgba(34,211,238,0.4)]"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="relative z-10 font-bold text-cyan-50 tracking-wide">Simular Institución</span>
+              </Link>
+              
+              <Link 
+                to="/demo/student" 
+                className="group relative px-8 py-4 bg-[#0F172A] border border-blue-500/30 rounded-xl overflow-hidden transition-all duration-300 hover:border-blue-400 hover:shadow-[0_0_20px_rgba(59,130,246,0.4)]"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="relative z-10 font-bold text-blue-50 tracking-wide">Simular Alumno</span>
+              </Link>
             </div>
           </div>
         </div>

@@ -1,0 +1,23 @@
+{
+    "projectRoot": ".",
+    "servicesPath": "server/src/services",
+    "toolsPath": "tools",
+    "capabilities": {
+        "skills": {
+            "mintCredential": {
+                "service": "issuanceService",
+                "method": "mintLegalCredential",
+                "description": "Issues a legally binding academic credential anchored on Hedera, XRP, and Algorand."
+            },
+            "revokeCredential": {
+                "service": "issuanceService",
+                "method": "revokeCredential",
+                "description": "Revokes a credential and updates the Bitistring Status List."
+            }
+        },
+        "defense": {
+            "firewall": "server/src/services/firewallService.js",
+            "middleware": "server/src/middleware/antigravityDefense.js"
+        }
+    }
+}

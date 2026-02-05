@@ -19,7 +19,7 @@ async function setupBullBoard(app) {
   if (!disableBullBoard) {
     const serverAdapter = new ExpressAdapter();
     serverAdapter.setBasePath('/admin/queues');
-    
+
     try {
       const { issuanceQueue } = require('../queue/issuanceQueue');
       createBullBoard({
@@ -126,7 +126,7 @@ async function initializeVeramo() {
 const app = express();
 const testing = (process.env.NODE_ENV || '').toLowerCase() === 'test';
 const server = createServer(app);
-const io = testing ? { on: () => {} , emit: () => {} } : new Server(server, {
+const io = testing ? { on: () => { }, emit: () => { } } : new Server(server, {
   cors: {
     origin: (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:4173', 'http://localhost:4174'])),
     methods: ['GET', 'POST'],
@@ -172,7 +172,7 @@ function validateEnvOnStartup() {
     }
   }
 }
-try { validateEnvOnStartup(); } catch {}
+try { validateEnvOnStartup(); } catch { }
 try { require('./utils/timeoutConfig').TimeoutManager.validateAll(); } catch (e) { logger.warn('Invalid timeout configuration', { message: e.message }); }
 // Security middleware
 const isProduction = process.env.NODE_ENV === 'production';
@@ -192,10 +192,10 @@ const extraOrigins = [process.env.SERVER_URL, process.env.BASE_URL].map(o => nor
 const whitelist = isProduction
   ? Array.from(new Set([...(configuredOrigins.length ? configuredOrigins : []), 'http://localhost:5173', 'http://localhost:3000']))
   : Array.from(new Set([
-      ...(configuredOrigins.length ? configuredOrigins : defaultOrigins),
-      ...extraOrigins,
-      ...verifierOrigins
-    ]));
+    ...(configuredOrigins.length ? configuredOrigins : defaultOrigins),
+    ...extraOrigins,
+    ...verifierOrigins
+  ]));
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -215,7 +215,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.set('trust proxy', 1);
 // Exponer io para rutas
-try { app.set('io', io); } catch {}
+try { app.set('io', io); } catch { }
 
 // Secure HTTP Headers with Helmet
 app.use(
@@ -236,13 +236,19 @@ app.use(
   })
 );
 
+// 🛡️ Antigravity Autonomous Defense
+const antigravityDefense = require('./middleware/antigravityDefense');
+app.use('/api/antigravity/test', antigravityDefense, (req, res) => {
+  res.json({ message: 'Secure Antigravity Node Access Granted', agent: req.antigravityAgent });
+});
+
 app.use(passport.initialize());
 
 // Configure Google OAuth strategy only if env vars are present
 try {
   const hasGoogle = process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET;
   if (hasGoogle) {
-  const callbackBase = normalizeOrigin(process.env.SERVER_URL || `http://localhost:${PORT}`);
+    const callbackBase = normalizeOrigin(process.env.SERVER_URL || `http://localhost:${PORT}`);
     passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -256,9 +262,9 @@ try {
         const domain = email.split('@')[1] || '';
         const allowedDomains = String(process.env.INSTITUTION_EMAIL_DOMAINS || '').split(',').map(d => d.trim().toLowerCase()).filter(Boolean);
 
-          const isAdmin = adminEmail && email === adminEmail;
-          const allowInstitutionFallback = String(process.env.ALLOW_INSTITUTION_FALLBACK || '0') === '1' || !isProduction;
-          const isInstitution = allowedDomains.length > 0 ? allowedDomains.includes(domain) : allowInstitutionFallback;
+        const isAdmin = adminEmail && email === adminEmail;
+        const allowInstitutionFallback = String(process.env.ALLOW_INSTITUTION_FALLBACK || '0') === '1' || !isProduction;
+        const isInstitution = allowedDomains.length > 0 ? allowedDomains.includes(domain) : allowInstitutionFallback;
 
         let user = await User.findOne({ email });
         if (!user) {
@@ -290,7 +296,7 @@ try {
       }
     }));
   }
-} catch {}
+} catch { }
 
 app.use(cookieParser());
 
@@ -359,7 +365,7 @@ app.get('/', (req, res) => {
 });
 
 // Health check endpoints escalables (para Kubernetes/Docker health checks)
-app.get('/health', async (req, res) => {
+const healthHandler = async (req, res) => {
   try {
     const health = {
       status: 'OK',
@@ -383,48 +389,30 @@ app.get('/health', async (req, res) => {
     logger.error('Health check error:', error);
     res.status(500).json({ status: 'ERROR', error: error.message });
   }
-});
+};
 
-app.get('/healthz', async (req, res) => {
-  try {
-    const health = {
-      status: 'OK',
-      timestamp: new Date().toISOString(),
-      service: 'AcademicChain Ledger API',
-      version: '1.0.0',
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development',
-      memory: {
-        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-        rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
-      },
-      xrpl: { enabled: (process.env.XRPL_ENABLED === 'true' && typeof getXrpService().isEnabled === 'function') ? getXrpService().isEnabled() : false, network: (process.env.XRPL_ENABLED === 'true' && getXrpService().network) || 'disabled' },
-      algorand: { enabled: (process.env.ALGORAND_ENABLED === 'true' && typeof getAlgorandService().isEnabled === 'function') ? getAlgorandService().isEnabled() : false, network: (process.env.ALGORAND_ENABLED === 'true' && getAlgorandService().network) || 'disabled' },
-      ipfs: { enabled: !!ipfsService.pinata }
-    };
+app.get('/health', healthHandler);
+app.get('/healthz', healthHandler);
+app.get('/api/health', healthHandler);
+app.get('/api/healthz', healthHandler);
 
-    res.status(200).json(health);
-  } catch (error) {
-    logger.error('Health check error:', error);
-    res.status(500).json({ status: 'ERROR', error: error.message });
-  }
-});
-
-if (!testing && !process.env.JEST_WORKER_ID) { (async () => {
-  try {
-    const disableHedera = process.env.DISABLE_HEDERA === '1';
-    if (!disableHedera) await getHederaService().connect();
-  } catch {}
-})(); }
 
 if (!testing && !process.env.JEST_WORKER_ID) {
-  try { const monitor = getRuntimeHealthMonitor(io); monitor.start(); } catch {}
-  try { ipfsService.testConnection(); } catch {}
+  (async () => {
+    try {
+      const disableHedera = process.env.DISABLE_HEDERA === '1';
+      if (!disableHedera) await getHederaService().connect();
+    } catch { }
+  })();
 }
 
 if (!testing && !process.env.JEST_WORKER_ID) {
-  try { startBackupStatsJob(); } catch {}
+  try { const monitor = getRuntimeHealthMonitor(io); monitor.start(); } catch { }
+  try { ipfsService.testConnection(); } catch { }
+}
+
+if (!testing && !process.env.JEST_WORKER_ID) {
+  try { startBackupStatsJob(); } catch { }
 }
 
 // Rate oracle: refresh hourly and on startup
@@ -432,12 +420,12 @@ if (!testing && !process.env.JEST_WORKER_ID) {
   const refreshJob = async () => {
     try {
       const payload = await rateOracle.refresh();
-      try { io.emit('rate:update', payload); } catch {}
+      try { io.emit('rate:update', payload); } catch { }
     } catch (e) { logger.warn(`Rate oracle refresh failed: ${e.message}`); }
   };
   refreshJob();
   const task = cron.schedule('0 * * * *', refreshJob);
-  const stopTask = (sig) => { try { task.stop(); } catch {} };
+  const stopTask = (sig) => { try { task.stop(); } catch { } };
   process.on('SIGINT', stopTask);
   process.on('SIGTERM', stopTask);
 }
@@ -568,7 +556,7 @@ try {
     if (target.startsWith('http')) return res.redirect(target);
     return res.redirect(target);
   });
-} catch {}
+} catch { }
 
 app.use(errorHandler);
 
@@ -593,15 +581,15 @@ if (require.main === module) {
           logger.warn('MongoDB disabled by DISABLE_MONGO=1. Running without database.');
         }
       }
-      try { await getHederaService().connect(); } catch {}
-      try { await getXrpService().connect(); } catch {}
-      try { await getAlgorandService().connect(); } catch {}
+      try { await getHederaService().connect(); } catch { }
+      try { await getXrpService().connect(); } catch { }
+      try { await getAlgorandService().connect(); } catch { }
       if (typeof initializeWorkers === 'function' && process.env.DISABLE_REDIS !== '1' && process.env.DISABLE_WORKERS !== '1') {
         try {
           if (isRedisConnected()) {
             initializeWorkers(io);
           }
-        } catch {}
+        } catch { }
       }
       const tryPorts = (() => {
         const base = parseInt(process.env.PORT || '3001', 10) || 3001;
@@ -671,4 +659,4 @@ try {
   if (timeoutMs > 0 && !testing) {
     server.setTimeout(timeoutMs);
   }
-} catch {}
+} catch { }

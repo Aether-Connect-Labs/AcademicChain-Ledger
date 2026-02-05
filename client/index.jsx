@@ -4,7 +4,7 @@ import { HashRouter } from 'react-router-dom';
 import AppRoutes from './AppRoutes.jsx';
 import { AuthProvider } from './components/useAuth.jsx';
 import './index.css';
-import './styles/globals.css';
+// import './styles/globals.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
