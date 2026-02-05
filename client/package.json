@@ -22,7 +22,7 @@
     "chart.js": "^4.4.0",
     "date-fns": "^2.30.0",
     "fabric": "^7.1.0",
-    "framer-motion": "^10.16.16",
+    "framer-motion": "^12.31.0",
     "hashconnect": "^3.0.14",
     "html2canvas": "^1.4.1",
     "html5-qrcode": "^2.3.8",
