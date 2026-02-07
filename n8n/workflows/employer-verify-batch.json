@@ -1,0 +1,81 @@
+{
+  "name": "Employer - Bulk CV Verification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "employer-verify-batch",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "mode": "json"
+      },
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "extract",
+        "binaryPropertyName": "data"
+      },
+      "name": "Read PDF/Image",
+      "type": "n8n-nodes-base.readPdf",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.item.json.text;\nconst idMatch = text.match(/DID:([a-zA-Z0-9]+)/);\nreturn {\n  json: {\n    identityId: idMatch ? idMatch[1] : null,\n    hasBlockchainProof: text.includes('AcademicChain Verified')\n  }\n};"
+      },
+      "name": "Extract Identity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://api.academicchain.com/verify/{{$json.identityId}}",
+        "method": "GET"
+      },
+      "name": "Verify On Chain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [800, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1000, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "Split In Batches", "type": "main", "index": 0}]]
+    },
+    "Split In Batches": {
+      "main": [[{"node": "Read PDF/Image", "type": "main", "index": 0}]]
+    },
+    "Read PDF/Image": {
+      "main": [[{"node": "Extract Identity", "type": "main", "index": 0}]]
+    },
+    "Extract Identity": {
+      "main": [[{"node": "Verify On Chain", "type": "main", "index": 0}]]
+    },
+    "Verify On Chain": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    }
+  }
+}

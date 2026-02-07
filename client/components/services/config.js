@@ -1,18 +1,21 @@
 export const getApiBaseUrl = () => {
   const env = import.meta.env || {};
-  const candidates = [
-    env.NEXT_PUBLIC_API_URL,
-    env.VITE_API_URL,
-    env.VITE_SERVER_URL,
-    env.VITE_BASE_URL,
-    env.REACT_APP_API_URL,
-    env.REACT_APP_SERVER_URL,
-    env.SERVER_URL,
-    env.BASE_URL
-  ].filter(Boolean);
-  
-  const base = candidates[0] || (env.DEV ? 'http://localhost:3001' : '');
-  return String(base).replace(/`/g, '').replace(/\/$/, '');
+  // Prioritize N8N Webhook URL
+  const n8nUrl = env.VITE_N8N_WEBHOOK_URL;
+  if (n8nUrl) {
+    // If it's a full URL like .../webhook/submit-document, get the base .../webhook/
+    try {
+      const url = new URL(n8nUrl);
+      // Remove the last segment if it looks like a specific action
+      if (url.pathname.endsWith('/submit-document')) {
+        return n8nUrl.replace('/submit-document', '');
+      }
+      return n8nUrl;
+    } catch (e) {
+      return n8nUrl;
+    }
+  }
+  return 'https://primary-production-4224.up.railway.app/webhook'; // Default Fallback
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -34,7 +37,7 @@ export const handleResponse = async (res) => {
       const json = await res.json();
       if (json && json.message) errorMessage = json.message;
       else if (json && json.error) errorMessage = json.error;
-    } catch {}
+    } catch { }
     throw new Error(errorMessage);
   }
   return res.json();

@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
  * 🛡️ Live Block Visualizer
  * Futuristic component to visualize Triple Shield Consensus
  */
-const LiveBlockVisualizer = () => {
+const LiveBlockVisualizer = ({ pendingTransaction }) => {
     const [blocks, setBlocks] = useState([]);
 
     // Simulation of incoming blocks
@@ -15,18 +15,17 @@ const LiveBlockVisualizer = () => {
             const network = networks[Math.floor(Math.random() * networks.length)];
             const id = Math.random().toString(36).substr(2, 9);
 
+            // ... (rest of simulation logic)
             const newBlock = {
                 id,
                 network,
                 timestamp: new Date().toLocaleTimeString(),
-                status: 'PENDING', // Start as Pending
+                status: 'PENDING',
                 hash: Math.random().toString(36).substr(2, 16).toUpperCase()
             };
 
             setBlocks(prev => {
-                // Add new block
                 const updated = [newBlock, ...prev].slice(0, 5);
-                // Simulate rapid confirmation
                 setTimeout(() => {
                     setBlocks(current => current.map(b =>
                         b.id === id ? { ...b, status: 'CONFIRMED' } : b
@@ -44,9 +43,22 @@ const LiveBlockVisualizer = () => {
             case 'Hedera': return 'text-green-400 border-green-500/50';
             case 'XRP': return 'text-blue-400 border-blue-500/50';
             case 'Algorand': return 'text-cyan-400 border-cyan-500/50';
+            case 'DESIGN': return 'text-purple-400 border-purple-500/80 bg-purple-900/20'; // Special style
             default: return 'text-slate-400 border-slate-500';
         }
     };
+
+    // Merge pending transaction into view
+    const displayBlocks = pendingTransaction
+        ? [{
+            id: 'design-preview',
+            network: 'DESIGN',
+            timestamp: 'NOW',
+            status: 'READY_TO_MINT',
+            hash: 'WAITING_FOR_SIG',
+            preview: pendingTransaction.preview
+        }, ...blocks.slice(0, 4)]
+        : blocks;
 
     return (
         <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl shadow-xl p-6 mb-8 relative overflow-hidden">
@@ -68,26 +80,29 @@ const LiveBlockVisualizer = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 relative z-10">
-                {blocks.map((block, i) => (
+                {displayBlocks.map((block, i) => (
                     <motion.div
                         key={block.id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.3 }}
-                        className={`p-3 rounded-lg border bg-black/40 backdrop-blur-sm ${getNetworkColor(block.network)}`}
+                        className={`p-3 rounded-lg border bg-black/40 backdrop-blur-sm ${getNetworkColor(block.network)} relative overflow-hidden`}
                     >
-                        <div className="flex justify-between items-center mb-1">
+                        {block.preview && (
+                            <img src={URL.createObjectURL(block.preview)} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-20 hover:opacity-40 transition-opacity" />
+                        )}
+                        <div className="flex justify-between items-center mb-1 relative z-10">
                             <span className="font-bold text-xs uppercase tracking-wider">{block.network}</span>
                             <span className="text-[10px] opacity-70">{block.timestamp}</span>
                         </div>
-                        <div className="font-mono text-xs opacity-80 truncate">
+                        <div className="font-mono text-xs opacity-80 truncate relative z-10">
                             HASH: {block.hash}
                         </div>
-                        <div className="mt-2 text-[10px] flex justify-between items-center">
-                            <span className={`uppercase px-1 rounded ${block.status === 'CONFIRMED' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
+                        <div className="mt-2 text-[10px] flex justify-between items-center relative z-10">
+                            <span className={`uppercase px-1 rounded ${block.status === 'CONFIRMED' ? 'bg-green-500/20 text-green-300' : (block.status === 'READY_TO_MINT' ? 'bg-purple-500/20 text-purple-300' : 'bg-yellow-500/20 text-yellow-300')}`}>
                                 {block.status}
                             </span>
-                            <span className={`animate-pulse w-2 h-2 rounded-full ${block.status === 'CONFIRMED' ? 'bg-green-400' : 'bg-yellow-400'}`}></span>
+                            <span className={`animate-pulse w-2 h-2 rounded-full ${block.status === 'CONFIRMED' ? 'bg-green-400' : (block.status === 'READY_TO_MINT' ? 'bg-purple-400' : 'bg-yellow-400')}`}></span>
                         </div>
                     </motion.div>
                 ))}

@@ -22,11 +22,11 @@ const CreatorsPage = () => {
               Otorga valor real y verificable a tus cursos, mentorías y talleres en sectores sin jurisdicción tradicional.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <Link to="/creators/register" className="px-8 py-4 bg-cyan-500 hover:bg-cyan-400 text-white font-bold rounded-lg transition-all shadow-lg hover:shadow-cyan-500/25">
-                Comenzar Ahora
+              <Link to="/portal-creadores" className="px-8 py-4 bg-cyan-500 hover:bg-cyan-400 text-white font-bold rounded-lg transition-all shadow-lg hover:shadow-cyan-500/25">
+                Probar Demo Interactiva
               </Link>
               <Link to="/agenda" className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-lg backdrop-blur-sm transition-all border border-white/20">
-                Agendar Demo
+                Agendar Reunión
               </Link>
             </div>
           </motion.div>

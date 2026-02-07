@@ -16,23 +16,23 @@ const Footer = () => {
         <div className="flex flex-col md:flex-row justify-between">
           <div className="mb-6 md:mb-0">
             <h2 className="text-lg font-bold tracking-wide text-white">Aether Connect Labs | Innovation Laboratory</h2>
-            <p className="text-xs text-gray-400 mt-1">© 2026 All rights reserved. Powered by AcademicChain Ledger Technology</p>
+            <p className="text-xs text-gray-400 mt-1">© 2026 Todos los derechos reservados. Impulsado por AcademicChain Ledger Technology</p>
           </div>
           <nav aria-label="Footer navigation" data-testid="footer-nav">
             <ul className="flex space-x-4">
               <li>
                 <a href={termsUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" data-testid="footer-terms">
-                  Terms
+                  Términos
                 </a>
               </li>
               <li>
                 <a href={privacyUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" data-testid="footer-privacy">
-                  Privacy
+                  Privacidad
                 </a>
               </li>
               <li>
                 <Link to="/agenda" className="hover:underline" data-testid="footer-contact">
-                  Contact
+                  Contacto
                 </Link>
               </li>
             </ul>

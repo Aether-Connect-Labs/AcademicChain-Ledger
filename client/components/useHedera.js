@@ -14,49 +14,8 @@ export const useHedera = () => {
   const [network, setNetwork] = useState('unknown');
   const [networkStatus, setNetworkStatus] = useState('Normal'); // 'Normal' | 'High Traffic'
 
-  // Simulación de tráfico de red para activar Dark Mode automático
-  useEffect(() => {
-    // Ciclo más realista: 45s Normal -> 15s High Traffic
-    const interval = setInterval(() => {
-      setNetworkStatus(prev => {
-        // Si está en High Traffic, volver a Normal (era un pico)
-        if (prev === 'High Traffic') return 'Normal';
-        // Si está en Normal, 30% de probabilidad de entrar en High Traffic (simulado)
-        // Para demo forzada: Alternar cada vez
-        return 'High Traffic';
-      });
-    }, 45000); // 45 segundos en cada estado (ajustado para que no sea tan frecuente)
-
-    // Ajuste fino: Queremos que High Traffic dure menos que Normal.
-    // Reemplazamos con lógica de timeout anidado para control preciso.
-    return () => clearInterval(interval);
-  }, []);
-
-  // Lógica mejorada de simulación con tiempos asimétricos
-  useEffect(() => {
-    let timeout;
-    const runSimulation = () => {
-      if (networkStatus === 'Normal') {
-        // Esperar 40s antes de cambiar a High Traffic
-        timeout = setTimeout(() => {
-          setNetworkStatus('High Traffic');
-          runSimulation();
-        }, 40000);
-      } else {
-        // Mantener High Traffic solo 15s
-        timeout = setTimeout(() => {
-          setNetworkStatus('Normal');
-          runSimulation();
-        }, 15000);
-      }
-    };
-
-    // Iniciar simulación limpia (limpiando el intervalo anterior si existiera, aunque aquí sobrescribimos)
-    // Nota: El useEffect anterior debe eliminarse o este conflictuará. 
-    // Voy a reemplazar TODO el bloque en el SearchReplace.
-    
-    return () => clearTimeout(timeout);
-  }, [networkStatus]);
+  // Simulación de tráfico eliminada a petición del usuario para evitar interrupciones innecesarias.
+  // El estado se mantendrá en 'Normal' por defecto.
 
   const { hederaStatus } = useWebSocket();
   const { user, token } = useAuth();

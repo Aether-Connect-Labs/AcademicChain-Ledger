@@ -10,7 +10,7 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, register, registerInstitution, registerCreator } = useAuth();
+  const { login, register, registerInstitution, registerCreator, registerEmployer } = useAuth();
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -31,6 +31,8 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
             ok = await registerInstitution(email, password);
           } else if (userType === 'creator') {
             ok = await registerCreator(email, password);
+          } else if (userType === 'employer') {
+            ok = await registerEmployer(email, password);
           } else {
             ok = await register(email, password);
           }
@@ -40,7 +42,13 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
         if (!ok) throw new Error('Credenciales inválidas');
         const params = new URLSearchParams(location.search);
         const nextParam = params.get('next');
-        const target = nextParam || (userType === 'institution' ? '/institution/dashboard' : userType === 'creator' ? '/portal-creadores' : userType === 'student' ? '/student/portal' : '/');
+        const stateFrom = location.state?.from?.pathname;
+        const target = nextParam || stateFrom || (
+          userType === 'institution' ? '/institution/dashboard' : 
+          userType === 'creator' ? '/portal-creadores' : 
+          userType === 'student' ? '/student/portal' : 
+          userType === 'employer' ? '/employer/dashboard' : '/'
+        );
         navigate(target, { replace: true });
       } catch (e) {
         setError(e.message || 'Error de inicio de sesión');
@@ -58,6 +66,7 @@ const LoginPage = ({ userType = 'student', mode = 'login' }) => {
   const getSubtitle = () => {
     if (userType === 'institution') return 'Acceso Institucional';
     if (userType === 'creator') return 'Acceso Creadores';
+    if (userType === 'employer') return 'Acceso Empresas';
     return 'Acceso Estudiantes';
   }
 

@@ -25,7 +25,13 @@ export const AuthProvider = ({ children }) => {
           setUser({ id: 'preview-owner', email: 'owner@preview.local', name: 'Owner Preview', role: 'admin' });
         }
       } catch (e) {
-        setError(e.message);
+        console.warn('Authentication check failed. Clearing session.', e);
+        // Si falla la verificación del token (ej. servidor caído), cerramos sesión limpiamente
+        // para permitir que el usuario use el modo Demo/Mock.
+        localStorage.removeItem('authToken');
+        setToken('');
+        setUser(null);
+        setError('');
       } finally {
         setIsLoading(false);
       }
@@ -98,6 +104,20 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const registerEmployer = useCallback(async (email, password) => {
+    setError('');
+    try {
+      const { user: u, token: t } = await authService.registerEmployer(email, password);
+      localStorage.setItem('authToken', t);
+      setToken(t);
+      setUser(u || (await authService.getCurrentUser(t)));
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     await authService.logout();
     localStorage.removeItem('authToken');
@@ -107,7 +127,7 @@ export const AuthProvider = ({ children }) => {
   }, [navigate]);
 
   const value = React.useMemo(
-    () => ({ user, token, isAuthenticated, isLoading, error, login, register, registerInstitution, registerCreator, logout, setSession, verifyCode: async (email, code) => {
+    () => ({ user, token, isAuthenticated, isLoading, error, login, register, registerInstitution, registerCreator, registerEmployer, logout, setSession, verifyCode: async (email, code) => {
       try {
         await new Promise(resolve => setTimeout(resolve, 300));
         return /^\d{6}$/.test(code);
@@ -115,7 +135,7 @@ export const AuthProvider = ({ children }) => {
         return false;
       }
     } }),
-    [user, token, isAuthenticated, isLoading, error, login, register, registerInstitution, logout, setSession]
+    [user, token, isAuthenticated, isLoading, error, login, register, registerInstitution, registerCreator, registerEmployer, logout, setSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

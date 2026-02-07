@@ -63,6 +63,7 @@ export const authService = {
 
     const forInstitution = userType === 'institution';
     const forCreator = userType === 'creator'; // Detectar tipo creador
+    const forEmployer = userType === 'employer'; // Detectar tipo empleador
 
     if (forCreator) {
        // Mock login para creador
@@ -75,6 +76,20 @@ export const authService = {
          permissions: ['issue_credentials', 'view_dashboard']
        };
        const token = `mock-jwt-token-for-creator-${Date.now()}`;
+       return mockApiCall({ user, token });
+    }
+
+    if (forEmployer) {
+       // Mock login para empleador
+       const user = {
+         id: `employer-${crypto.randomUUID()}`,
+         name: 'Empleador Demo',
+         email,
+         role: 'employer',
+         companyName: 'Empresa Demo',
+         permissions: ['view_dashboard', 'verify_credential', 'search_talent']
+       };
+       const token = `mock-jwt-token-for-employer-${Date.now()}`;
        return mockApiCall({ user, token });
     }
 
@@ -204,6 +219,35 @@ export const authService = {
     return mockApiCall({ user, token });
   },
 
+  registerEmployer: async (email, password) => {
+    try {
+      if (API_BASE_URL) {
+        const res = await fetch(`${API_BASE_URL}/api/auth/employers/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        if (!res.ok) throw new Error('Registro inválido');
+        const data = await res.json();
+        return data;
+      }
+    } catch {}
+
+    if (!isValidPassword(password)) {
+      return mockApiCall(null, true, 'La contraseña debe tener 6 o más caracteres.');
+    }
+    const user = {
+      id: `employer-${crypto.randomUUID()}`,
+      name: 'Empleador Demo',
+      email,
+      role: 'employer',
+      companyName: 'Empresa Demo',
+      permissions: ['view_dashboard', 'verify_credential', 'search_talent']
+    };
+    const token = `mock-jwt-token-for-employer-${Date.now()}`;
+    return mockApiCall({ user, token });
+  },
+
   logout: () => Promise.resolve(),
 
   getCurrentUser: async (token) => {
@@ -230,6 +274,9 @@ export const authService = {
     }
     if (token && token.startsWith('mock-jwt-token-for-creator')) {
       return mockApiCall({ id: 'creator-123', name: 'Creador Demo', email: 'creator@demo.com', role: 'CREATOR', brand: 'Academia Digital', permissions: ['issue_credentials', 'view_dashboard'] });
+    }
+    if (token && token.startsWith('mock-jwt-token-for-employer')) {
+      return mockApiCall({ id: 'employer-123', name: 'Empleador Demo', email: 'employer@demo.com', role: 'employer', companyName: 'Empresa Demo', permissions: ['view_dashboard', 'verify_credential', 'search_talent'] });
     }
     if (token && token.startsWith('mock-jwt-token-for-student')) {
       return mockApiCall({ id: 'student-456', name: 'Usuario Free', email: 'demo@gmail.com', role: 'student', permissions: [] });

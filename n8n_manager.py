@@ -48,10 +48,12 @@ def create_workflow(args):
             data = data['data']
             
         res = requests.post(f"{BASE_URL}/api/v1/workflows", headers=HEADERS, json=data)
-        res.raise_for_status()
+        if res.status_code >= 400:
+            print(f"Error creating workflow: {res.status_code} - {res.text}")
+            return
         print(f"Workflow created. ID: {res.json()['id']}")
     except Exception as e:
-        print(f"Error creating workflow: {e}")
+        print(f"Error creating workflow exception: {e}")
 
 def update_workflow(args):
     try:

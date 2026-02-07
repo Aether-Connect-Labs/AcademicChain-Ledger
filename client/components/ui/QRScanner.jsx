@@ -10,6 +10,34 @@ const QRScanner = ({ onScan, isActive = true, className = '' }) => {
   const scannerElementId = 'html5qr-scanner';
   const [permissionRequested, setPermissionRequested] = useState(false);
 
+  const fileInputRef = useRef(null);
+
+  // Manejar subida de imagen QR
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      const html5QrCode = new Html5Qrcode("html5qr-file-reader");
+      const decodedText = await html5QrCode.scanFile(file, true);
+      // Limpiar y notificar éxito
+      html5QrCode.clear();
+      onScan(decodedText);
+    } catch (error) {
+      console.error('Error scanning file:', error);
+      alert('No se detectó un código QR válido en la imagen. Intenta con otra imagen más clara.');
+    } finally {
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
   // Obtener cámaras disponibles
   const getCameras = useCallback(async () => {
     try {
@@ -139,10 +167,19 @@ const QRScanner = ({ onScan, isActive = true, className = '' }) => {
 
   // Renderizar estados
   const renderContent = () => {
+    const FileUploadButton = ({ className = "btn-secondary" }) => (
+      <button
+        onClick={triggerFileUpload}
+        className={`${className} flex items-center gap-2`}
+      >
+        <span>📂</span> Subir imagen QR
+      </button>
+    );
+
     switch (scannerState) {
       case 'starting':
         return (
-          <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg">
+          <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg min-h-[300px]">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
             <p className="text-gray-700">Iniciando cámara...</p>
           </div>
@@ -150,56 +187,90 @@ const QRScanner = ({ onScan, isActive = true, className = '' }) => {
 
       case 'permission_denied':
         return (
-          <div className="flex flex-col items-center justify-center p-8 bg-red-50 rounded-lg border border-red-200">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-              <span className="text-2xl">📷</span>
+          <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl border border-red-100 shadow-lg min-h-[350px]">
+            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6 animate-bounce-slow">
+              <span className="text-4xl">🚫</span>
             </div>
-            <h3 className="font-bold text-red-800 text-lg mb-2">Permiso Denegado</h3>
-            <p className="text-red-700 text-center mb-4">
-              Por favor, permite el acceso a la cámara para escanear códigos QR.
+            <h3 className="font-bold text-gray-800 text-xl mb-2">Acceso Denegado</h3>
+            <p className="text-gray-600 text-center mb-8 max-w-xs">
+              No tenemos permiso para usar la cámara. Por favor actívala en tu navegador o sube una imagen.
             </p>
-            <button
-              onClick={handleRetry}
-              className="btn-secondary text-red-600 border-red-300 hover:bg-red-50 hover-lift shadow-soft"
-            >
-              Reintentar
-            </button>
+            <div className="flex flex-col gap-3 w-full max-w-xs">
+              <button
+                onClick={handleRetry}
+                className="btn-secondary w-full"
+              >
+                Reintentar Permiso
+              </button>
+              
+              <div className="relative flex py-2 items-center">
+                <div className="flex-grow border-t border-gray-200"></div>
+                <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-medium">O SUBIR ARCHIVO</span>
+                <div className="flex-grow border-t border-gray-200"></div>
+              </div>
+              
+              <FileUploadButton className="btn-primary w-full" />
+            </div>
           </div>
         );
 
       case 'error':
         return (
-          <div className="flex flex-col items-center justify-center p-8 bg-yellow-50 rounded-lg border border-yellow-200">
-            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
-              <span className="text-2xl">⚠️</span>
+          <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl border border-gray-100 shadow-lg min-h-[350px]">
+            <div className="w-20 h-20 bg-yellow-50 rounded-full flex items-center justify-center mb-6">
+              <span className="text-4xl">⚠️</span>
             </div>
-            <h3 className="font-bold text-yellow-800 text-lg mb-2">Error de Cámara</h3>
-            <p className="text-yellow-700 text-center mb-4">
-              No se pudo acceder a la cámara. Verifica que esté disponible y no esté en uso.
+            <h3 className="font-bold text-gray-800 text-xl mb-2">Problemas de Cámara</h3>
+            <p className="text-gray-600 text-center mb-8 max-w-xs">
+              No pudimos acceder a tu cámara. Verifica que no esté en uso por otra aplicación.
             </p>
-            <button
-              onClick={handleRetry}
-              className="btn-secondary text-yellow-700 border-yellow-300 hover:bg-yellow-50 hover-lift shadow-soft"
-            >
-              Reintentar
-            </button>
+            <div className="flex flex-col gap-3 w-full max-w-xs">
+              <button
+                onClick={handleRetry}
+                className="btn-secondary w-full"
+              >
+                Reintentar Cámara
+              </button>
+
+              <div className="relative flex py-2 items-center">
+                <div className="flex-grow border-t border-gray-200"></div>
+                <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-medium">ALTERNATIVAMENTE</span>
+                <div className="flex-grow border-t border-gray-200"></div>
+              </div>
+
+              <FileUploadButton className="btn-primary w-full" />
+            </div>
           </div>
         );
 
       case 'scanning':
         return (
           <div className="space-y-4">
-            {/* Selector de cámara */}
+            {/* Cabecera con controles */}
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                </span>
+                Cámara Activa
+              </div>
+              
+              <button
+                onClick={triggerFileUpload}
+                className="text-xs bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-full flex items-center gap-1 transition-colors"
+              >
+                <span>📂</span> Subir imagen
+              </button>
+            </div>
+
+            {/* Selector de cámara si hay múltiples */}
             {availableCameras.length > 1 && (
-              <div className="flex items-center space-x-2">
-                <label htmlFor="camera-select" className="text-sm font-medium text-gray-700">
-                  Cámara:
-                </label>
+              <div className="mb-2">
                 <select
-                  id="camera-select"
                   value={selectedCamera}
                   onChange={(e) => handleCameraChange(e.target.value)}
-                  className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {availableCameras.map(camera => (
                     <option key={camera.id} value={camera.id}>
@@ -211,39 +282,50 @@ const QRScanner = ({ onScan, isActive = true, className = '' }) => {
             )}
 
             {/* Área del scanner */}
-            <div className="relative">
+            <div className="relative rounded-xl overflow-hidden shadow-inner bg-black">
               <div 
                 id={scannerElementId} 
-                className="rounded-lg overflow-hidden border-2 border-blue-400"
+                className="overflow-hidden"
               />
-              
-              {/* Overlay de guía */}
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <div className="w-64 h-64 border-2 border-white border-dashed rounded-lg"></div>
-              </div>
+              {/* Overlay decorativo */}
+              <div className="absolute inset-0 pointer-events-none border-[20px] border-black/30 rounded-xl"></div>
             </div>
 
-            <p className="text-center text-sm text-gray-600">
-              Enfoca el código QR dentro del marco
+            <p className="text-center text-xs text-gray-500 mt-2">
+              Enfoca el código QR o sube una imagen si tienes problemas
             </p>
           </div>
         );
 
       default:
         return (
-          <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg">
-            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-              <span className="text-2xl">📷</span>
+          <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg min-h-[300px]">
+            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-6 animate-pulse">
+              <span className="text-4xl">📷</span>
             </div>
-            <p className="text-gray-600">Listo para escanear</p>
-            {!permissionRequested && (
-              <button
-                onClick={requestCameraPermission}
-                className="mt-4 btn-primary"
-              >
-                Permitir Cámara
-              </button>
-            )}
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Escanear Credencial</h3>
+            <p className="text-gray-600 text-center mb-8 max-w-xs">
+              Utiliza tu cámara para verificar la autenticidad de una credencial o sube una imagen del código QR.
+            </p>
+            
+            <div className="flex flex-col gap-3 w-full max-w-xs">
+              {!permissionRequested && (
+                <button
+                  onClick={requestCameraPermission}
+                  className="btn-primary w-full py-3 text-lg shadow-lg hover:shadow-xl transition-all"
+                >
+                  Activar Cámara
+                </button>
+              )}
+              
+              <div className="relative flex py-2 items-center">
+                <div className="flex-grow border-t border-gray-300"></div>
+                <span className="flex-shrink-0 mx-4 text-gray-400 text-xs">O TAMBIÉN PUEDES</span>
+                <div className="flex-grow border-t border-gray-300"></div>
+              </div>
+
+              <FileUploadButton className="btn-white w-full border-gray-300 text-gray-700 hover:bg-gray-100" />
+            </div>
           </div>
         );
     }
@@ -252,6 +334,16 @@ const QRScanner = ({ onScan, isActive = true, className = '' }) => {
   return (
     <div className={`qr-scanner ${className}`}>
       {renderContent()}
+      {/* Input oculto para subida de archivos */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        accept="image/*"
+        onChange={handleFileUpload}
+      />
+      {/* Div oculto para el procesador de archivos */}
+      <div id="html5qr-file-reader" className="hidden"></div>
     </div>
   );
 };

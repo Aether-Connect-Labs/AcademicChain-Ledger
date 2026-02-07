@@ -1,0 +1,131 @@
+{
+  "name": "Employer - Generate Veracity Report",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-employer-report",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.headers[\"x-acl-auth-key\"]}}",
+              "operation": "equal",
+              "value2": "acl_live_sec_8f92a3b4"
+            }
+          ]
+        }
+      },
+      "name": "Security Guard",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Unauthorized\", \"message\": \"Invalid security token\"}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "name": "Reject Request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare Report Data\nconst results = $input.item.json.body.results || [];\nconst total = $input.item.json.body.totalFiles || 0;\nconst valid = $input.item.json.body.validCount || 0;\n\n// Sort by match score\nconst topCandidates = results\n  .filter(r => r.status === 'valid')\n  .sort((a, b) => b.matchScore - a.matchScore)\n  .slice(0, 10);\n\nreturn {\n  reportDate: new Date().toISOString().split('T')[0],\n  total,\n  valid,\n  topCandidates\n};"
+      },
+      "name": "Process Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "htmlContent",
+              "value": "<html><body><h1>Reporte de Veracidad Consolidado</h1><p>Fecha: {{$json.reportDate}}</p><p>De los {{$json.total}} CVs analizados, <strong>{{$json.valid}}</strong> tienen Verdad Criptográfica confirmada.</p><h2>Top 10 Candidatos (Smart Matching)</h2><ul>{{$json.topCandidates.map(c => `<li><strong>${c.candidateName}</strong> - Score: ${c.matchScore}% (Skills: ${c.verifiedSkills.join(', ')})</li>`).join('')}}</ul><p>Verificado por AcademicChain Ledger.</p></body></html>"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Generate HTML",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "data",
+        "html": "={{$json.htmlContent}}"
+      },
+      "name": "HTML to PDF",
+      "type": "n8n-nodes-base.htmlToPdf",
+      "typeVersion": 1,
+      "position": [800, 0],
+      "notes": "Requires separate installation or external service in some n8n versions"
+    },
+    {
+      "parameters": {
+        "toEmail": "recruiter@example.com",
+        "subject": "Tu Reporte de Veracidad Consolidado",
+        "text": "Adjunto encontrarás el reporte de los CVs procesados.",
+        "attachments": "data",
+        "options": {}
+      },
+      "name": "Email Report",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [1000, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Report generated and emailed\",\n  \"reportUrl\": \"https://academicchain.com/reports/temp-link-123.pdf\"\n}",
+        "options": {}
+      },
+      "name": "Respond to App",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1200, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "Security Guard", "type": "main", "index": 0}]]
+    },
+    "Security Guard": {
+      "main": [
+        [{"node": "Process Data", "type": "main", "index": 0}],
+        [{"node": "Reject Request", "type": "main", "index": 0}]
+      ]
+    },
+    "Process Data": {
+      "main": [[{"node": "Generate HTML", "type": "main", "index": 0}]]
+    },
+    "Generate HTML": {
+      "main": [[{"node": "HTML to PDF", "type": "main", "index": 0}]]
+    },
+    "HTML to PDF": {
+      "main": [[{"node": "Email Report", "type": "main", "index": 0}]]
+    },
+    "Email Report": {
+      "main": [[{"node": "Respond to App", "type": "main", "index": 0}]]
+    }
+  }
+}

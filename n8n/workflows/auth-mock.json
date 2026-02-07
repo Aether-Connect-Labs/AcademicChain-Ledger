@@ -1,0 +1,129 @@
+{
+  "name": "Auth Mock Service",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/auth/me",
+        "options": {}
+      },
+      "name": "Get User Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.headers[\"x-acl-auth-key\"]}}",
+              "operation": "equal",
+              "value2": "acl_live_sec_8f92a3b4"
+            }
+          ]
+        }
+      },
+      "name": "Security Guard Me",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"admin-local\",\n    \"name\": \"Admin Local n8n\",\n    \"email\": \"admin@academicchain.com\",\n    \"role\": \"admin\",\n    \"permissions\": [\"view_dashboard\", \"bulk_issue\", \"manage_users\"]\n  }\n}",
+        "options": {}
+      },
+      "name": "Respond User",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Unauthorized\", \"message\": \"Invalid or missing security key\"}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "name": "Reject User",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [400, 100]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api/auth/login",
+        "options": {}
+      },
+      "name": "Login Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 300]
+    },
+     {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.headers[\"x-acl-auth-key\"]}}",
+              "operation": "equal",
+              "value2": "acl_live_sec_8f92a3b4"
+            }
+          ]
+        }
+      },
+      "name": "Security Guard Login",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"token\": \"mock-n8n-token-{{$now.toFormat('yyyyMMdd')}}\",\n  \"user\": {\n    \"id\": \"admin-local\",\n    \"name\": \"Admin Local n8n\",\n    \"email\": \"{{$json.body.email}}\",\n    \"role\": \"admin\"\n  }\n}",
+        "options": {}
+      },
+      "name": "Respond Login",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Unauthorized\", \"message\": \"Invalid or missing security key\"}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "name": "Reject Login",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [400, 400]
+    }
+  ],
+  "connections": {
+    "Get User Webhook": {
+      "main": [[{"node": "Security Guard Me", "type": "main", "index": 0}]]
+    },
+    "Security Guard Me": {
+      "main": [
+        [{"node": "Respond User", "type": "main", "index": 0}],
+        [{"node": "Reject User", "type": "main", "index": 0}]
+      ]
+    },
+    "Login Webhook": {
+      "main": [[{"node": "Security Guard Login", "type": "main", "index": 0}]]
+    },
+    "Security Guard Login": {
+      "main": [
+        [{"node": "Respond Login", "type": "main", "index": 0}],
+        [{"node": "Reject Login", "type": "main", "index": 0}]
+      ]
+    }
+  }
+}

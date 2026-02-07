@@ -59,64 +59,186 @@ const HomePage = () => {
 
       <FeaturesSection />
 
+      {/* Student / Smart CV Section */}
       <motion.section
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        className="container-responsive py-24 relative z-10 border-b border-white/5"
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="order-2 lg:order-1 relative">
+            <div className="absolute -inset-4 bg-gradient-to-r from-blue-500 to-cyan-500 opacity-20 blur-3xl rounded-full pointer-events-none"></div>
+            <div className="glass-panel p-6 relative bg-slate-900/80 backdrop-blur-xl border border-blue-500/30 rotate-2 hover:rotate-0 transition-transform duration-500">
+              <div className="flex items-center gap-4 mb-6 border-b border-white/5 pb-4">
+                <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-2xl">🎓</div>
+                <div>
+                  <h3 className="font-bold text-white">Smart CV</h3>
+                  <p className="text-xs text-green-400 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Identidad Verificada
+                  </p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="p-3 rounded bg-slate-800/50 border border-slate-700/50">
+                  <div className="text-xs text-slate-400 mb-1">Habilidad Verificada</div>
+                  <div className="font-bold text-white flex justify-between">
+                    Desarrollo Blockchain
+                    <span className="text-blue-400 text-xs bg-blue-500/10 px-2 py-1 rounded">Hash: 0x8a...2b</span>
+                  </div>
+                </div>
+                <div className="p-3 rounded bg-slate-800/50 border border-slate-700/50">
+                  <div className="text-xs text-slate-400 mb-1">Proyecto Certificado</div>
+                  <div className="font-bold text-white flex justify-between">
+                    Marketplace NFT
+                    <span className="text-purple-400 text-xs bg-purple-500/10 px-2 py-1 rounded">Top 5%</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 pt-4 border-t border-white/5 text-center">
+                <div className="text-xs text-slate-500 mb-2">Generado por IA • Validado por Blockchain</div>
+                <div className="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 w-[85%]"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="order-1 lg:order-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-medium mb-6">
+              <span className="animate-pulse">●</span> Para Estudiantes
+            </div>
+            <h2 className="text-4xl md:text-5xl font-extrabold mb-6 font-display leading-tight">
+              Tu Carrera, <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">
+                Impulsada por IA
+              </span>
+            </h2>
+            <p className="text-lg text-slate-400 mb-8 leading-relaxed">
+              No solo estudies, demuestra. Nuestro Smart CV analiza tus credenciales verificadas y genera un perfil profesional optimizado para los algoritmos de reclutamiento de las mejores empresas.
+            </p>
+            
+            <div className="space-y-4 mb-8">
+              <div className="flex items-center gap-3 text-slate-300">
+                <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs">✓</div>
+                Generación automática basada en logros reales.
+              </div>
+              <div className="flex items-center gap-3 text-slate-300">
+                <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs">✓</div>
+                Verificación de identidad (KYC) integrada.
+              </div>
+              <div className="flex items-center gap-3 text-slate-300">
+                <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs">✓</div>
+                Visibilidad prioritaria para reclutadores.
+              </div>
+            </div>
+
+            <Link 
+              to="/student/cv"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-all shadow-lg shadow-blue-500/25"
+            >
+              Crear mi Smart CV
+              <span className="text-xl">→</span>
+            </Link>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Recruiting 3.0 Section */}
+      <motion.section
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
         className="container-responsive py-24 relative z-10"
       >
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-extrabold mb-4 font-display">Niveles de Servicio</h2>
-          <p className="text-slate-400">Escalabilidad Enterprise para instituciones modernas.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Plan Esencial */}
-          <div className="glass-panel p-8 relative overflow-hidden group hover:border-primary-500/50 transition-colors">
-            <div className="absolute top-0 right-0 p-4 opacity-50">
-              <span className="text-xs font-mono border border-primary-500/30 px-2 py-1 rounded text-primary-400">CORE</span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-sm font-medium mb-6">
+              <span className="animate-pulse">●</span> Para Empleadores
             </div>
-            <h3 className="text-xl font-bold font-display text-white mb-2">Esencial</h3>
-            <div className="text-4xl font-bold text-primary-400 mb-6">$50<span className="text-sm text-slate-500">/mo</span></div>
-            <ul className="space-y-4 text-slate-300 text-sm mb-8">
-              <li className="flex items-center gap-2"><span className="text-primary-500">❖</span> Registro en Hedera Testnet</li>
-              <li className="flex items-center gap-2"><span className="text-primary-500">❖</span> 50 Emisiones / mes</li>
-              <li className="flex items-center gap-2"><span className="text-primary-500">❖</span> Soporte Básico</li>
-            </ul>
-            <Link to="/comenzar-gratis" className="btn-primary w-full block text-center bg-primary-600/20 border border-primary-500/50 text-primary-300 hover:bg-primary-500 hover:text-black">
-              Iniciar
+            <h2 className="text-4xl md:text-5xl font-extrabold mb-6 font-display leading-tight">
+              Contratación basada en <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+                Verdad Criptográfica
+              </span>
+            </h2>
+            <p className="text-lg text-slate-400 mb-8 leading-relaxed">
+              Olvídate de verificar títulos manualmente. Accede a una red de talento donde cada habilidad, certificado y logro ha sido validado matemáticamente en la blockchain.
+            </p>
+            
+            <div className="space-y-6 mb-8">
+              {[
+                { title: "Verificación Instantánea", desc: "Valida credenciales en milisegundos, no semanas." },
+                { title: "Smart Matching con IA", desc: "Encuentra candidatos que realmente cumplen tus requisitos técnicos." },
+                { title: "Sin Fraude", desc: "La inmutabilidad de Hedera garantiza la autenticidad del historial." }
+              ].map((item, idx) => (
+                <div key={idx} className="flex gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-purple-900/30 flex items-center justify-center border border-purple-500/30 text-purple-400 shrink-0">
+                    {idx === 0 ? '⚡' : idx === 1 ? '🧠' : '🛡️'}
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold text-lg">{item.title}</h4>
+                    <p className="text-slate-400 text-sm">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <Link 
+              to="/employer/dashboard"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold transition-all shadow-lg shadow-purple-500/25"
+            >
+              Buscar Talento
+              <span className="text-xl">→</span>
             </Link>
           </div>
 
-          {/* Plan Profesional (Featured) */}
-          <div className="glass-panel p-8 relative overflow-hidden ring-1 ring-secondary-500 shadow-neon-purple transform md:-translate-y-4">
-            <div className="absolute inset-0 bg-secondary-500/5 pointer-events-none" />
-            <div className="absolute top-0 right-0 p-4">
-              <span className="text-xs font-mono bg-secondary-500 text-white px-2 py-1 rounded shadow-lg uppercase tracking-wider">Recomendado</span>
-            </div>
-            <h3 className="text-xl font-bold font-display text-white mb-2">Profesional</h3>
-            <div className="text-4xl font-bold text-secondary-400 mb-6">$155<span className="text-sm text-slate-500">/mo</span></div>
-            <ul className="space-y-4 text-slate-300 text-sm mb-8">
-              <li className="flex items-center gap-2"><span className="text-secondary-400">◈</span> Hedera Mainnet + XRPL</li>
-              <li className="flex items-center gap-2"><span className="text-secondary-400">◈</span> 500 Emisiones / mes</li>
-              <li className="flex items-center gap-2"><span className="text-secondary-400">◈</span> API Access (Headless)</li>
-              <li className="flex items-center gap-2"><span className="text-secondary-400">◈</span> Soporte Prioritario 24/7</li>
-            </ul>
-            <Link to="/precios" className="btn-primary w-full block text-center bg-secondary-600 hover:bg-secondary-500 text-white shadow-lg shadow-secondary-500/25">
-              Mejorar Plan
-            </Link>
-          </div>
+          <div className="relative">
+            <div className="absolute -inset-4 bg-gradient-to-r from-purple-500 to-pink-500 opacity-20 blur-3xl rounded-full pointer-events-none"></div>
+            <div className="glass-panel p-6 relative bg-slate-900/80 backdrop-blur-xl border border-purple-500/30">
+              <div className="flex items-center justify-between mb-6 border-b border-white/5 pb-4">
+                <div>
+                  <div className="text-xs text-purple-400 font-mono mb-1">CANDIDATE MATCH</div>
+                  <div className="text-xl font-bold text-white">Sofia R.</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-green-400">98%</div>
+                  <div className="text-xs text-slate-500">Match Score</div>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400">Ingeniería de Software</span>
+                  <span className="text-green-400 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-green-400"></span> Verificado
+                  </span>
+                </div>
+                <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-purple-500 w-[100%]"></div>
+                </div>
 
-          {/* Plan Enterprise */}
-          <div className="glass-panel p-8 relative overflow-hidden group hover:border-slate-500 transition-colors">
-            <h3 className="text-xl font-bold font-display text-white mb-2">Enterprise</h3>
-            <div className="text-4xl font-bold text-white mb-6">Custom</div>
-            <ul className="space-y-4 text-slate-300 text-sm mb-8">
-              <li className="flex items-center gap-2"><span className="text-white">❖</span> Nodos Dedicados</li>
-              <li className="flex items-center gap-2"><span className="text-white">❖</span> Emisiones Ilimitadas</li>
-              <li className="flex items-center gap-2"><span className="text-white">❖</span> SLA 99.99%</li>
-              <li className="flex items-center gap-2"><span className="text-white">❖</span> On-Premise Option</li>
-            </ul>
-            <Link to="/agenda" className="btn-primary w-full block text-center bg-transparent border border-slate-600 text-slate-300 hover:bg-white hover:text-black">
-              Contactar Ventas
-            </Link>
+                <div className="flex justify-between items-center text-sm mt-4">
+                  <span className="text-slate-400">Blockchain Architecture</span>
+                  <span className="text-green-400 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-green-400"></span> Verificado
+                  </span>
+                </div>
+                <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-pink-500 w-[95%]"></div>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-white/5">
+                  <div className="flex gap-2">
+                    <span className="px-2 py-1 rounded bg-slate-800 text-xs text-slate-300">Solidity</span>
+                    <span className="px-2 py-1 rounded bg-slate-800 text-xs text-slate-300">React</span>
+                    <span className="px-2 py-1 rounded bg-slate-800 text-xs text-slate-300">Hedera</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </motion.section>
@@ -148,7 +270,23 @@ const HomePage = () => {
                 <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <span className="relative z-10 font-bold text-cyan-50 tracking-wide">Simular Institución</span>
               </Link>
+
+              <Link 
+                to="/portal-creadores" 
+                className="group relative px-8 py-4 bg-[#0F172A] border border-pink-500/30 rounded-xl overflow-hidden transition-all duration-300 hover:border-pink-400 hover:shadow-[0_0_20px_rgba(236,72,153,0.4)]"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-rose-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="relative z-10 font-bold text-pink-50 tracking-wide">Simular Creador</span>
+              </Link>
               
+              <Link 
+                to="/employer/dashboard" 
+                className="group relative px-8 py-4 bg-[#0F172A] border border-purple-500/30 rounded-xl overflow-hidden transition-all duration-300 hover:border-purple-400 hover:shadow-[0_0_20px_rgba(168,85,247,0.4)]"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="relative z-10 font-bold text-purple-50 tracking-wide">Simular Empleador</span>
+              </Link>
+
               <Link 
                 to="/demo/student" 
                 className="group relative px-8 py-4 bg-[#0F172A] border border-blue-500/30 rounded-xl overflow-hidden transition-all duration-300 hover:border-blue-400 hover:shadow-[0_0_20px_rgba(59,130,246,0.4)]"

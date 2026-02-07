@@ -1,0 +1,157 @@
+{
+  "name": "Payment Gateway - Create Invoice",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "create-payment",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.headers[\"x-acl-auth-key\"]}}",
+              "operation": "equal",
+              "value2": "acl_live_sec_8f92a3b4"
+            }
+          ]
+        }
+      },
+      "name": "Security Guard",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Unauthorized\", \"message\": \"Invalid security token\"}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "name": "Reject Request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://api.nowpayments.io/v1/invoice",
+        "method": "POST",
+        "authentication": "headerAuth",
+        "headerAuth": {
+            "name": "x-api-key",
+            "value": "YOUR_NOWPAYMENTS_API_KEY"
+        },
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersUi": {
+            "parameter": [
+                {
+                    "name": "price_amount",
+                    "value": "={{$json.body.amount}}"
+                },
+                {
+                    "name": "price_currency",
+                    "value": "={{$json.body.currency || 'usd'}}"
+                },
+                {
+                    "name": "order_id",
+                    "value": "={{$json.body.planId}}-{{$now.toFormat('yyyyMMddHHmm')}}"
+                },
+                {
+                    "name": "order_description",
+                    "value": "Credit Recharge: {{$json.body.planId}}"
+                },
+                {
+                    "name": "ipn_callback_url",
+                    "value": "https://primary-production-4224.up.railway.app/webhook/payment-ipn"
+                }
+            ]
+        }
+      },
+      "name": "Create Invoice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "checkoutUrl",
+              "value": "={{$json.invoice_url}}"
+            },
+            {
+              "name": "invoiceId",
+              "value": "={{$json.id}}"
+            },
+            {
+              "name": "success",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Format Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+        "parameters": {
+            "message": "🧾 New Invoice Created: {{$json.invoiceId}} for ${{$node[\"Webhook\"].json.body.amount}}",
+            "options": {
+                "level": "info"
+            }
+        },
+        "name": "Log Transaction",
+        "type": "n8n-nodes-base.logger",
+        "typeVersion": 1,
+        "position": [600, 200]
+    },
+    {
+        "parameters": {
+            "respondWith": "json",
+            "responseBody": "={{JSON.stringify($json)}}",
+            "options": {}
+        },
+        "name": "Respond to Webhook",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1,
+        "position": [800, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "Security Guard", "type": "main", "index": 0}]]
+    },
+    "Security Guard": {
+      "main": [
+        [{"node": "Create Invoice", "type": "main", "index": 0}],
+        [{"node": "Reject Request", "type": "main", "index": 0}]
+      ]
+    },
+    "Create Invoice": {
+      "main": [
+          [
+              {"node": "Format Response", "type": "main", "index": 0},
+              {"node": "Log Transaction", "type": "main", "index": 0}
+          ]
+      ]
+    },
+    "Format Response": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    }
+  }
+}

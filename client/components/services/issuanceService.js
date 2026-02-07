@@ -20,10 +20,21 @@ export const issuanceService = {
   },
 
   getTokens: async () => {
-    const res = await fetch(`${API_BASE_URL}/api/universities/tokens`, {
-      headers: getAuthHeaders(),
-    });
-    return handleResponse(res);
+    // START: Conexión simulada a n8n para obtener tokens
+    // Para conectar realmente, crea un endpoint webhook en n8n que devuelva este JSON
+    // const res = await fetch(`${API_BASE_URL}/get-tokens`, { headers: getAuthHeaders() });
+
+    // Mock temporal para que la UI funcione sin el backend de Node viejo
+    return {
+      success: true,
+      data: {
+        tokens: [
+          { tokenId: '0.0.123456', tokenName: 'Diploma Oficial Ingeniería' },
+          { tokenId: '0.0.654321', tokenName: 'Certificado de Honor' }
+        ],
+        university: 'Universidad Demo n8n'
+      }
+    };
   },
 
   getCredentials: async (params = {}) => {
@@ -60,12 +71,8 @@ export const issuanceService = {
   },
 
   prepareIssuance: async (data) => {
-    const res = await fetch(`${API_BASE_URL}/api/universities/prepare-issuance`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data),
-    });
-    return handleResponse(res);
+    console.warn('prepareIssuance está obsoleto. Usar n8nService.submitDocument');
+    throw new Error('Función obsoleta. Use n8n directo.');
   },
 
   executeIssuance: async (data) => {
@@ -78,18 +85,12 @@ export const issuanceService = {
   },
 
   issueBulkCredentials: async (payload) => {
-    // Use /issue-bulk which supports both Redis queue and direct fallback
-    const target = API_BASE_URL ? `${API_BASE_URL}/api/universities/issue-bulk` : '/api/universities/issue-bulk';
-    const res = await fetch(target, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payload),
-    });
-    const json = await handleResponse(res);
-    // Return unified structure, supporting both immediate result and job ID
-    return { 
-      jobId: json?.data?.jobId || json?.jobId,
-      ...json
+    console.log('Simulating Bulk Issuance via n8n (Placeholder)...');
+    // Mock response
+    return {
+      success: true,
+      jobId: 'job-' + Date.now(),
+      message: 'Batch received by n8n (Simulated)'
     };
   },
 
@@ -107,7 +108,7 @@ export const issuanceService = {
         const res = await fetch(`${API_BASE_URL}/api/creators/profile`, { headers: getAuthHeaders() });
         if (res.ok) return handleResponse(res);
       }
-    } catch {}
+    } catch { }
     // Mock
     return {
       success: true,
@@ -126,7 +127,7 @@ export const issuanceService = {
         const res = await fetch(`${API_BASE_URL}/api/creators/credentials`, { headers: getAuthHeaders() });
         if (res.ok) return handleResponse(res);
       }
-    } catch {}
+    } catch { }
     // Mock
     return {
       success: true,
@@ -147,8 +148,8 @@ export const issuanceService = {
         });
         if (res.ok) return handleResponse(res);
       }
-    } catch {}
-    
+    } catch { }
+
     // Mock Simulation
     await new Promise(resolve => setTimeout(resolve, 1500));
     return {
@@ -170,36 +171,7 @@ export const issuanceService = {
   },
 
   uploadToIPFS: async (file) => {
-    // 1. Try backend authenticated upload first (Secure & Preferred)
-    if (API_BASE_URL) {
-      try {
-        const fd = new FormData();
-        fd.append('file', file);
-        
-        const headers = getAuthHeaders();
-        delete headers['Content-Type']; // Let browser set multipart/form-data with boundary
-
-        const res = await fetch(`${API_BASE_URL}/api/upload/image`, {
-          method: 'POST',
-          headers,
-          body: fd
-        });
-        
-        // Note: fetch automatically sets Content-Type to multipart/form-data with boundary when body is FormData
-        // We might need to ensure getAuthHeaders doesn't override it with application/json
-        
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data?.ipfsURI) {
-             return json.data.ipfsURI;
-          }
-        }
-      } catch (e) {
-        console.warn('Backend upload failed, falling back to client-side...', e);
-      }
-    }
-
-    // 2. Client-side Fallbacks (Legacy)
+    // 1. Client-side Pinata/IPFS (Since backend is n8n headless)
     const pinataJwt = import.meta.env.VITE_PINATA_JWT || '';
     const pinataApiKey = import.meta.env.VITE_PINATA_API_KEY || '';
     const pinataSecretKey = import.meta.env.VITE_PINATA_SECRET_KEY || '';
@@ -209,17 +181,17 @@ export const issuanceService = {
       fd.append('file', file);
       fd.append('pinataMetadata', JSON.stringify({ name: file.name }));
       fd.append('pinataOptions', JSON.stringify({ cidVersion: 1 }));
-      
-      const headers = pinataJwt 
-        ? { Authorization: `Bearer ${pinataJwt}` } 
+
+      const headers = pinataJwt
+        ? { Authorization: `Bearer ${pinataJwt}` }
         : { pinata_api_key: pinataApiKey, pinata_secret_api_key: pinataSecretKey };
-      
-      const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', { 
-        method: 'POST', 
-        headers, 
-        body: fd 
+
+      const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+        method: 'POST',
+        headers,
+        body: fd
       });
-      
+
       if (!res.ok) throw new Error('Pinata upload failed');
       const data = await res.json();
       return `ipfs://${data.IpfsHash}`;
@@ -229,12 +201,12 @@ export const issuanceService = {
       const projectId = import.meta.env.VITE_IPFS_PROJECT_ID || '';
       const projectSecret = import.meta.env.VITE_IPFS_PROJECT_SECRET || '';
       const authHeader = projectId && projectSecret ? 'Basic ' + btoa(`${projectId}:${projectSecret}`) : undefined;
-      
-      const client = createIpfsClient({ 
-        url: endpoint, 
-        headers: authHeader ? { Authorization: authHeader } : undefined 
+
+      const client = createIpfsClient({
+        url: endpoint,
+        headers: authHeader ? { Authorization: authHeader } : undefined
       });
-      
+
       const added = await client.add(file);
       return `ipfs://${added.cid.toString()}`;
     }

@@ -1,260 +1,119 @@
 {
-    "name": "AcademicChain Backend API (Router)",
+    "name": "AcademicChain Backend API (Production)",
     "nodes": [
         {
             "parameters": {
-                "path": "api/*",
+                "path": "submit-document",
                 "responseMode": "responseNode",
-                "options": {}
+                "options": {
+                    "httpMethod": "POST"
+                }
             },
-            "name": "Webhook ALL",
+            "name": "Webhook Submit",
             "type": "n8n-nodes-base.webhook",
             "typeVersion": 1,
             "position": [
                 0,
                 0
             ],
-            "id": "webhook-all",
-            "webhookId": "academic-chain-api"
+            "id": "webhook-submit",
+            "webhookId": "submit-document"
         },
         {
             "parameters": {
-                "dataType": "string",
-                "value1": "={{ $input.params.path }}",
-                "rules": {
-                    "rules": [
+                "collection": "credentials",
+                "operation": "insert",
+                "options": {}
+            },
+            "name": "Save to MongoDB",
+            "type": "n8n-nodes-base.mongoDb",
+            "typeVersion": 1,
+            "position": [
+                250,
+                0
+            ],
+            "id": "mongo-insert",
+            "credentials": {
+                "mongoDb": {
+                    "id": "mongo-cred-id",
+                    "name": "AcademicChain Mongo"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.123456/submit",
+                "method": "POST",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeader",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
                         {
-                            "value2": "api/health",
-                            "outputKey": "health"
-                        },
-                        {
-                            "value2": "api/healthz",
-                            "outputKey": "health"
-                        },
-                        {
-                            "value2": "api/universities/credentials",
-                            "outputKey": "get_credentials"
-                        },
-                        {
-                            "value2": "api/universities/statistics",
-                            "outputKey": "get_stats"
-                        },
-                        {
-                            "value2": "api/submit-document",
-                            "outputKey": "submit_doc"
-                        },
-                        {
-                            "value2": "api/universities/create-token",
-                            "outputKey": "generic_success"
-                        },
-                        {
-                            "value2": "api/universities/prepare-issuance",
-                            "outputKey": "prepare_issuance"
+                            "name": "message",
+                            "value": "={{ $json.documentHash }}"
                         }
                     ]
-                },
-                "fallbackOutput": 3
-            },
-            "name": "Router",
-            "type": "n8n-nodes-base.switch",
-            "typeVersion": 1,
-            "position": [
-                250,
-                0
-            ],
-            "id": "router"
-        },
-        {
-            "parameters": {
-                "respondWith": "json",
-                "responseBody": "{\n  \"status\": \"ok\",\n  \"timestamp\": \"{{ $now }}\",\n  \"service\": \"n8n-backend\"\n}",
-                "options": {}
-            },
-            "name": "Health Response",
-            "type": "n8n-nodes-base.respondToWebhook",
-            "typeVersion": 1,
-            "position": [
-                500,
-                -200
-            ],
-            "id": "resp-health"
-        },
-        {
-            "parameters": {
-                "respondWith": "json",
-                "responseBody": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"n8n-1\",\n      \"studentName\": \"María González (n8n)\",\n      \"title\": \"Licenciatura en Administración\",\n      \"tokenId\": \"ALGO-123456\",\n      \"createdAt\": \"2024-01-15T10:00:00Z\",\n      \"issuer\": \"Universidad N8N\"\n    },\n    {\n      \"id\": \"n8n-2\",\n      \"studentName\": \"Carlos Rodríguez (n8n)\",\n      \"title\": \"Ingeniería en Sistemas\",\n      \"tokenId\": \"HEDERA-789012\",\n      \"createdAt\": \"2024-02-20T14:30:00Z\",\n      \"issuer\": \"Universidad N8N\"\n    }\n  ]\n}",
-                "options": {}
-            },
-            "name": "Credentials Mock",
-            "type": "n8n-nodes-base.respondToWebhook",
-            "typeVersion": 1,
-            "position": [
-                500,
-                0
-            ],
-            "id": "resp-creds"
-        },
-        {
-            "parameters": {
-                "respondWith": "json",
-                "responseBody": "{\n  \"success\": true,\n  \"data\": {\n     \"totalCredentials\": 1250,\n     \"totalTokens\": 5,\n     \"totalRecipients\": 900,\n     \"lastIssuance\": \"{{ $now }}\"\n  }\n}",
-                "options": {}
-            },
-            "name": "Stats Mock",
-            "type": "n8n-nodes-base.respondToWebhook",
-            "typeVersion": 1,
-            "position": [
-                500,
-                200
-            ],
-            "id": "resp-stats"
-        },
-        {
-            "parameters": {
-                "respondWith": "json",
-                "responseBody": "{\n  \"success\": true,\n  \"data\": {\n    \"txId\": \"0.0.1234@123456789\",\n    \"status\": \"prepared\"\n  }\n}",
-                "options": {}
-            },
-            "name": "Prepare Issuance Mock",
-            "type": "n8n-nodes-base.respondToWebhook",
-            "typeVersion": 1,
-            "position": [
-                500,
-                400
-            ],
-            "id": "resp-prepare"
-        },
-        {
-            "parameters": {
-                "jsCode": "// Logic from previous stub\nconst headers = $input.item.json.headers;\nconst body = $input.item.json.body;\n\n// Basic Auth Check\nconst authKey = headers['x-acl-auth-key'];\n// In production, use $env.N8N_AUTH_KEY\n// For demo integration, we accept 'demo-key' or whatever\n\nif (authKey !== 'demo-key' && authKey !== $env.N8N_AUTH_KEY) {\n   // return { error: 'Unauthorized' }; \n   // Passing through to response node to handle error format if needed\n}\n\nreturn [{\n  json: {\n    valid: true,\n    processedAt: new Date().toISOString(),\n    receivedHash: body.documentHash\n  }\n}];"
-            },
-            "name": "Submit Logic",
-            "type": "n8n-nodes-base.code",
-            "typeVersion": 1,
-            "position": [
-                500,
-                600
-            ],
-            "id": "code-submit"
-        },
-        {
-            "parameters": {
-                "respondWith": "json",
-                "responseBody": "{\n  \"status\": \"success\",\n  \"data\": {{ JSON.stringify($json) }}\n}",
-                "options": {}
-            },
-            "name": "Submit Response",
-            "type": "n8n-nodes-base.respondToWebhook",
-            "typeVersion": 1,
-            "position": [
-                700,
-                600
-            ],
-            "id": "resp-submit"
-        },
-        {
-            "parameters": {
-                "respondWith": "json",
-                "responseBody": "{\n  \"success\": true,\n  \"message\": \"Operation successful (Mock n8n)\"\n}",
-                "options": {}
-            },
-            "name": "Generic Success",
-            "type": "n8n-nodes-base.respondToWebhook",
-            "typeVersion": 1,
-            "position": [
-                500,
-                800
-            ],
-            "id": "resp-generic"
-        },
-        {
-            "parameters": {
-                "respondWith": "json",
-                "responseBody": "{\n  \"error\": \"Endpoint not found\",\n  \"path\": \"{{ $input.params.path }}\"\n}",
-                "options": {
-                    "responseCode": 404
                 }
             },
-            "name": "404 Response",
+            "name": "Hedera Consensus (Testnet)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                500,
+                0
+            ],
+            "id": "hedera-submit",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "hedera-auth",
+                    "name": "Hedera Mirror Node"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "{\n \"success\": true,\n \"step\": \"hedera_consensus\",\n \"txId\": \"{{ $json.transactionId }}\"\n}"
+            },
+            "name": "Response",
             "type": "n8n-nodes-base.respondToWebhook",
             "typeVersion": 1,
             "position": [
-                250,
-                400
+                750,
+                0
             ],
-            "id": "resp-404"
+            "id": "response"
         }
     ],
     "connections": {
-        "Webhook ALL": {
+        "Webhook Submit": {
             "main": [
                 [
                     {
-                        "node": "Router",
+                        "node": "Save to MongoDB",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "Router": {
+        "Save to MongoDB": {
             "main": [
                 [
                     {
-                        "node": "Health Response",
-                        "type": "main",
-                        "index": 0
-                    }
-                ],
-                [
-                    {
-                        "node": "Credentials Mock",
-                        "type": "main",
-                        "index": 0
-                    }
-                ],
-                [
-                    {
-                        "node": "Stats Mock",
-                        "type": "main",
-                        "index": 0
-                    }
-                ],
-                [
-                    {
-                        "node": "Submit Logic",
-                        "type": "main",
-                        "index": 0
-                    }
-                ],
-                [
-                    {
-                        "node": "Generic Success",
-                        "type": "main",
-                        "index": 0
-                    }
-                ],
-                [
-                    {
-                        "node": "Prepare Issuance Mock",
-                        "type": "main",
-                        "index": 0
-                    }
-                ],
-                [
-                    {
-                        "node": "404 Response",
+                        "node": "Hedera Consensus (Testnet)",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "Submit Logic": {
+        "Hedera Consensus (Testnet)": {
             "main": [
                 [
                     {
-                        "node": "Submit Response",
+                        "node": "Response",
                         "type": "main",
                         "index": 0
                     }

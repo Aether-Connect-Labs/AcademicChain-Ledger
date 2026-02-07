@@ -1,297 +1,229 @@
 {
-    "name": "MCP Server - Antigravity Integration",
-    "nodes": [
-        {
-            "parameters": {},
-            "type": "@n8n/n8n-nodes-langchain.mcpServerTrigger",
-            "typeVersion": 1,
-            "position": [
-                0,
-                0
-            ],
-            "id": "trigger-node",
-            "name": "MCP Server"
-        },
-        {
-            "parameters": {
-                "name": "list_workflows",
-                "description": "List all workflows in the n8n instance",
-                "method": "GET",
-                "url": "https://n8n-b0be.onrender.com/api/v1/workflows",
-                "sendHeaders": true,
-                "headerParameters": {
-                    "parameters": [
-                        {
-                            "name": "X-N8N-API-KEY",
-                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4YTQxMzQyOC02NTQyLTQ2YmItOTVhMi1jYzAzMzVkNTg5MmIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiYTZmYzZmNzgtNmU0YS00ZTI5LWE1ZDItYTY0MGYyZTAzNDk0IiwiaWF0IjoxNzcwMjI1ODk3fQ.K9kRoCgNNgsJrzei0ob01nexBztKRA5-S0r5-iYYl68"
-                        }
-                    ]
-                }
-            },
-            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
-            "typeVersion": 1,
-            "position": [
-                200,
-                -200
-            ],
-            "id": "tool-list",
-            "name": "list_workflows"
-        },
-        {
-            "parameters": {
-                "name": "get_workflow",
-                "description": "Get details and JSON of a specific workflow by ID",
-                "method": "GET",
-                "url": "={{ 'https://n8n-b0be.onrender.com/api/v1/workflows/' + $fromAI('id', 'The ID of the workflow to retrieve') }}",
-                "sendHeaders": true,
-                "headerParameters": {
-                    "parameters": [
-                        {
-                            "name": "X-N8N-API-KEY",
-                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4YTQxMzQyOC02NTQyLTQ2YmItOTVhMi1jYzAzMzVkNTg5MmIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiYTZmYzZmNzgtNmU0YS00ZTI5LWE1ZDItYTY0MGYyZTAzNDk0IiwiaWF0IjoxNzcwMjI1ODk3fQ.K9kRoCgNNgsJrzei0ob01nexBztKRA5-S0r5-iYYl68"
-                        }
-                    ]
-                }
-            },
-            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
-            "typeVersion": 1,
-            "position": [
-                200,
-                0
-            ],
-            "id": "tool-get",
-            "name": "get_workflow"
-        },
-        {
-            "parameters": {
-                "name": "create_workflow",
-                "description": "Create a new workflow from a JSON definition",
-                "method": "POST",
-                "url": "https://n8n-b0be.onrender.com/api/v1/workflows",
-                "sendBody": true,
-                "bodyParameters": {
-                    "parameters": [
-                        {
-                            "name": "name",
-                            "value": "={{ $fromAI('name', 'Name of the workflow') }}"
-                        },
-                        {
-                            "name": "nodes",
-                            "value": "={{ JSON.parse($fromAI('nodes_json', 'JSON string of the nodes array')) }}"
-                        },
-                        {
-                            "name": "connections",
-                            "value": "={{ JSON.parse($fromAI('connections_json', 'JSON string of the connections object')) }}"
-                        }
-                    ]
-                },
-                "sendHeaders": true,
-                "headerParameters": {
-                    "parameters": [
-                        {
-                            "name": "X-N8N-API-KEY",
-                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4YTQxMzQyOC02NTQyLTQ2YmItOTVhMi1jYzAzMzVkNTg5MmIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiYTZmYzZmNzgtNmU0YS00ZTI5LWE1ZDItYTY0MGYyZTAzNDk0IiwiaWF0IjoxNzcwMjI1ODk3fQ.K9kRoCgNNgsJrzei0ob01nexBztKRA5-S0r5-iYYl68"
-                        }
-                    ]
-                }
-            },
-            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
-            "typeVersion": 1,
-            "position": [
-                200,
-                200
-            ],
-            "id": "tool-create",
-            "name": "create_workflow"
-        },
-        {
-            "parameters": {
-                "name": "update_workflow",
-                "description": "Update an existing workflow by ID with new JSON definition",
-                "method": "PUT",
-                "url": "={{ 'https://n8n-b0be.onrender.com/api/v1/workflows/' + $fromAI('id', 'The ID of the workflow to update') }}",
-                "sendBody": true,
-                "bodyParameters": {
-                    "parameters": [
-                        {
-                            "name": "name",
-                            "value": "={{ $fromAI('name', 'New name of the workflow') }}"
-                        }
-                    ]
-                },
-                "specifyBody": "json",
-                "jsonBody": "={{ JSON.parse($fromAI('workflow_json_full', 'The full valid workflow JSON object containing nodes and connections')) }}",
-                "sendHeaders": true,
-                "headerParameters": {
-                    "parameters": [
-                        {
-                            "name": "X-N8N-API-KEY",
-                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4YTQxMzQyOC02NTQyLTQ2YmItOTVhMi1jYzAzMzVkNTg5MmIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiYTZmYzZmNzgtNmU0YS00ZTI5LWE1ZDItYTY0MGYyZTAzNDk0IiwiaWF0IjoxNzcwMjI1ODk3fQ.K9kRoCgNNgsJrzei0ob01nexBztKRA5-S0r5-iYYl68"
-                        }
-                    ]
-                }
-            },
-            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
-            "typeVersion": 1,
-            "position": [
-                200,
-                400
-            ],
-            "id": "tool-update",
-            "name": "update_workflow"
-        },
-        {
-            "parameters": {
-                "name": "activate_workflow",
-                "description": "Activate a workflow by ID",
-                "method": "POST",
-                "url": "={{ 'https://n8n-b0be.onrender.com/api/v1/workflows/' + $fromAI('id', 'The ID of the workflow') + '/activate' }}",
-                "sendHeaders": true,
-                "headerParameters": {
-                    "parameters": [
-                        {
-                            "name": "X-N8N-API-KEY",
-                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4YTQxMzQyOC02NTQyLTQ2YmItOTVhMi1jYzAzMzVkNTg5MmIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiYTZmYzZmNzgtNmU0YS00ZTI5LWE1ZDItYTY0MGYyZTAzNDk0IiwiaWF0IjoxNzcwMjI1ODk3fQ.K9kRoCgNNgsJrzei0ob01nexBztKRA5-S0r5-iYYl68"
-                        }
-                    ]
-                }
-            },
-            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
-            "typeVersion": 1,
-            "position": [
-                450,
-                -200
-            ],
-            "id": "tool-activate",
-            "name": "activate_workflow"
-        },
-        {
-            "parameters": {
-                "name": "deactivate_workflow",
-                "description": "Deactivate a workflow by ID",
-                "method": "POST",
-                "url": "={{ 'https://n8n-b0be.onrender.com/api/v1/workflows/' + $fromAI('id', 'The ID of the workflow') + '/deactivate' }}",
-                "sendHeaders": true,
-                "headerParameters": {
-                    "parameters": [
-                        {
-                            "name": "X-N8N-API-KEY",
-                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4YTQxMzQyOC02NTQyLTQ2YmItOTVhMi1jYzAzMzVkNTg5MmIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiYTZmYzZmNzgtNmU0YS00ZTI5LWE1ZDItYTY0MGYyZTAzNDk0IiwiaWF0IjoxNzcwMjI1ODk3fQ.K9kRoCgNNgsJrzei0ob01nexBztKRA5-S0r5-iYYl68"
-                        }
-                    ]
-                }
-            },
-            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
-            "typeVersion": 1,
-            "position": [
-                450,
-                0
-            ],
-            "id": "tool-deactivate",
-            "name": "deactivate_workflow"
-        },
-        {
-            "parameters": {
-                "name": "execute_workflow",
-                "description": "Execute a workflow via Webhook URL/ID",
-                "method": "POST",
-                "url": "={{ $fromAI('webhook_url', 'Full Webhook URL') }}",
-                "sendBody": true,
-                "specifyBody": "json",
-                "jsonBody": "={{ JSON.parse($fromAI('payload_json', 'JSON payload to send')) }}",
-                "sendHeaders": false
-            },
-            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
-            "typeVersion": 1,
-            "position": [
-                450,
-                200
-            ],
-            "id": "tool-execute",
-            "name": "execute_workflow"
-        },
-        {
-            "parameters": {
-                "name": "audit_workflow",
-                "description": "Audit a workflow JSON for best practices and return analysis",
-                "jsCode": "const workflow = JSON.parse(query);\nconst risks = [];\nconst improvements = [];\n\nif (!workflow.nodes || workflow.nodes.length === 0) risks.push('Workflow is empty');\nif (workflow.nodes && workflow.nodes.length > 30) risks.push('Workflow is too large (>30 nodes). Consider splitting.');\n// Check for disconnected nodes\nconst connectedNodes = new Set();\nif (workflow.connections) {\n  Object.values(workflow.connections).forEach(c => {\n     c.main.forEach(arr => arr.forEach(link => connectedNodes.add(link.node)));\n  });\n}\n// etc. Basic check\n\nreturn JSON.stringify({ risks, improvements, score: 80, notes: 'Simple audit performed.' });"
-            },
-            "type": "@n8n/n8n-nodes-langchain.toolCode",
-            "typeVersion": 1,
-            "position": [
-                450,
-                400
-            ],
-            "id": "tool-audit",
-            "name": "audit_workflow"
-        },
-        {
-            "parameters": {
-                "name": "auto_document_workflow",
-                "description": "Add documentation sticky note to a workflow JSON",
-                "jsCode": "const workflow = JSON.parse(query);\nworkflow.nodes.push({\n  \"parameters\": {\n    \"content\": \"## Auto-Documentation\\n\\nVerified by Antigravity.\",\n    \"height\": 200,\n    \"width\": 300,\n    \"color\": 4\n  },\n  \"type\": \"n8n-nodes-base.stickyNote\",\n  \"typeVersion\": 1,\n  \"position\": [0, -400],\n  \"id\": \"auto-doc-\" + Math.random().toString(36).substring(7),\n  \"name\": \"Documentation\"\n});\nreturn JSON.stringify(workflow);"
-            },
-            "type": "@n8n/n8n-nodes-langchain.toolCode",
-            "typeVersion": 1,
-            "position": [
-                650,
-                400
-            ],
-            "id": "tool-auto-doc",
-            "name": "auto_document_workflow"
+  "name": "MCP Server Implementation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mcp-server",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "webhook-trigger",
+      "name": "MCP Webhook"
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.headers.authorization }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "Bearer mcp-secret-key-847382"
+            }
+          ]
         }
-    ],
-    "connections": {
-        "trigger-node": {
-            "main": [
-                [
-                    {
-                        "node": "tool-list",
-                        "type": "main",
-                        "index": 0
-                    },
-                    {
-                        "node": "tool-get",
-                        "type": "main",
-                        "index": 0
-                    },
-                    {
-                        "node": "tool-create",
-                        "type": "main",
-                        "index": 0
-                    },
-                    {
-                        "node": "tool-update",
-                        "type": "main",
-                        "index": 0
-                    },
-                    {
-                        "node": "tool-activate",
-                        "type": "main",
-                        "index": 0
-                    },
-                    {
-                        "node": "tool-deactivate",
-                        "type": "main",
-                        "index": 0
-                    },
-                    {
-                        "node": "tool-execute",
-                        "type": "main",
-                        "index": 0
-                    },
-                    {
-                        "node": "tool-audit",
-                        "type": "main",
-                        "index": 0
-                    },
-                    {
-                        "node": "tool-auto-doc",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [220, 0],
+      "id": "auth-check",
+      "name": "Auth Check"
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.body.method }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "tools/list"
+            },
+            {
+              "value2": "tools/call"
+            }
+          ]
         }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [440, 0],
+      "id": "route-method",
+      "name": "Route Method"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"jsonrpc\": \"2.0\",\n  \"id\": {{ $json.body.id }},\n  \"result\": {\n    \"tools\": [\n      {\n        \"name\": \"list_workflows\",\n        \"description\": \"List all workflows in n8n\",\n        \"inputSchema\": {\n          \"type\": \"object\",\n          \"properties\": {}\n        }\n      },\n      {\n        \"name\": \"get_workflow\",\n        \"description\": \"Get full JSON details of a workflow\",\n        \"inputSchema\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"id\": { \"type\": \"string\", \"description\": \"Workflow ID\" }\n          },\n          \"required\": [\"id\"]\n        }\n      },\n      {\n        \"name\": \"create_workflow\",\n        \"description\": \"Create a new workflow from JSON\",\n        \"inputSchema\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"name\": { \"type\": \"string\" },\n            \"nodes\": { \"type\": \"array\" },\n            \"connections\": { \"type\": \"object\" }\n          },\n          \"required\": [\"name\"]\n        }\n      },\n      {\n        \"name\": \"activate_workflow\",\n        \"description\": \"Activate a workflow\",\n        \"inputSchema\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"id\": { \"type\": \"string\" }\n          },\n          \"required\": [\"id\"]\n        }\n      }\n    ]\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [660, -150],
+      "id": "respond-list",
+      "name": "Respond List"
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.body.params.name }}",
+        "rules": {
+          "rules": [
+            { "value2": "list_workflows" },
+            { "value2": "get_workflow" },
+            { "value2": "create_workflow" },
+            { "value2": "activate_workflow" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [660, 100],
+      "id": "route-tool",
+      "name": "Route Tool"
+    },
+    {
+      "parameters": {
+        "url": "https://n8n-b0be.onrender.com/api/v1/workflows",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "headerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-KEY",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4YTQxMzQyOC02NTQyLTQ2YmItOTVhMi1jYzAzMzVkNTg5MmIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiZTVmZTRiYTYtN2I0OS00ZDhlLWExNGYtMzg5OWE2MWI5YjhhIiwiaWF0IjoxNzcwMzE1MzI0fQ.WNVi8wGGPQ9gjEzHYT5MHA1KiXYgkZeW1njnPg9KCbQ"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, -100],
+      "id": "api-list",
+      "name": "API List"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://n8n-b0be.onrender.com/api/v1/workflows/' + $('Webhook Trigger').item.json.body.params.arguments.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "headerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-KEY",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4YTQxMzQyOC02NTQyLTQ2YmItOTVhMi1jYzAzMzVkNTg5MmIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiZTVmZTRiYTYtN2I0OS00ZDhlLWExNGYtMzg5OWE2MWI5YjhhIiwiaWF0IjoxNzcwMzE1MzI0fQ.WNVi8wGGPQ9gjEzHYT5MHA1KiXYgkZeW1njnPg9KCbQ"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 100],
+      "id": "api-get",
+      "name": "API Get"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"jsonrpc\": \"2.0\",\n  \"id\": {{ $('Webhook Trigger').item.json.body.id }},\n  \"result\": {\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": {{ JSON.stringify($json) }}\n      }\n    ]\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1200, 0],
+      "id": "respond-call",
+      "name": "Respond Call"
     }
+  ],
+  "connections": {
+    "MCP Webhook": {
+      "main": [
+        [
+          {
+            "node": "Auth Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth Check": {
+      "main": [
+        [
+          {
+            "node": "Route Method",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Method": {
+      "main": [
+        [
+          {
+            "node": "Respond List",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route Tool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Tool": {
+      "main": [
+        [
+          {
+            "node": "API List",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "API Get",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API List": {
+      "main": [
+        [
+          {
+            "node": "Respond Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API Get": {
+      "main": [
+        [
+          {
+            "node": "Respond Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

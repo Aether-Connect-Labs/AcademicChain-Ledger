@@ -174,8 +174,8 @@ const DemoScheduler = () => {
       <p className="text-gray-600 mb-6">Selecciona tu horario preferido. Zona horaria: {tz}</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-soft p-4">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Selecciona una fecha</h2>
+        <div className="lg:col-span-2 glass-card p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">Selecciona una fecha</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {days.map((d, i) => {
               const active = selectedDate && d.toDateString() === selectedDate.toDateString();
@@ -183,7 +183,7 @@ const DemoScheduler = () => {
                 <button
                   key={i}
                   onClick={() => setSelectedDate(d)}
-                  className={`px-4 py-3 rounded-lg border transition-colors ${active ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50'}`}
+                  className={`px-4 py-3 rounded-lg border transition-colors ${active ? 'border-cyan-500 bg-cyan-500/20 text-cyan-300' : 'border-slate-700 hover:bg-slate-800 text-slate-300'}`}
                 >
                   {d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                 </button>
@@ -192,13 +192,13 @@ const DemoScheduler = () => {
           </div>
           {selectedDate && (
             <div className="mt-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Selecciona una hora</h2>
+              <h2 className="text-lg font-semibold text-white mb-4">Selecciona una hora</h2>
               <div className="flex flex-wrap gap-3">
                 {defaultTimes.map((t) => (
                   <button
                     key={t}
                     onClick={() => setSelectedTime(t)}
-                    className={`px-4 py-2 rounded-lg border text-sm transition-colors ${selectedTime === t ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50'}`}
+                    className={`px-4 py-2 rounded-lg border text-sm transition-colors ${selectedTime === t ? 'border-cyan-500 bg-cyan-500/20 text-cyan-300' : 'border-slate-700 hover:bg-slate-800 text-slate-300'}`}
                   >
                     {t}
                   </button>
@@ -207,8 +207,8 @@ const DemoScheduler = () => {
             </div>
           )}
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-soft p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Información de contacto</h2>
+        <div className="glass-card p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">Información de contacto</h2>
           <div className="space-y-3">
             <input
               value={name}

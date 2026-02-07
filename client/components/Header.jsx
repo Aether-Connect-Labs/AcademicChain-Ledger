@@ -60,6 +60,7 @@ const Header = () => {
     { name: 'Inicio', path: '/' },
     { name: 'Creadores', path: '/creators' },
     { name: 'Instituciones', path: '/instituciones' },
+    { name: 'Empresas', path: '/employer' },
     { name: 'Verificar', path: '/verificar' },
     { name: 'Agenda', path: '/agenda' },
     { name: 'Precios', path: '/precios' },
@@ -74,7 +75,7 @@ const Header = () => {
     navLinks.push({ name: 'Dashboard', path: '/institution/dashboard' });
   }
 
-  const isHome = location.pathname === '/';
+  const isHome = location.pathname === '/' || location.pathname === '/employer';
   const effectiveScrolled = scrolled || !isHome;
 
   return (
@@ -102,7 +103,7 @@ const Header = () => {
                   {institutionName || 'AcademicChain'}
                 </span>
                 <span className={`text-xs ${effectiveScrolled ? 'text-gray-800' : 'text-white/90'}`}>
-                  Powered by AcademicChain
+                  Impulsado por AcademicChain
                 </span>
               </Link>
             </div>

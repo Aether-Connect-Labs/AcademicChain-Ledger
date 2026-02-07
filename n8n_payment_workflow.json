@@ -1,0 +1,111 @@
+{
+    "name": "AcademicChain Payments (NOWPayments)",
+    "nodes": [
+        {
+            "parameters": {
+                "path": "create-payment",
+                "responseMode": "responseNode",
+                "options": {
+                    "httpMethod": "POST"
+                }
+            },
+            "name": "Webhook Create Payment",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                0,
+                0
+            ],
+            "id": "webhook-payment"
+        },
+        {
+            "parameters": {
+                "url": "https://api.nowpayments.io/v1/invoice",
+                "method": "POST",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeader",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "price_amount",
+                            "value": "={{ $json.amount }}"
+                        },
+                        {
+                            "name": "price_currency",
+                            "value": "usd"
+                        },
+                        {
+                            "name": "pay_currency",
+                            "value": "cny"
+                        },
+                        {
+                            "name": "ipn_callback_url",
+                            "value": "https://n8n.academicchain.com/webhook/payment-callback"
+                        },
+                        {
+                            "name": "order_id",
+                            "value": "={{ $json.planId }}-{{ $now.toMillis() }}"
+                        },
+                        {
+                            "name": "order_description",
+                            "value": "AcademicChain Credits: {{ $json.planId }}"
+                        }
+                    ]
+                }
+            },
+            "name": "NOWPayments Create Invoice",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                250,
+                0
+            ],
+            "id": "nowpayments-create",
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "nowpayments-api-key",
+                    "name": "NOWPayments API Key"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "{\n  \"success\": true,\n  \"invoiceId\": \"{{ $json.id }}\",\n  \"checkoutUrl\": \"{{ $json.invoice_url }}\"\n}"
+            },
+            "name": "Return Invoice URL",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                500,
+                0
+            ],
+            "id": "return-invoice"
+        }
+    ],
+    "connections": {
+        "Webhook Create Payment": {
+            "main": [
+                [
+                    {
+                        "node": "NOWPayments Create Invoice",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "NOWPayments Create Invoice": {
+            "main": [
+                [
+                    {
+                        "node": "Return Invoice URL",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

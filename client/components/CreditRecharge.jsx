@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import QRCode from 'react-qr-code';
 import { Toaster, toast } from 'react-hot-toast';
 import { toGateway, getGateways } from './utils/ipfsUtils';
+import n8nService from './services/n8nService';
 
 const TREASURY_ACCOUNT_ID = '0.0.7174400';
 const ACL_TOKEN_ID = '0.0.7560139';
@@ -25,14 +26,14 @@ const CreditRecharge = () => {
   const [logoSrc, setLogoSrc] = useState(toGateway('ipfs://bafkreicickkyjjn3ztitciypfh635lqowdskzbv54fiqbrhs4zbmwhjv4q'));
   const logoGateways = useRef(getGateways('ipfs://bafkreicickkyjjn3ztitciypfh635lqowdskzbv54fiqbrhs4zbmwhjv4q'));
   const logoGwIndex = useRef(0);
-  
+
   // Fetch XRP Price
   React.useEffect(() => {
     if (method === 'XRP') {
       fetch('/api/billing/xrp-price')
         .then(res => res.json())
         .then(data => {
-            if (data.success && data.price) setXrpPrice(data.price);
+          if (data.success && data.price) setXrpPrice(data.price);
         })
         .catch(console.error);
     }
@@ -60,39 +61,22 @@ const CreditRecharge = () => {
     }
     setLoading(true);
     try {
-      let endpoint, body;
-
-      if (method === 'ACL') {
-        endpoint = '/api/billing/verify-acl-payment';
-        body = {
-          transactionId: txId.trim(),
-          tokenId: ACL_TOKEN_ID,
-          treasuryAccountId: TREASURY_ACCOUNT_ID,
-          expectedAmountAcl: selected.priceAcl,
-        };
-      } else if (method === 'XRP') {
-        endpoint = '/api/billing/verify-xrp-payment';
-        body = {
-          transactionId: txId.trim(),
-          planId: selected.id
-        };
-      }
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(body),
+      // Use n8n Service to verify on blockchain
+      const data = await n8nService.verifyTransaction({
+        transactionId: txId.trim(),
+        method: method, // 'ACL' or 'XRP'
+        expectedAmount: selected.priceAcl || selected.priceUsd,
+        planId: selected.id
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
+
+      if (!data.success) {
         throw new Error(data.message || 'No se pudo verificar el pago');
       }
-      toast.success(`Créditos acreditados: ${data.data.creditsGranted}`);
+      toast.success(`Créditos acreditados: ${data.creditsGranted || selected.credits}`);
       setShowModal(false);
       setTxId('');
     } catch (e) {
-      toast.error(e.message || 'Error verificando el pago');
+      toast.error(e.message || 'Error verificando el pago con n8n');
     } finally {
       setLoading(false);
     }
@@ -100,37 +84,30 @@ const CreditRecharge = () => {
 
   const handlePurchase = async (plan) => {
     try {
-      toast.loading('Generando link de pago seguro...', { id: 'banxa-load' });
-      // 1. Llamamos a nuestro backend para crear una intención de compra
-      const response = await fetch('/api/billing/create-payment-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          planId: plan.id,
-          amountFiat: plan.priceUsd 
-          // universityId se inyecta desde req.user en backend si está logueado
-        })
+      toast.loading('Contactando NOWPayments vía n8n...', { id: 'payment-load' });
+
+      // Call n8n Service to create payment intent
+      const data = await n8nService.createPayment({
+        planId: plan.id,
+        amount: plan.priceUsd,
+        currency: 'USD'
       });
-      
-      const data = await response.json();
 
       if (data.success && data.checkoutUrl) {
-          toast.dismiss('banxa-load');
-          toast.success('Redirigiendo a Banxa...');
-          // 2. Redirigimos a la ventana segura de Banxa (Tarjeta/Cripto)
-          // Cuando te den la API, esta URL será la oficial de Banxa
-          setTimeout(() => {
-             window.location.href = data.checkoutUrl;
-          }, 1500);
+        toast.dismiss('payment-load');
+        toast.success('Redirigiendo a pasarela de pago...');
+        setTimeout(() => {
+          window.location.href = data.checkoutUrl;
+        }, 1500);
       } else {
-          toast.dismiss('banxa-load');
-          toast.error('Error al iniciar pago. Intenta nuevamente.');
+        toast.dismiss('payment-load');
+        toast.error('Error al iniciar pago. Intenta nuevamente.');
       }
-      
+
     } catch (error) {
-        console.error("Error al iniciar la compra:", error);
-        toast.dismiss('banxa-load');
-        toast.error('Error de conexión.');
+      console.error("Error al iniciar la compra:", error);
+      toast.dismiss('payment-load');
+      toast.error('Error de conexión con n8n.');
     }
   };
 
@@ -243,12 +220,12 @@ const CreditRecharge = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {method === 'ACL' ? (
-                   <>
+                  <>
                     <img src={logoSrc} onError={handleLogoError} alt="Logo ACL" className="h-7 w-7 rounded-full" />
                     <div className="text-lg font-bold text-white">Pagar con ACL</div>
-                   </>
+                  </>
                 ) : (
-                   <div className="text-lg font-bold text-blue-400">Pagar con XRP Ledger</div>
+                  <div className="text-lg font-bold text-blue-400">Pagar con XRP Ledger</div>
                 )}
               </div>
               <button className="text-gray-400 hover:text-white" onClick={() => setShowModal(false)}>✕</button>
@@ -256,10 +233,10 @@ const CreditRecharge = () => {
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex flex-col items-center">
                 <div className="text-sm text-gray-400 mb-2">
-                    {method === 'ACL' ? `Envía ${selected.priceAcl} ACL` : `Envía ${(selected.priceUsd / xrpPrice).toFixed(0)} XRP`}
+                  {method === 'ACL' ? `Envía ${selected.priceAcl} ACL` : `Envía ${(selected.priceUsd / xrpPrice).toFixed(0)} XRP`}
                 </div>
                 <QRCode
-                  value={method === 'ACL' 
+                  value={method === 'ACL'
                     ? `ACL:${ACL_TOKEN_ID}|TO:${TREASURY_ACCOUNT_ID}|AMT:${selected.priceAcl}`
                     : `XRP:${XRP_WALLET}?dt=123456&amount=${(selected.priceUsd / xrpPrice).toFixed(6)}` // Standard XRP URI format
                   }
@@ -268,7 +245,7 @@ const CreditRecharge = () => {
                   fgColor="#ffffff"
                 />
                 <div className="mt-2 text-xs text-gray-400 text-center break-all">
-                    {method === 'ACL' ? `Cuenta: ${TREASURY_ACCOUNT_ID}` : `Wallet: ${XRP_WALLET}`}
+                  {method === 'ACL' ? `Cuenta: ${TREASURY_ACCOUNT_ID}` : `Wallet: ${XRP_WALLET}`}
                 </div>
                 {method === 'ACL' && <div className="text-xs text-gray-400">Token: {ACL_TOKEN_ID}</div>}
               </div>

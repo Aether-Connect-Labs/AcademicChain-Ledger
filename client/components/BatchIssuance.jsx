@@ -8,6 +8,7 @@ import { issuanceService } from './services/issuanceService';
 import { verificationService } from './services/verificationService';
 import { fileParser } from './utils/fileParser';
 import { validationService } from './services/validationService';
+import n8nService from './services/n8nService';
 import ProgressTracker from './ui/ProgressTracker';
 import CredentialPreview from './CredentialPreview';
 import IssuanceSummary from './IssuanceSummary';
@@ -48,7 +49,7 @@ const XrpAnchorCell = ({ tokenId, serialNumber }) => {
   return <a href={href} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{hash.slice(0, 8)}...</a>;
 };
 
-const BatchIssuance = ({ demo = false }) => {
+const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComplete }) => {
   const { account, isConnected, connectWallet, signTransactionBytes } = useHedera();
   const { token } = useAuth(); // Obtener el token de autenticación
   const { socket, isConnected: isSocketConnected } = useWebSocket(token); // Usar el token real
@@ -72,12 +73,45 @@ const BatchIssuance = ({ demo = false }) => {
     sendEmail: false,
     template: 'default',
     tokenId: '0.0.123456',
+    customMessage: ''
   });
+  const [preSignTemplates, setPreSignTemplates] = useState([]);
   const [preSignPayments, setPreSignPayments] = useState(true);
   const [pollError, setPollError] = useState('');
   const [isPolling, setIsPolling] = useState(false);
   const [xrpBatchIntents, setXrpBatchIntents] = useState([]);
   const [xrpBatchHashes, setXrpBatchHashes] = useState({});
+  const [availableTemplates, setAvailableTemplates] = useState([]);
+
+  useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem('customTemplates') || '[]');
+    setAvailableTemplates(saved);
+
+    const savedNarratives = JSON.parse(localStorage.getItem('academicNarratives') || '[]');
+    if (savedNarratives.length > 0) {
+        setPreSignTemplates(savedNarratives);
+    } else {
+        // Fallback defaults
+        setPreSignTemplates([
+            {
+                id: 'tech_excellence',
+                name: 'Excelencia Técnica',
+                content: "Felicidades, {{student_name}}. El trayecto en la especialidad de {{degree}} ha sido exigente, pero tu dedicación en los laboratorios finales ha sido excepcional. Como reconocimiento a tu trayectoria académica en nuestra institución, te hacemos entrega de esta credencial inmutable."
+            },
+            {
+                id: 'prof_degree',
+                name: 'Grado Profesional',
+                content: "Por haber cumplido satisfactoriamente con todos los requisitos académicos del programa de {{degree}}, y haber demostrado un alto compromiso ético y profesional, {{institution}} confiere el presente grado a {{student_name}}."
+            }
+        ]);
+    }
+    
+    const activeId = localStorage.getItem('activeTemplateId');
+    if (activeId && saved.find(t => t.id === activeId)) {
+        setIssuanceConfig(prev => ({ ...prev, template: activeId }));
+    }
+  }, []);
+
   const getResultItems = useCallback(() => {
     const items = [];
     const prepared = Array.isArray(processResult?.data?.prepared) ? processResult.data.prepared : [];
@@ -220,7 +254,8 @@ const BatchIssuance = ({ demo = false }) => {
           metadata: {
             gpa: row.gpa,
             graduationDate: row.graduationDate,
-            honors: row.honors
+            honors: row.honors,
+            email: row.email
           }
         });
 
@@ -426,6 +461,20 @@ const BatchIssuance = ({ demo = false }) => {
     };
 
     try {
+      // Plan Validation
+      if (plan && plan.limit !== Infinity) {
+          if (emissionsUsed + credentials.length > plan.limit) {
+               throw new Error(`Este lote excede tu límite mensual (${plan.limit}). Has usado ${emissionsUsed}. Actualiza a Plan Enterprise.`);
+          }
+      }
+      if (plan && issuanceConfig.addToHedera && !plan.networks.includes('hedera')) {
+           throw new Error(`Tu plan actual (${plan.name}) no incluye emisión en Hedera.`);
+      }
+      if (plan && !plan.networks.includes('xrp') && plan.networks.includes('hedera') && plan.networks.length === 1) {
+           // Si solo tiene Hedera (Esencial), asegurar que no intente usar XRP implícitamente o mostrar warning
+           // Por ahora el backend de n8n manejará las redes, pero validamos aquí.
+      }
+
       if (demo) {
         const total = credentials.length || 2;
         const demoCreds = credentials.length ? credentials : [
@@ -437,94 +486,41 @@ const BatchIssuance = ({ demo = false }) => {
         setProcessResult({ success: true, data: { total, startTime: results.startTime }, summary });
         setCurrentStep(4);
         setIsProcessing(false);
+        if (onEmissionComplete) onEmissionComplete(total);
         return;
       }
 
-      if (preSignPayments) {
-          const prepared = [];
-          for (const item of credentials) {
-            const uniqueHash = `hash-${crypto.randomUUID()}`;
-            const ipfsURI = `ipfs://demo-${uniqueHash}`;
-            const payload = {
-              type: issuanceConfig.credentialType,
-              tokenId: issuanceConfig.tokenId,
-              uniqueHash,
-              ipfsURI,
-              studentName: item.credential?.subject?.name || 'Student',
-              degree: item.credential?.subject?.degree || 'Degree',
-              graduationDate: new Date().toISOString().slice(0, 10),
-              recipientAccountId: item.credential?.recipientAccountId || undefined,
-              paymentMethod: undefined,
-            };
-            const prepRes = await issuanceService.prepareIssuance(payload);
-            const transactionId = prepRes.data?.transactionId || prepRes.transactionId;
-            const execRes = await issuanceService.executeIssuance({ transactionId });
-            prepared.push(execRes.data || execRes);
-            try {
-              const r = execRes?.data || execRes;
-              const tokenId = String(r?.tokenId || issuanceConfig.tokenId || '');
-              const serial = String(r?.mint?.serialNumber || r?.serialNumber || '');
-              const ipfs = r?.mint?.ipfs;
-              const ipfsCid = ipfs?.cid || (String(r?.mint?.ipfsURI || '').replace('ipfs://','') || '');
-              const ipfsGateway = ipfs?.gateway || (ipfsCid ? toGateway(`ipfs://${ipfsCid}`) : '');
-              const filecoinCid = r?.mint?.filecoin?.cid || '';
-              const filecoinGateway = r?.mint?.filecoin?.gateway || '';
-              toast.custom((t) => (
-                <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 w-[360px]">
-                  <div className="font-semibold text-gray-900">🎉 Credencial Emitida</div>
-                  <div className="text-sm text-gray-700 mt-2">Hedera: {tokenId}-{serial}</div>
-                  {ipfsCid ? (
-                    <div className="mt-2 text-sm">
-                      <div className="text-gray-700">IPFS CID: <span className="font-mono">{ipfsCid}</span></div>
-                      {ipfsGateway ? <a className="text-blue-600 underline" href={ipfsGateway} target="_blank" rel="noreferrer">Ver en Gateway</a> : null}
-                    </div>
-                  ) : null}
-                  {filecoinCid ? (
-                    <div className="mt-2 text-sm">
-                      <div className="text-gray-700">Respaldo Filecoin: <span className="text-green-700 font-semibold">Activo</span></div>
-                      <div className="text-gray-700">CID: <span className="font-mono">{filecoinCid}</span></div>
-                      {filecoinGateway ? <a className="text-blue-600 underline" href={filecoinGateway} target="_blank" rel="noreferrer">Ver en Gateway</a> : null}
-                    </div>
-                  ) : null}
-                  <div className="mt-3 flex justify-end">
-                    <button className="btn-secondary btn-xs" onClick={() => toast.dismiss(t.id)}>Cerrar</button>
-                  </div>
-                </div>
-              ), { duration: 6000 });
-            } catch {}
-          }
-          const total = prepared.length;
-          const summary = { total, successful: total, failed: 0, successRate: 100, duration: Math.round((Date.now() - results.startTime) / 1000), status: 'completed' };
-          setProcessResult({ success: true, data: { total, startTime: results.startTime, prepared }, summary });
-          setCurrentStep(4);
-          setIsProcessing(false);
-          return;
+      // Unified Batch Processing via n8n
+      // This handles all networks (Hedera, XRP, etc.) centrally
+      const batchData = {
+        tokenId: issuanceConfig.tokenId,
+        credentials: credentials.map(c => c.credential),
+        institution: issuanceConfig.institution,
+        templateId: issuanceConfig.template,
+        customMessage: issuanceConfig.customMessage,
+        networks: plan ? plan.networks : ['hedera'],
+        options: {
+            addToHedera: issuanceConfig.addToHedera,
+            generateQR: issuanceConfig.generateQR,
+            sendEmail: issuanceConfig.sendEmail
         }
-      // Track del inicio de la operación
+      };
+
       trackCredentialOperation({
         operation: 'batch_issuance_start',
         credentialCount: credentials.length,
         institution: issuanceConfig.institution
       });
 
-      // Enviar una única solicitud al backend para que encole el trabajo masivo
-      const bulkPayload = {
-        tokenId: issuanceConfig.tokenId,
-        credentials: credentials.map(c => c.credential)
-      };
+      // Call n8n service
+      const response = await n8nService.submitBatch(batchData);
+      const masterJobId = response.jobId || `job-${Date.now()}`;
 
-      // Asumimos que issuanceService tiene un método para esto
-      const bulkJobResult = await issuanceService.issueBulkCredentials(bulkPayload);
-
-      // El backend devuelve el ID del job maestro.
-      // El frontend ahora puede suscribirse a las actualizaciones de este job por WebSocket.
-      const masterJobId = bulkJobResult.jobId;
-
-      // Actualizar UI para mostrar que el proceso está encolado
+      // Update UI
       const summary = {
         total: results.total,
-        successful: 0, // Se actualizará via WebSocket
-        failed: 0,     // Se actualizará via WebSocket
+        successful: 0,
+        failed: 0,
         successRate: 0,
         duration: 0,
         status: 'queued',
@@ -539,7 +535,6 @@ const BatchIssuance = ({ demo = false }) => {
 
       setCurrentStep(4);
 
-      // Track del evento de encolado
       trackCredentialOperation({
         operation: 'batch_issuance_complete',
         status: 'queued',
@@ -638,6 +633,25 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Plantilla de Diseño
+                  </label>
+                  <select
+                    value={issuanceConfig.template}
+                    onChange={(e) => setIssuanceConfig(prev => ({
+                      ...prev,
+                      template: e.target.value
+                    }))}
+                    className="input-primary"
+                  >
+                    <option value="default">Por defecto</option>
+                    {availableTemplates.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Tipo de Credencial
                   </label>
                   <select
@@ -692,18 +706,78 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                     Fecha de Expiración (opcional)
                   </label>
                   <input
-                    type="date"
-                    value={issuanceConfig.expirationDate}
-                    onChange={(e) => setIssuanceConfig(prev => ({
-                      ...prev,
-                      expirationDate: e.target.value
-                    }))}
-                    className="input-primary"
-                  />
+                type="date"
+                value={issuanceConfig.expirationDate}
+                onChange={(e) => setIssuanceConfig(prev => ({
+                  ...prev,
+                  expirationDate: e.target.value
+                }))}
+                className="input-primary"
+              />
+            </div>
+            
+            <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Mensaje Personalizado (Narrativa del Trayecto)
+                </label>
+                <div className="mb-2">
+                    <select
+                        onChange={(e) => {
+                            const tmpl = preSignTemplates.find(t => t.id === e.target.value);
+                            if (tmpl) {
+                                setIssuanceConfig(prev => ({ ...prev, customMessage: tmpl.content }));
+                            }
+                        }}
+                        className="input-primary text-sm mb-2"
+                        defaultValue=""
+                    >
+                        <option value="" disabled>-- Seleccionar Plantilla de Mensaje --</option>
+                        {preSignTemplates.map(t => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                    </select>
                 </div>
-              </div>
-
-              <div className="space-y-4">
+                <textarea
+                    value={issuanceConfig.customMessage}
+                    onChange={(e) => setIssuanceConfig(prev => ({
+                    ...prev,
+                    customMessage: e.target.value
+                    }))}
+                    placeholder="Escribe tu mensaje personalizado (usa {{student_name}}, {{degree}}, etc.)"
+                    className="input-primary h-32"
+                />
+                <div className="text-sm text-gray-500 mt-1">
+                    Variables disponibles: {'{{student_name}}, {{degree}}, {{institution}}, {{fecha_expedicion}}'}
+                </div>
+                {issuanceConfig.customMessage && (
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-2">
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Vista Previa del Email (Ejemplo)</label>
+                        <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed font-serif italic">
+                            {(() => {
+                                let text = issuanceConfig.customMessage;
+                                const sample = fileData?.parsedData?.[0] || { 
+                                    firstName: 'Juan', 
+                                    lastName: 'Pérez', 
+                                    degree: 'Ingeniería',
+                                    institution: issuanceConfig.institution || 'Universidad'
+                                };
+                                const vars = {
+                                    student_name: `${sample.firstName} ${sample.lastName}`,
+                                    degree: sample.degree,
+                                    institution: issuanceConfig.institution,
+                                    fecha_expedicion: new Date().toLocaleDateString()
+                                };
+                                Object.entries(vars).forEach(([key, val]) => {
+                                    text = text.replace(new RegExp(`{{${key}}}`, 'g'), val || `[${key}]`);
+                                });
+                                return text;
+                            })()}
+                        </p>
+                    </div>
+                )}
+            </div>
+          </div>
+          <div className="space-y-4">
                 <div className="flex items-center">
                   <input
                     type="checkbox"

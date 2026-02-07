@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { BookOpen, Briefcase, Wallet, ShoppingBag } from 'lucide-react';
 import ConnectionService from './services/connectionService';
 import CredentialVerifier from './credentials/CredentialVerifier';
 import demoService from './services/demoService';
 import { motion } from 'framer-motion';
+import { toGateway } from './utils/ipfsUtils';
 
 function EnhancedStudentPortal({ demo = false }) {
   const [credentials, setCredentials] = useState([]);
@@ -12,6 +14,13 @@ function EnhancedStudentPortal({ demo = false }) {
   const [connectionStatus, setConnectionStatus] = useState('checking');
   const [issuing, setIssuing] = useState(false);
   const [issueResult, setIssueResult] = useState(null);
+  const navigate = useNavigate();
+
+  const menuItems = [
+    { id: 'dashboard', label: 'Mi Trayectoria', icon: BookOpen },
+    { id: 'wallet', label: 'Billetera Digital', icon: Wallet },
+    { id: 'marketplace', label: 'Beneficios', icon: ShoppingBag }
+  ];
 
   useEffect(() => {
     loadStudentData();
@@ -70,15 +79,15 @@ function EnhancedStudentPortal({ demo = false }) {
 
   const renderConnectionStatus = () => {
     const statusConfig = {
-      checking: { text: 'Sincronizando red...', color: 'text-blue-400', bg: 'bg-blue-900/40 border-blue-500/30' },
-      connected: { text: 'Red Activa', color: 'text-green-400', bg: 'bg-green-900/40 border-green-500/30' },
-      demo: { text: 'Modo Simulación', color: 'text-yellow-400', bg: 'bg-yellow-900/40 border-yellow-500/30' },
-      error: { text: 'Error de Red', color: 'text-red-400', bg: 'bg-red-900/40 border-red-500/30' }
+      checking: { text: 'Sincronizando...', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
+      connected: { text: 'Red Activa', color: 'text-green-700', bg: 'bg-green-50 border-green-200' },
+      demo: { text: 'Modo Simulación', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
+      error: { text: 'Error de Red', color: 'text-red-700', bg: 'bg-red-50 border-red-200' }
     };
     const config = statusConfig[connectionStatus] || statusConfig.checking;
     return (
-      <div className={`px-3 py-1 rounded-full border ${config.bg} ${config.color} text-xs font-mono flex items-center gap-2`}>
-        <span className="relative flex h-2 w-2">
+      <div className={`px-2.5 py-0.5 md:px-3 md:py-1 rounded-full border ${config.bg} ${config.color} text-[10px] md:text-xs font-bold font-mono flex items-center gap-1.5 md:gap-2 shadow-sm whitespace-nowrap`}>
+        <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75"></span>
           <span className="relative inline-flex rounded-full h-2 w-2 bg-current"></span>
         </span>
@@ -94,23 +103,57 @@ function EnhancedStudentPortal({ demo = false }) {
       <div className="fixed inset-0 pointer-events-none opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, #7c3aed 0%, transparent 40%), radial-gradient(circle at 20% 80%, #06b6d4 0%, transparent 40%)' }}></div>
 
       {/* Header */}
-      <header className="sticky top-0 z-40 backdrop-blur-md bg-background/80 border-b border-slate-800 p-4">
+      <header className="sticky top-0 z-40 backdrop-blur-md bg-white/90 border-b border-slate-200 shadow-sm p-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-secondary-400">Portal Académico</h1>
-            <div className="mt-1">{renderConnectionStatus()}</div>
+          <div className="flex items-center gap-4">
+             <div className="flex items-center gap-3">
+                <img
+                  src={toGateway('ipfs://bafkreicickkyjjn3ztitciypfh635lqowdskzbv54fiqbrhs4zbmwhjv4q')}
+                  alt="AcademicChain Logo"
+                  className="h-10 w-10 rounded-full shadow-sm object-contain bg-white"
+                />
+                <div className="flex flex-col">
+                   <h3 className="text-lg font-bold text-slate-900 leading-none tracking-tight">AcademicChain</h3>
+                   <p className="text-[10px] text-slate-500 font-medium mt-0.5">Impulsado por AcademicChain</p>
+                </div>
+             </div>
+             <div className="hidden md:block h-8 w-px bg-slate-300 mx-2"></div>
+             
+             {/* Portal Title & Status - Optimized for visibility */}
+             <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-3">
+                 <h1 className="hidden md:block text-lg font-display font-bold text-slate-700">Portal Académico</h1>
+                 <div className="">{renderConnectionStatus()}</div>
+             </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex flex-col items-end hidden sm:flex">
-              <span className="text-sm font-medium text-slate-200">Alumno</span>
-              <span className="text-xs text-slate-400">ID: 2024-8592</span>
+              <span className="text-sm font-medium text-slate-800">Alumno</span>
+              <span className="text-xs text-slate-500">ID: 2024-8592</span>
             </div>
-            <div className="h-10 w-10 rounded-full border border-primary p-1">
-              <div className="h-full w-full rounded-full bg-slate-800 flex items-center justify-center text-xs">IMG</div>
+            <div className="h-10 w-10 rounded-full border border-slate-200 p-1">
+              <div className="h-full w-full rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">IMG</div>
             </div>
           </div>
         </div>
       </header>
+
+      {/* Navigation Menu */}
+      <div className="bg-slate-900/50 border-b border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 flex gap-1 overflow-x-auto">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={item.onClick}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+                item.id === 'dashboard' ? 'text-primary border-b-2 border-primary' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <item.icon size={18} />
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-7xl mx-auto space-y-8">

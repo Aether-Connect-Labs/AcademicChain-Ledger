@@ -497,7 +497,7 @@ function InstitutionDashboard({ demo = false }) {
       <p className="text-gray-600">Bienvenido al portal de la institución. Aquí podrás emitir títulos y subir archivos Excel.</p>
       
       {!demo && user && !user.dpaAccepted && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 shadow-md rounded-md">
+        <div className="bg-yellow-500/10 border-l-4 border-yellow-500 p-4 mb-6 shadow-md rounded-r-md backdrop-blur-sm">
           <div className="flex">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
@@ -505,8 +505,8 @@ function InstitutionDashboard({ demo = false }) {
               </svg>
             </div>
             <div className="ml-3">
-              <h3 className="text-lg leading-6 font-medium text-yellow-800">Acción Requerida: Firma de Acuerdo de Procesamiento de Datos (DPA)</h3>
-              <div className="mt-2 text-sm text-yellow-700">
+              <h3 className="text-lg leading-6 font-medium text-yellow-200">Acción Requerida: Firma de Acuerdo de Procesamiento de Datos (DPA)</h3>
+              <div className="mt-2 text-sm text-yellow-100">
                 <p className="mb-2">
                   Para cumplir con las normativas internacionales (GDPR, SOC2) y el modelo de "Transferencia de Responsabilidad", debe firmar digitalmente el acuerdo de procesamiento de datos antes de emitir credenciales.
                 </p>

@@ -11,7 +11,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['@sentry/react','@sentry/tracing','@sentry-internal/replay','@sentry/core','@sentry/browser'],
-    include: ['react','react-dom','react-router-dom'],
+    include: ['react','react-dom','react-router-dom', 'pdfjs-dist', 'fabric'],
     noDiscovery: false
   },
   server: {

@@ -1,0 +1,109 @@
+{
+  "name": "Payment Gateway - IPN Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "payment-ipn",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+            "string": [
+                {
+                    "value1": "={{$json.body.payment_status}}",
+                    "operation": "equal",
+                    "value2": "finished"
+                },
+                 {
+                    "value1": "={{$json.body.payment_status}}",
+                    "operation": "equal",
+                    "value2": "confirmed"
+                }
+            ]
+        },
+        "combineOperation": "any"
+      },
+      "name": "Check Status",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/credits/add",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersUi": {
+            "parameter": [
+                {
+                    "name": "orderId",
+                    "value": "={{$json.body.order_id}}"
+                },
+                {
+                    "name": "amount",
+                    "value": "={{$json.body.price_amount}}"
+                },
+                {
+                    "name": "currency",
+                    "value": "={{$json.body.price_currency}}"
+                }
+            ]
+        }
+      },
+      "name": "Add Credits",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+     {
+      "parameters": {
+        "subject": "Payment Received",
+        "text": "Payment {{$json.body.payment_id}} confirmed. Amount: {{$json.body.price_amount}} {{$json.body.price_currency}}",
+        "toEmail": "admin@academicchain.com"
+      },
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+        "parameters": {
+            "message": "💰 Payment Confirmed: {{$json.body.payment_id}}",
+            "options": {
+                "level": "info"
+            }
+        },
+        "name": "Log Success",
+        "type": "n8n-nodes-base.logger",
+        "typeVersion": 1,
+        "position": [600, 200]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "Check Status", "type": "main", "index": 0}]]
+    },
+    "Check Status": {
+      "main": [
+        [{"node": "Add Credits", "type": "main", "index": 0}],
+        []
+      ]
+    },
+    "Add Credits": {
+        "main": [
+            [
+                {"node": "Send Email", "type": "main", "index": 0},
+                {"node": "Log Success", "type": "main", "index": 0}
+            ]
+        ]
+    }
+  }
+}

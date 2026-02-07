@@ -128,8 +128,8 @@ export const HeroSection = () => {
           {/* Subtítulo mejorado */}
           <motion.div variants={itemVariants} className="mb-10">
             <p className="text-lg sm:text-xl lg:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed font-light">
-              {t('hero.subtitle', 'Fe pública digital con garantía perpetua y estándar global. Blindaje total contra el fraude académico, verificación instantánea en any lugar.')}
-            </p>
+            {t('hero.subtitle', 'Fe pública digital con garantía perpetua y estándar global. Blindaje total contra el fraude académico, verificación instantánea en cualquier lugar.')}
+          </p>
             <motion.p 
               variants={itemVariants}
               className="mt-3 text-sm sm:text-base text-cyan-200/80 max-w-2xl mx-auto"

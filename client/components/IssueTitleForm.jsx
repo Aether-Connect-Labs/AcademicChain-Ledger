@@ -4,9 +4,11 @@ import n8nService from './services/n8nService';
 import { verificationService } from './services/verificationService';
 import { Toaster, toast } from 'react-hot-toast';
 import { toGateway } from './utils/ipfsUtils';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import CertificateDesigner from './CertificateDesigner';
+import LiveBlockVisualizer from './LiveBlockVisualizer';
 
-const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'] }) => {
+const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'], plan, emissionsUsed = 0, onEmissionComplete }) => {
   // Styles based on variant
   const getGradient = () => {
     if (variant === 'diploma') return 'from-purple-600 to-blue-600';
@@ -23,7 +25,8 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
     recipientAccountId: '',
   });
 
-  const [useN8n, setUseN8n] = useState(false); // Toggle for Headless API
+  const [showDesigner, setShowDesigner] = useState(false);
+  const [designStructure, setDesignStructure] = useState(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -35,8 +38,13 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
   const [tokens, setTokens] = useState([]);
   const [loadingTokens, setLoadingTokens] = useState(false);
   const [tokenFetchError, setTokenFetchError] = useState('');
-  const [didAutoCreate, setDidAutoCreate] = useState(false);
   const [universityName, setUniversityName] = useState('');
+
+  // Animation Variants
+  const containerVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+  };
 
   useEffect(() => {
     if (demo) return;
@@ -60,7 +68,7 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
       }
     };
     loadTokens();
-  }, [demo, formData.tokenId, didAutoCreate]);
+  }, [demo, formData.tokenId]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -74,50 +82,31 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
     setMessage('');
 
     try {
-      // ... (IPFS Upload Logic remains similar or can be skipped for pure n8n demo)
       const uniqueHash = `hash-${Date.now()}`;
       let finalIpfsURI = ipfsURI;
 
-      if (!useN8n) {
-        // Standard Logic
-        if (!finalIpfsURI && file && !demo) {
-          setIsUploading(true);
-          finalIpfsURI = await issuanceService.uploadToIPFS(file);
-          setIsUploading(false);
+      // Force N8N Flow
+      if (true) {
+        // Plan Validation
+        if (plan && plan.limit !== Infinity) {
+            if (emissionsUsed >= plan.limit) {
+                setError(`Límite mensual alcanzado (${plan.limit}). Mejora tu plan para continuar.`);
+                setIsLoading(false);
+                return;
+            }
         }
-      }
 
-      if (useN8n) {
-        // N8N Headless Flow
+        // N8N Headless Flow (Exclusive)
         await n8nService.submitDocument({
           documentHash: uniqueHash,
           userId: 'user-123', // Demo User
-          metadata: { ...formData }
+          metadata: { ...formData, designStructure }, // Include structure if available
+          issuanceType: variant,
+          networks: networks
         });
-        setMessage('Enviado a n8n para procesamiento asíncrono.');
-      } else {
-        // Standard Flow (omitted full logic for brevity, assuming original logic here)
-        const prepareRes = await issuanceService.prepareIssuance({
-          type: variant,
-          tokenId: formData.tokenId,
-          uniqueHash,
-          ipfsURI: finalIpfsURI || 'ipfs://placeholder',
-          studentName: formData.studentName,
-          degree: formData.courseName,
-          graduationDate: formData.issueDate,
-          grade: formData.grade,
-          recipientAccountId: formData.recipientAccountId,
-          networks,
-        });
-
-        const transactionId = prepareRes.data?.transactionId || prepareRes.transactionId;
-        const execRes = await issuanceService.executeIssuance({
-          transactionId,
-          networks,
-        });
-
-        setResult(execRes.data || execRes);
-        setMessage('Título emitido correctamente');
+        setMessage('Enviado a n8n para procesamiento automatizado (Hedera/XRP/Filecoin).');
+        toast.success('Solicitud enviada a n8n correctamente');
+        if (onEmissionComplete) onEmissionComplete(1);
       }
 
     } catch (err) {
@@ -131,22 +120,52 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
   return (
     <div className="max-w-xl mx-auto">
       <Toaster position="top-right" />
-      <div className="glass-panel p-8 relative overflow-hidden">
+
+      {/* Visualizer showing Pending Design Block */}
+      <AnimatePresence>
+        {file && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <LiveBlockVisualizer pendingTransaction={{ preview: file }} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Designer Modal */}
+      <AnimatePresence>
+        {showDesigner && (
+          <CertificateDesigner
+            onClose={() => setShowDesigner(false)}
+            data={formData}
+            onSave={(generatedFile, structure) => {
+              setFile(generatedFile);
+              setDesignStructure(structure);
+              setShowDesigner(false);
+              toast.success('Diseño guardado. Previsualización disponible en bloques.');
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <motion.div
+        className="glass-panel p-8 relative overflow-hidden"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${getGradient()}`} />
 
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold font-display text-white">
             {variant === 'certificate' ? 'Emitir Certificado' : 'Emitir Título'}
+            <span className="ml-3 text-xs bg-secondary text-white px-2 py-1 rounded-full align-middle">Impulsado por n8n</span>
           </h2>
-          {/* N8N Toggle */}
-          <div className="flex items-center gap-2 bg-black/20 p-1 rounded-lg">
-            <span className={`text-xs px-2 py-1 rounded cursor-pointer transition-colors ${!useN8n ? 'bg-primary text-black' : 'text-gray-400'}`} onClick={() => setUseN8n(false)}>Standard</span>
-            <span className={`text-xs px-2 py-1 rounded cursor-pointer transition-colors ${useN8n ? 'bg-secondary text-white' : 'text-gray-400'}`} onClick={() => setUseN8n(true)}>n8n Cloud</span>
-          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Form Fields Re-styled */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label-text">Token ID</label>
@@ -190,23 +209,42 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
             <input type="text" name="recipientAccountId" value={formData.recipientAccountId} onChange={handleChange} className="input-primary" placeholder="0.0.xxxxx" />
           </div>
 
-          {!useN8n && (
-            <div className="p-4 border border-dashed border-gray-600 rounded-lg bg-black/20 hover:bg-black/40 transition-colors cursor-pointer">
-              <label className="block text-center cursor-pointer">
-                <span className="text-sm text-primary-400">Subir Documento (PDF/Img)</span>
-                <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0])} />
-              </label>
-              {file && <p className="text-xs text-center mt-2 text-green-400">{file.name}</p>}
-            </div>
-          )}
+          {/* Designer Trigger - Available across flows for structure generation */}
+          <div className="space-y-2">
+            {!file && (
+              <div className="p-4 border border-dashed border-slate-600 rounded-lg bg-black/20 hover:bg-black/40 transition-colors cursor-pointer group">
+                <label className="block text-center cursor-pointer">
+                  <span className="text-sm text-slate-400 group-hover:text-primary transition-colors">Subir Documento (PDF/Img)</span>
+                  <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0])} />
+                </label>
+              </div>
+            )}
 
-          <button
+            <div className="flex items-center justify-center my-2">
+              <span className="text-xs text-slate-500 uppercase px-2 bg-background z-10">O</span>
+              <div className="h-px bg-slate-800 w-full absolute"></div>
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              type="button"
+              onClick={() => setShowDesigner(true)}
+              className="w-full py-3 border border-purple-500/50 text-purple-300 rounded-xl hover:bg-purple-900/20 text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-900/10"
+            >
+              <span>🎨</span> Diseñar Certificado (Editor Visual)
+            </motion.button>
+          </div>
+
+          <motion.button
+            whileHover={{ scale: 1.02, boxShadow: "0 0 15px rgba(37, 99, 235, 0.5)" }}
+            whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={isLoading || isUploading}
-            className={`w-full mt-6 btn-primary ${useN8n ? 'bg-secondary hover:bg-secondary-500 text-white' : ''}`}
+            className="w-full mt-6 btn-primary bg-secondary hover:bg-secondary-400 text-white shadow-neon-purple"
           >
-            {isLoading ? 'Procesando...' : (useN8n ? 'Emitir vía n8n Cloud' : 'Emitir en Blockchain')}
-          </button>
+            {isLoading ? 'Procesando en n8n...' : '🚀 Emitir vía n8n (Automatizado)'}
+          </motion.button>
         </form>
 
         {message && (
@@ -220,7 +258,7 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
             {error}
           </motion.div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 };

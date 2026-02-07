@@ -377,9 +377,9 @@ const AdminDashboard = () => {
                 <div>
                   <div className="font-semibold text-gray-800 mb-2">📈 Resumen</div>
                   <ul className="text-gray-700 space-y-1 text-sm">
-                    <li>• Títulos emitidos: 85/100</li>
-                    <li>• Costo promedio: $0.50 c/u</li>
-                    <li>• Próxima factura: $155 (30 días)</li>
+                    <li>• Títulos emitidos: 45/50</li>
+                    <li>• Costo promedio: $1.00 c/u</li>
+                    <li>• Próxima factura: $50 (30 días)</li>
                   </ul>
                 </div>
                 <div>

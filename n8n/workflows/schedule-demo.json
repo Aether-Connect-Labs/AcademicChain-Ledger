@@ -1,0 +1,138 @@
+{
+  "name": "Demo Scheduler - Sales Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "schedule-demo",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.headers[\"x-acl-auth-key\"]}}",
+              "operation": "equal",
+              "value2": "acl_live_sec_8f92a3b4"
+            }
+          ]
+        }
+      },
+      "name": "Security Guard",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Unauthorized\", \"message\": \"Invalid security token\"}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "name": "Reject Request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "meetLink",
+              "value": "={{$json.body.meetUrl || 'https://meet.google.com/ac-demo-' + $now.toFormat('yyyyMMdd')}}"
+            },
+            {
+              "name": "calendarLink",
+              "value": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Demo+AcademicChain&dates={{$json.body.date.replace(/-/g, '')}}T{{$json.body.time.replace(':', '')}}00Z/{{$json.body.date.replace(/-/g, '')}}T{{$json.body.time.replace(':', '')}}00Z"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Generate Links",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "resource": "contact",
+        "email": "={{$json.body.email}}",
+        "additionalFields": {
+          "firstName": "={{$json.body.name.split(' ')[0]}}",
+          "lastName": "={{$json.body.name.split(' ').slice(1).join(' ')}}",
+          "organization": "={{$json.body.org}}"
+        }
+      },
+      "name": "CRM Contact",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 1,
+      "position": [600, 0],
+      "notes": "Create/Update Contact in HubSpot/Salesforce"
+    },
+    {
+      "parameters": {
+        "channel": "sales-leads",
+        "text": "🔥 New Demo Request!\nUser: {{$json.body.name}}\nOrg: {{$json.body.org}}\nTime: {{$json.body.date}} @ {{$json.body.time}} {{$json.body.tz}}",
+        "otherOptions": {}
+      },
+      "name": "Notify Sales",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [600, 200]
+    },
+    {
+      "parameters": {
+        "toEmail": "={{$json.body.email}}",
+        "subject": "Confirmación de Demo - AcademicChain",
+        "text": "Hola {{$json.body.name}},\n\nTu demo ha sido agendada para el {{$json.body.date}} a las {{$json.body.time}}.\n\nEnlace de reunión: {{$node[\"Generate Links\"].json[\"meetLink\"]}}\n\nSaludos,\nEl equipo de AcademicChain.",
+        "options": {}
+      },
+      "name": "Send Confirmation",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [800, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"data\": {\n    \"meetUrl\": \"{{$node[\"Generate Links\"].json[\"meetLink\"]}}\",\n    \"calendarEvent\": {\n      \"link\": \"{{$node[\"Generate Links\"].json[\"calendarLink\"]}}\"\n    }\n  }\n}",
+        "options": {}
+      },
+      "name": "Respond to App",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1000, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "Security Guard", "type": "main", "index": 0}]]
+    },
+    "Security Guard": {
+      "main": [
+        [{"node": "Generate Links", "type": "main", "index": 0}],
+        [{"node": "Reject Request", "type": "main", "index": 0}]
+      ]
+    },
+    "Generate Links": {
+      "main": [
+        [
+          {"node": "CRM Contact", "type": "main", "index": 0},
+          {"node": "Notify Sales", "type": "main", "index": 0},
+          {"node": "Send Confirmation", "type": "main", "index": 0},
+          {"node": "Respond to App", "type": "main", "index": 0}
+        ]
+      ]
+    }
+  }
+}

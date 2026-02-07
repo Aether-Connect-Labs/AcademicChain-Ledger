@@ -48,7 +48,11 @@ import AdminAnalytics from './components/AdminAnalytics.jsx';
 import CreditRecharge from './components/CreditRecharge.jsx';
 import CreatorDashboard from './components/CreatorDashboard';
 import CreatorsPage from './components/CreatorsPage';
+import CreatorDesignerPage from './components/CreatorDesignerPage';
 import AuditDashboard from './components/admin/AuditDashboard.jsx';
+
+import EmployerDashboard from './components/EmployerDashboard';
+import EmployerLanding from './components/EmployerLanding';
 
 const AppRoutes = () => {
   return (
@@ -64,6 +68,7 @@ const AppRoutes = () => {
       <Route path="/students/register" element={<Layout><LoginPage userType="student" mode="register" /></Layout>} />
       <Route path="/creators/login" element={<Layout><LoginPage userType="creator" /></Layout>} />
       <Route path="/creators/register" element={<Layout><LoginPage userType="creator" mode="register" /></Layout>} />
+      {/* Employer Login removed for simulation mode */}
       <Route path="/auth/callback" element={<Layout><AuthCallback /></Layout>} />
       <Route path="/comenzar-gratis" element={<Layout><ComenzarGratisPage /></Layout>} />
       <Route path="/welcome" element={<Layout><Welcome /></Layout>} />
@@ -81,12 +86,17 @@ const AppRoutes = () => {
       <Route path="/agenda" element={<Layout><DemoScheduler /></Layout>} />
       <Route path="/schedule" element={<Layout><DemoScheduler /></Layout>} />
       <Route path="/creators" element={<Layout><CreatorsPage /></Layout>} />
+      {/* Portal de Creadores (Simulación) */}
       <Route
         path="/portal-creadores"
         element={
-          <ProtectedRoute requiredRoles={['CREATOR']}>
-            <Layout><CreatorDashboard /></Layout>
-          </ProtectedRoute>
+          <Layout showNavbar={false} showFooter={false}><CreatorDashboard /></Layout>
+        }
+      />
+      <Route
+        path="/portal-creadores/designer"
+        element={
+          <Layout showNavbar={false} showFooter={false}><CreatorDesignerPage /></Layout>
         }
       />
       <Route path="/docs" element={<Layout><ApiDocsLanding /></Layout>} />
@@ -97,7 +107,7 @@ const AppRoutes = () => {
       <Route path="/dashboard" element={<Layout><DashboardRedirect /></Layout>} />
       <Route path="/subscription" element={<Layout><SubscriptionManagement /></Layout>} />
       {/* Rutas públicas de demo */}
-      <Route path="/demo/institution" element={<Layout><EnhancedInstitutionDashboard demo={true} /></Layout>} />
+      <Route path="/demo/institution" element={<Layout showNavbar={false} showFooter={false}><EnhancedInstitutionDashboard demo={true} /></Layout>} />
       <Route path="/demo/student" element={<Layout><EnhancedStudentPortal demo={true} /></Layout>} />
       <Route path="/forgot-password" element={<Layout><ForgotPassword /></Layout>} />
 
@@ -279,15 +289,20 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
-      {/* Portal de Creadores */}
       <Route
-        path="/portal-creadores"
+        path="/employer/dashboard"
         element={
-          <ProtectedRoute requiredRoles={['CREATOR','admin']}>
-            <Layout><CreatorDashboard /></Layout>
-          </ProtectedRoute>
+          <Layout showNavbar={false} showFooter={false}><EmployerDashboard /></Layout>
         }
       />
+      <Route
+        path="/employer"
+        element={
+          <Layout transparentNavbar={true}><EmployerLanding /></Layout>
+        }
+      />
+
+
     </Routes>
     </>
   );

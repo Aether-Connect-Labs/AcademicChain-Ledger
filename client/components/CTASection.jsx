@@ -246,44 +246,7 @@ const CTASection = ({
             ))}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 justify-center mb-12">
-            <div
-              onClick={() => handleCTAClick('institution')}
-              className="cursor-pointer bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl px-6 py-6 hover:bg-white/10 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-            >
-              <Building2 className="w-6 h-6 text-cyan-300" />
-              <div className="mt-3 font-semibold text-lg">Portal de Institución</div>
-              <div className="mt-1 text-sm opacity-80">Gestión y emisión de credenciales</div>
-              <div className="mt-4 inline-flex items-center text-cyan-300 group hover:text-white">
-                <span className="text-sm font-medium">Entrar</span>
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </div>
-            </div>
-            <div
-              onClick={() => handleCTAClick('student')}
-              className="cursor-pointer bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl px-6 py-6 hover:bg-white/10 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-            >
-              <GraduationCap className="w-6 h-6 text-cyan-300" />
-              <div className="mt-3 font-semibold text-lg">Portal de Alumno</div>
-              <div className="mt-1 text-sm opacity-80">Verificación y portabilidad segura</div>
-              <div className="mt-4 inline-flex items-center text-cyan-300 group hover:text-white">
-                <span className="text-sm font-medium">Entrar</span>
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </div>
-            </div>
-            <div
-              onClick={() => handleCTAClick('free')}
-              className="cursor-pointer bg-[#0066FF] text-white rounded-2xl px-6 py-6 hover:bg-[#0057d6] hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-            >
-              <Rocket className="w-6 h-6" />
-              <div className="mt-3 font-semibold text-lg">Comenzar Gratis</div>
-              <div className="mt-1 text-sm opacity-90">Activación en minutos</div>
-              <div className="mt-4 inline-flex items-center">
-                <span className="text-sm font-medium">Continuar</span>
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </div>
-            </div>
-          </div>
+
 
           {/* Formulario de demo (condicional) */}
           {(showDemoForm || submitStatus) && (
