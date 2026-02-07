@@ -1,0 +1,73 @@
+{
+  "name": "Smart CV & Talent AI Service",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-smart-cv",
+        "options": {}
+      },
+      "name": "Generate Smart CV Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"cvData\": {\n    \"summary\": \"Desarrollador Blockchain certificado con experiencia verificada en redes descentralizadas. (Generado por IA)\",\n    \"skills\": [\"Hedera Hashgraph (Verificado)\", \"Smart Contracts\", \"React\", \"Node.js\"],\n    \"experience\": [\n      {\n        \"title\": \"Proyecto Académico Verificado\",\n        \"org\": \"AcademicChain University\",\n        \"date\": \"2024\",\n        \"desc\": \"Implementación validada en blockchain.\"\n      }\n    ]\n  }\n}",
+        "options": {}
+      },
+      "name": "Respond Smart CV",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "search-talent",
+        "options": {}
+      },
+      "name": "Search Talent Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"candidates\": [\n    {\n      \"id\": \"cand-1\",\n      \"name\": \"Daniel Pérez\",\n      \"matchScore\": 98,\n      \"skills\": [\"Hedera\", \"Solidity\", \"React\"],\n      \"verified\": true,\n      \"identityVerified\": true,\n      \"chainValidation\": {\n        \"hedera\": true,\n        \"xrp\": true,\n        \"algorand\": false\n      },\n      \"avatar\": \"https://i.pravatar.cc/150?u=1\"\n    },\n    {\n      \"id\": \"cand-2\",\n      \"name\": \"Laura García\",\n      \"matchScore\": 85,\n      \"skills\": [\"Blockchain Architecture\", \"Python\"],\n      \"verified\": true,\n      \"identityVerified\": true,\n      \"chainValidation\": {\n        \"hedera\": true,\n        \"xrp\": false,\n        \"algorand\": true\n      },\n      \"avatar\": \"https://i.pravatar.cc/150?u=2\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "name": "Respond Talent Search",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 200]
+    }
+  ],
+  "connections": {
+    "Generate Smart CV Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Smart CV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Talent Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Talent Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

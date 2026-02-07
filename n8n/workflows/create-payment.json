@@ -49,7 +49,7 @@
         "authentication": "headerAuth",
         "headerAuth": {
             "name": "x-api-key",
-            "value": "YOUR_NOWPAYMENTS_API_KEY"
+            "value": "={{$env.NOWPAYMENTS_API_KEY}}"
         },
         "jsonParameters": true,
         "options": {},
@@ -73,7 +73,7 @@
                 },
                 {
                     "name": "ipn_callback_url",
-                    "value": "https://primary-production-4224.up.railway.app/webhook/payment-ipn"
+                    "value": "={{$env.WEBHOOK_URL}}/payment-ipn"
                 }
             ]
         }

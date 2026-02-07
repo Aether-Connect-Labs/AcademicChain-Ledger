@@ -53,6 +53,9 @@ import AuditDashboard from './components/admin/AuditDashboard.jsx';
 
 import EmployerDashboard from './components/EmployerDashboard';
 import EmployerLanding from './components/EmployerLanding';
+import SmartCVPage from './components/SmartCVPage';
+
+import StudentUpgradePage from './components/StudentUpgradePage';
 
 const AppRoutes = () => {
   return (
@@ -66,6 +69,7 @@ const AppRoutes = () => {
       <Route path="/institution/register" element={<Layout><LoginPage userType="institution" mode="register" /></Layout>} />
       <Route path="/students/login" element={<Layout><LoginPage userType="student" /></Layout>} />
       <Route path="/students/register" element={<Layout><LoginPage userType="student" mode="register" /></Layout>} />
+      <Route path="/students/upgrade" element={<Layout><StudentUpgradePage /></Layout>} />
       <Route path="/creators/login" element={<Layout><LoginPage userType="creator" /></Layout>} />
       <Route path="/creators/register" element={<Layout><LoginPage userType="creator" mode="register" /></Layout>} />
       {/* Employer Login removed for simulation mode */}
@@ -104,6 +108,7 @@ const AppRoutes = () => {
       <Route path="/status" element={<Layout><BlockchainStatus /></Layout>} />
       <Route path="/credential/:tokenId/:serialNumber/evidence" element={<Layout><CredentialEvidence /></Layout>} />
       <Route path="/student/certificate/:tokenId/:serialNumber" element={<Layout><StudentCertificateView /></Layout>} />
+      <Route path="/student/smart-cv" element={<Layout showNavbar={false} showFooter={false}><SmartCVPage /></Layout>} />
       <Route path="/dashboard" element={<Layout><DashboardRedirect /></Layout>} />
       <Route path="/subscription" element={<Layout><SubscriptionManagement /></Layout>} />
       {/* Rutas públicas de demo */}
@@ -124,7 +129,7 @@ const AppRoutes = () => {
         path="/institution/dashboard"
         element={
           <ProtectedRoute requiredRoles={['university','institution','admin']}>
-            <Layout><EnhancedInstitutionDashboard /></Layout>
+            <Layout showNavbar={false} showFooter={false}><EnhancedInstitutionDashboard /></Layout>
           </ProtectedRoute>
         }
       />
@@ -132,7 +137,7 @@ const AppRoutes = () => {
         path="/institution/crear"
         element={
           <ProtectedRoute requiredRoles={['university','institution','admin']}>
-            <Layout><CreateCredentialsPage /></Layout>
+            <Layout showNavbar={false} showFooter={false}><CreateCredentialsPage /></Layout>
           </ProtectedRoute>
         }
       />
@@ -140,7 +145,7 @@ const AppRoutes = () => {
         path="/institution/emitir/titulo"
         element={
           <ProtectedRoute requiredRoles={['university','institution','admin']}>
-            <Layout><CreateDegreePage /></Layout>
+            <Layout showNavbar={false} showFooter={false}><CreateDegreePage /></Layout>
           </ProtectedRoute>
         }
       />
@@ -148,7 +153,7 @@ const AppRoutes = () => {
         path="/institution/emitir/certificado"
         element={
           <ProtectedRoute requiredRoles={['university','institution','admin']}>
-            <Layout><CreateCertificatePage /></Layout>
+            <Layout showNavbar={false} showFooter={false}><CreateCertificatePage /></Layout>
           </ProtectedRoute>
         }
       />
@@ -156,7 +161,7 @@ const AppRoutes = () => {
         path="/institution/emitir/diploma"
         element={
           <ProtectedRoute requiredRoles={['university','institution','admin']}>
-            <Layout><CreateDiplomaPage /></Layout>
+            <Layout showNavbar={false} showFooter={false}><CreateDiplomaPage /></Layout>
           </ProtectedRoute>
         }
       />
@@ -164,7 +169,7 @@ const AppRoutes = () => {
         path="/institution/emitir/masivo"
         element={
           <ProtectedRoute requiredRoles={['university','institution','admin']}>
-            <Layout><BatchIssuance /></Layout>
+            <Layout showNavbar={false} showFooter={false}><BatchIssuance /></Layout>
           </ProtectedRoute>
         }
       />
@@ -172,7 +177,7 @@ const AppRoutes = () => {
         path="/institution/credits"
         element={
           <ProtectedRoute requiredRoles={['university','institution','admin']}>
-            <Layout><CreditRecharge /></Layout>
+            <Layout showNavbar={false} showFooter={false}><CreditRecharge /></Layout>
           </ProtectedRoute>
         }
       />

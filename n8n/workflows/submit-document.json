@@ -1,0 +1,40 @@
+{
+  "name": "Generic Document Submission",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "submit-document",
+        "options": {}
+      },
+      "name": "Submit Document Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Document received successfully\",\n  \"submissionId\": \"sub-{{$now.toFormat('yyyyMMddHHmmss')}}\"\n}",
+        "options": {}
+      },
+      "name": "Respond Submission",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 0]
+    }
+  ],
+  "connections": {
+    "Submit Document Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Submission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

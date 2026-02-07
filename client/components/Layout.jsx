@@ -8,7 +8,7 @@ import { useAnalytics } from './useAnalytics';
 import ErrorBoundary from './ErrorBoundary';
 import { useHedera } from './useHedera';
 import { useAuth } from './useAuth';
-import SupportWidget from './SupportWidget';
+// import SupportWidget from './SupportWidget';
 
 // Variantes de animación para transiciones de página
 const pageVariants = {
@@ -297,8 +297,7 @@ const Layout = ({
         </motion.button>
       )}
 
-      {/* Support Widget */}
-      {!isSpecialRoute && <SupportWidget />}
+      {/* Support Widget removed per user request */}
 
       {/* Notificación de conexión Hedera */}
       {isConnected && (

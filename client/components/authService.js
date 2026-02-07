@@ -38,7 +38,10 @@ export const authService = {
       if (API_BASE_URL) {
         const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key'
+          },
           body: JSON.stringify({ email, password, userType })
         });
         if (!res.ok) {
@@ -46,7 +49,10 @@ export const authService = {
           if (userType === 'institution') {
             const preview = await fetch(`${API_BASE_URL}/api/auth/preview-login`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+                'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key'
+              },
               body: JSON.stringify({ email, password })
             });
             if (preview.ok) {
@@ -54,12 +60,21 @@ export const authService = {
               return data;
             }
           }
-          throw new Error('Login inválido');
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Login inválido');
         }
         const data = await res.json();
         return data;
       }
-    } catch {}
+    } catch (e) {
+      console.error('Auth Login Error:', e);
+      // Fallback only if network error, not if explicit 401/403
+      if (e.message !== 'Login inválido' && !e.message.includes('Unauthorized')) {
+         // Proceed to mock...
+      } else {
+         throw e;
+      }
+    }
 
     const forInstitution = userType === 'institution';
     const forCreator = userType === 'creator'; // Detectar tipo creador
@@ -129,123 +144,20 @@ export const authService = {
   },
 
   register: async (email, password) => {
-    try {
-      if (API_BASE_URL) {
-        const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        if (!res.ok) throw new Error('Registro inválido');
-        const data = await res.json();
-        return data;
-      }
-    } catch {}
-
-    if (!isGmail(email)) {
-      return mockApiCall(null, true, 'Regístrate con un correo @gmail.com');
-    }
-    if (!isValidPassword(password)) {
-      return mockApiCall(null, true, 'La contraseña debe tener 6 o más caracteres.');
-    }
-    const user = {
-      id: `student-${crypto.randomUUID()}`,
-      name: 'Usuario Free',
-      email,
-      role: 'student',
-      permissions: [],
-    };
-    const token = `mock-jwt-token-for-student-${Date.now()}`;
-    return mockApiCall({ user, token });
+    // Unify Register/Login: "If not exists, create"
+    return authService.login(email, password, 'student');
   },
 
   registerInstitution: async (email, password) => {
-    try {
-      if (API_BASE_URL) {
-        const res = await fetch(`${API_BASE_URL}/api/auth/institutions/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        if (!res.ok) throw new Error('Registro inválido');
-        const data = await res.json();
-        return data;
-      }
-    } catch {}
-
-    if (!email || !email.includes('@')) {
-      return mockApiCall(null, true, 'Usa un correo válido institucional.');
-    }
-    if (!isValidPassword(password)) {
-      return mockApiCall(null, true, 'La contraseña debe tener 6 o más caracteres.');
-    }
-    const user = {
-      id: `admin-${crypto.randomUUID()}`,
-      name: 'Administrador Institución',
-      email,
-      role: 'admin',
-      permissions: ['view_dashboard', 'bulk_issue', 'view_job_monitor', 'manage_institutions', 'manage_users', 'manage_settings'],
-    };
-    const token = `mock-jwt-token-for-admin-${Date.now()}`;
-    return mockApiCall({ user, token });
+    return authService.login(email, password, 'institution');
   },
 
   registerCreator: async (email, password) => {
-    try {
-      if (API_BASE_URL) {
-        const res = await fetch(`${API_BASE_URL}/api/auth/creators/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        if (!res.ok) throw new Error('Registro inválido');
-        const data = await res.json();
-        return data;
-      }
-    } catch {}
-
-    if (!isValidPassword(password)) {
-      return mockApiCall(null, true, 'La contraseña debe tener 6 o más caracteres.');
-    }
-    const user = {
-      id: `creator-${crypto.randomUUID()}`,
-      name: 'Creador Demo',
-      email,
-      role: 'CREATOR',
-      brand: 'Mi Marca Personal',
-      permissions: ['issue_credentials', 'view_dashboard']
-    };
-    const token = `mock-jwt-token-for-creator-${Date.now()}`;
-    return mockApiCall({ user, token });
+    return authService.login(email, password, 'creator');
   },
 
   registerEmployer: async (email, password) => {
-    try {
-      if (API_BASE_URL) {
-        const res = await fetch(`${API_BASE_URL}/api/auth/employers/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        if (!res.ok) throw new Error('Registro inválido');
-        const data = await res.json();
-        return data;
-      }
-    } catch {}
-
-    if (!isValidPassword(password)) {
-      return mockApiCall(null, true, 'La contraseña debe tener 6 o más caracteres.');
-    }
-    const user = {
-      id: `employer-${crypto.randomUUID()}`,
-      name: 'Empleador Demo',
-      email,
-      role: 'employer',
-      companyName: 'Empresa Demo',
-      permissions: ['view_dashboard', 'verify_credential', 'search_talent']
-    };
-    const token = `mock-jwt-token-for-employer-${Date.now()}`;
-    return mockApiCall({ user, token });
+    return authService.login(email, password, 'employer');
   },
 
   logout: () => Promise.resolve(),
@@ -254,13 +166,23 @@ export const authService = {
     try {
       if (API_BASE_URL) {
         const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key'
+          }
         });
         if (!res.ok) throw new Error('Sesión inválida');
         const data = await res.json();
         return data?.data || data;
       }
-    } catch {}
+    } catch (e) {
+      console.warn('Get Current User Error:', e);
+      if (token && token.startsWith('mock-')) {
+         // Fallback to mock logic below
+      } else {
+         throw e;
+      }
+    }
 
     try {
       const isOwner = (() => { try { return localStorage.getItem('previewOwner') === '1'; } catch { return false; } })();

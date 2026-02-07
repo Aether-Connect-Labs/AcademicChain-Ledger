@@ -1,0 +1,116 @@
+{
+  "name": "Institution - Batch Credential Issuance",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "batch-issue",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.headers[\"x-acl-auth-key\"]}}",
+              "operation": "equal",
+              "value2": "acl_live_sec_8f92a3b4"
+            }
+          ]
+        }
+      },
+      "name": "Security Guard",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Unauthorized\", \"message\": \"Invalid security token\"}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "name": "Reject Request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 200]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "credentials"
+      },
+      "name": "Split Credentials",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// REAL HEDERA IMPLEMENTATION\n// Requirement: Install '@hashgraph/sdk' in n8n directory and set NODE_FUNCTION_ALLOW_EXTERNAL=@hashgraph/sdk\n\n/*\nconst { Client, TopicMessageSubmitTransaction } = require('@hashgraph/sdk');\n\n// Configure Client (Use Env Vars in n8n)\nconst client = Client.forTestnet(); // Change to forMainnet() for production\nclient.setOperator($env.HEDERA_ACCOUNT_ID, $env.HEDERA_PRIVATE_KEY);\n\nconst topicId = $env.HEDERA_TOPIC_ID;\n\n// Submit Message\nconst tx = await new TopicMessageSubmitTransaction()\n    .setTopicId(topicId)\n    .setMessage(JSON.stringify($input.item.json))\n    .execute(client);\n\nconst receipt = await tx.getReceipt(client);\nconst realHash = receipt.topicSequenceNumber.toString();\n*/\n\n// MOCK FALLBACK (Delete this section when Real Implementation is active)\nconst hash = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');\n\nreturn {\n  ...$input.item.json,\n  txHash: hash,\n  issueDate: new Date().toISOString(),\n  note: 'Running in MOCK mode. Uncomment Real Implementation code in n8n.'\n};"
+      },
+      "name": "Issue on Hedera (Mock)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "operation": "aggregateItems",
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "txHash",
+              "renameField": "txHash"
+            },
+            {
+              "fieldToAggregate": "studentEmail",
+              "renameField": "email"
+            }
+          ]
+        }
+      },
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 1,
+      "position": [800, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Batch processed successfully\",\n  \"count\": {{$json.txHash.length}},\n  \"results\": {{$json.txHash}}\n}",
+        "options": {}
+      },
+      "name": "Respond to App",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1000, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "Security Guard", "type": "main", "index": 0}]]
+    },
+    "Security Guard": {
+      "main": [
+        [{"node": "Split Credentials", "type": "main", "index": 0}],
+        [{"node": "Reject Request", "type": "main", "index": 0}]
+      ]
+    },
+    "Split Credentials": {
+      "main": [[{"node": "Issue on Hedera (Mock)", "type": "main", "index": 0}]]
+    },
+    "Issue on Hedera (Mock)": {
+      "main": [[{"node": "Aggregate Results", "type": "main", "index": 0}]]
+    },
+    "Aggregate Results": {
+      "main": [[{"node": "Respond to App", "type": "main", "index": 0}]]
+    }
+  }
+}

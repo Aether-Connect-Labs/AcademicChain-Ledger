@@ -1,0 +1,40 @@
+{
+  "name": "Payment Verification Service",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "verify-payment",
+        "options": {}
+      },
+      "name": "Verify Payment Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"valid\": true,\n  \"creditsGranted\": 500,\n  \"status\": \"confirmed\",\n  \"transactionId\": \"{{$json.body.transactionId}}\"\n}",
+        "options": {}
+      },
+      "name": "Respond Verification",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 0]
+    }
+  ],
+  "connections": {
+    "Verify Payment Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Verification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

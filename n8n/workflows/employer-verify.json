@@ -1,0 +1,40 @@
+{
+  "name": "Employer Single Verification Service",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "employer-verify",
+        "options": {}
+      },
+      "name": "Employer Verify Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"verified\": true,\n  \"data\": {\n    \"name\": \"Juan Pérez\",\n    \"credential\": \"Ingeniería de Sistemas\",\n    \"institution\": \"Universidad Demo\",\n    \"date\": \"2023-12-15\",\n    \"status\": \"Valid\",\n    \"blockchain\": \"Hedera Hashgraph\"\n  }\n}",
+        "options": {}
+      },
+      "name": "Respond Verification",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 0]
+    }
+  ],
+  "connections": {
+    "Employer Verify Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Verification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

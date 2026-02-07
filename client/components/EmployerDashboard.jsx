@@ -23,53 +23,24 @@ const EmployerDashboard = () => {
   const [generatingReport, setGeneratingReport] = useState(false);
   const scannerRef = useRef(null);
 
+  // Employer Branding State
+  const [employerName, setEmployerName] = useState('Tech Recruiters Inc.');
+  const [employerLogo, setEmployerLogo] = useState(toGateway('ipfs://bafkreicickkyjjn3ztitciypfh635lqowdskzbv54fiqbrhs4zbmwhjv4q'));
+  const [isEditingName, setIsEditingName] = useState(false);
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEmployerLogo(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   // Mock Talents Data with Blockchain Info
-  const mockTalents = [
-    { 
-        id: 1, 
-        name: 'Sofia Rodriguez', 
-        role: 'Blockchain Developer', 
-        skills: ['Solidity', 'React', 'Node.js'], 
-        location: 'Remoto', 
-        verified: true,
-        network: 'Hedera',
-        hash: '0x000123456789ABCDEF...',
-        txLink: 'https://hashscan.io/testnet/transaction/...'
-    },
-    { 
-        id: 2, 
-        name: 'Juan Perez', 
-        role: 'Smart Contract Auditor', 
-        skills: ['Security', 'Rust', 'EVM'], 
-        location: 'Madrid, ES', 
-        verified: true,
-        network: 'Ethereum',
-        hash: '0x1234567890ABCDEF...',
-        txLink: 'https://etherscan.io/tx/...'
-    },
-    { 
-        id: 3, 
-        name: 'Miguel Angel', 
-        role: 'Frontend Engineer', 
-        skills: ['Vue', 'Web3.js', 'Tailwind'], 
-        location: 'Mexico City, MX', 
-        verified: true,
-        network: 'Algorand',
-        hash: '0xABCDEF1234567890...',
-        txLink: 'https://algoexplorer.io/tx/...'
-    },
-    { 
-        id: 4, 
-        name: 'Ana Silva', 
-        role: 'Product Manager', 
-        skills: ['Agile', 'Scrum', 'DeFi'], 
-        location: 'Bogotá, CO', 
-        verified: true,
-        network: 'Hedera',
-        hash: '0x9876543210FEDCBA...',
-        txLink: 'https://hashscan.io/testnet/transaction/...'
-    },
-  ];
+  const mockTalents = [];
 
   // Quick filters for Smart Matching
   const smartFilters = [
@@ -120,15 +91,12 @@ const EmployerDashboard = () => {
         // Simulate n8n processing time
         await new Promise(r => setTimeout(r, 1200));
         
-        // Mock Data
-        const mockCandidates = [
-            { name: 'Sofia Rodriguez', skills: ['Solidity', 'React', 'Node.js'], score: 98 },
-            { name: 'Juan Perez', skills: ['Rust', 'Security', 'EVM'], score: 94 },
-            { name: 'Miguel Angel', skills: ['Vue', 'Web3.js', 'Tailwind'], score: 89 },
-            { name: 'Ana Silva', skills: ['Product', 'Scrum', 'DeFi'], score: 92 },
-            { name: 'David Chen', skills: ['Go', 'Hyperledger', 'Docker'], score: 88 }
-        ];
-        const candidate = mockCandidates[i % mockCandidates.length];
+        // Generate generic data based on file
+        const candidate = {
+            name: `Candidato ${i + 1}`,
+            skills: ['Verificado', 'Blockchain', 'Smart Contracts'],
+            score: Math.floor(Math.random() * (99 - 85) + 85)
+        };
 
         finalResults[i] = {
             ...finalResults[i],
@@ -412,42 +380,74 @@ const EmployerDashboard = () => {
   return (
     <div className="min-h-screen bg-[#0F172A] text-white pt-24 pb-12 px-4">
       <Toaster position="top-center" />
+      
+      {/* Top Navigation Bar */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0F172A]/90 backdrop-blur-md border-b border-slate-800 h-16 px-6 flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-4">
+              {/* Logo Upload */}
+              <div className="relative group w-10 h-10">
+                  <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-600 overflow-hidden flex items-center justify-center">
+                      <img src={employerLogo} alt="Logo" className="w-full h-full object-cover" />
+                  </div>
+                  <label className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                      <span className="text-[8px] font-bold text-white">EDIT</span>
+                      <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
+                  </label>
+              </div>
+
+              {/* Editable Name */}
+              {isEditingName ? (
+                  <input
+                      type="text"
+                      value={employerName}
+                      onChange={(e) => setEmployerName(e.target.value)}
+                      onBlur={() => setIsEditingName(false)}
+                      onKeyDown={(e) => e.key === 'Enter' && setIsEditingName(false)}
+                      className="bg-slate-800 border border-slate-600 text-white rounded px-2 py-1 text-sm font-bold focus:border-blue-500 outline-none"
+                      autoFocus
+                  />
+              ) : (
+                  <div 
+                      className="group flex items-center gap-2 cursor-pointer"
+                      onClick={() => setIsEditingName(true)}
+                  >
+                      <h1 className="text-lg font-bold font-display text-white group-hover:text-blue-400 transition-colors">{employerName}</h1>
+                      <span className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">✏️</span>
+                  </div>
+              )}
+          </div>
+
+          <div className="flex items-center gap-4">
+               <span className="hidden md:flex items-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    Vista Empleador
+               </span>
+               <button onClick={() => navigate('/precios?tab=employers')} className="hidden md:flex items-center gap-2 btn-primary text-xs px-3 py-1.5">
+                    <Shield size={14} />
+                    <span>Mejorar Plan</span>
+               </button>
+               <Link to="/" className="text-xs font-bold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 px-3 py-1.5 rounded-lg transition-all">
+                    Salir
+               </Link>
+          </div>
+      </nav>
+
       <div className="max-w-6xl mx-auto">
         
-        {/* Simulation Banner */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex justify-between items-center px-4 py-2 shadow-lg relative z-50 mb-6 rounded-lg mx-auto max-w-6xl">
-            <span className="font-bold uppercase tracking-widest text-xs flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-                Modo Simulación • Vista de Empleador
-            </span>
-            <Link to="/" className="text-xs font-bold bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-all">
-                Salir de la Demo
-            </Link>
-        </div>
+        {/* Simulation Banner - Removed as it's now in top bar / redundant */}
 
+        {/* Simplified Header */}
         <header className="mb-10 flex flex-col md:flex-row items-center justify-between gap-6 max-w-6xl mx-auto px-4">
             <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-white rounded-full p-1 shadow-lg">
-                    <img 
-                        src={toGateway('ipfs://bafkreicickkyjjn3ztitciypfh635lqowdskzbv54fiqbrhs4zbmwhjv4q')} 
-                        alt="Logo" 
-                        className="w-full h-full object-contain rounded-full"
-                    />
-                </div>
+                {/* Branding moved to Top Bar, keeping simplified welcome or stats here if needed, or removing */}
                 <div>
-                    <h1 className="text-3xl font-bold font-display mb-1">Tech Recruiters Inc.</h1>
+                    <h2 className="text-2xl font-bold font-display mb-1">Bienvenido, {employerName}</h2>
                     <div className="flex items-center gap-2 text-slate-400 text-sm">
                         <span className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded text-xs font-bold border border-blue-500/20">EMPRESA VERIFICADA</span>
                         <span>•</span>
                         <span>Portal de Gestión de Talento</span>
                     </div>
                 </div>
-            </div>
-            <div className="text-right hidden md:block">
-                 <button onClick={() => navigate('/precios?tab=employers')} className="btn-primary flex items-center gap-2">
-                    <Shield size={18} />
-                    <span>Mejorar Plan</span>
-                 </button>
             </div>
         </header>
 

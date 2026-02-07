@@ -1,0 +1,73 @@
+{
+  "name": "Template & Design Service",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "process-canva",
+        "options": {}
+      },
+      "name": "Process Canva Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"elements\": [\n    { \"type\": \"text\", \"text\": \"Certificado Canva\", \"left\": 100, \"top\": 100, \"fontSize\": 40 },\n    { \"type\": \"image\", \"src\": \"https://via.placeholder.com/800x600\", \"left\": 0, \"top\": 0 }\n  ]\n}",
+        "options": {}
+      },
+      "name": "Respond Canva",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "save-template",
+        "options": {}
+      },
+      "name": "Save Template Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"id\": \"tpl-{{$now.toFormat('yyyyMMddHHmmss')}}\",\n  \"message\": \"Plantilla guardada exitosamente\"\n}",
+        "options": {}
+      },
+      "name": "Respond Save Template",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 200]
+    }
+  ],
+  "connections": {
+    "Process Canva Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Canva",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Template Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Save Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

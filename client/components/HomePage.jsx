@@ -136,7 +136,7 @@ const HomePage = () => {
             </div>
 
             <Link 
-              to="/student/cv"
+              to="/student/smart-cv"
               className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-all shadow-lg shadow-blue-500/25"
             >
               Crear mi Smart CV
@@ -293,6 +293,14 @@ const HomePage = () => {
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <span className="relative z-10 font-bold text-blue-50 tracking-wide">Simular Alumno</span>
+              </Link>
+
+              <Link 
+                to="/student/smart-cv" 
+                className="group relative px-8 py-4 bg-[#0F172A] border border-green-500/30 rounded-xl overflow-hidden transition-all duration-300 hover:border-green-400 hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="relative z-10 font-bold text-green-50 tracking-wide">Simular Smart CV</span>
               </Link>
             </div>
           </div>

@@ -1,0 +1,106 @@
+{
+  "name": "Check Accounts Service",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "check-institution",
+        "options": {}
+      },
+      "name": "Check Institution Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"exists\": {{$json.body.email.includes('demo') || $json.body.email.includes('admin')}}\n}",
+        "options": {}
+      },
+      "name": "Respond Institution",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "check-creator",
+        "options": {}
+      },
+      "name": "Check Creator Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"exists\": {{$json.body.email.includes('creator')}}\n}",
+        "options": {}
+      },
+      "name": "Respond Creator",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 200]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "check-employer",
+        "options": {}
+      },
+      "name": "Check Employer Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"exists\": {{$json.body.email.includes('employer') || $json.body.email.includes('empresa')}}\n}",
+        "options": {}
+      },
+      "name": "Respond Employer",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 400]
+    }
+  ],
+  "connections": {
+    "Check Institution Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Institution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Creator Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Creator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Employer Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Employer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

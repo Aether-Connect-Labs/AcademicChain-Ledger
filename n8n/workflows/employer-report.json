@@ -82,9 +82,9 @@
     },
     {
       "parameters": {
-        "toEmail": "recruiter@example.com",
+        "toEmail": "={{$json.email}}",
         "subject": "Tu Reporte de Veracidad Consolidado",
-        "text": "Adjunto encontrarás el reporte de los CVs procesados.",
+        "text": "Hola,\n\nAdjunto encontrarás el reporte detallado de los CVs procesados por AcademicChain Ledger.\n\nSaludos,\nEl equipo de AcademicChain.",
         "attachments": "data",
         "options": {}
       },

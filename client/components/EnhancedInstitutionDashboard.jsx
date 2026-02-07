@@ -408,40 +408,6 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                 </div>
               </div>
             </div>
-
-            {/* Recent Credentials Table */}
-            <div className="glass-panel overflow-hidden mt-8">
-              <div className="p-4 border-b border-slate-700/50 flex justify-between items-center">
-                <h3 className="font-bold text-white">Emisiones Recientes</h3>
-                <button className="text-primary text-sm hover:underline" onClick={() => setActiveTab('credenciales')}>Ver Todo</button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-white/5 text-slate-400">
-                    <tr>
-                      <th className="px-4 py-3">Estudiante</th>
-                      <th className="px-4 py-3">Título</th>
-                      <th className="px-4 py-3">ID Transacción</th>
-                      <th className="px-4 py-3">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800">
-                    {credentials.slice(0, 5).map((cred, idx) => (
-                      <tr key={idx} className="hover:bg-white/5 transition-colors">
-                        <td className="px-4 py-3 font-medium text-white">{cred.studentName || 'Anon'}</td>
-                        <td className="px-4 py-3 text-slate-300">{cred.title}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-slate-500">{cred.id?.substring(0, 12)}...</td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-green-500/20 text-green-400 border border-green-500/30">
-                            Confirmado
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           </>
         );
     }
@@ -450,7 +416,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#030014]"><div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-cyan-500 shadow-neon-blue"></div></div>;
 
   return (
-    <div className="min-h-screen text-slate-100 flex overflow-hidden relative font-sans selection:bg-cyan-500/30">
+    <div className="h-screen text-slate-100 flex overflow-hidden relative font-sans selection:bg-cyan-500/30">
       <CyberBackground />
       <Toaster position="bottom-right" toastOptions={{ style: { background: 'rgba(15, 23, 42, 0.9)', color: '#fff', border: '1px solid rgba(51, 65, 85, 0.5)', backdropFilter: 'blur(10px)' } }} />
 
@@ -459,7 +425,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
       <motion.div
         initial={{ x: -100, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
-        className={`fixed md:static top-0 left-0 h-full w-64 z-50 glass-panel border-r border-slate-700/50 flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} transition-transform duration-300`}
+        className={`fixed md:static top-0 left-0 h-full w-64 z-50 glass-panel border-r border-slate-700/50 flex flex-col flex-shrink-0 overflow-y-auto ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} transition-transform duration-300`}
       >
         {/* AcademicChain Branding Header - Matching Global Header Style */}
         <div className="py-4 px-6 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
@@ -562,7 +528,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
       </motion.div>
 
       {/* Main Content */}
-      <div className="flex-1 relative overflow-y-auto h-screen">
+      <div className="flex-1 relative overflow-y-auto h-full">
         {/* Header */}
         <header className="sticky top-0 z-40 backdrop-blur-md bg-background/80 border-b border-slate-800 p-4 flex justify-between items-center">
           <div className="flex items-center gap-4">

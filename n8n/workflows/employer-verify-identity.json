@@ -1,0 +1,73 @@
+{
+  "name": "Employer Identity Verification Service",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "employer-verify-image",
+        "options": {}
+      },
+      "name": "Employer Verify Image Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"matchFound\": true,\n  \"confidence\": 0.94,\n  \"data\": {\n    \"name\": \"Ana García\",\n    \"credential\": \"Ingeniería de Software\",\n    \"institution\": \"Instituto Tecnológico Blockchain\",\n    \"graduated\": true,\n    \"date\": \"2023-06-20\",\n    \"photoMatch\": true,\n    \"blockchain\": \"Hedera Hashgraph\"\n  }\n}",
+        "options": {}
+      },
+      "name": "Respond Employer Image",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "verify-identity-image",
+        "options": {}
+      },
+      "name": "Verify Identity Image Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"matchFound\": true,\n  \"data\": {\n    \"name\": \"Estudiante Identificado\",\n    \"confidence\": \"98.5%\",\n    \"status\": \"Verified\",\n    \"studentId\": \"0.0.123456\",\n    \"credentials\": [\"Ingeniería de Software\", \"Certificado de React\"]\n  }\n}",
+        "options": {}
+      },
+      "name": "Respond Identity Image",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 200]
+    }
+  ],
+  "connections": {
+    "Employer Verify Image Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Employer Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Identity Image Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Identity Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
