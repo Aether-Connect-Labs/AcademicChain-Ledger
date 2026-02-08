@@ -67,6 +67,28 @@
       "typeVersion": 1,
       "position": [200, 400]
     }
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "check-account",
+        "options": {}
+      },
+      "name": "Check Any Account Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 600]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"exists\": {{$json.body.email.includes('demo') || $json.body.email.includes('admin') || $json.body.email.includes('creator') || $json.body.email.includes('employer')}}\n}",
+        "options": {}
+      },
+      "name": "Respond Any",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 600]
+    }
   ],
   "connections": {
     "Check Institution Webhook": {
@@ -74,6 +96,17 @@
         [
           {
             "node": "Respond Institution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Any Account Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Any",
             "type": "main",
             "index": 0
           }
