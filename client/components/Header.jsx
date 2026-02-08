@@ -127,20 +127,10 @@ const Header = () => {
           {/* Actions */}
           <div className="hidden lg:flex items-center gap-x-4">
             {/* Hedera Badge */}
-            <div className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-xs font-semibold flex items-center gap-1 border border-red-200">
-              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+            <div className="px-3 py-1 rounded-full bg-green-100 text-green-600 text-xs font-semibold flex items-center gap-1 border border-green-200">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
               Hedera
             </div>
-
-            {/* Register Button (if not logged in) */}
-            {!user && (
-              <Link
-                to="/students/register?next=/students/upgrade"
-                className="px-4 py-2 rounded-lg font-bold text-sm bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-lg shadow-blue-500/20 border border-blue-400/20"
-              >
-                Registrarse
-              </Link>
-            )}
 
             {/* Wallet Button (solo admin/institución) */}
             {canShowWallet && (
@@ -211,15 +201,6 @@ const Header = () => {
               ))}
             </div>
             <div className="px-4 py-4 border-t border-gray-200">
-              {!user && (
-                 <Link
-                  to="/students/register?next=/students/upgrade"
-                  className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold transition-all shadow-md bg-blue-600 text-white mb-4"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Registrarse
-                </Link>
-              )}
               {canShowWallet && (
                 <button
                   onClick={isConnected ? disconnectWallet : connectWallet}
@@ -234,8 +215,8 @@ const Header = () => {
                 </button>
               )}
               <div className="mt-4 flex items-center justify-center">
-                <div className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-xs font-semibold flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                <div className="px-3 py-1 rounded-full bg-green-100 text-green-600 text-xs font-semibold flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
                   Hedera Testnet
                 </div>
               </div>
