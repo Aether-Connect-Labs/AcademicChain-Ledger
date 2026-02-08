@@ -176,38 +176,6 @@ const n8nService = {
     },
 
     /**
-     * Verify student identity by photo/CV upload (Employer flow)
-     */
-    verifyStudentIdentityByImage: async (formData) => {
-        try {
-            console.log('Verifying student identity by image for employer...');
-            const url = n8nService._getN8nUrl('employer-verify-image');
-            
-            // Simulate upload and processing delay
-            await new Promise(r => setTimeout(r, 2500));
-
-            // Mock response - Simulate finding a match
-            return {
-                success: true,
-                matchFound: true,
-                confidence: 0.94,
-                data: {
-                    name: 'Ana García',
-                    credential: 'Ingeniería de Software',
-                    institution: 'Instituto Tecnológico Blockchain',
-                    graduated: true,
-                    date: '2023-06-20',
-                    photoMatch: true,
-                    blockchain: 'Hedera Hashgraph'
-                }
-            };
-        } catch (error) {
-            console.error('Identity image verification error:', error);
-            return { success: false, message: 'Error al procesar la imagen' };
-        }
-    },
-
-    /**
      * Generate Employer Verification Report (PDF)
      */
     generateEmployerReport: async (reportData) => {
@@ -420,6 +388,19 @@ const n8nService = {
     generateSmartCV: async (data) => {
         try {
             console.log('Requesting Smart CV from n8n AI...', data);
+            const url = n8nService._getN8nUrl('generate-smart-cv');
+
+            try {
+                const res = await axios.post(url, data, {
+                    headers: { 'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key' }
+                });
+                if (res.data && res.data.success) {
+                   return res.data;
+                }
+            } catch (e) {
+                console.warn('CV Gen mock fallback', e);
+            }
+            
             await new Promise(resolve => setTimeout(resolve, 3000));
             
             return {
@@ -495,7 +476,20 @@ const n8nService = {
     searchTalent: async (searchData) => {
         try {
             console.log('Searching talent via n8n AI:', searchData);
-            // Simulate AI Search
+            const url = n8nService._getN8nUrl('search-talent');
+
+            try {
+                const res = await axios.post(url, searchData, {
+                    headers: { 'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key' }
+                });
+                if (res.data && res.data.success) {
+                    return res.data;
+                }
+            } catch (e) {
+                console.warn('Talent search mock fallback');
+            }
+            
+            // Simulate AI Search Fallback
             await new Promise(resolve => setTimeout(resolve, 1500));
             
             return {

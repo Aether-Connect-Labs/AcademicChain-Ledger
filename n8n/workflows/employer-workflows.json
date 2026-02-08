@@ -1,0 +1,73 @@
+{
+  "name": "Employer Workflows",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "verify-identity-image",
+        "options": {}
+      },
+      "name": "Verify Identity Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"matchFound\": true,\n  \"confidence\": 0.98,\n  \"data\": {\n    \"name\": \"Estudiante Verificado\",\n    \"status\": \"Verified\"\n  }\n}",
+        "options": {}
+      },
+      "name": "Respond Identity",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-employer-report",
+        "options": {}
+      },
+      "name": "Generate Report Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"reportUrl\": \"https://academicchain.com/reports/generated-report.pdf\"\n}",
+        "options": {}
+      },
+      "name": "Respond Report",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 200]
+    }
+  ],
+  "connections": {
+    "Verify Identity Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Identity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

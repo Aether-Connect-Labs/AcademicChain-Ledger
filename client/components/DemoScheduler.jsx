@@ -170,8 +170,8 @@ const DemoScheduler = () => {
   return (
     <>
     <div className="container-responsive pb-10 pt-24 sm:pt-32">
-      <h1 className="text-3xl font-extrabold text-gray-900 mb-2 gradient-text">Agenda una Demo</h1>
-      <p className="text-gray-600 mb-6">Selecciona tu horario preferido. Zona horaria: {tz}</p>
+      <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 mb-2">Agenda una Demo</h1>
+      <p className="text-slate-300 mb-6">Selecciona tu horario preferido. Zona horaria: {tz}</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 glass-card p-6">

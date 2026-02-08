@@ -42,7 +42,7 @@
     },
     {
       "parameters": {
-        "url": "https://api.academicchain.com/verify/{{$json.identityId}}",
+        "url": "={{$env.API_URL}}/verify/{{$json.identityId}}",
         "method": "GET"
       },
       "name": "Verify On Chain",

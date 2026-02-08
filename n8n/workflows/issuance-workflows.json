@@ -1,0 +1,106 @@
+{
+  "name": "Issuance Workflows",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "batch-issue",
+        "options": {}
+      },
+      "name": "Batch Issue Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"jobId\": \"job-{{ $now }}\",\n  \"message\": \"Batch processing started\"\n}",
+        "options": {}
+      },
+      "name": "Respond Batch Issue",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "process-canva",
+        "options": {}
+      },
+      "name": "Process Canva Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"elements\": []\n}",
+        "options": {}
+      },
+      "name": "Respond Canva",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 200]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "save-template",
+        "options": {}
+      },
+      "name": "Save Template Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"id\": \"tpl-{{ $now }}\"\n}",
+        "options": {}
+      },
+      "name": "Respond Save Template",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 400]
+    }
+  ],
+  "connections": {
+    "Batch Issue Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Batch Issue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Canva Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Canva",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Template Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Save Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
