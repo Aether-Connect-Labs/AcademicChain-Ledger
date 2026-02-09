@@ -1785,16 +1785,22 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
              <div className="w-80 flex flex-col bg-slate-950/50 overflow-hidden">
             
              {/* Horizontal Quick Tools Strip */}
-            <div className="flex flex-wrap gap-1 p-2 border-b border-slate-800 bg-slate-900/80 justify-between">
-                <button onClick={undo} disabled={history.length <= 1} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed" title="Deshacer">
-                    <Undo2 size={18} />
-                    <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Deshacer</span>
-                </button>
-                <button onClick={redo} disabled={redoHistory.length === 0} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed" title="Rehacer">
-                    <Redo2 size={18} />
-                    <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Rehacer</span>
-                </button>
-                <div className="w-px bg-slate-700 mx-1 self-stretch"></div>
+            <div className="flex flex-wrap gap-1 p-2 border-b border-slate-800 bg-slate-900/80 items-center">
+                <div className="flex items-center gap-2 mr-auto">
+                    <button onClick={undo} disabled={history.length <= 1} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed border border-transparent hover:border-slate-700" title="Deshacer">
+                        <Undo2 size={18} />
+                        <span className="absolute top-full mt-1 left-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Deshacer</span>
+                    </button>
+                    
+                    <div className="w-px h-6 bg-slate-700 mx-2"></div>
+                    
+                    <button onClick={redo} disabled={redoHistory.length === 0} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed border border-transparent hover:border-slate-700" title="Rehacer">
+                        <Redo2 size={18} />
+                        <span className="absolute top-full mt-1 left-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Rehacer</span>
+                    </button>
+                </div>
+
+                <div className="w-px bg-slate-700 mx-2 self-stretch"></div>
                 <button onClick={() => addText()} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center" title="Agregar Texto">
                     <Type size={18} />
                     <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Texto</span>
