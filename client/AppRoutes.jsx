@@ -49,6 +49,7 @@ import CreditRecharge from './components/CreditRecharge.jsx';
 import CreatorDashboard from './components/CreatorDashboard';
 import CreatorsPage from './components/CreatorsPage';
 import CreatorDesignerPage from './components/CreatorDesignerPage';
+import HolographicStudio from './components/HolographicStudio';
 import AuditDashboard from './components/admin/AuditDashboard.jsx';
 
 import EmployerDashboard from './components/EmployerDashboard';
@@ -101,6 +102,12 @@ const AppRoutes = () => {
         path="/portal-creadores/designer"
         element={
           <Layout showNavbar={false} showFooter={false}><CreatorDesignerPage /></Layout>
+        }
+      />
+      <Route
+        path="/studio"
+        element={
+          <Layout showNavbar={false} showFooter={false}><HolographicStudio /></Layout>
         }
       />
       <Route path="/docs" element={<Layout><ApiDocsLanding /></Layout>} />

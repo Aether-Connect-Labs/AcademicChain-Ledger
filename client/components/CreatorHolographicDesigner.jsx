@@ -2,9 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Canvas, IText, Rect, Shadow, Image as FabricImage } from 'fabric';
 import { Toaster, toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { Trash2, FileText, Upload, LayoutTemplate, Type, FileUp, Layers, Move, Maximize, Minimize, ChevronUp, ChevronDown, Lock, Unlock, Eye, EyeOff, BringToFront, SendToBack, Grid, Image as ImageIcon, Eraser, MousePointer2, PenTool, Stamp } from 'lucide-react';
-import n8nService from './services/n8nService';
+import { Trash2, FileText, Upload, LayoutTemplate, Type, FileUp, Layers, Move, Maximize, Minimize, ChevronUp, ChevronDown, Lock, Unlock, Eye, EyeOff, BringToFront, SendToBack, Grid, Image as ImageIcon, Eraser, MousePointer2, PenTool, Stamp, ArrowRightFromLine, ArrowDownFromLine, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter } from 'lucide-react';
 import { mockCredentials, templates } from '../utils/mockData';
+import n8nService from './services/n8nService';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set worker source for PDF.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
   const canvasRef = useRef(null);
@@ -131,84 +135,230 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
     updateLayers();
   };
 
-  /* Canva Integration State */
-  const [canvaUrl, setCanvaUrl] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [showCanvaInput, setShowCanvaInput] = useState(false);
 
-  const handleCanvaImport = async () => {
-    if (!canvaUrl) {
-        toast.error('Por favor ingresa un enlace de Canva');
-        return;
-    }
-    setIsProcessing(true);
-    const result = await n8nService.processCanvaDesign(canvaUrl);
-    setIsProcessing(false);
-    
-    if (result.success && result.imageUrl) {
-        FabricImage.fromURL(result.imageUrl, { crossOrigin: 'anonymous' }).then(img => {
-            const scale = Math.max(fabricCanvas.width / img.width, fabricCanvas.height / img.height);
-            img.set({
-               originX: 'center', 
-               originY: 'center',
-               scaleX: scale,
-               scaleY: scale,
-               top: fabricCanvas.height / 2,
-               left: fabricCanvas.width / 2,
-               data: { isBackground: true, name: 'Fondo Importado' },
-               selectable: false,
-               evented: false
-           });
-           const oldBg = fabricCanvas.getObjects().find(o => o.data?.isBackground);
-           if (oldBg) fabricCanvas.remove(oldBg);
-
-           fabricCanvas.add(img);
-           img.sendToBack();
-           fabricCanvas.requestRenderAll();
-           updateLayers();
-           toast.success('Diseño de Canva importado exitosamente');
-           setShowCanvaInput(false);
-           setCanvaUrl('');
-        });
-    } else if (result.mockUrl) {
-         FabricImage.fromURL(result.mockUrl, { crossOrigin: 'anonymous' }).then(img => {
-            const scale = Math.max(fabricCanvas.width / img.width, fabricCanvas.height / img.height);
-            img.set({
-                originX: 'center', 
-                originY: 'center',
-                scaleX: scale,
-                scaleY: scale,
-                top: fabricCanvas.height / 2,
-                left: fabricCanvas.width / 2,
-                data: { isBackground: true, name: 'Fondo Demo' },
-                selectable: false,
-                evented: false
-            });
-            const oldBg = fabricCanvas.getObjects().find(o => o.data?.isBackground);
-            if (oldBg) fabricCanvas.remove(oldBg);
-
-            fabricCanvas.add(img);
-            img.sendToBack();
-            fabricCanvas.requestRenderAll();
-            updateLayers();
-            toast('Modo Demo: Diseño de ejemplo cargado', { icon: 'ℹ️' });
-            setShowCanvaInput(false);
-         });
-    } else {
-        toast.error(result.message || 'Error al importar');
-    }
-  };
 
   useEffect(() => {
       const saved = JSON.parse(localStorage.getItem('customTemplates') || '[]');
       setCustomTemplates(saved);
   }, []);
 
+  const loadDefaultDesign = (type = 'Certificado') => {
+      if (!fabricCanvas || !fabricCanvas.contextContainer) return;
+
+      try {
+        fabricCanvas.clear();
+        fabricCanvas.backgroundColor = '#fdfbf7'; // Cream/Parchment color
+        
+        // Ensure A4 Landscape dimensions
+        const width = 1123;
+        const height = 794;
+        fabricCanvas.setDimensions({ width, height });
+        setPageSize('Landscape');
+        
+        // Round to nearest integer for pixel-perfect rendering
+        const cx = Math.round(width / 2);
+        const cy = Math.round(height / 2);
+
+        // Helper for sharp rendering (odd strokes need 0.5 offset to land on pixels)
+        const sharp = (val, stroke) => stroke % 2 !== 0 ? val + 0.5 : val;
+
+        // 1. Ornamental Border (Elegant Double Border)
+        // Using center origin for perfect symmetry
+        const outerStroke = 5;
+        const outerBorder = new Rect({
+            left: sharp(cx, outerStroke), 
+            top: sharp(cy, outerStroke),
+            width: width - 80, height: height - 80,
+            fill: 'transparent',
+            stroke: '#d4af37', // Gold
+            strokeWidth: outerStroke,
+            selectable: false,
+            evented: false,
+            rx: 10, ry: 10,
+            originX: 'center', originY: 'center',
+            data: { name: 'Borde Exterior' }
+        });
+        
+        const innerStroke = 2;
+        const innerBorder = new Rect({
+            left: sharp(cx, innerStroke), 
+            top: sharp(cy, innerStroke),
+            width: width - 110, height: height - 110,
+            fill: 'transparent',
+            stroke: '#1a1a1a', // Black detail
+            strokeWidth: innerStroke,
+            selectable: false,
+            evented: false,
+            rx: 5, ry: 5,
+            originX: 'center', originY: 'center',
+            data: { name: 'Borde Interior' }
+        });
+
+        fabricCanvas.add(outerBorder, innerBorder);
+
+        // 2. Header / Institution (Top Section)
+        const institutionText = new IText('ACADEMIC CHAIN INSTITUTE', {
+            left: cx, top: 120,
+            fontSize: 32,
+            fontFamily: 'Times New Roman',
+            fill: '#2c3e50',
+            fontWeight: 'bold',
+            originX: 'center',
+            charSpacing: 100, 
+            data: { name: 'Institución', isInstitution: true }
+        });
+
+        // 3. Document Title
+        const titleText = new IText(type.toUpperCase(), {
+            left: cx, top: 220,
+            fontSize: 56,
+            fontFamily: 'Helvetica', 
+            fill: '#1a1a1a',
+            fontWeight: 'bold',
+            originX: 'center',
+            shadow: new Shadow({ color: 'rgba(0,0,0,0.1)', blur: 4, offsetX: 2, offsetY: 2 }),
+            data: { name: 'Título Principal', isTitle: true }
+        });
+
+        // 4. Presentation Line
+        const presentText = new IText('Se otorga el presente reconocimiento a:', {
+            left: cx, top: 320,
+            fontSize: 20,
+            fontFamily: 'Times New Roman',
+            fontStyle: 'italic',
+            fill: '#555',
+            originX: 'center',
+            data: { name: 'Texto Presentación' }
+        });
+
+        // 5. Student Name 
+        const studentName = new IText('{{STUDENT_NAME}}', {
+            left: cx, top: 380,
+            fontSize: 48,
+            fontFamily: 'Times New Roman',
+            fontStyle: 'italic',
+            fontWeight: 'bold',
+            fill: '#d4af37', 
+            originX: 'center',
+            underline: false,
+            data: { isSmart: true, name: 'Nombre Alumno' }
+        });
+        
+        // Underline for name
+        const nameLineH = 2; // Even height
+        const nameLine = new Rect({
+             left: cx, top: sharp(440, nameLineH),
+             width: 500, height: nameLineH,
+             fill: '#d4af37',
+             originX: 'center', originY: 'center',
+             selectable: false,
+             data: { name: 'Línea Nombre' }
+        });
+
+        // 6. Reason / Degree
+        const reasonText = new IText('Por haber completado satisfactoriamente el programa de:', {
+            left: cx, top: 480,
+            fontSize: 20,
+            fontFamily: 'Times New Roman',
+            fill: '#555',
+            originX: 'center',
+            data: { name: 'Texto Razón' }
+        });
+        
+        const degreeText = new IText('{{DEGREE}}', {
+            left: cx, top: 530,
+            fontSize: 32,
+            fontWeight: 'bold',
+            fontFamily: 'Helvetica',
+            fill: '#2c3e50',
+            originX: 'center',
+            data: { isSmart: true, name: 'Grado/Curso' }
+        });
+
+        // 7. Date
+        const dateText = new IText('Expedido el: {{DATE}}', {
+            left: cx, top: 600,
+            fontSize: 16,
+            fontFamily: 'Times New Roman',
+            fill: '#777',
+            originX: 'center',
+            data: { isSmart: true, name: 'Fecha' }
+        });
+
+        // 8. Signatures (Perfectly aligned)
+        const sigY = height - 120;
+        const sig1X = Math.round(width * 0.25);
+        const sig2X = Math.round(width * 0.75);
+        const sigLineH = 1; // Odd height
+
+        const sigLine1 = new Rect({
+            left: sig1X, top: sharp(sigY, sigLineH),
+            width: 260, height: sigLineH,
+            fill: '#333',
+            originX: 'center', originY: 'center'
+        });
+        const sigText1 = new IText('Firma del Director', {
+            left: sig1X, top: sigY + 15,
+            fontSize: 16, originX: 'center', fill: '#444', fontFamily: 'Times New Roman'
+        });
+
+        const sigLine2 = new Rect({
+            left: sig2X, top: sharp(sigY, sigLineH),
+            width: 260, height: sigLineH,
+            fill: '#333',
+            originX: 'center', originY: 'center'
+        });
+        const sigText2 = new IText('Firma del Instructor', {
+            left: sig2X, top: sigY + 15,
+            fontSize: 16, originX: 'center', fill: '#444', fontFamily: 'Times New Roman'
+        });
+
+        // 9. QR Code 
+        const qrSize = 100;
+        const qrX = 100; 
+        const qrY = height - 100;
+
+        const qrPlaceholder = new Rect({
+            left: qrX, top: qrY,
+            width: qrSize, height: qrSize,
+            fill: '#fff',
+            stroke: '#d4af37',
+            strokeWidth: 2,
+            originX: 'center',
+            originY: 'center',
+            rx: 5, ry: 5,
+            data: { isQR: true, name: 'Placeholder QR' }
+        });
+        const qrText = new IText('QR', {
+             left: qrX, top: qrY,
+             fontSize: 24, fill: '#ccc',
+             originX: 'center', originY: 'center',
+             selectable: false, evented: false,
+             fontFamily: 'Helvetica'
+        });
+        
+        fabricCanvas.add(
+            institutionText, titleText, presentText, 
+            studentName, nameLine, reasonText, degreeText, dateText,
+            sigLine1, sigText1, sigLine2, sigText2,
+            qrPlaceholder, qrText
+        );
+
+        fabricCanvas.requestRenderAll();
+        updateLayers();
+      } catch(e) {
+        console.error("Error loading default design", e);
+      }
+  };
+
   // Load Default if empty
   useEffect(() => {
       if (fabricCanvas && !data?.designStructure) {
+          // Check if canvas is valid (not disposed)
+          if (!fabricCanvas.contextContainer) return;
+
           if (fabricCanvas.getObjects().length === 0) {
-              loadTemplate(templates[0].id);
+              loadDefaultDesign('Certificado');
               toast('Plantilla predeterminada cargada', { icon: 'ℹ️' });
           }
       }
@@ -216,6 +366,8 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
 
   useEffect(() => {
     if (fabricCanvas) {
+      if (!fabricCanvas.contextContainer) return;
+
       const update = () => {
         const objects = fabricCanvas.getObjects();
         setLayers([...objects].reverse());
@@ -304,7 +456,7 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
 
   /* Snap & Alignment Logic */
   useEffect(() => {
-      if (!fabricCanvas) return;
+      if (!fabricCanvas || !fabricCanvas.contextContainer) return;
 
       fabricCanvas.selectionColor = 'rgba(125, 42, 232, 0.1)';
       fabricCanvas.selectionBorderColor = '#7D2AE8';
@@ -399,15 +551,42 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
       };
   }, [fabricCanvas, isPreviewMode]);
 
+  // Canvas scale for "Zoom to Fit"
+  const [scaleFactor, setScaleFactor] = useState(1);
+
+  // Auto-fit calculation
+  useEffect(() => {
+    if (!containerRef.current || !fabricCanvas) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+        const containerWidth = containerRef.current.clientWidth - 80; // Padding
+        const containerHeight = containerRef.current.clientHeight - 80;
+        
+        // Dynamic target based on orientation
+        const targetWidth = pageSize === 'Portrait' ? 794 : 1123;
+        const targetHeight = pageSize === 'Portrait' ? 1123 : 794;
+
+        const scaleX = containerWidth / targetWidth;
+        const scaleY = containerHeight / targetHeight;
+        
+        // Use the smaller scale to fit entirely
+        let newScale = Math.min(scaleX, scaleY);
+        // Cap max scale to avoid pixelation but allow full view
+        if (newScale > 1.2) newScale = 1.2; 
+        
+        setScaleFactor(newScale);
+    });
+
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, [fabricCanvas, pageSize]);
+
   useEffect(() => {
     if (containerRef.current && canvasRef.current) {
-      const containerWidth = containerRef.current.clientWidth - 64; 
-      const aspect = 4 / 3;
-      const height = containerWidth / aspect;
-
+      // Initialize with a temporary size, will be resized by loadDefaultDesign
       const canvas = new Canvas(canvasRef.current, {
-        width: containerWidth,
-        height: height,
+        width: 800, 
+        height: 600,
         backgroundColor: '#ffffff',
         selection: true
       });
@@ -450,7 +629,7 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
 
 
   const addText = (initialText = text) => {
-    if (!fabricCanvas) return;
+    if (!fabricCanvas || !fabricCanvas.contextContainer) return;
     const textObj = new IText(initialText, {
       left: fabricCanvas.width / 2 - 100,
       top: fabricCanvas.height / 2,
@@ -465,7 +644,7 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
   };
 
   const addRect = () => {
-    if (!fabricCanvas) return;
+    if (!fabricCanvas || !fabricCanvas.contextContainer) return;
     const rect = new Rect({ left: 100, top: 100, fill: color, width: 100, height: 100 });
     fabricCanvas.add(rect);
   };
@@ -476,6 +655,7 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
       const reader = new FileReader();
       reader.onload = (f) => {
         FabricImage.fromURL(f.target.result).then(img => {
+          if (!fabricCanvas || !fabricCanvas.contextContainer) return;
           img.scaleToWidth(200);
           fabricCanvas.add(img);
           fabricCanvas.setActiveObject(img);
@@ -503,8 +683,9 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
   };
 
   const addSignatureToCanvas = (sig) => {
-      if (!fabricCanvas) return;
+      if (!fabricCanvas || !fabricCanvas.contextContainer) return;
       FabricImage.fromURL(sig.url).then(img => {
+          if (!fabricCanvas || !fabricCanvas.contextContainer) return;
           img.scaleToWidth(150);
           img.set({
               left: fabricCanvas.width / 2,
@@ -520,7 +701,7 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
   };
 
   const autoStampSignatures = () => {
-      if (!fabricCanvas || signatures.length === 0) {
+      if (!fabricCanvas || !fabricCanvas.contextContainer || signatures.length === 0) {
           toast.error('No hay firmas disponibles para estampar');
           return;
       }
@@ -530,6 +711,7 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
 
       signatures.forEach((sig, index) => {
           FabricImage.fromURL(sig.url).then(img => {
+              if (!fabricCanvas || !fabricCanvas.contextContainer) return;
               img.scaleToWidth(120);
               img.set({
                   left: spacing * (index + 1),
@@ -548,9 +730,13 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
   const handleBackgroundUpload = (e) => {
     const f = e.target.files[0];
     if (f && fabricCanvas) {
+      if (!fabricCanvas.contextContainer) return;
+
       const reader = new FileReader();
       reader.onload = (f) => {
         FabricImage.fromURL(f.target.result).then(img => {
+           if (!fabricCanvas || !fabricCanvas.contextContainer) return;
+
            const scaleX = fabricCanvas.width / img.width;
            const scaleY = fabricCanvas.height / img.height;
            const scale = Math.max(scaleX, scaleY);
@@ -584,9 +770,11 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
   const handleLogoUpload = (e) => {
     const f = e.target.files[0];
     if (f && fabricCanvas) {
+      if (!fabricCanvas.contextContainer) return;
       const reader = new FileReader();
       reader.onload = (f) => {
         FabricImage.fromURL(f.target.result).then(img => {
+           if (!fabricCanvas || !fabricCanvas.contextContainer) return;
            img.scaleToWidth(150);
            img.set({
                left: fabricCanvas.width / 2,
@@ -607,6 +795,7 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
   };
 
   const clearCanvas = () => {
+      if (!fabricCanvas || !fabricCanvas.contextContainer) return;
       if (confirm("¿Estás seguro de limpiar todo el diseño?")) {
           fabricCanvas.clear();
           fabricCanvas.backgroundColor = '#ffffff';
@@ -617,39 +806,10 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
   };
 
   const loadStructure = (type) => {
-      if (!fabricCanvas) return;
-      if (!confirm("Esto reemplazará tu diseño actual. ¿Continuar?")) return;
+      if (!fabricCanvas || !fabricCanvas.contextContainer) return;
+      if (!confirm("Esto reemplazará tu diseño actual con una plantilla profesional. ¿Continuar?")) return;
 
-      fabricCanvas.clear();
-      fabricCanvas.backgroundColor = '#ffffff';
-      
-      const cx = fabricCanvas.width / 2;
-      const cy = fabricCanvas.height / 2;
-
-      if (type === 'Titulo') {
-          fabricCanvas.add(new IText('TÍTULO PROFESIONAL', { left: cx, top: 100, fontSize: 40, fontFamily: 'Orbitron', originX: 'center', data: { name: 'Título Doc' } }));
-          fabricCanvas.add(new IText('{{nombre_alumno}}', { left: cx, top: 250, fontSize: 30, fontFamily: 'Inter', originX: 'center', data: { isSmart: true, name: 'Nombre Alumno' } }));
-          fabricCanvas.add(new IText('{{carrera}}', { left: cx, top: 320, fontSize: 24, fontFamily: 'Inter', originX: 'center', fill: '#666', data: { isSmart: true, name: 'Carrera' } }));
-          
-          const sigY = fabricCanvas.height - 150;
-          [-200, 0, 200].forEach((offset, i) => {
-             fabricCanvas.add(new Rect({ left: cx + offset - 60, top: sigY, width: 120, height: 1, fill: '#000', originX: 'left', data: { name: `Línea Firma ${i+1}` } }));
-             fabricCanvas.add(new IText('Autoridad', { left: cx + offset, top: sigY + 10, fontSize: 12, originX: 'center', data: { name: `Cargo Firma ${i+1}` } }));
-          });
-      } else if (type === 'Diploma') {
-          fabricCanvas.add(new IText('DIPLOMA TÉCNICO', { left: cx, top: 100, fontSize: 40, fontFamily: 'Orbitron', originX: 'center', data: { name: 'Título Doc' } }));
-          fabricCanvas.add(new IText('{{nombre_alumno}}', { left: cx, top: 250, fontSize: 30, fontFamily: 'Inter', originX: 'center', data: { isSmart: true, name: 'Nombre Alumno' } }));
-          
-          fabricCanvas.add(new Rect({ left: cx + 300, top: cy, width: 100, height: 100, fill: '#eee', stroke: '#000', strokeDashArray: [5, 5], originX: 'center', data: { name: 'Placeholder QR' } }));
-          fabricCanvas.add(new IText('QR', { left: cx + 300, top: cy, fontSize: 20, originX: 'center', originY: 'center', fill: '#999', selectable: false }));
-      } else if (type === 'Constancia') {
-           fabricCanvas.add(new IText('CONSTANCIA DE ESTUDIOS', { left: cx, top: 100, fontSize: 30, fontFamily: 'Inter', originX: 'center', data: { name: 'Título Doc' } }));
-           fabricCanvas.add(new IText('Por la presente se hace constar que:', { left: cx, top: 180, fontSize: 16, originX: 'center' }));
-           fabricCanvas.add(new IText('{{nombre_alumno}}', { left: cx, top: 220, fontSize: 24, fontFamily: 'Inter', originX: 'center', fontWeight: 'bold', data: { isSmart: true, name: 'Nombre Alumno' } }));
-      }
-
-      fabricCanvas.requestRenderAll();
-      updateLayers();
+      loadDefaultDesign(type);
   };
 
 
@@ -735,7 +895,7 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
   }, [fabricCanvas, selectedObject]);
 
   const changePageSize = (size) => {
-      if (!fabricCanvas) return;
+      if (!fabricCanvas || !fabricCanvas.contextContainer) return;
       setPageSize(size);
       
       let width = 800;
@@ -754,23 +914,51 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
 
       fabricCanvas.setDimensions({ width, height });
       
+      const cx = width / 2;
+      const cy = height / 2;
+
+      // Recenter background
       if (fabricCanvas.backgroundImage) {
            const img = fabricCanvas.backgroundImage;
            const scale = Math.max(width / img.width, height / img.height);
            img.set({
                scaleX: scale,
                scaleY: scale,
-               top: height / 2,
-               left: width / 2
+               top: cy,
+               left: cx
            });
       }
+
+      // Smart Recenter for key elements
+      fabricCanvas.getObjects().forEach(obj => {
+          if (obj.originX === 'center') {
+              obj.set({ left: cx });
+          }
+
+          // Special handling for borders
+          if (obj.data?.name === 'Borde Exterior') {
+              obj.set({ 
+                  width: width - 80, height: height - 80,
+                  top: cy, left: cx
+              });
+          }
+          if (obj.data?.name === 'Borde Interior') {
+               obj.set({ 
+                   width: width - 110, height: height - 110,
+                   top: cy, left: cx
+               });
+          }
+          
+          obj.setCoords();
+      });
+
       fabricCanvas.requestRenderAll();
       toast.success(`Tamaño ajustado a ${size}`);
   };
 
   const updateDocType = (type) => {
       setDocType(type);
-      if (!fabricCanvas) return;
+      if (!fabricCanvas || !fabricCanvas.contextContainer) return;
       
       const objects = fabricCanvas.getObjects();
       let titleObj = objects.find(o => o.data && o.data.isTitle);
@@ -822,7 +1010,7 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
   };
 
   const addSmartField = (field) => {
-    if (!fabricCanvas) return;
+    if (!fabricCanvas || !fabricCanvas.contextContainer) return;
     const text = new IText(field, {
       left: fabricCanvas.width / 2,
       top: fabricCanvas.height / 2,
@@ -843,11 +1031,68 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
   };
 
   const handlePdfUpload = async (e) => {
-      toast.error('La importación de PDF está temporalmente deshabilitada para mantenimiento.');
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (!fabricCanvas || !fabricCanvas.contextContainer) {
+          toast.error("El lienzo no está listo.");
+          return;
+      }
+
+      const toastId = toast.loading('Procesando PDF...');
+
+      try {
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          const page = await pdf.getPage(1);
+          
+          const viewport = page.getViewport({ scale: 2.0 }); // High quality
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+
+          await page.render({ canvasContext: context, viewport: viewport }).promise;
+          
+          const imgData = canvas.toDataURL('image/png');
+          
+          FabricImage.fromURL(imgData).then(img => {
+               if (!fabricCanvas || !fabricCanvas.contextContainer) return;
+
+               const scaleX = fabricCanvas.width / img.width;
+               const scaleY = fabricCanvas.height / img.height;
+               const scale = Math.max(scaleX, scaleY); // Cover
+               
+               img.set({
+                   originX: 'center', 
+                   originY: 'center',
+                   scaleX: scale,
+                   scaleY: scale,
+                   top: fabricCanvas.height / 2,
+                   left: fabricCanvas.width / 2,
+                   selectable: false,
+                   evented: false,
+                   data: { isBackground: true, name: 'Fondo PDF' }
+               });
+               
+               const oldBg = fabricCanvas.getObjects().find(o => o.data?.isBackground);
+               if (oldBg) fabricCanvas.remove(oldBg);
+
+               fabricCanvas.add(img);
+               img.sendToBack();
+               fabricCanvas.requestRenderAll();
+               updateLayers();
+               toast.success('PDF importado como fondo', { id: toastId });
+          });
+
+      } catch (err) {
+          console.error(err);
+          toast.error('Error al importar PDF: ' + err.message, { id: toastId });
+      }
   };
 
   const loadTemplate = (templateId) => {
-    if (!fabricCanvas) return;
+    if (!fabricCanvas || !fabricCanvas.contextContainer) return;
     const allTemplates = [...templates, ...customTemplates];
     const tmpl = allTemplates.find(t => t.id === templateId);
     if (!tmpl) return;
@@ -855,9 +1100,14 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
     if (tmpl.pageSize) changePageSize(tmpl.pageSize);
     if (tmpl.docType) setDocType(tmpl.docType);
 
-    fabricCanvas.clear();
-           fabricCanvas.backgroundColor = tmpl.bg;
-           fabricCanvas.requestRenderAll();
+    try {
+        fabricCanvas.clear();
+        fabricCanvas.backgroundColor = tmpl.bg;
+        fabricCanvas.requestRenderAll();
+    } catch (e) {
+        console.error("Error clearing canvas:", e);
+        return;
+    }
 
     tmpl.objects.forEach(obj => {
       const { type, text, ...options } = obj;
@@ -883,7 +1133,7 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
   };
 
   const handleExport = () => {
-    if (!fabricCanvas) return;
+    if (!fabricCanvas || !fabricCanvas.contextContainer) return;
     const dataUrl = fabricCanvas.toDataURL({ format: 'png', quality: 0.8 });
 
     fetch(dataUrl)
@@ -911,18 +1161,19 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center"
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="bg-slate-900 w-full max-w-7xl h-[90vh] rounded-2xl flex overflow-hidden shadow-2xl border border-slate-700"
+        className="bg-slate-900 w-full h-full flex overflow-hidden shadow-2xl"
       >
 
         {/* Left Sidebar - Controls */}
-        <div className="w-80 bg-slate-950/90 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto backdrop-blur-md">
+        <div className="w-80 bg-slate-950/90 border-r border-slate-800 flex flex-col backdrop-blur-md relative z-10">
+          <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 scrollbar-thin scrollbar-thumb-slate-700">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">🎨</span>
             <h2 className="text-xl font-display font-bold text-white">Studio <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">Holográfico</span></h2>
@@ -931,36 +1182,36 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
           <div className="flex gap-2">
             <button
                 onClick={togglePreviewMode}
-                className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all border ${isPreviewMode ? 'bg-green-500/20 border-green-500 text-green-300 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
+                className={`flex-1 py-4 px-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all border ${isPreviewMode ? 'bg-green-500/20 border-green-500 text-green-300 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
             >
-                {isPreviewMode ? <EyeOff size={14} /> : <Eye size={14} />}
+                {isPreviewMode ? <EyeOff size={20} /> : <Eye size={20} />}
                 {isPreviewMode ? 'Editar' : 'Vista Previa'}
             </button>
             {isPreviewMode && (
                 <button
                     onClick={handleExport}
-                    className="flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all bg-blue-600 text-white hover:bg-blue-500 shadow-lg"
+                    className="flex-1 py-4 px-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all bg-blue-600 text-white hover:bg-blue-500 shadow-lg"
                 >
-                    <Upload size={14} /> Exportar
+                    <Upload size={20} /> Exportar
                 </button>
             )}
           </div>
 
           {!isPreviewMode && (
           <>
-          <div className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-4">
+          <div className="bg-slate-900 p-4 rounded-lg border border-slate-800 space-y-4">
              <div>
                 <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Configuración de Página</label>
                 <div className="flex gap-2">
                     <button 
                         onClick={() => changePageSize('Landscape')}
-                        className={`flex-1 py-1.5 rounded text-xs font-medium border ${pageSize === 'Landscape' ? 'bg-blue-900/30 border-blue-500 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                        className={`flex-1 py-2 rounded text-xs font-medium border ${pageSize === 'Landscape' ? 'bg-blue-900/30 border-blue-500 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
                     >
                         Horizontal
                     </button>
                     <button 
                         onClick={() => changePageSize('Portrait')}
-                        className={`flex-1 py-1.5 rounded text-xs font-medium border ${pageSize === 'Portrait' ? 'bg-blue-900/30 border-blue-500 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                        className={`flex-1 py-2 rounded text-xs font-medium border ${pageSize === 'Portrait' ? 'bg-blue-900/30 border-blue-500 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
                     >
                         Vertical
                     </button>
@@ -974,7 +1225,7 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
                     <button
                         key={type}
                         onClick={() => updateDocType(type)}
-                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${docType === type ? 'bg-purple-600 border-purple-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
+                        className={`px-3 py-2 rounded text-xs font-medium transition-colors border ${docType === type ? 'bg-purple-600 border-purple-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
                     >
                         {type}
                     </button>
@@ -983,75 +1234,17 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
           </div>
           </div>
           
-          <div className="bg-gradient-to-r from-[#00C4CC] to-[#7D2AE8] p-0.5 rounded-lg mb-2 shadow-lg shadow-cyan-500/20 group hover:scale-[1.02] transition-transform cursor-default">
-            <div className="bg-slate-900 rounded-[6px] p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-white font-bold text-sm tracking-wide">CANVA CONNECT™</span>
-                  <span className="px-1.5 py-0.5 rounded bg-white text-black text-[9px] font-bold">PRO</span>
-                </div>
-                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" title="Conexión Activa"></div>
-              </div>
-              <p className="text-[10px] text-slate-400 mb-3 leading-relaxed">
-                Diseña en Canva y conecta automáticamente o sube tu diseño.
-              </p>
-              
-              {!showCanvaInput ? (
-                <div className="flex flex-col gap-2">
-                    <div className="flex gap-2">
-                        <a
-                        href="https://www.canva.com/create/certificates/"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex-1 py-1.5 bg-[#00C4CC] hover:bg-[#00b0b8] text-black font-bold text-[10px] rounded text-center transition-colors flex items-center justify-center gap-1"
-                        >
-                        <span>🖌️</span> 1. Abrir Canva
-                        </a>
-                        <button 
-                            onClick={() => setShowCanvaInput(true)}
-                            className="flex-1 py-1.5 bg-[#7D2AE8] hover:bg-[#6b23c7] text-white font-bold text-[10px] rounded text-center transition-colors border border-[#7D2AE8] flex items-center justify-center gap-1"
-                        >
-                            <span>⚡</span> 2. Conectar
-                        </button>
-                    </div>
-                     <div className="flex gap-2 mt-1">
-                        <label className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] rounded text-center transition-colors cursor-pointer border border-slate-700 flex items-center justify-center gap-1">
-                            <FileUp size={12} /> Subir Fondo
-                            <input type="file" accept="image/*" className="hidden" onChange={handleBackgroundUpload} />
-                        </label>
-                        <label className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] rounded text-center transition-colors cursor-pointer border border-slate-700 flex items-center justify-center gap-1">
-                            <FileText size={12} /> Subir PDF
-                            <input type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} />
-                        </label>
-                     </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                    <input 
-                        type="text" 
-                        placeholder="Pega tu enlace público de Canva..." 
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-[#7D2AE8]"
-                        value={canvaUrl}
-                        onChange={(e) => setCanvaUrl(e.target.value)}
-                    />
-                    <div className="flex gap-2">
-                         <button 
-                            onClick={handleCanvaImport}
-                            disabled={isProcessing}
-                            className="flex-1 py-1.5 bg-[#7D2AE8] hover:bg-[#6b23c7] text-white font-bold text-[10px] rounded flex items-center justify-center gap-1"
-                        >
-                            {isProcessing ? 'Procesando...' : 'Confirmar Importación'}
-                        </button>
-                         <button 
-                            onClick={() => setShowCanvaInput(false)}
-                            className="w-8 py-1.5 bg-slate-700 hover:bg-slate-600 text-white font-bold text-[10px] rounded flex items-center justify-center"
-                        >
-                            ✕
-                        </button>
-                    </div>
-                </div>
-              )}
-            </div>
+          <div className="flex gap-2 mb-4">
+            <label className="flex-1 py-4 bg-slate-900/80 hover:bg-slate-800 text-slate-300 font-bold text-base rounded-xl text-center transition-all cursor-pointer border border-slate-700 hover:border-purple-500/50 flex items-center justify-center gap-2 group shadow-sm hover:shadow-purple-500/10">
+                <FileUp size={20} className="text-purple-400 group-hover:text-purple-300 transition-colors" /> 
+                <span className="group-hover:text-white transition-colors">Subir Fondo</span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleBackgroundUpload} />
+            </label>
+            <label className="flex-1 py-4 bg-slate-900/80 hover:bg-slate-800 text-slate-300 font-bold text-base rounded-xl text-center transition-all cursor-pointer border border-slate-700 hover:border-cyan-500/50 flex items-center justify-center gap-2 group shadow-sm hover:shadow-cyan-500/10">
+                <FileText size={20} className="text-cyan-400 group-hover:text-cyan-300 transition-colors" /> 
+                <span className="group-hover:text-white transition-colors">Subir PDF</span>
+                <input type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} />
+            </label>
           </div>
 
           <hr className="border-slate-800 mb-4" />
@@ -1200,7 +1393,8 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
           </>
           )}
 
-          <div className="mt-auto pt-4 flex flex-col gap-3">
+          </div>
+          <div className="p-4 border-t border-slate-800 bg-slate-950/95 flex flex-col gap-3">
              <button onClick={saveAsTemplate} className="w-full py-2 rounded-lg border border-purple-500/50 text-purple-300 hover:bg-purple-900/20 font-medium text-xs flex items-center justify-center gap-2 transition-colors">
                 <span>💾</span> Guardar como Plantilla
              </button>
@@ -1228,8 +1422,11 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
         </div>
 
         {/* Canvas Workspace */}
-        <div className="flex-1 bg-slate-900 relative flex items-center justify-center p-8 bg-grid-slate-800/[0.2]" ref={containerRef}>
-          <div className="shadow-2xl ring-1 ring-slate-700/50">
+        <div className="flex-1 min-w-0 bg-slate-900 relative flex items-center justify-center p-8 bg-grid-slate-800/[0.2]" ref={containerRef}>
+          <div 
+             className="shadow-2xl ring-1 ring-slate-700/50 transition-transform duration-300 origin-center"
+             style={{ transform: `scale(${scaleFactor})` }}
+          >
             <canvas ref={canvasRef} />
           </div>
 
@@ -1245,7 +1442,36 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
 
         {/* Right Sidebar - Properties & Layers */}
         {!isPreviewMode && (
-        <div className="w-80 bg-slate-950/90 border-l border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto backdrop-blur-md">
+        <div className="flex h-full backdrop-blur-md bg-slate-950/90 border-l border-slate-800 z-20 flex-shrink-0">
+            {/* Properties Panel (Merged with Quick Tools) */}
+            <div className="w-80 flex flex-col bg-slate-950/50 overflow-hidden">
+                
+            {/* Horizontal Quick Tools Strip */}
+            <div className="grid grid-cols-5 gap-1 p-2 border-b border-slate-800 bg-slate-900/80">
+                <button onClick={() => addText()} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center" title="Agregar Texto">
+                    <Type size={18} />
+                    <span className="absolute top-full mt-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Texto</span>
+                </button>
+                <button onClick={addRect} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center" title="Agregar Rectángulo">
+                    <div className="w-4 h-4 border-2 border-current rounded-sm"></div>
+                    <span className="absolute top-full mt-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Rectángulo</span>
+                </button>
+                 <label className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer flex items-center justify-center" title="Subir Imagen">
+                     <ImageIcon size={18} />
+                     <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                     <span className="absolute top-full mt-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Imagen</span>
+                </label>
+                 <button onClick={() => fabricCanvas?.discardActiveObject().requestRenderAll()} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center" title="Deseleccionar">
+                    <MousePointer2 size={18} />
+                    <span className="absolute top-full mt-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Deseleccionar</span>
+                </button>
+                <button onClick={deleteSelected} className="group relative p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-900/30 transition-colors flex items-center justify-center" title="Eliminar (Supr)">
+                    <Trash2 size={18} />
+                    <span className="absolute top-full mt-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700 text-red-300">Eliminar</span>
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 scrollbar-thin scrollbar-thumb-slate-700">
             
             {/* Properties Panel */}
             <div>
@@ -1261,28 +1487,63 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
                                  <span className="text-xs text-slate-400 font-mono">ID: {selectedObject.type}</span>
                              </div>
                              
-                             <div className="grid grid-cols-2 gap-2 mb-2">
-                                <div>
-                                    <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">X</label>
-                                    <input 
-                                        type="number" 
-                                        value={Math.round(selectedObject.left || 0)} 
-                                        onChange={(e) => updateObjectProperty('left', parseFloat(e.target.value))}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Y</label>
-                                    <input 
-                                        type="number" 
-                                        value={Math.round(selectedObject.top || 0)} 
-                                        onChange={(e) => updateObjectProperty('top', parseFloat(e.target.value))}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white"
-                                    />
-                                </div>
-                             </div>
+                             <div className="grid grid-cols-2 gap-3 mb-4">
+                               <div className="bg-slate-900/50 p-2 rounded border border-slate-800">
+                                   <label className="text-[10px] text-blue-400 uppercase font-bold flex items-center gap-1 mb-1">
+                                       <ArrowRightFromLine size={10} /> Horizontal (X)
+                                   </label>
+                                   <input 
+                                       type="number" 
+                                       value={Math.round(selectedObject.left || 0)} 
+                                       onChange={(e) => updateObjectProperty('left', parseFloat(e.target.value))}
+                                       className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:border-blue-500 transition-colors"
+                                   />
+                               </div>
+                               <div className="bg-slate-900/50 p-2 rounded border border-slate-800">
+                                   <label className="text-[10px] text-purple-400 uppercase font-bold flex items-center gap-1 mb-1">
+                                       <ArrowDownFromLine size={10} /> Vertical (Y)
+                                   </label>
+                                   <input 
+                                       type="number" 
+                                       value={Math.round(selectedObject.top || 0)} 
+                                       onChange={(e) => updateObjectProperty('top', parseFloat(e.target.value))}
+                                       className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:border-purple-500 transition-colors"
+                                   />
+                               </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-2 mb-4">
+                                <button 
+                                    onClick={() => {
+                                        if (fabricCanvas && selectedObject) {
+                                            selectedObject.centerH();
+                                            fabricCanvas.requestRenderAll();
+                                            updateLayers();
+                                        }
+                                    }}
+                                    className="py-2 px-3 bg-slate-800 hover:bg-blue-900/30 border border-slate-700 hover:border-blue-500/50 rounded text-[10px] text-slate-300 hover:text-blue-300 flex items-center justify-center gap-2 transition-all group"
+                                    title="Centrar Horizontalmente"
+                                >
+                                    <AlignHorizontalJustifyCenter size={14} className="group-hover:scale-110 transition-transform" /> 
+                                    <span>Centrar Horiz.</span>
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (fabricCanvas && selectedObject) {
+                                            selectedObject.centerV();
+                                            fabricCanvas.requestRenderAll();
+                                            updateLayers();
+                                        }
+                                    }}
+                                    className="py-2 px-3 bg-slate-800 hover:bg-purple-900/30 border border-slate-700 hover:border-purple-500/50 rounded text-[10px] text-slate-300 hover:text-purple-300 flex items-center justify-center gap-2 transition-all group"
+                                    title="Centrar Verticalmente"
+                                >
+                                    <AlignVerticalJustifyCenter size={14} className="group-hover:scale-110 transition-transform" /> 
+                                    <span>Centrar Vert.</span>
+                                </button>
+                            </div>
 
-                             <div className="mb-2">
+                            <div className="mb-4 bg-slate-900/50 p-2 rounded border border-slate-800">
                                 <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Escala ({Math.round((selectedObject.scaleX || 1) * 100)}%)</label>
                                 <input 
                                     type="range" 
@@ -1295,26 +1556,26 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
                                 />
                              </div>
 
-                             <div className="grid grid-cols-2 gap-2 mb-2">
-                                <div>
-                                    <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Ancho</label>
-                                    <input 
-                                        type="number" 
-                                        value={Math.round(selectedObject.getScaledWidth())} 
-                                        onChange={(e) => updateObjectProperty('width', parseFloat(e.target.value))}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Alto</label>
-                                    <input 
-                                        type="number" 
-                                        value={Math.round(selectedObject.getScaledHeight())} 
-                                        onChange={(e) => updateObjectProperty('height', parseFloat(e.target.value))}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white"
-                                    />
-                                </div>
-                             </div>
+                             <div className="grid grid-cols-2 gap-3 mb-4">
+                               <div className="bg-slate-900/50 p-2 rounded border border-slate-800">
+                                   <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Ancho (W)</label>
+                                   <input 
+                                       type="number" 
+                                       value={Math.round(selectedObject.getScaledWidth())} 
+                                       onChange={(e) => updateObjectProperty('width', parseFloat(e.target.value))}
+                                       className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:border-blue-500 transition-colors"
+                                   />
+                               </div>
+                               <div className="bg-slate-900/50 p-2 rounded border border-slate-800">
+                                   <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Alto (H)</label>
+                                   <input 
+                                       type="number" 
+                                       value={Math.round(selectedObject.getScaledHeight())} 
+                                       onChange={(e) => updateObjectProperty('height', parseFloat(e.target.value))}
+                                       className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:border-purple-500 transition-colors"
+                                   />
+                               </div>
+                            </div>
 
                              <div className="pt-2 border-t border-slate-800 mb-2">
                                 <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Opacidad ({Math.round((selectedObject.opacity || 1) * 100)}%)</label>
@@ -1589,7 +1850,8 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
                 </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-slate-800">
+            </div>
+            <div className="p-4 border-t border-slate-800 bg-slate-950/95">
                  <button 
                     onClick={() => {
                         if (!fabricCanvas) return;
@@ -1618,7 +1880,7 @@ const CreatorHolographicDesigner = ({ onClose, onSave, onNavigate, data = {} }) 
                     <span className="text-xs font-bold">Agregar QR de Transparencia</span>
                  </button>
             </div>
-
+            </div>
         </div>
         )}
 

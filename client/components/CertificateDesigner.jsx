@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Canvas, IText, Rect, Shadow, Image as FabricImage } from 'fabric';
 import { Toaster, toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { Trash2, FileText, Upload, LayoutTemplate, Type, FileUp, Layers, Move, Maximize, Minimize, ChevronUp, ChevronDown, Lock, Unlock, Eye, EyeOff, BringToFront, SendToBack, Grid, Image as ImageIcon, Eraser, MousePointer2, PenTool, Stamp } from 'lucide-react';
+import { Trash2, FileText, Upload, LayoutTemplate, Type, FileUp, Layers, Move, Maximize, Minimize, ChevronUp, ChevronDown, Lock, Unlock, Eye, EyeOff, BringToFront, SendToBack, Grid, Image as ImageIcon, Eraser, MousePointer2, PenTool, Stamp, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowRightFromLine, ArrowDownFromLine, Undo2, Redo2 } from 'lucide-react';
 import n8nService from './services/n8nService';
 import { mockCredentials, templates } from '../utils/mockData';
 
@@ -27,6 +27,70 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
 
   /* Layer State */
   const [layers, setLayers] = useState([]);
+
+  /* History State (Undo/Redo) */
+  const [history, setHistory] = useState([]);
+  const [redoHistory, setRedoHistory] = useState([]);
+  const [isHistoryProcessing, setIsHistoryProcessing] = useState(false);
+  const skipHistoryRef = useRef(false);
+
+  const saveHistory = () => {
+    if (!fabricCanvas || isHistoryProcessing || skipHistoryRef.current) return;
+    try {
+        const json = JSON.stringify(fabricCanvas.toJSON(['data', 'selectable', 'evented', 'lockMovementX', 'lockMovementY', 'lockScalingX', 'lockScalingY', 'lockRotation', 'id', 'name']));
+        
+        setHistory(prev => {
+            // Avoid duplicates if nothing changed
+            if (prev.length > 0 && prev[prev.length - 1] === json) return prev;
+            
+            const newHistory = [...prev, json];
+            if (newHistory.length > 30) newHistory.shift(); // Limit to 30 steps
+            return newHistory;
+        });
+        setRedoHistory([]); // Clear redo on new change
+    } catch (e) {
+        console.error("Error saving history", e);
+    }
+  };
+
+  const undo = () => {
+    if (history.length <= 1 || !fabricCanvas) return; // Need at least current state + 1 previous
+    
+    setIsHistoryProcessing(true);
+    
+    // Current state is at history[length-1]
+    // We want to go to history[length-2]
+    const currentState = history[history.length - 1];
+    const previousState = history[history.length - 2];
+    
+    setRedoHistory(prev => [...prev, currentState]);
+    setHistory(prev => prev.slice(0, -1));
+    
+    fabricCanvas.loadFromJSON(previousState, () => {
+        fabricCanvas.renderAll();
+        updateLayers();
+        setIsHistoryProcessing(false);
+        toast.success('Deshacer realizado');
+    });
+  };
+
+  const redo = () => {
+    if (redoHistory.length === 0 || !fabricCanvas) return;
+    
+    setIsHistoryProcessing(true);
+    
+    const nextState = redoHistory[redoHistory.length - 1];
+    
+    setHistory(prev => [...prev, nextState]);
+    setRedoHistory(prev => prev.slice(0, -1));
+    
+    fabricCanvas.loadFromJSON(nextState, () => {
+        fabricCanvas.renderAll();
+        updateLayers();
+        setIsHistoryProcessing(false);
+        toast.success('Rehacer realizado');
+    });
+  };
 
   const updateLayers = () => {
     if (fabricCanvas) {
@@ -81,7 +145,14 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
                 fabricCanvas.remove(obj);
             }
         } else {
-            fabricCanvas.remove(obj);
+            // Check if object is ActiveSelection (multi-selection)
+            if (obj.type === 'activeSelection' && obj._objects) {
+                const objectsToDelete = [...obj._objects]; // Clone array
+                fabricCanvas.discardActiveObject();
+                objectsToDelete.forEach(o => fabricCanvas.remove(o));
+            } else {
+                fabricCanvas.remove(obj);
+            }
         }
         break;
       case 'lock':
@@ -129,6 +200,224 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
     selectedObject.setCoords();
     fabricCanvas.requestRenderAll();
     updateLayers();
+  };
+
+  const loadDefaultDesign = (type = 'Certificado') => {
+      if (!fabricCanvas || !fabricCanvas.contextContainer) return;
+
+      try {
+        skipHistoryRef.current = true;
+        fabricCanvas.clear();
+        fabricCanvas.backgroundColor = '#fdfbf7'; // Cream/Parchment color
+        
+        // Ensure A4 Landscape dimensions
+        const width = 1123;
+        const height = 794;
+        fabricCanvas.setDimensions({ width, height });
+        setPageSize('Landscape');
+        
+        // Round to nearest integer for pixel-perfect rendering
+        const cx = Math.round(width / 2);
+        const cy = Math.round(height / 2);
+
+        // Helper for sharp rendering (odd strokes need 0.5 offset to land on pixels)
+        const sharp = (val, stroke) => stroke % 2 !== 0 ? val + 0.5 : val;
+
+        // 1. Ornamental Border (Elegant Double Border)
+        // Using center origin for perfect symmetry
+        const outerStroke = 5;
+        const outerBorder = new Rect({
+            left: sharp(cx, outerStroke), 
+            top: sharp(cy, outerStroke),
+            width: width - 80, height: height - 80,
+            fill: 'transparent',
+            stroke: '#d4af37', // Gold
+            strokeWidth: outerStroke,
+            selectable: false,
+            evented: false,
+            rx: 10, ry: 10,
+            originX: 'center', originY: 'center',
+            data: { name: 'Borde Exterior' }
+        });
+        
+        const innerStroke = 2;
+        const innerBorder = new Rect({
+            left: sharp(cx, innerStroke), 
+            top: sharp(cy, innerStroke),
+            width: width - 110, height: height - 110,
+            fill: 'transparent',
+            stroke: '#1a1a1a', // Black detail
+            strokeWidth: innerStroke,
+            selectable: false,
+            evented: false,
+            rx: 5, ry: 5,
+            originX: 'center', originY: 'center',
+            data: { name: 'Borde Interior' }
+        });
+
+        fabricCanvas.add(outerBorder, innerBorder);
+
+        // 2. Header / Institution (Top Section)
+        const institutionText = new IText('ACADEMIC CHAIN INSTITUTE', {
+            left: cx, top: 120,
+            fontSize: 32,
+            fontFamily: 'Times New Roman',
+            fill: '#2c3e50',
+            fontWeight: 'bold',
+            originX: 'center',
+            charSpacing: 100, 
+            data: { name: 'Institución', isInstitution: true }
+        });
+
+        // 3. Document Title
+        const titleText = new IText(type.toUpperCase(), {
+            left: cx, top: 220,
+            fontSize: 56,
+            fontFamily: 'Helvetica', 
+            fill: '#1a1a1a',
+            fontWeight: 'bold',
+            originX: 'center',
+            shadow: new Shadow({ color: 'rgba(0,0,0,0.1)', blur: 4, offsetX: 2, offsetY: 2 }),
+            data: { name: 'Título Principal', isTitle: true }
+        });
+
+        // 4. Presentation Line
+        const presentText = new IText('Se otorga el presente reconocimiento a:', {
+            left: cx, top: 320,
+            fontSize: 20,
+            fontFamily: 'Times New Roman',
+            fontStyle: 'italic',
+            fill: '#555',
+            originX: 'center',
+            data: { name: 'Texto Presentación' }
+        });
+
+        // 5. Student Name 
+        const studentName = new IText('{{STUDENT_NAME}}', {
+            left: cx, top: 380,
+            fontSize: 48,
+            fontFamily: 'Times New Roman',
+            fontStyle: 'italic',
+            fontWeight: 'bold',
+            fill: '#d4af37', 
+            originX: 'center',
+            underline: false,
+            data: { isSmart: true, name: 'Nombre Alumno' }
+        });
+        
+        // Underline for name
+        const nameLineH = 2; // Even height
+        const nameLine = new Rect({
+             left: cx, top: sharp(440, nameLineH),
+             width: 500, height: nameLineH,
+             fill: '#d4af37',
+             originX: 'center', originY: 'center',
+             selectable: false,
+             data: { name: 'Línea Nombre' }
+        });
+
+        // 6. Reason / Degree
+        const reasonText = new IText('Por haber completado satisfactoriamente el programa de:', {
+            left: cx, top: 480,
+            fontSize: 20,
+            fontFamily: 'Times New Roman',
+            fill: '#555',
+            originX: 'center',
+            data: { name: 'Texto Razón' }
+        });
+        
+        const degreeText = new IText('{{DEGREE}}', {
+            left: cx, top: 530,
+            fontSize: 32,
+            fontWeight: 'bold',
+            fontFamily: 'Helvetica',
+            fill: '#2c3e50',
+            originX: 'center',
+            data: { isSmart: true, name: 'Grado/Curso' }
+        });
+
+        // 7. Date
+        const dateText = new IText('Expedido el: {{DATE}}', {
+            left: cx, top: 600,
+            fontSize: 16,
+            fontFamily: 'Times New Roman',
+            fill: '#777',
+            originX: 'center',
+            data: { isSmart: true, name: 'Fecha' }
+        });
+
+        // 8. Signatures (Perfectly aligned)
+      const sigY = height - 120;
+      const sig1X = Math.round(width * 0.25);
+      const sig2X = Math.round(width * 0.75);
+      const sigLineH = 1; // Odd height
+
+      const sigLine1 = new Rect({
+          left: sig1X, top: sharp(sigY, sigLineH),
+          width: 260, height: sigLineH,
+          fill: '#333',
+          originX: 'center', originY: 'center',
+          data: { type: 'sig-line-1' }
+      });
+      const sigText1 = new IText('Firma del Director', {
+          left: sig1X, top: sigY + 15,
+          fontSize: 16, originX: 'center', fill: '#444', fontFamily: 'Times New Roman',
+          data: { type: 'sig-text-1' }
+      });
+
+      const sigLine2 = new Rect({
+          left: sig2X, top: sharp(sigY, sigLineH),
+          width: 260, height: sigLineH,
+          fill: '#333',
+          originX: 'center', originY: 'center',
+          data: { type: 'sig-line-2' }
+      });
+      const sigText2 = new IText('Firma del Instructor', {
+          left: sig2X, top: sigY + 15,
+          fontSize: 16, originX: 'center', fill: '#444', fontFamily: 'Times New Roman',
+          data: { type: 'sig-text-2' }
+      });
+
+      // 9. QR Code 
+      const qrSize = 100;
+      const qrX = 100; 
+      const qrY = height - 100;
+
+      const qrPlaceholder = new Rect({
+          left: qrX, top: qrY,
+          width: qrSize, height: qrSize,
+          fill: '#fff',
+          stroke: '#d4af37',
+          strokeWidth: 2,
+          originX: 'center',
+          originY: 'center',
+          rx: 5, ry: 5,
+          data: { isQR: true, name: 'Placeholder QR', type: 'qr-placeholder' }
+      });
+        const qrText = new IText('QR', {
+             left: qrX, top: qrY,
+             fontSize: 24, fill: '#ccc',
+             originX: 'center', originY: 'center',
+             selectable: false, evented: false,
+             fontFamily: 'Helvetica'
+        });
+        
+        fabricCanvas.add(
+            institutionText, titleText, presentText, 
+            studentName, nameLine, reasonText, degreeText, dateText,
+            sigLine1, sigText1, sigLine2, sigText2,
+            qrPlaceholder, qrText
+        );
+
+        fabricCanvas.requestRenderAll();
+        updateLayers();
+
+        skipHistoryRef.current = false;
+        saveHistory();
+      } catch(e) {
+        console.error("Error loading default design", e);
+        skipHistoryRef.current = false;
+      }
   };
 
   /* Canva Integration State */
@@ -208,7 +497,7 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
   useEffect(() => {
       if (fabricCanvas && !data?.designStructure) {
           if (fabricCanvas.getObjects().length === 0) {
-              loadTemplate(templates[0].id);
+              loadDefaultDesign('Certificado');
               toast('Plantilla predeterminada cargada', { icon: 'ℹ️' });
           }
       }
@@ -221,9 +510,14 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
         setLayers([...objects].reverse());
       };
 
-      fabricCanvas.on('object:added', update);
-      fabricCanvas.on('object:removed', update);
-      fabricCanvas.on('object:modified', update);
+      const handleModification = () => {
+          update();
+          saveHistory();
+      };
+
+      fabricCanvas.on('object:added', handleModification);
+      fabricCanvas.on('object:removed', handleModification);
+      fabricCanvas.on('object:modified', handleModification);
       fabricCanvas.on('selection:updated', update);
       
       const realtimeUpdate = () => setForceUpdate(prev => prev + 1);
@@ -232,12 +526,13 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
       fabricCanvas.on('object:rotating', realtimeUpdate);
       fabricCanvas.on('object:skewing', realtimeUpdate);
 
+      // Initial save removed to prevent empty state in history
       update();
 
       return () => {
-        fabricCanvas.off('object:added', update);
-        fabricCanvas.off('object:removed', update);
-        fabricCanvas.off('object:modified', update);
+        fabricCanvas.off('object:added', handleModification);
+        fabricCanvas.off('object:removed', handleModification);
+        fabricCanvas.off('object:modified', handleModification);
         fabricCanvas.off('selection:updated', update);
         
         fabricCanvas.off('object:moving', realtimeUpdate);
@@ -399,15 +694,42 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
       };
   }, [fabricCanvas, isPreviewMode]);
 
+  // Canvas scale for "Zoom to Fit"
+  const [scaleFactor, setScaleFactor] = useState(1);
+
+  // Auto-fit calculation
+  useEffect(() => {
+    if (!containerRef.current || !fabricCanvas) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+        const containerWidth = containerRef.current.clientWidth - 80; // Padding
+        const containerHeight = containerRef.current.clientHeight - 80;
+        
+        // Dynamic target based on orientation
+        const targetWidth = pageSize === 'Portrait' ? 794 : 1123;
+        const targetHeight = pageSize === 'Portrait' ? 1123 : 794;
+
+        const scaleX = containerWidth / targetWidth;
+        const scaleY = containerHeight / targetHeight;
+        
+        // Use the smaller scale to fit entirely
+        let newScale = Math.min(scaleX, scaleY);
+        // Cap max scale to avoid pixelation but allow full view
+        if (newScale > 1.2) newScale = 1.2; 
+        
+        setScaleFactor(newScale);
+    });
+
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, [fabricCanvas, pageSize]);
+
   useEffect(() => {
     if (containerRef.current && canvasRef.current) {
-      const containerWidth = containerRef.current.clientWidth - 64; 
-      const aspect = 4 / 3;
-      const height = containerWidth / aspect;
-
+      // Initialize with a temporary size, will be resized by loadDefaultDesign or changePageSize
       const canvas = new Canvas(canvasRef.current, {
-        width: containerWidth,
-        height: height,
+        width: 800, 
+        height: 600,
         backgroundColor: '#ffffff',
         selection: true
       });
@@ -620,36 +942,77 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
       if (!fabricCanvas) return;
       if (!confirm("Esto reemplazará tu diseño actual. ¿Continuar?")) return;
 
-      fabricCanvas.clear();
-      fabricCanvas.backgroundColor = '#ffffff';
-      
-      const cx = fabricCanvas.width / 2;
-      const cy = fabricCanvas.height / 2;
+      skipHistoryRef.current = true;
+      try {
+        fabricCanvas.clear();
+        fabricCanvas.backgroundColor = '#ffffff';
+        
+        const cx = fabricCanvas.width / 2;
+        const cy = fabricCanvas.height / 2;
 
-      if (type === 'Titulo') {
-          fabricCanvas.add(new IText('TÍTULO PROFESIONAL', { left: cx, top: 100, fontSize: 40, fontFamily: 'Orbitron', originX: 'center', data: { name: 'Título Doc' } }));
-          fabricCanvas.add(new IText('{{nombre_alumno}}', { left: cx, top: 250, fontSize: 30, fontFamily: 'Inter', originX: 'center', data: { isSmart: true, name: 'Nombre Alumno' } }));
-          fabricCanvas.add(new IText('{{carrera}}', { left: cx, top: 320, fontSize: 24, fontFamily: 'Inter', originX: 'center', fill: '#666', data: { isSmart: true, name: 'Carrera' } }));
-          
-          const sigY = fabricCanvas.height - 150;
-          [-200, 0, 200].forEach((offset, i) => {
-             fabricCanvas.add(new Rect({ left: cx + offset - 60, top: sigY, width: 120, height: 1, fill: '#000', originX: 'left', data: { name: `Línea Firma ${i+1}` } }));
-             fabricCanvas.add(new IText('Autoridad', { left: cx + offset, top: sigY + 10, fontSize: 12, originX: 'center', data: { name: `Cargo Firma ${i+1}` } }));
-          });
-      } else if (type === 'Diploma') {
-          fabricCanvas.add(new IText('DIPLOMA TÉCNICO', { left: cx, top: 100, fontSize: 40, fontFamily: 'Orbitron', originX: 'center', data: { name: 'Título Doc' } }));
-          fabricCanvas.add(new IText('{{nombre_alumno}}', { left: cx, top: 250, fontSize: 30, fontFamily: 'Inter', originX: 'center', data: { isSmart: true, name: 'Nombre Alumno' } }));
-          
-          fabricCanvas.add(new Rect({ left: cx + 300, top: cy, width: 100, height: 100, fill: '#eee', stroke: '#000', strokeDashArray: [5, 5], originX: 'center', data: { name: 'Placeholder QR' } }));
-          fabricCanvas.add(new IText('QR', { left: cx + 300, top: cy, fontSize: 20, originX: 'center', originY: 'center', fill: '#999', selectable: false }));
-      } else if (type === 'Constancia') {
-           fabricCanvas.add(new IText('CONSTANCIA DE ESTUDIOS', { left: cx, top: 100, fontSize: 30, fontFamily: 'Inter', originX: 'center', data: { name: 'Título Doc' } }));
-           fabricCanvas.add(new IText('Por la presente se hace constar que:', { left: cx, top: 180, fontSize: 16, originX: 'center' }));
-           fabricCanvas.add(new IText('{{nombre_alumno}}', { left: cx, top: 220, fontSize: 24, fontFamily: 'Inter', originX: 'center', fontWeight: 'bold', data: { isSmart: true, name: 'Nombre Alumno' } }));
+        if (type === 'Titulo') {
+            fabricCanvas.add(new IText('TÍTULO PROFESIONAL', { 
+                left: cx, 
+                top: 100, 
+                fontSize: 50, 
+                fontFamily: 'Orbitron', 
+                fontWeight: 'bold',
+                charSpacing: 250,
+                fill: '#000000',
+                shadow: new Shadow({ color: 'rgba(0,0,0,0.1)', blur: 4, offsetX: 2, offsetY: 2 }),
+                originX: 'center', 
+                data: { name: 'Título Doc', isTitle: true } 
+            }));
+            fabricCanvas.add(new IText('{{nombre_alumno}}', { left: cx, top: 250, fontSize: 30, fontFamily: 'Inter', originX: 'center', data: { isSmart: true, name: 'Nombre Alumno' } }));
+            fabricCanvas.add(new IText('{{carrera}}', { left: cx, top: 320, fontSize: 24, fontFamily: 'Inter', originX: 'center', fill: '#666', data: { isSmart: true, name: 'Carrera' } }));
+            
+            const sigY = fabricCanvas.height - 150;
+            [-200, 0, 200].forEach((offset, i) => {
+               fabricCanvas.add(new Rect({ left: cx + offset - 60, top: sigY, width: 120, height: 1, fill: '#000', originX: 'left', data: { name: `Línea Firma ${i+1}` } }));
+               fabricCanvas.add(new IText('Autoridad', { left: cx + offset, top: sigY + 10, fontSize: 12, originX: 'center', data: { name: `Cargo Firma ${i+1}` } }));
+            });
+        } else if (type === 'Diploma') {
+            fabricCanvas.add(new IText('DIPLOMA TÉCNICO', { 
+                left: cx, 
+                top: 100, 
+                fontSize: 50, 
+                fontFamily: 'Orbitron', 
+                fontWeight: 'bold',
+                charSpacing: 250,
+                fill: '#000000',
+                shadow: new Shadow({ color: 'rgba(0,0,0,0.1)', blur: 4, offsetX: 2, offsetY: 2 }),
+                originX: 'center', 
+                data: { name: 'Título Doc', isTitle: true } 
+            }));
+            fabricCanvas.add(new IText('{{nombre_alumno}}', { left: cx, top: 250, fontSize: 30, fontFamily: 'Inter', originX: 'center', data: { isSmart: true, name: 'Nombre Alumno' } }));
+            
+            fabricCanvas.add(new Rect({ left: cx + 300, top: cy, width: 100, height: 100, fill: '#eee', stroke: '#000', strokeDashArray: [5, 5], originX: 'center', data: { name: 'Placeholder QR' } }));
+            fabricCanvas.add(new IText('QR', { left: cx + 300, top: cy, fontSize: 20, originX: 'center', originY: 'center', fill: '#999', selectable: false }));
+        } else if (type === 'Constancia') {
+             fabricCanvas.add(new IText('CONSTANCIA DE ESTUDIOS', { 
+                 left: cx, 
+                 top: 100, 
+                 fontSize: 40, 
+                 fontFamily: 'Orbitron', 
+                 fontWeight: 'bold',
+                 charSpacing: 200,
+                 fill: '#000000',
+                 shadow: new Shadow({ color: 'rgba(0,0,0,0.1)', blur: 4, offsetX: 2, offsetY: 2 }),
+                 originX: 'center', 
+                 data: { name: 'Título Doc', isTitle: true } 
+             }));
+             fabricCanvas.add(new IText('Por la presente se hace constar que:', { left: cx, top: 180, fontSize: 16, originX: 'center' }));
+             fabricCanvas.add(new IText('{{nombre_alumno}}', { left: cx, top: 220, fontSize: 24, fontFamily: 'Inter', originX: 'center', fontWeight: 'bold', data: { isSmart: true, name: 'Nombre Alumno' } }));
+        }
+
+        fabricCanvas.requestRenderAll();
+        updateLayers();
+        skipHistoryRef.current = false;
+        saveHistory();
+      } catch (e) {
+        console.error("Error loading structure", e);
+        skipHistoryRef.current = false;
       }
-
-      fabricCanvas.requestRenderAll();
-      updateLayers();
   };
 
 
@@ -715,8 +1078,15 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
 
   const deleteSelected = () => {
     if (fabricCanvas && selectedObject) {
-      fabricCanvas.remove(selectedObject);
-      setSelectedObject(null);
+      if (selectedObject.type === 'activeSelection' && selectedObject._objects) {
+          const objectsToDelete = [...selectedObject._objects];
+          fabricCanvas.discardActiveObject();
+          objectsToDelete.forEach(o => fabricCanvas.remove(o));
+          setSelectedObject(null);
+      } else {
+          fabricCanvas.remove(selectedObject);
+          setSelectedObject(null);
+      }
     }
   };
 
@@ -736,10 +1106,22 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
 
   const changePageSize = (size) => {
       if (!fabricCanvas) return;
+      
+      const oldWidth = fabricCanvas.width;
+      const oldHeight = fabricCanvas.height;
+
+      // Prevent redundant updates
+      if ((size === 'Landscape' && oldWidth > oldHeight) || 
+          (size === 'Portrait' && oldWidth < oldHeight)) {
+           // Double check exact dimensions
+           if (size === 'Landscape' && oldWidth === 1123) return;
+           if (size === 'Portrait' && oldWidth === 794) return;
+      }
+
       setPageSize(size);
       
-      let width = 800;
-      let height = 600;
+      let width = 1123;
+      let height = 794;
 
       if (size === 'Landscape') {
           width = 1123;
@@ -754,41 +1136,268 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
 
       fabricCanvas.setDimensions({ width, height });
       
-      if (fabricCanvas.backgroundImage) {
-           const img = fabricCanvas.backgroundImage;
-           const scale = Math.max(width / img.width, height / img.height);
-           img.set({
-               scaleX: scale,
-               scaleY: scale,
-               top: height / 2,
-               left: width / 2
-           });
-      }
+      const cx = width / 2;
+      const cy = height / 2;
+      
+      const oldCx = oldWidth / 2;
+      
+      // Sidebar Detection
+      const sidebarObj = fabricCanvas.getObjects().find(o => o.data?.type === 'sidebar-left');
+      const sidebarWidth = sidebarObj ? (sidebarObj.width * sidebarObj.scaleX) : 0;
+      
+      // Printable Center (center of the area to the right of sidebar)
+      const printableCx = sidebarObj ? (sidebarWidth + (width - sidebarWidth) / 2) : cx;
+      const oldPrintableCx = sidebarObj ? (sidebarWidth + (oldWidth - sidebarWidth) / 2) : oldCx;
+
+      const scaleX = width / oldWidth;
+      const scaleY = height / oldHeight;
+
+      // Smart Recenter & Resize Logic
+      fabricCanvas.getObjects().forEach(obj => {
+          let type = obj.data?.type || '';
+
+          // Heuristics for legacy objects
+          if (!type) {
+            if (obj.data?.isQR) type = 'qr-placeholder';
+            else if (obj.text === 'Firma del Director' || obj.text === 'Firma del Instructor') type = 'sig-text';
+            else if (obj.type === 'rect' && obj.width === 260 && obj.height === 1 && obj.fill === '#333') type = 'sig-line';
+          }
+
+          // 1. Backgrounds & Full Size Overlays
+          if (['background-shape', 'background-main'].includes(type)) {
+              obj.set({ width: width, height: height, left: cx, top: cy, scaleX: 1, scaleY: 1 });
+          }
+          else if (['grid-border', 'glow-border', 'background-panel', 'border-outer', 'border-mid', 'border-inner'].includes(type)) {
+              // Maintain margins
+              const marginX = oldWidth - (obj.width * obj.scaleX);
+              const marginY = oldHeight - (obj.height * obj.scaleY);
+              
+              const newW = width - marginX;
+              const newH = height - marginY;
+              
+              obj.set({ 
+                  width: newW, 
+                  height: newH, 
+                  left: cx, 
+                  top: cy,
+                  scaleX: 1,
+                  scaleY: 1
+              });
+          }
+          
+          // 2. Sidebars
+          else if (type === 'sidebar-left') {
+              obj.set({ height: height, top: cy, left: (obj.width * obj.scaleX) / 2 }); 
+          }
+          
+          // 3. Header Bars / Top Bars
+          else if (['header-bar', 'top-bar', 'header-bg', 'hud-bg'].includes(type)) {
+               // If it's a full width header or specific bar
+               if (type === 'header-bar') {
+                   const margin = oldWidth - (obj.width * obj.scaleX);
+                   const isCenteredOnPage = Math.abs(obj.left - oldCx) < 10;
+                   const isCenteredOnPrintable = Math.abs(obj.left - oldPrintableCx) < 10;
+
+                   obj.set({ width: width - margin });
+                   
+                   if (isCenteredOnPage) {
+                       obj.set({ left: cx });
+                   } else if (isCenteredOnPrintable) {
+                       obj.set({ left: printableCx });
+                   } else {
+                       obj.set({ left: sidebarObj ? printableCx : cx });
+                   }
+               } else {
+                   obj.set({ left: printableCx });
+               }
+          }
+          else if (['logo-sidebar', 'logo-bg', 'logo-text'].includes(type)) {
+               if (sidebarObj) {
+                   obj.set({ left: sidebarWidth / 2 });
+               } else {
+                   obj.set({ left: 50 });
+               }
+          }
+          
+          // 4. Background Lines
+          else if (['bg-line-h'].includes(type)) {
+               obj.set({ x2: width, top: cy });
+          }
+          else if (['bg-line-v'].includes(type)) {
+               obj.set({ y2: height, left: cx });
+          }
+
+          // 5. Corners (Smart Anchors)
+          else if (type.startsWith('corner-')) {
+               const isLeft = type.includes('-l') || obj.left < oldWidth / 2;
+               const isTop = type.includes('-t') || obj.top < oldHeight / 2;
+               
+               const marginX = isLeft ? obj.left : (oldWidth - obj.left);
+               const marginY = isTop ? obj.top : (oldHeight - obj.top);
+               
+               obj.set({ 
+                   left: isLeft ? marginX : (width - marginX),
+                   top: isTop ? marginY : (height - marginY)
+               });
+          }
+
+          // 6. QR / Signatures / Footer (Bottom Anchored)
+          else if (type.includes('qr-') || type.includes('sig-') || type.includes('text-footer') || obj.top > oldHeight * 0.75) {
+               if (obj.top > oldHeight * 0.6) { 
+                   const bottomMargin = oldHeight - obj.top;
+                   const newTop = height - bottomMargin;
+                   
+                   if (type.includes('qr-')) {
+                       if (size === 'Portrait') {
+                           // Ensure QR is well below signatures but above footer
+                           obj.set({ left: printableCx, top: height - 140 });
+                           // Scale down slightly to fit better
+                           obj.scale(0.8); 
+                       } else {
+                           obj.set({ left: width - 120, top: height - 120 });
+                           obj.scale(1); // Restore size
+                       }
+                   } else if (type.includes('sig-')) {
+                       // Reset width for lines to ensure consistency
+                       if (type.includes('line')) {
+                           obj.set({ width: 220, scaleX: 1 });
+                       }
+
+                       const isLine = type.includes('line');
+                       const offset = isLine ? 0 : 20;
+
+                       // Check for explicit Left/Right signatures (-1, -2)
+                       if (type.includes('-1')) {
+                           // Left Signature
+                           if (size === 'Portrait') {
+                               // Side-by-Side Tighter (Vertical Mode)
+                               obj.set({ left: printableCx - 180, top: height - 250 + offset });
+                           } else {
+                               // Side-by-Side Wider (Horizontal Mode)
+                               obj.set({ left: printableCx - 220, top: height - 150 + offset });
+                           }
+                       } else if (type.includes('-2')) {
+                           // Right Signature
+                           if (size === 'Portrait') {
+                               // Side-by-Side Tighter (Vertical Mode)
+                               obj.set({ left: printableCx + 180, top: height - 250 + offset });
+                           } else {
+                               // Side-by-Side Wider (Horizontal Mode)
+                               obj.set({ left: printableCx + 220, top: height - 150 + offset });
+                           }
+                       } else {
+                           // Single / Center Signature (e.g., Minimal Template)
+                           if (size === 'Portrait') {
+                               obj.set({ left: printableCx, top: height - 320 + offset });
+                           } else {
+                               obj.set({ left: printableCx, top: height - 150 + offset });
+                           }
+                       }
+                   } else {
+                        // Footer Text
+                        if (size === 'Portrait') {
+                            if (type.includes('text-footer')) {
+                                if (type === 'text-footer-1') {
+                                    obj.set({ top: height - 80, left: printableCx });
+                                } else if (type === 'text-footer-2') {
+                                    obj.set({ top: height - 50, left: printableCx });
+                                } else {
+                                    obj.set({ top: height - 50, left: printableCx });
+                                }
+                            } else {
+                                // For other bottom elements (like seal), maintain margin
+                                obj.set({ top: newTop, left: printableCx });
+                            }
+                        } else {
+                            obj.set({ top: newTop, left: printableCx });
+                        }
+                    }
+               }
+          }
+
+          // 7. General Content
+          else {
+              const offset = obj.left - oldPrintableCx;
+              
+              // Apply proportional vertical scaling to maintain relative layout
+              const newTop = obj.top * scaleY;
+              
+              obj.set({ 
+                  left: printableCx + offset,
+                  top: newTop
+              });
+              
+              // Maintain original text scale to prevent cumulative resizing issues
+              // logic removed: if (size === 'Portrait' ...) obj.scale(...)
+          }
+
+          // Fallbacks
+          if (obj.data?.name === 'Borde Exterior') {
+              obj.set({ width: width - 80, height: height - 80, top: cy, left: cx });
+          }
+          if (obj.data?.name === 'Borde Interior') {
+               obj.set({ width: width - 110, height: height - 110, top: cy, left: cx });
+          }
+          
+          obj.setCoords();
+      });
+
       fabricCanvas.requestRenderAll();
       toast.success(`Tamaño ajustado a ${size}`);
+      saveHistory();
   };
 
   const updateDocType = (type) => {
       setDocType(type);
-      if (!fabricCanvas) return;
+      if (!fabricCanvas || !fabricCanvas.contextContainer) return;
       
       const objects = fabricCanvas.getObjects();
-      let titleObj = objects.find(o => o.data && o.data.isTitle);
-      let instObj = objects.find(o => o.data && o.data.isInstitution);
       
+      // 1. Find Title Object (Smart Search)
+      // Look for explicit type 'title-main' or 'isTitle' flag
+      let titleObj = objects.find(o => o.data?.type === 'title-main' || o.data?.isTitle);
+      
+      // Fallback: Try to find by content heuristic if explicit type is missing
       if (!titleObj) {
           titleObj = objects.find(o => 
-              (o.type === 'i-text' || o.type === 'text') && 
-              o.fontSize >= 40 && 
-              o.top < fabricCanvas.height / 3
+             (o.type === 'i-text' || o.type === 'text') && 
+             (o.text?.includes('CERTIFICADO') || o.text?.includes('DIPLOMA') || o.text?.includes('CREDENCIAL') || o.text?.includes('CONSTANCIA'))
           );
       }
 
       if (titleObj) {
-          titleObj.set('text', type.toUpperCase());
+          const current = titleObj.text;
+          const upperType = type.toUpperCase();
+          
+          let newText = upperType;
+          
+          // Smart Context Preservation (Mantener el formato y sufijos)
+          if (current.includes('FINALIZACIÓN')) newText += ' DE FINALIZACIÓN';
+          else if (current.includes('HONOR')) newText += ' DE HONOR';
+          else if (current.includes('ACTIVO DIGITAL')) newText += ' DE ACTIVO DIGITAL';
+          else if (current.includes('EXCELENCIA')) newText += ' DE EXCELENCIA';
+          else if (current.includes('PARTICIPACIÓN')) newText += ' DE PARTICIPACIÓN';
+          else if (current.includes('MÉRITO')) newText += ' AL MÉRITO';
+          
+          // Gender handling for "Verificada/o"
+          else if (current.includes('VERIFICADA') || current.includes('VERIFICADO')) {
+              const isFem = ['CONSTANCIA', 'CREDENCIAL'].includes(upperType);
+              newText += isFem ? ' VERIFICADA' : ' VERIFICADO';
+          }
+          
+          // Apply change
+          titleObj.set('text', newText);
+          
+          // Ensure metadata is set for future reference
           if (!titleObj.data) titleObj.data = {};
           titleObj.data.isTitle = true;
+          titleObj.data.type = 'title-main'; 
+          
+          fabricCanvas.requestRenderAll();
+          toast.success(`Título actualizado a: ${newText}`);
+          saveHistory();
       } else {
+          // If absolutely no title found, add one (fallback)
           const text = new IText(type.toUpperCase(), {
               left: fabricCanvas.width / 2,
               top: 100,
@@ -798,27 +1407,13 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
               originX: 'center',
               originY: 'center',
               fontWeight: 'bold',
-              data: { isTitle: true }
+              data: { type: 'title-main', isTitle: true }
           });
           fabricCanvas.add(text);
+          fabricCanvas.requestRenderAll();
+          toast.success(`Título creado: ${type.toUpperCase()}`);
+          saveHistory();
       }
-
-      if (!instObj) {
-          const instText = new IText('{{nombre_institucion}}', {
-              left: fabricCanvas.width / 2,
-              top: 150,
-              fontSize: 20,
-              fontFamily: 'Inter',
-              fill: '#333333',
-              originX: 'center',
-              originY: 'center',
-              fontWeight: 'normal',
-              data: { isInstitution: true, isSmart: true }
-          });
-          fabricCanvas.add(instText);
-      }
-
-      fabricCanvas.requestRenderAll();
   };
 
   const addSmartField = (field) => {
@@ -852,34 +1447,44 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
     const tmpl = allTemplates.find(t => t.id === templateId);
     if (!tmpl) return;
 
-    if (tmpl.pageSize) changePageSize(tmpl.pageSize);
-    if (tmpl.docType) setDocType(tmpl.docType);
+    if (!confirm(`¿Cargar plantilla "${tmpl.name}"? Se reemplazará el diseño actual.`)) return;
 
-    fabricCanvas.clear();
-           fabricCanvas.backgroundColor = tmpl.bg;
-           fabricCanvas.requestRenderAll();
+    skipHistoryRef.current = true;
+    try {
+        if (tmpl.pageSize) changePageSize(tmpl.pageSize);
+        if (tmpl.docType) setDocType(tmpl.docType);
 
-    tmpl.objects.forEach(obj => {
-      const { type, text, ...options } = obj;
-      let textContent = text;
+        fabricCanvas.clear();
+        fabricCanvas.backgroundColor = tmpl.bg;
+        fabricCanvas.requestRenderAll();
 
-      if (type === 'rect') {
-        fabricCanvas.add(new Rect(options));
-      } else if (type === 'i-text' || type === 'text') {
-        const textOptions = { ...options };
-        
-        if (textContent && textContent.includes('{{')) {
-          textOptions.data = { isSmart: true };
-          textOptions.editable = false;
-          if (tmpl.category === 'Holographic') {
-            textOptions.shadow = new Shadow({ color: textOptions.fill, blur: 10 });
-          }
+        tmpl.objects.forEach(obj => {
+        const { type, text, ...options } = obj;
+        let textContent = text;
+
+        if (type === 'rect') {
+            fabricCanvas.add(new Rect(options));
+        } else if (type === 'i-text' || type === 'text') {
+            const textOptions = { ...options };
+            
+            if (textContent && textContent.includes('{{')) {
+            textOptions.data = { isSmart: true };
+            textOptions.editable = false;
+            if (tmpl.category === 'Holographic') {
+                textOptions.shadow = new Shadow({ color: textOptions.fill, blur: 10 });
+            }
+            }
+            fabricCanvas.add(new IText(textContent || 'Texto', textOptions));
         }
-        fabricCanvas.add(new IText(textContent || 'Texto', textOptions));
-      }
-    });
+        });
 
-    toast.success(`Plantilla cargada: ${tmpl.name}`);
+        toast.success(`Plantilla cargada: ${tmpl.name}`);
+        skipHistoryRef.current = false;
+        saveHistory();
+    } catch(e) {
+        console.error("Error loading template", e);
+        skipHistoryRef.current = false;
+    }
   };
 
   const handleExport = () => {
@@ -911,18 +1516,18 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center"
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="bg-slate-900 w-full max-w-7xl h-[90vh] rounded-2xl flex overflow-hidden shadow-2xl border border-slate-700"
+        className="bg-slate-900 w-full h-full flex overflow-hidden shadow-2xl"
       >
 
         {/* Left Sidebar - Controls */}
-        <div className="w-80 bg-slate-950/90 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto backdrop-blur-md">
+        <div className="w-80 bg-slate-950/90 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto backdrop-blur-md flex-shrink-0">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">🎨</span>
             <h2 className="text-xl font-display font-bold text-white">Studio <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">Holográfico</span></h2>
@@ -931,36 +1536,36 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
           <div className="flex gap-2">
             <button
                 onClick={togglePreviewMode}
-                className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all border ${isPreviewMode ? 'bg-green-500/20 border-green-500 text-green-300 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
+                className={`flex-1 py-4 px-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all border ${isPreviewMode ? 'bg-green-500/20 border-green-500 text-green-300 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
             >
-                {isPreviewMode ? <EyeOff size={14} /> : <Eye size={14} />}
+                {isPreviewMode ? <EyeOff size={20} /> : <Eye size={20} />}
                 {isPreviewMode ? 'Editar' : 'Vista Previa'}
             </button>
             {isPreviewMode && (
                 <button
                     onClick={handleExport}
-                    className="flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all bg-blue-600 text-white hover:bg-blue-500 shadow-lg"
+                    className="flex-1 py-4 px-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all bg-blue-600 text-white hover:bg-blue-500 shadow-lg"
                 >
-                    <Upload size={14} /> Exportar
+                    <Upload size={20} /> Exportar
                 </button>
             )}
           </div>
 
           {!isPreviewMode && (
           <>
-          <div className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-4">
+          <div className="bg-slate-900 p-4 rounded-lg border border-slate-800 space-y-4">
              <div>
                 <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Configuración de Página</label>
                 <div className="flex gap-2">
                     <button 
                         onClick={() => changePageSize('Landscape')}
-                        className={`flex-1 py-1.5 rounded text-xs font-medium border ${pageSize === 'Landscape' ? 'bg-blue-900/30 border-blue-500 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                        className={`flex-1 py-2 rounded text-xs font-medium border ${pageSize === 'Landscape' ? 'bg-blue-900/30 border-blue-500 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
                     >
                         Horizontal
                     </button>
                     <button 
                         onClick={() => changePageSize('Portrait')}
-                        className={`flex-1 py-1.5 rounded text-xs font-medium border ${pageSize === 'Portrait' ? 'bg-blue-900/30 border-blue-500 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                        className={`flex-1 py-2 rounded text-xs font-medium border ${pageSize === 'Portrait' ? 'bg-blue-900/30 border-blue-500 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
                     >
                         Vertical
                     </button>
@@ -974,7 +1579,7 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
                     <button
                         key={type}
                         onClick={() => updateDocType(type)}
-                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${docType === type ? 'bg-purple-600 border-purple-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
+                        className={`px-3 py-2 rounded text-xs font-medium transition-colors border ${docType === type ? 'bg-purple-600 border-purple-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
                     >
                         {type}
                     </button>
@@ -983,75 +1588,17 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
           </div>
           </div>
           
-          <div className="bg-gradient-to-r from-[#00C4CC] to-[#7D2AE8] p-0.5 rounded-lg mb-2 shadow-lg shadow-cyan-500/20 group hover:scale-[1.02] transition-transform cursor-default">
-            <div className="bg-slate-900 rounded-[6px] p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-white font-bold text-sm tracking-wide">CANVA CONNECT™</span>
-                  <span className="px-1.5 py-0.5 rounded bg-white text-black text-[9px] font-bold">PRO</span>
-                </div>
-                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" title="Conexión Activa"></div>
-              </div>
-              <p className="text-[10px] text-slate-400 mb-3 leading-relaxed">
-                Diseña en Canva y conecta automáticamente o sube tu diseño.
-              </p>
-              
-              {!showCanvaInput ? (
-                <div className="flex flex-col gap-2">
-                    <div className="flex gap-2">
-                        <a
-                        href="https://www.canva.com/create/certificates/"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex-1 py-1.5 bg-[#00C4CC] hover:bg-[#00b0b8] text-black font-bold text-[10px] rounded text-center transition-colors flex items-center justify-center gap-1"
-                        >
-                        <span>🖌️</span> 1. Abrir Canva
-                        </a>
-                        <button 
-                            onClick={() => setShowCanvaInput(true)}
-                            className="flex-1 py-1.5 bg-[#7D2AE8] hover:bg-[#6b23c7] text-white font-bold text-[10px] rounded text-center transition-colors border border-[#7D2AE8] flex items-center justify-center gap-1"
-                        >
-                            <span>⚡</span> 2. Conectar
-                        </button>
-                    </div>
-                     <div className="flex gap-2 mt-1">
-                        <label className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] rounded text-center transition-colors cursor-pointer border border-slate-700 flex items-center justify-center gap-1">
-                            <FileUp size={12} /> Subir Fondo
-                            <input type="file" accept="image/*" className="hidden" onChange={handleBackgroundUpload} />
-                        </label>
-                        <label className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] rounded text-center transition-colors cursor-pointer border border-slate-700 flex items-center justify-center gap-1">
-                            <FileText size={12} /> Subir PDF
-                            <input type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} />
-                        </label>
-                     </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                    <input 
-                        type="text" 
-                        placeholder="Pega tu enlace público de Canva..." 
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-[#7D2AE8]"
-                        value={canvaUrl}
-                        onChange={(e) => setCanvaUrl(e.target.value)}
-                    />
-                    <div className="flex gap-2">
-                         <button 
-                            onClick={handleCanvaImport}
-                            disabled={isProcessing}
-                            className="flex-1 py-1.5 bg-[#7D2AE8] hover:bg-[#6b23c7] text-white font-bold text-[10px] rounded flex items-center justify-center gap-1"
-                        >
-                            {isProcessing ? 'Procesando...' : 'Confirmar Importación'}
-                        </button>
-                         <button 
-                            onClick={() => setShowCanvaInput(false)}
-                            className="w-8 py-1.5 bg-slate-700 hover:bg-slate-600 text-white font-bold text-[10px] rounded flex items-center justify-center"
-                        >
-                            ✕
-                        </button>
-                    </div>
-                </div>
-              )}
-            </div>
+          <div className="flex gap-2 mb-4">
+            <label className="flex-1 py-4 bg-slate-900/80 hover:bg-slate-800 text-slate-300 font-bold text-base rounded-xl text-center transition-all cursor-pointer border border-slate-700 hover:border-purple-500/50 flex items-center justify-center gap-2 group shadow-sm hover:shadow-purple-500/10">
+                <FileUp size={20} className="text-purple-400 group-hover:text-purple-300 transition-colors" /> 
+                <span className="group-hover:text-white transition-colors">Subir Fondo</span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleBackgroundUpload} />
+            </label>
+            <label className="flex-1 py-4 bg-slate-900/80 hover:bg-slate-800 text-slate-300 font-bold text-base rounded-xl text-center transition-all cursor-pointer border border-slate-700 hover:border-cyan-500/50 flex items-center justify-center gap-2 group shadow-sm hover:shadow-cyan-500/10">
+                <FileText size={20} className="text-cyan-400 group-hover:text-cyan-300 transition-colors" /> 
+                <span className="group-hover:text-white transition-colors">Subir PDF</span>
+                <input type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} />
+            </label>
           </div>
 
           <hr className="border-slate-800 mb-4" />
@@ -1182,21 +1729,7 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
 
           <hr className="border-slate-800" />
 
-          <div className="space-y-4">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Herramientas</label>
-            <div className="flex gap-2">
-              <input className="flex-1 bg-slate-800 border-none rounded px-3 py-2 text-sm text-white focus:ring-1 focus:ring-primary" value={text} onChange={e => setText(e.target.value)} placeholder="Texto libre..." />
-              <button onClick={() => addText(text)} className="w-10 bg-slate-700 rounded hover:bg-slate-600 text-white">+</button>
-            </div>
-            
-            <div className="flex gap-2">
-              <button onClick={addRect} className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 rounded text-xs text-slate-300">Cuadrado</button>
-              <label className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 rounded text-xs text-slate-300 text-center cursor-pointer">
-                Imagen
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-              </label>
-            </div>
-          </div>
+
           </>
           )}
 
@@ -1228,8 +1761,11 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
         </div>
 
         {/* Canvas Workspace */}
-        <div className="flex-1 bg-slate-900 relative flex items-center justify-center p-8 bg-grid-slate-800/[0.2]" ref={containerRef}>
-          <div className="shadow-2xl ring-1 ring-slate-700/50">
+        <div className="flex-1 min-w-0 bg-slate-900 relative flex items-center justify-center p-8 bg-grid-slate-800/[0.2]" ref={containerRef}>
+          <div 
+             className="shadow-2xl ring-1 ring-slate-700/50 transition-transform duration-300 origin-center"
+             style={{ transform: `scale(${scaleFactor})` }}
+          >
             <canvas ref={canvasRef} />
           </div>
 
@@ -1245,7 +1781,47 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
 
         {/* Right Sidebar - Properties & Layers */}
         {!isPreviewMode && (
-        <div className="w-80 bg-slate-950/90 border-l border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto backdrop-blur-md">
+        <div className="flex h-full backdrop-blur-md bg-slate-950/90 border-l border-slate-800 z-20 flex-shrink-0">
+             <div className="w-80 flex flex-col bg-slate-950/50 overflow-hidden">
+            
+             {/* Horizontal Quick Tools Strip */}
+            <div className="flex flex-wrap gap-1 p-2 border-b border-slate-800 bg-slate-900/80 justify-between">
+                <button onClick={undo} disabled={history.length <= 1} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed" title="Deshacer">
+                    <Undo2 size={18} />
+                    <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Deshacer</span>
+                </button>
+                <button onClick={redo} disabled={redoHistory.length === 0} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed" title="Rehacer">
+                    <Redo2 size={18} />
+                    <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Rehacer</span>
+                </button>
+                <div className="w-px bg-slate-700 mx-1 self-stretch"></div>
+                <button onClick={() => addText()} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center" title="Agregar Texto">
+                    <Type size={18} />
+                    <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Texto</span>
+                </button>
+                <button onClick={addRect} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center" title="Agregar Rectángulo">
+                    <div className="w-4 h-4 border-2 border-current rounded-sm"></div>
+                    <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Rectángulo</span>
+                </button>
+                <label className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer flex items-center justify-center" title="Subir Imagen">
+                    <ImageIcon size={18} />
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                    <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Imagen</span>
+                </label>
+                <button onClick={() => fabricCanvas?.discardActiveObject().requestRenderAll()} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center" title="Deseleccionar">
+                    <MousePointer2 size={18} />
+                    <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Deseleccionar</span>
+                </button>
+                <button onClick={() => {
+                    const activeObj = fabricCanvas?.getActiveObject();
+                    if (activeObj) handleLayerAction('delete', activeObj);
+                }} className="group relative p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-900/30 transition-colors flex items-center justify-center" title="Eliminar (Supr)">
+                    <Trash2 size={18} />
+                    <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700 text-red-300">Eliminar</span>
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
             
             {/* Properties Panel */}
             <div>
@@ -1261,28 +1837,63 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
                                  <span className="text-xs text-slate-400 font-mono">ID: {selectedObject.type}</span>
                              </div>
                              
-                             <div className="grid grid-cols-2 gap-2 mb-2">
-                                <div>
-                                    <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">X</label>
-                                    <input 
-                                        type="number" 
-                                        value={Math.round(selectedObject.left || 0)} 
-                                        onChange={(e) => updateObjectProperty('left', parseFloat(e.target.value))}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Y</label>
-                                    <input 
-                                        type="number" 
-                                        value={Math.round(selectedObject.top || 0)} 
-                                        onChange={(e) => updateObjectProperty('top', parseFloat(e.target.value))}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white"
-                                    />
-                                </div>
-                             </div>
+                             <div className="grid grid-cols-2 gap-3 mb-4">
+                               <div className="bg-slate-900/50 p-2 rounded border border-slate-800">
+                                   <label className="text-[10px] text-blue-400 uppercase font-bold flex items-center gap-1 mb-1">
+                                       <ArrowRightFromLine size={10} /> Horizontal (X)
+                                   </label>
+                                   <input 
+                                       type="number" 
+                                       value={Math.round(selectedObject.left || 0)} 
+                                       onChange={(e) => updateObjectProperty('left', parseFloat(e.target.value))}
+                                       className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:border-blue-500 transition-colors"
+                                   />
+                               </div>
+                               <div className="bg-slate-900/50 p-2 rounded border border-slate-800">
+                                   <label className="text-[10px] text-purple-400 uppercase font-bold flex items-center gap-1 mb-1">
+                                       <ArrowDownFromLine size={10} /> Vertical (Y)
+                                   </label>
+                                   <input 
+                                       type="number" 
+                                       value={Math.round(selectedObject.top || 0)} 
+                                       onChange={(e) => updateObjectProperty('top', parseFloat(e.target.value))}
+                                       className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:border-purple-500 transition-colors"
+                                   />
+                               </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-2 mb-4">
+                                <button 
+                                    onClick={() => {
+                                        if (fabricCanvas && selectedObject) {
+                                            selectedObject.centerH();
+                                            fabricCanvas.requestRenderAll();
+                                            updateLayers();
+                                        }
+                                    }}
+                                    className="py-2 px-3 bg-slate-800 hover:bg-blue-900/30 border border-slate-700 hover:border-blue-500/50 rounded text-[10px] text-slate-300 hover:text-blue-300 flex items-center justify-center gap-2 transition-all group"
+                                    title="Centrar Horizontalmente"
+                                >
+                                    <AlignHorizontalJustifyCenter size={14} className="group-hover:scale-110 transition-transform" /> 
+                                    <span>Centrar Horiz.</span>
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (fabricCanvas && selectedObject) {
+                                            selectedObject.centerV();
+                                            fabricCanvas.requestRenderAll();
+                                            updateLayers();
+                                        }
+                                    }}
+                                    className="py-2 px-3 bg-slate-800 hover:bg-purple-900/30 border border-slate-700 hover:border-purple-500/50 rounded text-[10px] text-slate-300 hover:text-purple-300 flex items-center justify-center gap-2 transition-all group"
+                                    title="Centrar Verticalmente"
+                                >
+                                    <AlignVerticalJustifyCenter size={14} className="group-hover:scale-110 transition-transform" /> 
+                                    <span>Centrar Vert.</span>
+                                </button>
+                            </div>
 
-                             <div className="mb-2">
+                            <div className="mb-4 bg-slate-900/50 p-2 rounded border border-slate-800">
                                 <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Escala ({Math.round((selectedObject.scaleX || 1) * 100)}%)</label>
                                 <input 
                                     type="range" 
@@ -1295,26 +1906,26 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
                                 />
                              </div>
 
-                             <div className="grid grid-cols-2 gap-2 mb-2">
-                                <div>
-                                    <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Ancho</label>
-                                    <input 
-                                        type="number" 
-                                        value={Math.round(selectedObject.getScaledWidth())} 
-                                        onChange={(e) => updateObjectProperty('width', parseFloat(e.target.value))}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Alto</label>
-                                    <input 
-                                        type="number" 
-                                        value={Math.round(selectedObject.getScaledHeight())} 
-                                        onChange={(e) => updateObjectProperty('height', parseFloat(e.target.value))}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white"
-                                    />
-                                </div>
-                             </div>
+                             <div className="grid grid-cols-2 gap-3 mb-4">
+                               <div className="bg-slate-900/50 p-2 rounded border border-slate-800">
+                                   <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Ancho (W)</label>
+                                   <input 
+                                       type="number" 
+                                       value={Math.round(selectedObject.getScaledWidth())} 
+                                       onChange={(e) => updateObjectProperty('width', parseFloat(e.target.value))}
+                                       className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:border-blue-500 transition-colors"
+                                   />
+                               </div>
+                               <div className="bg-slate-900/50 p-2 rounded border border-slate-800">
+                                   <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Alto (H)</label>
+                                   <input 
+                                       type="number" 
+                                       value={Math.round(selectedObject.getScaledHeight())} 
+                                       onChange={(e) => updateObjectProperty('height', parseFloat(e.target.value))}
+                                       className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:border-purple-500 transition-colors"
+                                   />
+                               </div>
+                            </div>
 
                              <div className="pt-2 border-t border-slate-800 mb-2">
                                 <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Opacidad ({Math.round((selectedObject.opacity || 1) * 100)}%)</label>
@@ -1619,6 +2230,8 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
                  </button>
             </div>
 
+        </div>
+        </div>
         </div>
         )}
 
