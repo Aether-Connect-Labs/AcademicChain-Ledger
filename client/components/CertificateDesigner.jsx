@@ -1523,11 +1523,11 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="bg-slate-900 w-full h-full flex overflow-hidden shadow-2xl"
+        className="bg-slate-900 w-full h-full flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden shadow-2xl"
       >
 
         {/* Left Sidebar - Controls */}
-        <div className="w-80 bg-slate-950/90 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto backdrop-blur-md flex-shrink-0">
+        <div className="w-full lg:w-80 h-auto lg:h-full bg-slate-950/90 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto backdrop-blur-md flex-shrink-0 order-2 lg:order-1">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">🎨</span>
             <h2 className="text-xl font-display font-bold text-white">Studio <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">Holográfico</span></h2>
@@ -1761,7 +1761,7 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
         </div>
 
         {/* Canvas Workspace */}
-        <div className="flex-1 min-w-0 bg-slate-900 relative flex items-center justify-center p-8 bg-grid-slate-800/[0.2]" ref={containerRef}>
+        <div className="flex-1 min-w-0 w-full min-h-[50vh] lg:min-h-0 bg-slate-900 relative flex items-center justify-center p-8 bg-grid-slate-800/[0.2] order-1 lg:order-2" ref={containerRef}>
           <div 
              className="shadow-2xl ring-1 ring-slate-700/50 transition-transform duration-300 origin-center"
              style={{ transform: `scale(${scaleFactor})` }}
@@ -1781,8 +1781,8 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
 
         {/* Right Sidebar - Properties & Layers */}
         {!isPreviewMode && (
-        <div className="flex h-full backdrop-blur-md bg-slate-950/90 border-l border-slate-800 z-20 flex-shrink-0">
-             <div className="w-80 flex flex-col bg-slate-950/50 overflow-hidden">
+        <div className="flex w-full lg:w-auto h-auto lg:h-full backdrop-blur-md bg-slate-950/90 border-l border-slate-800 z-20 flex-shrink-0 order-3 lg:order-3">
+             <div className="w-full lg:w-80 flex flex-col bg-slate-950/50 overflow-hidden">
             
              {/* Horizontal Quick Tools Strip */}
             <div className="flex flex-wrap gap-1 p-2 border-b border-slate-800 bg-slate-900/80 items-center">

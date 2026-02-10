@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import CreatorHolographicDesigner from './CreatorHolographicDesigner';
+import CertificateDesigner from './CertificateDesigner';
 
 const CreatorDesignerPage = () => {
   const navigate = useNavigate();
@@ -36,7 +36,7 @@ const CreatorDesignerPage = () => {
       </div>
 
       <div className="flex-grow relative overflow-hidden">
-        <CreatorHolographicDesigner 
+        <CertificateDesigner 
             onClose={handleClose}
             onSave={handleSave}
             onNavigate={(path) => navigate(path)}

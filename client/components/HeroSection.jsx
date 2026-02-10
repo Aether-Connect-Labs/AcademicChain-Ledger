@@ -97,7 +97,7 @@ export const HeroSection = () => {
         </div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto pt-32" style={{ paddingBottom: theme.spacing.sectionPb }}>
+      <div className="relative z-10 max-w-7xl mx-auto pt-20 md:pt-32" style={{ paddingBottom: theme.spacing.sectionPb }}>
         <motion.div 
           variants={containerVariants} 
           initial="hidden" 

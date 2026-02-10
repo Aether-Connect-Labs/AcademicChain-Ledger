@@ -61,6 +61,7 @@ const Header = () => {
     { name: 'Creadores', path: '/creators' },
     { name: 'Instituciones', path: '/instituciones' },
     { name: 'Empresas', path: '/employer' },
+    { name: 'Ecosistema ACL', path: 'https://aether-connect-labs.vercel.app/', external: true },
     { name: 'Verificar', path: '/verificar' },
     { name: 'Agenda', path: '/agenda' },
     { name: 'Precios', path: '/precios' },
@@ -112,15 +113,30 @@ const Header = () => {
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-x-6">
             {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                to={link.path}
-                className={`text-sm font-medium transition-colors hover:text-cyan-500 ${
-                  effectiveScrolled ? 'text-gray-700' : 'text-gray-200'
-                } ${location.pathname === link.path ? 'text-cyan-500 font-bold' : ''}`}
-              >
-                {link.name}
-              </Link>
+              link.external ? (
+                <a
+                  key={link.name}
+                  href={link.path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`text-sm font-medium transition-colors hover:text-cyan-500 ${
+                    effectiveScrolled ? 'text-gray-700' : 'text-gray-200'
+                  } flex items-center gap-1`}
+                >
+                  {link.name}
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              ) : (
+                <Link
+                  key={link.name}
+                  to={link.path}
+                  className={`text-sm font-medium transition-colors hover:text-cyan-500 ${
+                    effectiveScrolled ? 'text-gray-700' : 'text-gray-200'
+                  } ${location.pathname === link.path ? 'text-cyan-500 font-bold' : ''}`}
+                >
+                  {link.name}
+                </Link>
+              )
             ))}
           </nav>
 
@@ -187,17 +203,30 @@ const Header = () => {
           >
             <div className="px-4 pt-2 pb-6 space-y-1">
               {navLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  to={link.path}
-                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                    location.pathname === link.path
-                      ? 'bg-cyan-50 text-cyan-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  {link.name}
-                </Link>
+                link.external ? (
+                  <a
+                    key={link.name}
+                    href={link.path}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`block px-3 py-2 rounded-md text-base font-medium transition-colors text-gray-600 hover:bg-gray-50 hover:text-gray-900 flex items-center gap-2`}
+                  >
+                    {link.name}
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                ) : (
+                  <Link
+                    key={link.name}
+                    to={link.path}
+                    className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                      location.pathname === link.path
+                        ? 'bg-cyan-50 text-cyan-700'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                  >
+                    {link.name}
+                  </Link>
+                )
               ))}
             </div>
             <div className="px-4 py-4 border-t border-gray-200">

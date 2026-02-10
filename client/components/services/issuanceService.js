@@ -1,5 +1,6 @@
 import { API_BASE_URL, getAuthHeaders, handleResponse } from './config';
 import { create as createIpfsClient } from 'ipfs-http-client';
+import n8nService from './n8nService';
 
 export const issuanceService = {
   createCredentialTemplate: (data) => {
@@ -20,9 +21,26 @@ export const issuanceService = {
   },
 
   getTokens: async () => {
-    // START: Conexión simulada a n8n para obtener tokens
-    // Para conectar realmente, crea un endpoint webhook en n8n que devuelva este JSON
-    // const res = await fetch(`${API_BASE_URL}/get-tokens`, { headers: getAuthHeaders() });
+    try {
+      // Try to fetch from n8n first
+      const baseUrl = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://n8n-b0be.onrender.com/webhook/submit-document';
+      const n8nUrl = baseUrl.replace('submit-document', 'get-tokens');
+
+      if (n8nUrl) {
+        const res = await fetch(n8nUrl, { 
+          headers: { 
+            'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key',
+            ...getAuthHeaders()
+          } 
+        });
+        if (res.ok) {
+          const json = await res.json();
+          return json;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to fetch tokens from n8n, falling back to mock', e);
+    }
 
     // Mock temporal para que la UI funcione sin el backend de Node viejo
     return {
@@ -85,6 +103,12 @@ export const issuanceService = {
   },
 
   issueBulkCredentials: async (payload) => {
+    try {
+       return await n8nService.submitBatch(payload);
+    } catch (e) {
+      console.warn('n8n Batch Submit Failed', e);
+    }
+
     console.log('Simulating Bulk Issuance via n8n (Placeholder)...');
     // Mock response
     return {
@@ -140,6 +164,23 @@ export const issuanceService = {
 
   issueCreatorCredential: async (data) => {
     try {
+      // Try n8n endpoint first
+      const baseUrl = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://n8n-b0be.onrender.com/webhook/submit-document';
+      const n8nUrl = baseUrl.replace('submit-document', 'issue-creator-credential');
+
+      if (n8nUrl) {
+         const res = await fetch(n8nUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key',
+              ...getAuthHeaders()
+            },
+            body: JSON.stringify(data)
+         });
+         if (res.ok) return handleResponse(res);
+      }
+
       if (API_BASE_URL) {
         const res = await fetch(`${API_BASE_URL}/api/creators/issue`, {
           method: 'POST',

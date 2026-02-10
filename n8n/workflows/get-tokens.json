@@ -1,0 +1,87 @@
+{
+  "name": "API - Get Tokens",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "get-tokens",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.headers['x-acl-auth-key']}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "name": "Auth Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "find",
+        "collection": "tokens",
+        "options": {}
+      },
+      "name": "Get Tokens from Mongo",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [400, 0],
+      "credentials": {
+        "mongoDb": {
+          "id": "mongo_cred",
+          "name": "MongoDB Local"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"data\": {\n    \"tokens\": {{$json}},\n    \"university\": \"AcademicChain University\"\n  }\n}",
+        "options": {}
+      },
+      "name": "Respond Data",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Unauthorized\"}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 200]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "Auth Check", "type": "main", "index": 0}]]
+    },
+    "Auth Check": {
+      "main": [
+        [{"node": "Get Tokens from Mongo", "type": "main", "index": 0}],
+        [{"node": "Respond 401", "type": "main", "index": 0}]
+      ]
+    },
+    "Get Tokens from Mongo": {
+      "main": [[{"node": "Respond Data", "type": "main", "index": 0}]]
+    }
+  }
+}
