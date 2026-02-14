@@ -42,7 +42,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const q = $json.query || {}; const b = $json.body || {}; const docHash = String(q.documentHash || b.documentHash || b.uniqueHash || '').trim(); const studentName = String(q.studentName || b.studentName || '').trim(); const plan = String(q.plan || b.plan || 'base').toLowerCase().trim(); const uniqueHash = docHash || ('hash-'+Date.now()); return { json: { uniqueHash, studentName, plan } };"
+        "jsCode": "const q = $json.query || {}; const b = $json.body || {}; const docHash = String(q.documentHash || b.documentHash || b.uniqueHash || '').trim(); const studentName = String(q.studentName || b.studentName || '').trim(); let plan = String(q.plan || b.plan || '').toLowerCase().trim(); const uniqueHash = docHash || ('hash-'+Date.now()); const normalizePlan = (p)=>{ if(['triple','3','enterprise','ent','empresarial'].includes(p)) return 'triple'; if(['dual','2','professional','pro','profesional'].includes(p)) return 'dual'; if(['base','1','basic','esencial','essential'].includes(p)) return 'base'; return 'base'; }; const planNormalized = normalizePlan(plan); return { json: { uniqueHash, studentName, plan: planNormalized, originalPlan: plan || 'auto' } };"
       },
       "name": "Normalize Input",
       "type": "n8n-nodes-base.code",

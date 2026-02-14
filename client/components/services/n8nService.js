@@ -325,13 +325,18 @@ const n8nService = {
         }
     },
     
-    orchestrateIssuance: async ({ documentHash, studentName, plan = 'base' }) => {
+    orchestrateIssuance: async ({ documentHash, studentName, plan }) => {
         try {
             const url = n8nService._getN8nUrl('emitir-multichain');
+            let effectivePlan = (plan || '').toLowerCase();
+            if (!effectivePlan) {
+                const p = n8nService.getPlanDetails(n8nService._currentPlan)?.id || 'esencial';
+                effectivePlan = p === 'enterprise' ? 'triple' : p === 'professional' ? 'dual' : 'base';
+            }
             const q = new URLSearchParams({
                 documentHash: String(documentHash || ''),
                 studentName: String(studentName || ''),
-                plan: String(plan || 'base')
+                plan: String(effectivePlan)
             }).toString();
             const response = await axios.post(`${url}?${q}`, {}, {
                 headers: {
