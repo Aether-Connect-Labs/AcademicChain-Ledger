@@ -53,12 +53,29 @@
     },
     {
       "parameters": {
-        "jsCode": "// REAL HEDERA IMPLEMENTATION\n// Requirement: Install '@hashgraph/sdk' in n8n directory and set NODE_FUNCTION_ALLOW_EXTERNAL=@hashgraph/sdk\n\n/*\nconst { Client, TopicMessageSubmitTransaction } = require('@hashgraph/sdk');\n\n// Configure Client (Use Env Vars in n8n)\nconst client = Client.forTestnet(); // Change to forMainnet() for production\nclient.setOperator($env.HEDERA_ACCOUNT_ID, $env.HEDERA_PRIVATE_KEY);\n\nconst topicId = $env.HEDERA_TOPIC_ID;\n\n// Submit Message\nconst tx = await new TopicMessageSubmitTransaction()\n    .setTopicId(topicId)\n    .setMessage(JSON.stringify($input.item.json))\n    .execute(client);\n\nconst receipt = await tx.getReceipt(client);\nconst realHash = receipt.topicSequenceNumber.toString();\n*/\n\n// MOCK FALLBACK (Delete this section when Real Implementation is active)\nconst hash = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');\n\nreturn {\n  ...$input.item.json,\n  txHash: hash,\n  issueDate: new Date().toISOString(),\n  note: 'Running in MOCK mode. Uncomment Real Implementation code in n8n.'\n};"
+        "jsCode": "// Build normalized credential document per item\nconst item = $json || {};\nconst nowIso = new Date().toISOString();\n\nconst makeDoc = (i = {}) => {\n  const tokenId = String(i.tokenId || ('0.0.' + (Math.floor(Math.random()*9000000)+1000000)));\n  const serialNumber = String(i.serialNumber || '1');\n  const universityId = i.universityId || null;\n  const studentAccountId = (i.studentAccountId === undefined) ? null : i.studentAccountId;\n  const ipfsURI = i.ipfsURI || 'ipfs://QmTest';\n  const uniqueHash = i.uniqueHash || `hash-${Date.now()}`;\n  const externalProofs = {\n    xrpTxHash: (i.externalProofs && i.externalProofs.xrpTxHash) || `mock-xrp-fallback-${Date.now()}`,\n    algoTxId: (i.externalProofs && i.externalProofs.algoTxId) || `mock-algo-${Date.now()}`\n  };\n  return {\n    tokenId,\n    serialNumber,\n    universityId,\n    studentAccountId,\n    uniqueHash,\n    ipfsURI,\n    externalProofs,\n    createdAt: nowIso,\n    updatedAt: nowIso,\n    __v: 0\n  };\n};\n\nreturn { json: makeDoc(item) };"
       },
-      "name": "Issue on Hedera (Mock)",
+      "name": "Build Credential Docs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "issued_credentials",
+        "options": {}
+      },
+      "name": "Save to Mongo",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [800, 0],
+      "credentials": {
+        "mongoDb": {
+          "id": "mongo_cred",
+          "name": "MongoDB Local"
+        }
+      }
     },
     {
       "parameters": {
@@ -66,12 +83,12 @@
         "fieldsToAggregate": {
           "fieldToAggregate": [
             {
-              "fieldToAggregate": "txHash",
-              "renameField": "txHash"
+              "fieldToAggregate": "uniqueHash",
+              "renameField": "hashes"
             },
             {
-              "fieldToAggregate": "studentEmail",
-              "renameField": "email"
+              "fieldToAggregate": "tokenId",
+              "renameField": "tokenIds"
             }
           ]
         }
@@ -79,18 +96,18 @@
       "name": "Aggregate Results",
       "type": "n8n-nodes-base.itemLists",
       "typeVersion": 1,
-      "position": [800, 0]
+      "position": [1000, 0]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Batch processed successfully\",\n  \"count\": {{$json.txHash.length}},\n  \"results\": {{$json.txHash}}\n}",
+        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Batch processed successfully\",\n  \"count\": {{$json.hashes.length}},\n  \"hashes\": {{$json.hashes}},\n  \"tokenIds\": {{$json.tokenIds}}\n}",
         "options": {}
       },
       "name": "Respond to App",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1000, 0]
+      "position": [1200, 0]
     }
   ],
   "connections": {
@@ -104,9 +121,12 @@
       ]
     },
     "Split Credentials": {
-      "main": [[{"node": "Issue on Hedera (Mock)", "type": "main", "index": 0}]]
+      "main": [[{"node": "Build Credential Docs", "type": "main", "index": 0}]]
     },
-    "Issue on Hedera (Mock)": {
+    "Build Credential Docs": {
+      "main": [[{"node": "Save to Mongo", "type": "main", "index": 0}]]
+    },
+    "Save to Mongo": {
       "main": [[{"node": "Aggregate Results", "type": "main", "index": 0}]]
     },
     "Aggregate Results": {
