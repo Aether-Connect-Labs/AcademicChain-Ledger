@@ -1,0 +1,188 @@
+{
+  "name": "Orquestador Multichain AcademicChain",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "multichain-orchestrator",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.headers['x-acl-auth-key']}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "name": "Auth Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Unauthorized\"}",
+        "options": { "responseCode": 401 }
+      },
+      "name": "Reject",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const q = $json.query || {}; const b = $json.body || {}; const docHash = String(q.documentHash || b.documentHash || b.uniqueHash || '').trim(); const studentName = String(q.studentName || b.studentName || '').trim(); const plan = String(q.plan || b.plan || 'base').toLowerCase().trim(); const uniqueHash = docHash || ('hash-'+Date.now()); return { json: { uniqueHash, studentName, plan } };"
+      },
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            { "value1": "={{$json.plan}}", "operation": "equal", "value2": "triple" }
+          ]
+        }
+      },
+      "name": "Is Triple",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [600, -120]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            { "value1": "={{$json.plan}}", "operation": "equal", "value2": "dual" }
+          ]
+        }
+      },
+      "name": "Is Dual",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [600, 120]
+    },
+    {
+      "parameters": {
+        "jsCode": "const tx = '0.0.' + (Math.floor(Math.random()*9000000)+1000000) + '@' + Date.now(); return { json: { ...$json, hederaTx: tx } };"
+      },
+      "name": "Hedera Issue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [820, -200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const x = 'xrpl-' + Math.random().toString(16).slice(2) + '-' + Date.now(); return { json: { ...$json, xrpTxHash: x } };"
+      },
+      "name": "XRP Anchor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [820, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const a = 'algo-' + Math.random().toString(16).slice(2) + '-' + Date.now(); return { json: { ...$json, algoTxId: a } };"
+      },
+      "name": "Algorand Anchor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [820, 200]
+    },
+    {
+      "parameters": { "mode": "wait" },
+      "name": "Join All",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 1,
+      "position": [1040, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $items(); let h=null,x=null,a=null,base=null; for (const it of items) { const j = it.json||{}; if (j.hederaTx) h=j.hederaTx; if (j.xrpTxHash) x=j.xrpTxHash; if (j.algoTxId) a=j.algoTxId; if (!h && j.baseHederaTx) h=j.baseHederaTx; if (j.uniqueHash && !base) base=j; } const out = { uniqueHash: base?.uniqueHash || $json.uniqueHash, studentName: base?.studentName || $json.studentName, externalProofs: {} }; if (h) out.externalProofs.hederaTx = h; if (x) out.externalProofs.xrpTxHash = x; if (a) out.externalProofs.algoTxId = a; out.updatedAt = new Date().toISOString(); if (!out.createdAt) out.createdAt = out.updatedAt; return { json: out };"
+      },
+      "name": "Consolidate Proofs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1240, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "collection": "credentials",
+        "query": "{\"uniqueHash\":\"={{$json.uniqueHash}}\"}",
+        "fieldsUi": {
+          "field": [
+            { "fieldName": "uniqueHash", "fieldValue": "={{$json.uniqueHash}}" },
+            { "fieldName": "studentName", "fieldValue": "={{$json.studentName}}" },
+            { "fieldName": "externalProofs", "fieldValue": "={{$json.externalProofs}}" },
+            { "fieldName": "updatedAt", "fieldValue": "={{$json.updatedAt}}" }
+          ]
+        },
+        "options": { "upsert": true }
+      },
+      "name": "Upsert Mongo",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [1440, 0],
+      "credentials": {
+        "mongoDb": { "id": "mongo_cred", "name": "MongoDB Local" }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"success\": true, \"data\": {{$json}} }",
+        "options": {}
+      },
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1640, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Auth Check", "type": "main", "index": 0 }]] },
+    "Auth Check": {
+      "main": [
+        [{ "node": "Normalize Input", "type": "main", "index": 0 }],
+        [{ "node": "Reject", "type": "main", "index": 0 }]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [{ "node": "Is Triple", "type": "main", "index": 0 }],
+        [{ "node": "Is Dual", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is Triple": {
+      "main": [
+        [{ "node": "Hedera Issue", "type": "main", "index": 0 }],
+        [{ "node": "XRP Anchor", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is Dual": {
+      "main": [
+        [{ "node": "XRP Anchor", "type": "main", "index": 0 }],
+        [{ "node": "Hedera Issue", "type": "main", "index": 0 }]
+      ]
+    },
+    "Hedera Issue": { "main": [[{ "node": "Join All", "type": "main", "index": 0 }]] },
+    "XRP Anchor": { "main": [[{ "node": "Join All", "type": "main", "index": 0 }]] },
+    "Algorand Anchor": { "main": [[{ "node": "Join All", "type": "main", "index": 0 }]] },
+    "Join All": { "main": [[{ "node": "Consolidate Proofs", "type": "main", "index": 0 }]] },
+    "Consolidate Proofs": { "main": [[{ "node": "Upsert Mongo", "type": "main", "index": 0 }]] },
+    "Upsert Mongo": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  }
+}

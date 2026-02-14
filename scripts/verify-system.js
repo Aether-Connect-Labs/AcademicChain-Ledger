@@ -1,4 +1,13 @@
-
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const BASE_URL = process.env.N8N_BASE_URL || 'https://n8n-b0be.onrender.com';
+const AUTH_KEY = process.env.N8N_AUTH_KEY || 'acl_live_sec_8f92a3b4';
+async function run() {
+  const url = `${BASE_URL}/webhook/multichain-orchestrator?documentHash=${encodeURIComponent('hash-'+Date.now())}&studentName=${encodeURIComponent('Tester')}&&plan=triple`;
+  const res = await fetch(url, { method: 'POST', headers: { 'X-ACL-AUTH-KEY': AUTH_KEY } });
+  const text = await res.text();
+  console.log(res.status, text);
+}
+run().catch(e => { console.error(e); process.exit(1); });
 import fetch from 'node-fetch';
 import { exec } from 'child_process';
 import util from 'util';
