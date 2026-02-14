@@ -327,7 +327,7 @@ const n8nService = {
     
     orchestrateIssuance: async ({ documentHash, studentName, plan = 'base' }) => {
         try {
-            const url = n8nService._getN8nUrl('multichain-orchestrator');
+            const url = n8nService._getN8nUrl('emitir-multichain');
             const q = new URLSearchParams({
                 documentHash: String(documentHash || ''),
                 studentName: String(studentName || ''),

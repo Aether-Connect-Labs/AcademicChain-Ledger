@@ -4,7 +4,7 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "multichain-orchestrator",
+        "path": "emitir-multichain",
         "options": {}
       },
       "name": "Webhook",
@@ -18,7 +18,8 @@
           "string": [
             {
               "value1": "={{$json.headers['x-acl-auth-key']}}",
-              "operation": "isNotEmpty"
+              "operation": "equal",
+              "value2": "={{$env.ACL_AUTH_KEY}}"
             }
           ]
         }
@@ -162,19 +163,22 @@
     },
     "Normalize Input": {
       "main": [
-        [{ "node": "Is Triple", "type": "main", "index": 0 }],
-        [{ "node": "Is Dual", "type": "main", "index": 0 }]
+        [{ "node": "Is Triple", "type": "main", "index": 0 }]
       ]
     },
     "Is Triple": {
       "main": [
-        [{ "node": "Hedera Issue", "type": "main", "index": 0 }],
-        [{ "node": "XRP Anchor", "type": "main", "index": 0 }]
+        [
+          { "node": "Hedera Issue", "type": "main", "index": 0 },
+          { "node": "XRP Anchor", "type": "main", "index": 0 },
+          { "node": "Algorand Anchor", "type": "main", "index": 0 }
+        ],
+        [{ "node": "Is Dual", "type": "main", "index": 0 }]
       ]
     },
     "Is Dual": {
       "main": [
-        [{ "node": "XRP Anchor", "type": "main", "index": 0 }],
+        [{ "node": "Hedera Issue", "type": "main", "index": 0 }, { "node": "XRP Anchor", "type": "main", "index": 0 }],
         [{ "node": "Hedera Issue", "type": "main", "index": 0 }]
       ]
     },
