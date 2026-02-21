@@ -1,6 +1,10 @@
 {
   "name": "academicchain-ledger-frontend",
   "compatibility_date": "2026-02-21",
+  "main": "./worker/index.js",
+  "vars": {
+    "ALLOWED_ORIGINS": "https://academicchain-ledger.pages.dev"
+  },
   "assets": {
     "directory": "./client/dist"
   }
