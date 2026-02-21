@@ -17,15 +17,15 @@ const CredentialVerifier = () => {
   const [docOpen, setDocOpen] = useState(false);
   const diplomaRef = useRef(null);
   const [merkle, setMerkle] = useState({ ready: false, hash: '', root: '', proof: [], hedera: null, xrpl: null, algorand: null, verified: false });
-  const hexToBytes = (hex) => {
+  const hexToBytes = useCallback((hex) => {
     const clean = String(hex || '').trim().toLowerCase().replace(/^0x/, '');
     const out = new Uint8Array(clean.length / 2);
     for (let i = 0; i < out.length; i++) {
       out[i] = parseInt(clean.substr(i * 2, 2), 16);
     }
     return out;
-  };
-  const bytesToHex = (buffer) => {
+  }, []);
+  const bytesToHex = useCallback((buffer) => {
     const arr = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer;
     let s = '';
     for (let i = 0; i < arr.length; i++) {
@@ -33,8 +33,8 @@ const CredentialVerifier = () => {
       s += h;
     }
     return s;
-  };
-  const sha256HexConcat = async (hexA, hexB, order) => {
+  }, []);
+  const sha256HexConcat = useCallback(async (hexA, hexB, order) => {
     const a = hexToBytes(hexA);
     const b = hexToBytes(hexB);
     const joined = order === 'left'
@@ -49,8 +49,8 @@ const CredentialVerifier = () => {
     }
     const digest = await crypto.subtle.digest('SHA-256', joined);
     return bytesToHex(digest);
-  };
-  const verifyProof = async (leafHex, proofArray, expectedRoot) => {
+  }, [hexToBytes, bytesToHex]);
+  const verifyProof = useCallback(async (leafHex, proofArray, expectedRoot) => {
     let acc = String(leafHex).trim().toLowerCase();
     for (const step of (Array.isArray(proofArray) ? proofArray : [])) {
       const sib = String(step.hash || '').trim().toLowerCase();
@@ -58,7 +58,7 @@ const CredentialVerifier = () => {
       acc = await sha256HexConcat(sib, acc, pos);
     }
     return acc === String(expectedRoot || '').trim().toLowerCase();
-  };
+  }, [sha256HexConcat]);
   const fetchLatestMerkleRootFromTopic = async (topicId) => {
     const base = import.meta.env.VITE_HEDERA_MIRROR_URL || 'https://testnet.mirrornode.hedera.com';
     const url = `${base}/api/v1/topics/${topicId}/messages?limit=50&order=desc`;
@@ -76,7 +76,7 @@ const CredentialVerifier = () => {
     return null;
   };
 
-  const toGateways = (uri) => {
+  const toGateways = useCallback((uri) => {
     if (!uri) return [];
     const cid = uri.startsWith('ipfs://') ? uri.replace('ipfs://','') : uri;
     const primary = (import.meta.env.VITE_IPFS_GATEWAY || 'https://ipfs.io/ipfs/').replace(/\/$/, '');
@@ -89,11 +89,11 @@ const CredentialVerifier = () => {
     ];
     const uniq = Array.from(new Set(list));
     return uniq.map(g => `${g}/${cid}`);
-  };
-  const toGateway = (uri) => {
+  }, []);
+  const toGateway = useCallback((uri) => {
     const urls = toGateways(uri);
     return urls[0] || '';
-  };
+  }, [toGateways]);
 
   const handleDownloadPDF = useCallback(async () => {
     if (!diplomaRef.current) return;
@@ -128,7 +128,7 @@ const CredentialVerifier = () => {
     const deg = (state.data?.metadata?.attributes || []).find(a => a.trait_type === 'Degree')?.value || 'Título';
     const fileName = `Diploma-${uni}-${stu}-${deg}.pdf`.replace(/[^\w\-.]+/g, '_');
     pdf.save(fileName);
-  }, [state.data]);
+  }, [state.data, toGateway]);
 
   const handleDownloadMerklePDF = useCallback(async () => {
     const pdf = new jsPDF('p', 'mm', 'a4');
@@ -216,7 +216,6 @@ const CredentialVerifier = () => {
           return;
         }
         const attrs = Array.isArray(cred?.metadata?.attributes) ? cred.metadata.attributes : [];
-        const uni = (attrs.find(a => a.trait_type === 'University')?.value || '');
         const stu = (attrs.find(a => a.trait_type === 'Student')?.value || '');
         const deg = (attrs.find(a => a.trait_type === 'Degree')?.value || '');
         const date = (attrs.find(a => a.display_type === 'date')?.value || '');
@@ -244,7 +243,7 @@ const CredentialVerifier = () => {
       const errorMessage = error instanceof Error ? error.message : 'Error al verificar la credencial. Intenta nuevamente.';
       setState({ status: 'error', error: errorMessage });
     }
-  }, [state.status]);
+  }, [state.status, checkStatus]);
 
   const handleSubmitManual = useCallback(async (e) => {
     e.preventDefault();
@@ -267,7 +266,6 @@ const CredentialVerifier = () => {
           return;
         }
         const attrs = Array.isArray(cred?.metadata?.attributes) ? cred.metadata.attributes : [];
-        const uni = (attrs.find(a => a.trait_type === 'University')?.value || '');
         const stu = (attrs.find(a => a.trait_type === 'Student')?.value || '');
         const deg = (attrs.find(a => a.trait_type === 'Degree')?.value || '');
         const date = (attrs.find(a => a.display_type === 'date')?.value || '');
@@ -295,7 +293,7 @@ const CredentialVerifier = () => {
       const errorMessage = error instanceof Error ? error.message : 'Error al verificar la credencial. Intenta nuevamente.';
       setState({ status: 'error', error: errorMessage });
     }
-  }, [tokenIdInput, serialInput, state.status]);
+  }, [tokenIdInput, serialInput, state.status, checkStatus]);
 
   useEffect(() => {
     try {
@@ -411,8 +409,7 @@ const CredentialVerifier = () => {
                 setState({ status: 'error', error: '⚠️ FRAUDE: Esta credencial no fue emitida por la autoridad oficial.' });
                 return;
               }
-              const attrs = Array.isArray(cred?.metadata?.attributes) ? cred.metadata.attributes : [];
-              const uni = (attrs.find(a => a.trait_type === 'University')?.value || '');
+        const attrs = Array.isArray(cred?.metadata?.attributes) ? cred.metadata.attributes : [];
               const stu = (attrs.find(a => a.trait_type === 'Student')?.value || '');
               const deg = (attrs.find(a => a.trait_type === 'Degree')?.value || '');
               const date = (attrs.find(a => a.display_type === 'date')?.value || '');
@@ -443,7 +440,7 @@ const CredentialVerifier = () => {
         })();
       }
     } catch {}
-  }, [state.status]);
+  }, [state.status, checkStatus, verifyProof]);
 
   const handleReset = () => setState({ status: 'idle' });
   const handleRetry = () => setState({ status: 'scanning' });

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '../useAuth';
 import { API_BASE_URL, getAuthHeaders } from '../services/config';
 
 const AuditDashboard = () => {

@@ -325,20 +325,23 @@ const n8nService = {
         }
     },
     
-    orchestrateIssuance: async ({ documentHash, studentName, plan }) => {
+    orchestrateIssuance: async ({ documentHash, studentName, plan, pdfUrl, pdfBase64 }) => {
+        let effectivePlan = (plan || '').toLowerCase();
+        if (!effectivePlan) {
+            const p = n8nService.getPlanDetails(n8nService._currentPlan)?.id || 'esencial';
+            effectivePlan = p === 'enterprise' ? 'triple' : p === 'professional' ? 'dual' : 'base';
+        }
         try {
             const url = n8nService._getN8nUrl('emitir-multichain');
-            let effectivePlan = (plan || '').toLowerCase();
-            if (!effectivePlan) {
-                const p = n8nService.getPlanDetails(n8nService._currentPlan)?.id || 'esencial';
-                effectivePlan = p === 'enterprise' ? 'triple' : p === 'professional' ? 'dual' : 'base';
-            }
             const q = new URLSearchParams({
                 documentHash: String(documentHash || ''),
                 studentName: String(studentName || ''),
                 plan: String(effectivePlan)
             }).toString();
-            const response = await axios.post(`${url}?${q}`, {}, {
+            const body = {};
+            if (pdfUrl) body.pdfUrl = String(pdfUrl);
+            if (pdfBase64) body.pdfBase64 = String(pdfBase64);
+            const response = await axios.post(`${url}?${q}`, body, {
                 headers: {
                     'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key'
                 }
@@ -351,9 +354,9 @@ const n8nService = {
                 data: {
                     uniqueHash: String(documentHash || `hash-${Date.now()}`),
                     studentName: String(studentName || 'Estudiante'),
-                    externalProofs: plan === 'triple'
+                    externalProofs: effectivePlan === 'triple'
                       ? { hederaTx: 'mock-h-' + Date.now(), xrpTxHash: 'mock-x-' + Date.now(), algoTxId: 'mock-a-' + Date.now() }
-                      : plan === 'dual'
+                      : effectivePlan === 'dual'
                         ? { hederaTx: 'mock-h-' + Date.now(), xrpTxHash: 'mock-x-' + Date.now() }
                         : { hederaTx: 'mock-h-' + Date.now() }
                 }
@@ -388,7 +391,6 @@ const n8nService = {
     verifyStudentIdentityByImage: async (formData) => {
         try {
             console.log('Verifying identity via n8n AI...', formData);
-            const url = N8N_WEBHOOK_URL.replace('submit-document', 'verify-identity-image');
             
             // Mock simulation
             await new Promise(resolve => setTimeout(resolve, 2500));
@@ -508,6 +510,105 @@ const n8nService = {
                 success: true, 
                 id: `tpl-${Date.now()}`,
                 message: 'Plantilla guardada (Simulado)' 
+            };
+        }
+    },
+
+    deleteCredential: async ({ tokenId, serialNumber }) => {
+        try {
+            const url = n8nService._getN8nUrl('delete-credential');
+            const response = await axios.post(url, { tokenId, serialNumber }, {
+                headers: {
+                    'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            return {
+                success: true,
+                deleted: true,
+                tokenId,
+                serialNumber,
+                simulated: true
+            };
+        }
+    },
+
+    revokeCredential: async ({ tokenId, serialNumber, reason }) => {
+        try {
+            const url = n8nService._getN8nUrl('revoke-credential');
+            const response = await axios.post(url, { tokenId, serialNumber, reason }, {
+                headers: {
+                    'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            return {
+                success: true,
+                revoked: true,
+                tokenId,
+                serialNumber,
+                reason: reason || 'Unspecified',
+                simulated: true
+            };
+        }
+    },
+
+    requestCredentialVerification: async ({ tokenId, serialNumber, role }) => {
+        try {
+            const url = n8nService._getN8nUrl('request-credential-verification');
+            const response = await axios.post(url, { tokenId, serialNumber, role }, {
+                headers: {
+                    'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            return {
+                success: true,
+                requested: true,
+                tokenId,
+                serialNumber,
+                role: role || 'unknown',
+                simulated: true
+            };
+        }
+    },
+
+    getCredentialStats: async (params = {}) => {
+        try {
+            const query = new URLSearchParams();
+            if (params.scope) query.set('scope', params.scope);
+            if (params.issuerId) query.set('issuerId', params.issuerId);
+            if (params.role) query.set('role', params.role);
+            const base = n8nService._getN8nUrl('stats-credentials');
+            const url = query.toString() ? `${base}?${query.toString()}` : base;
+            const res = await axios.get(url, {
+                headers: { 'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key' }
+            });
+            return res.data;
+        } catch (e) {
+            return { success: true, revoked: 0, deleted: 0, verified: 0, pending: 0, simulated: true };
+        }
+    },
+
+    setCredentialStatus: async ({ tokenId, serialNumber, status }) => {
+        try {
+            const url = n8nService._getN8nUrl('set-credential-status');
+            const response = await axios.post(url, { tokenId, serialNumber, status }, {
+                headers: {
+                    'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            return {
+                success: true,
+                tokenId,
+                serialNumber,
+                status,
+                simulated: true
             };
         }
     },
@@ -640,7 +741,6 @@ const n8nService = {
      */
     registerSuccessMatch: async (matchData) => {
         try {
-            const matchUrl = N8N_WEBHOOK_URL.replace('submit-document', 'register-match');
             console.log('Registering success match via n8n:', matchData);
             
             // Fire and forget usually, but we await for demo

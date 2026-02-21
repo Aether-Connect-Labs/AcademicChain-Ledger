@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, Zap, Shield, Globe, Calendar, UserCheck, ArrowRight, Loader2, Mail, Lock } from 'lucide-react';
+import { CheckCircle, Zap, Shield, Calendar, UserCheck, ArrowRight, Loader2, Mail, Lock } from 'lucide-react';
 import n8nService from './services/n8nService';
 import { toast } from 'react-hot-toast';
 

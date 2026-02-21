@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import institutionService from './services/institutionService';
 
 const InstitutionsPage = () => {
@@ -6,7 +6,7 @@ const InstitutionsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const demoItems = [
+  const demoItems = useMemo(() => ([
     { id: 'demo-1', name: 'Universidad Nacional Demo', email: 'contacto@und.edu', credentials: 1250, since: '2023-01-15' },
     { id: 'demo-2', name: 'Instituto Tecnológico Blockchain', email: 'info@itb.edu.mx', credentials: 840, since: '2023-03-20' },
     { id: 'demo-3', name: 'Academia Digital Latam', email: 'certificaciones@adl.org', credentials: 450, since: '2023-06-10' },
@@ -17,9 +17,9 @@ const InstitutionsPage = () => {
     { id: 'demo-8', name: 'Bootcamp Code Master', email: 'hello@codemaster.dev', credentials: 340, since: '2023-09-01' },
     { id: 'demo-9', name: 'Design School Creative', email: 'info@creative.edu', credentials: 890, since: '2023-02-14' },
     { id: 'demo-10', name: 'Medical Training Center', email: 'admin@medtrain.org', credentials: 1500, since: '2022-05-30' },
-  ];
+  ]), []);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -39,9 +39,9 @@ const InstitutionsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [demoItems]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   return (
     <div className="container-responsive pb-10 pt-24 sm:pt-32 relative z-10">

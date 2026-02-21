@@ -19,7 +19,7 @@ const AccessibleList = React.memo(function AccessibleList({ title, items = [], o
         <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
         <span className="text-sm text-gray-500" aria-live="polite">{count} elementos</span>
       </header>
-      <ul role="list" className="space-y-2">
+      <ul className="space-y-2">
         {list.map(item => (
           <li key={item.id} className="flex items-center justify-between px-3 py-2 rounded-lg border hover:bg-gray-50">
             <span className="text-gray-800">{item.label}</span>

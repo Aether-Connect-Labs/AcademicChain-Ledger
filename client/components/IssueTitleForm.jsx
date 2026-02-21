@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import issuanceService from './services/issuanceService';
 import n8nService from './services/n8nService';
-import { verificationService } from './services/verificationService';
 import { Toaster, toast } from 'react-hot-toast';
-import { toGateway } from './utils/ipfsUtils';
 import { motion, AnimatePresence } from 'framer-motion';
 import CertificateDesigner from './CertificateDesigner';
 import LiveBlockVisualizer from './LiveBlockVisualizer';
@@ -31,13 +29,9 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [result, setResult] = useState(null);
   const [file, setFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [ipfsURI, setIpfsURI] = useState('');
   const [tokens, setTokens] = useState([]);
-  const [loadingTokens, setLoadingTokens] = useState(false);
-  const [tokenFetchError, setTokenFetchError] = useState('');
   const [universityName, setUniversityName] = useState('');
 
   // Animation Variants
@@ -49,8 +43,6 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
   useEffect(() => {
     if (demo) return;
     const loadTokens = async () => {
-      setLoadingTokens(true);
-      setTokenFetchError('');
       try {
         const data = await issuanceService.getTokens();
         const list = data?.data?.tokens || [];
@@ -62,9 +54,7 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
           setFormData(prev => ({ ...prev, tokenId: list[0].tokenId }));
         }
       } catch (e) {
-        setTokenFetchError(e.message);
       } finally {
-        setLoadingTokens(false);
       }
     };
     loadTokens();
@@ -83,7 +73,6 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
 
     try {
       const uniqueHash = `hash-${Date.now()}`;
-      let finalIpfsURI = ipfsURI;
 
       // Force N8N Flow
       if (true) {

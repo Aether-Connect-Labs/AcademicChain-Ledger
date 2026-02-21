@@ -110,6 +110,12 @@ function EnhancedInstitutionDashboard({ demo = false }) {
     totalRecipients: 0
   });
   const [credentials, setCredentials] = useState([]);
+  const [revokeOpen, setRevokeOpen] = useState(false);
+  const [revokeReason, setRevokeReason] = useState('');
+  const [selectedCred, setSelectedCred] = useState(null);
+  const [globalStats, setGlobalStats] = useState({ revoked: 0, deleted: 0, verified: 0, pending: 0 });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -148,6 +154,11 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                 { studentName: 'Maria Rodriguez', title: 'Master en Data Science', id: '0.0.456789', status: 'confirmed' }
             ]);
         }
+        try {
+          const issuerId = String(user?.id || user?.universityId || '');
+          const s = await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
+          if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
+        } catch {}
       } catch (error) {
         console.error("Dashboard error:", error);
         toast.error("Error cargando el dashboard");
@@ -288,6 +299,33 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                 <button className="btn-primary text-xs" onClick={() => setActiveTab('emitir')}>Nueva Emisión</button>
               </div>
             </div>
+            <div className="px-6 py-3 flex items-center gap-3 border-b border-slate-800/60">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/30" title="Totales (global)">
+                Revocadas (Total): <strong>{globalStats.revoked}</strong>
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-purple-500/10 text-purple-300 border border-purple-500/30" title="Totales (global)">
+                Eliminadas (Total): <strong>{globalStats.deleted}</strong>
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 text-green-400 border border-green-500/30" title="Totales (global)">
+                Verificadas (Total): <strong>{globalStats.verified}</strong>
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/30" title="Totales (global)">
+                Pendientes (Total): <strong>{globalStats.pending}</strong>
+              </span>
+              <input
+                className="input-primary ml-auto w-72"
+                placeholder="Buscar por nombre, hash, tokenId, serial o id"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <select className="input-primary w-48" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="all">Todas</option>
+                <option value="verified">Verificadas</option>
+                <option value="pending">Pendientes</option>
+                <option value="revoked">Revocadas</option>
+                <option value="confirmed">Confirmadas</option>
+              </select>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="bg-white/5 text-slate-400">
@@ -297,19 +335,101 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                     <th className="px-6 py-4">ID Transacción</th>
                     <th className="px-6 py-4">Fecha</th>
                     <th className="px-6 py-4">Estado</th>
+                    <th className="px-6 py-4">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {credentials.map((cred, idx) => (
+                  {(searchQuery ? credentials.filter(x => {
+                    const q = String(searchQuery || '').toLowerCase().trim();
+                    const fields = [
+                      String(x.studentName || '').toLowerCase(),
+                      String(x.title || '').toLowerCase(),
+                      String(x.tokenId || x.id || '').toLowerCase(),
+                      String(x.serialNumber || '').toLowerCase(),
+                      String(x.uniqueHash || '').toLowerCase(),
+                      String(x.ipfsURI || '').toLowerCase(),
+                      String(x.externalProofs?.hederaTx || '').toLowerCase(),
+                      String(x.externalProofs?.xrpTxHash || '').toLowerCase(),
+                      String(x.externalProofs?.algoTxId || '').toLowerCase()
+                    ];
+                    const match = fields.some(v => v.includes(q));
+                    if (!match) return false;
+                    const st = String(x.status || '').toLowerCase();
+                    if (statusFilter === 'all') return true;
+                    if (statusFilter === 'verified') return st === 'verified';
+                    if (statusFilter === 'pending') return st === 'pending';
+                    if (statusFilter === 'revoked') return st === 'revoked';
+                    if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
+                    return true;
+                  }) : credentials.filter(x => {
+                    const st = String(x.status || '').toLowerCase();
+                    if (statusFilter === 'all') return true;
+                    if (statusFilter === 'verified') return st === 'verified';
+                    if (statusFilter === 'pending') return st === 'pending';
+                    if (statusFilter === 'revoked') return st === 'revoked';
+                    if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
+                    return true;
+                  })).map((cred, idx) => (
                     <tr key={idx} className="hover:bg-white/5 transition-colors">
                       <td className="px-6 py-4 font-medium text-white">{cred.studentName || 'Anon'}</td>
                       <td className="px-6 py-4 text-slate-300">{cred.title}</td>
                       <td className="px-6 py-4 font-mono text-xs text-slate-500">{cred.id || 'N/A'}</td>
                       <td className="px-6 py-4 text-slate-400">{cred.createdAt ? new Date(cred.createdAt).toLocaleDateString() : 'Hoy'}</td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${cred.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : 'bg-green-500/20 text-green-400 border-green-500/30'}`}>
-                          {cred.status === 'pending' ? 'Pendiente' : 'Confirmado'}
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${
+                          String(cred.status || '').toLowerCase() === 'revoked'
+                            ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                            : String(cred.status || '') === 'pending'
+                              ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                              : 'bg-green-500/20 text-green-400 border-green-500/30'
+                        }`}>
+                          {String(cred.status || '').toLowerCase() === 'revoked' ? 'Revocada' : (cred.status === 'verified' ? 'Verificado' : (cred.status === 'pending' ? 'Pendiente' : 'Confirmado'))}
                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex gap-2">
+                          {cred.status !== 'verified' && (
+                            <button
+                              className="btn-secondary btn-sm border-green-400/40 text-green-400 hover:bg-green-500/10"
+                              onClick={async () => {
+                                await n8nService.requestCredentialVerification({ tokenId: cred.tokenId || cred.id, serialNumber: String(cred.serialNumber || 1), role: 'institution' });
+                                setCredentials(prev => prev.map(c => (c === cred) ? { ...c, status: 'pending' } : c));
+                                try { 
+                                  let issuerId = ''; 
+                                  try { issuerId = String(user?.id || user?.universityId || ''); } catch {} 
+                                  await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
+                                    if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) }); 
+                                  }); 
+                                } catch {}
+                                alert('Solicitud de verificación enviada a n8n. Estado: Pendiente');
+                              }}
+                            >
+                              Solicitar verificación
+                            </button>
+                          )}
+                          <button
+                            className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10"
+                            onClick={() => { setSelectedCred(cred); setRevokeReason(''); setRevokeOpen(true); }}
+                          >
+                            Revocar
+                          </button>
+                          <button
+                            className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10"
+                            onClick={async () => {
+                              await n8nService.deleteCredential({ tokenId: cred.tokenId || cred.id, serialNumber: String(cred.serialNumber || 1) });
+                              setCredentials(prev => prev.filter(c => c !== cred));
+                              try { 
+                                let issuerId = ''; 
+                                try { issuerId = String(user?.id || user?.universityId || ''); } catch {} 
+                                await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
+                                  if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) }); 
+                                }); 
+                              } catch {}
+                            }}
+                          >
+                            Borrar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -323,6 +443,48 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                 </tbody>
               </table>
             </div>
+            {revokeOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/40" onClick={() => setRevokeOpen(false)} />
+                <div className="relative bg-slate-900 rounded-xl border border-slate-700 w-full max-w-md p-6">
+                  <h3 className="text-lg font-bold text-white mb-4">Revocar Credencial</h3>
+                  <p className="text-sm text-slate-300 mb-4">
+                    ID <span className="font-mono">{selectedCred?.id || selectedCred?.tokenId}</span>
+                  </p>
+                  <div className="form-control mb-3">
+                    <label className="label-text">Razón</label>
+                    <select className="input-primary" value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)}>
+                      <option value="">Selecciona una razón...</option>
+                      <option value="PrivilegeWithdrawn">Privilegio Retirado</option>
+                      <option value="CessationOfOperation">Cese de Operaciones</option>
+                      <option value="AffiliationChanged">Cambio de Afiliación</option>
+                      <option value="Superseded">Reemplazada</option>
+                      <option value="Compromised">Comprometida</option>
+                    </select>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button className="btn-ghost" onClick={() => setRevokeOpen(false)}>Cancelar</button>
+                    <button
+                      className="btn-primary bg-red-600 hover:bg-red-700 border-red-600 text-white"
+                      disabled={!revokeReason}
+                      onClick={async () => {
+                        await n8nService.revokeCredential({ tokenId: selectedCred?.tokenId || selectedCred?.id, serialNumber: String(selectedCred?.serialNumber || 1), reason: revokeReason });
+                        setRevokeOpen(false);
+                          try { 
+                            let issuerId = ''; 
+                            try { issuerId = String(user?.id || user?.universityId || ''); } catch {} 
+                            await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
+                              if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) }); 
+                            }); 
+                          } catch {}
+                      }}
+                    >
+                      Confirmar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </motion.div>
         );
       case 'emitir':
@@ -339,7 +501,16 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                     networks={selectedNetworks} 
                     plan={currentPlan}
                     emissionsUsed={emissionsUsed}
-                    onEmissionComplete={(count) => setEmissionsUsed(prev => prev + count)}
+                    onEmissionComplete={(count) => {
+                      setEmissionsUsed(prev => prev + count);
+                      (async () => {
+                        try {
+                          const issuerId = String(user?.id || user?.universityId || '');
+                          const s = await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
+                          if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
+                        } catch {}
+                      })();
+                    }}
                   />
                 </div>
               </div>

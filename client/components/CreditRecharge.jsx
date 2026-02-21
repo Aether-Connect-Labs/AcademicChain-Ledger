@@ -4,7 +4,6 @@ import QRCode from 'react-qr-code';
 import { Toaster, toast } from 'react-hot-toast';
 import { toGateway, getGateways } from './utils/ipfsUtils';
 import n8nService from './services/n8nService';
-import { useAuth } from './useAuth';
 
 const TREASURY_ACCOUNT_ID = '0.0.7174400';
 const ACL_TOKEN_ID = '0.0.7560139';
@@ -18,7 +17,6 @@ const plans = [
 const XRP_WALLET = 'rSimulatedWalletAddressForBanxa'; // Wallet de Recaudación
 
 const CreditRecharge = () => {
-  const { user } = useAuth();
   const [method, setMethod] = useState('ACL');
   const [selected, setSelected] = useState(plans[0]);
   const [showModal, setShowModal] = useState(false);
@@ -160,8 +158,6 @@ const CreditRecharge = () => {
           let priceLabel = `$${p.priceUsd} USD`;
           if (method === 'ACL') priceLabel = `${p.priceAcl} ACL`;
           if (method === 'XRP') priceLabel = `${(p.priceUsd * 2).toFixed(0)} XRP`; // Mock rate 1 USD = 2 XRP
-
-          const bonus = displayCredits; // Simplification for card display logic, ideally per card
 
           // Correct bonus calculation for card display
           let cardCredits = p.credits;

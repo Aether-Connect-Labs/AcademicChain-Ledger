@@ -54,6 +54,18 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    chunkSizeWarningLimit: 2000,
+    chunkSizeWarningLimit: 3000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          pdfjs: ['pdfjs-dist'],
+          three: ['three', '@react-three/fiber', '@react-three/drei'],
+          charts: ['chart.js', 'react-chartjs-2'],
+          ui: ['framer-motion', '@headlessui/react', 'lucide-react'],
+          utils: ['axios', 'date-fns', 'uuid', 'zustand'],
+        },
+      },
+    },
   },
 });

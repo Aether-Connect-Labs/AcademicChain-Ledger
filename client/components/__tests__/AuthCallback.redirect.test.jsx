@@ -35,7 +35,7 @@ jest.mock('../useAuth', () => {
   };
 });
 
-import AuthCallback from '../AuthCallback.jsx';
+const AuthCallback = require('../AuthCallback.jsx').default;
 
 describe('AuthCallback redirect mapping', () => {
   const origLocation = window.location;

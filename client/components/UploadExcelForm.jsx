@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import * as XLSX from 'xlsx';
 import { readSafe, sheetToSanitizedJSON } from './utils/xlsxSanitizer.js';
 import { issuanceService } from './services/issuanceService';
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, Edit2, Save, X, Copy, BookOpen, User, Calendar, Award } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, BookOpen, User, Calendar, Award } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 const DEFAULT_TEMPLATES = [
@@ -25,7 +25,7 @@ export default function NarrativeTemplateManager() {
   const [templates, setTemplates] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ name: '', content: '' });
-  const [previewData, setPreviewData] = useState({
+  const [previewData] = useState({
     student_name: 'Ana García',
     degree: 'Ingeniería de Software',
     institution: 'AcademicChain University',
@@ -214,16 +214,16 @@ export default function NarrativeTemplateManager() {
                   </label>
                   <div className="flex gap-2 mb-2 flex-wrap">
                     <button onClick={() => insertVariable('student_name')} className="badge badge-outline cursor-pointer hover:bg-cyan-500/20 gap-1">
-                      <User size={12} /> {{student_name}}
+                      <User size={12} /> {'{{student_name}}'}
                     </button>
                     <button onClick={() => insertVariable('degree')} className="badge badge-outline cursor-pointer hover:bg-purple-500/20 gap-1">
-                      <Award size={12} /> {{degree}}
+                      <Award size={12} /> {'{{degree}}'}
                     </button>
                     <button onClick={() => insertVariable('institution')} className="badge badge-outline cursor-pointer hover:bg-blue-500/20 gap-1">
-                      <BookOpen size={12} /> {{institution}}
+                      <BookOpen size={12} /> {'{{institution}}'}
                     </button>
                     <button onClick={() => insertVariable('fecha_expedicion')} className="badge badge-outline cursor-pointer hover:bg-green-500/20 gap-1">
-                      <Calendar size={12} /> {{fecha_expedicion}}
+                      <Calendar size={12} /> {'{{fecha_expedicion}}'}
                     </button>
                   </div>
                   <textarea

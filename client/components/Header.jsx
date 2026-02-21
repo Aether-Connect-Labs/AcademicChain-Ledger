@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Wallet, ChevronDown, ExternalLink, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Menu, X, Wallet, ExternalLink } from 'lucide-react';
 import { useHedera } from './useHedera';
 import { useAuth } from './useAuth';
 import { motion, AnimatePresence } from 'framer-motion';

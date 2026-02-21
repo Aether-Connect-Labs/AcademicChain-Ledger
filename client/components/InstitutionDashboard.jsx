@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import QRCode from 'react-qr-code';
 import { useSearchParams } from 'react-router-dom';
 import IssueTitleForm from './IssueTitleForm';
@@ -14,6 +14,8 @@ import developerService from './services/developerService';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Tooltip, Legend } from 'chart.js';
 import jsPDF from 'jspdf';
+import n8nService from './services/n8nService';
+import useAnalytics from './useAnalytics';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Tooltip, Legend);
 
@@ -26,6 +28,8 @@ function InstitutionDashboard({ demo = false }) {
   const [errorCreds, setErrorCreds] = useState('');
   const [filterTokenId, setFilterTokenId] = useState('');
   const [filterAccountId, setFilterAccountId] = useState('');
+  const [deletedCount, setDeletedCount] = useState(0);
+  const [globalStats, setGlobalStats] = useState({ revoked: 0, deleted: 0, verified: 0, pending: 0 });
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [revokeModalOpen, setRevokeModalOpen] = useState(false);
@@ -58,6 +62,7 @@ function InstitutionDashboard({ demo = false }) {
   const [qrPngSize, setQrPngSize] = useState(512);
   const [qrCopyMsg, setQrCopyMsg] = useState('');
   const [qrMeta, setQrMeta] = useState(null);
+  const { trackCredentialOperation } = useAnalytics();
   const [qrMetaLoading, setQrMetaLoading] = useState(false);
   const [qrIpfsURI, setQrIpfsURI] = useState('');
   const [qrTxId, setQrTxId] = useState('');
@@ -85,12 +90,14 @@ function InstitutionDashboard({ demo = false }) {
   const [rateLimit, setRateLimit] = useState(null);
   const [rateLoading, setRateLoading] = useState(false);
   const [rateError, setRateError] = useState('');
-  const [onPrem, setOnPrem] = useState(false);
+  const [onPrem] = useState(false);
   const [usage, setUsage] = useState({ hedera: 0, xrp: 0, algorand: 0 });
   const [labLoading, setLabLoading] = useState(false);
   const [labMessage, setLabMessage] = useState('');
   const [labError, setLabError] = useState('');
   const [securityHover, setSecurityHover] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   
 
 
@@ -123,10 +130,63 @@ function InstitutionDashboard({ demo = false }) {
       await institutionService.revokeCredential(token, selectedCredential._id, revokeReason);
       setRevokeModalOpen(false);
       loadCredentials({ page }); 
+      try {
+        await refreshGlobalStats();
+      } catch {}
+      try {
+        trackCredentialOperation({
+          operation: 'revoke',
+          role: 'institution',
+          tokenId: selectedCredential.tokenId,
+          serialNumber: String(selectedCredential.serialNumber || ''),
+          reason: revokeReason
+        });
+      } catch {}
     } catch (e) {
       alert('Error revoking credential: ' + e.message);
     } finally {
       setRevoking(false);
+    }
+  };
+
+  const handleDeleteIssuedCredential = async (cred) => {
+    const ok = window.confirm('¿Borrar esta emisión del portal institucional? Esto no afecta el estado on-chain.');
+    if (!ok) return;
+    try {
+      await n8nService.deleteCredential({ tokenId: cred.tokenId, serialNumber: cred.serialNumber });
+      setCredentials(prev => prev.filter(x => !(String(x.tokenId) === String(cred.tokenId) && String(x.serialNumber) === String(cred.serialNumber))));
+      setDeletedCount(v => v + 1);
+      try { await refreshGlobalStats(); } catch {}
+      try {
+        trackCredentialOperation({
+          operation: 'delete',
+          role: 'institution',
+          tokenId: cred.tokenId,
+          serialNumber: String(cred.serialNumber || '')
+        });
+      } catch {}
+    } catch (e) {
+      alert('No se pudo borrar la credencial.');
+    }
+  };
+
+  const handleRequestVerification = async (cred) => {
+    try {
+      await n8nService.requestCredentialVerification({ tokenId: cred.tokenId, serialNumber: cred.serialNumber, role: 'institution' });
+      try {
+        trackCredentialOperation({
+          operation: 'verify',
+          role: 'institution',
+          tokenId: cred.tokenId,
+          serialNumber: String(cred.serialNumber || ''),
+          reason: 'verification_requested'
+        });
+      } catch {}
+      setCredentials(prev => prev.map(x => (String(x.tokenId) === String(cred.tokenId) && String(x.serialNumber) === String(cred.serialNumber)) ? { ...x, status: 'pending' } : x));
+      try { await refreshGlobalStats(); } catch {}
+      alert('Solicitud de verificación enviada a n8n. Estado: Pendiente');
+    } catch (e) {
+      alert('No se pudo enviar la solicitud de verificación.');
     }
   };
 
@@ -176,6 +236,42 @@ function InstitutionDashboard({ demo = false }) {
     }
   };
 
+  const refreshGlobalStats = useCallback(async () => {
+    try {
+      let issuerId = null;
+      try {
+        issuerId = String(user?.id || user?.universityId || '');
+      } catch {}
+      if (!issuerId && credentials && credentials.length > 0) {
+        issuerId = String(credentials[0]?.universityId || '');
+      }
+      const statsResp = await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
+      if (statsResp && statsResp.success) {
+        setGlobalStats({
+          revoked: Number(statsResp.revoked || 0),
+          deleted: Number(statsResp.deleted || 0),
+          verified: Number(statsResp.verified || 0),
+          pending: Number(statsResp.pending || 0)
+        });
+      } else {
+        const revoked = credentials.filter(x => String(x.status || '').toLowerCase() === 'revoked').length;
+        const pending = credentials.filter(x => String(x.status || '').toLowerCase() === 'pending').length;
+        const verified = credentials.filter(x => String(x.status || '').toLowerCase() === 'verified').length;
+        setGlobalStats({ revoked, deleted: deletedCount, verified, pending });
+      }
+    } catch {
+      const revoked = credentials.filter(x => String(x.status || '').toLowerCase() === 'revoked').length;
+      const pending = credentials.filter(x => String(x.status || '').toLowerCase() === 'pending').length;
+      const verified = credentials.filter(x => String(x.status || '').toLowerCase() === 'verified').length;
+      setGlobalStats({ revoked, deleted: deletedCount, verified, pending });
+    }
+  }, [user, credentials, deletedCount]);
+
+  useEffect(() => {
+    (async () => {
+      try { await refreshGlobalStats(); } catch {}
+    })();
+  }, [refreshGlobalStats]);
   useEffect(() => {
     if (demo) {
       const sample = [
@@ -193,6 +289,12 @@ function InstitutionDashboard({ demo = false }) {
       });
       return;
     }
+    (async () => {
+      try {
+        const s = await n8nService.getCredentialStats();
+        if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
+      } catch {}
+    })();
     const initialTokenId = searchParams.get('tokenId') || '';
     const initialAccountId = searchParams.get('accountId') || '';
     const initialPage = parseInt(searchParams.get('page') || '1', 10) || 1;
@@ -314,7 +416,7 @@ function InstitutionDashboard({ demo = false }) {
     }
   };
 
-  const loadApiKeys = async () => {
+  const loadApiKeys = useCallback(async () => {
     if (!token) return;
     setApiKeysLoading(true);
     setApiKeysError('');
@@ -327,7 +429,7 @@ function InstitutionDashboard({ demo = false }) {
     } finally {
       setApiKeysLoading(false);
     }
-  };
+  }, [token]);
 
   const handleRevokeApiKey = async (key) => {
     setRevokingKey(key);
@@ -366,7 +468,7 @@ function InstitutionDashboard({ demo = false }) {
     }
   };
 
-  const loadRateLimit = async () => {
+  const loadRateLimit = useCallback(async () => {
     if (!token) {
       setRateLimit({ plan: 'enterprise', used: 0, limit: 10000, resetsAt: new Date(Date.now() + 3600 * 1000).toISOString() });
       return;
@@ -387,7 +489,7 @@ function InstitutionDashboard({ demo = false }) {
     } finally {
       setRateLoading(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     loadApiKeys();
@@ -405,7 +507,7 @@ function InstitutionDashboard({ demo = false }) {
         setUsage({ hedera: 0, xrp: 0, algorand: 0 });
       }
     })();
-  }, [token]);
+  }, [token, loadApiKeys, loadRateLimit]);
 
   const pct = rateLimit && rateLimit.limit > 0 ? Math.min(100, Math.round((rateLimit.used / rateLimit.limit) * 100)) : 0;
   const formatDate = (iso) => {
@@ -992,6 +1094,67 @@ function InstitutionDashboard({ demo = false }) {
         {errorCreds && <div className="badge-error badge">{errorCreds}</div>}
         {!loadingCreds && credentials.length > 0 && (
           <div>
+            <div className="flex items-center gap-3 mb-3">
+              <input
+                className="input-primary w-full md:w-96"
+                placeholder="Buscar por nombre, hash, tokenId, serial o id"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <select className="input-primary w-48" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="all">Todas</option>
+                <option value="verified">Verificadas</option>
+                <option value="pending">Pendientes</option>
+                <option value="revoked">Revocadas</option>
+                <option value="confirmed">Confirmadas</option>
+              </select>
+            </div>
+            {(() => {
+              const q = String(searchQuery || '').toLowerCase().trim();
+              const base = q
+                ? credentials.filter(x => {
+                    const name = String(x.studentName || '').toLowerCase();
+                    const title = String(x.title || '').toLowerCase();
+                    const tokenId = String(x.tokenId || x.id || '').toLowerCase();
+                    const serial = String(x.serialNumber || '').toLowerCase();
+                    const hash = String(x.uniqueHash || '').toLowerCase();
+                    const ipfs = String(x.ipfsURI || '').toLowerCase();
+                    const hederaTx = String(x.externalProofs?.hederaTx || '').toLowerCase();
+                    const xrpTx = String(x.externalProofs?.xrpTxHash || '').toLowerCase();
+                    const algoTx = String(x.externalProofs?.algoTxId || '').toLowerCase();
+                    return [name, title, tokenId, serial, hash, ipfs, hederaTx, xrpTx, algoTx].some(v => v.includes(q));
+                  })
+                : credentials;
+              const visible = base.filter(x => {
+                const st = String(x.status || '').toLowerCase();
+                if (statusFilter === 'all') return true;
+                if (statusFilter === 'verified') return st === 'verified';
+                if (statusFilter === 'pending') return st === 'pending';
+                if (statusFilter === 'revoked') return st === 'revoked';
+                if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
+                return true;
+              });
+              const revokedCount = visible.filter(x => String(x.status || '').toLowerCase() === 'revoked').length;
+              return (
+                <div className="flex items-center gap-4 text-sm text-gray-700 mb-2">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-50 text-red-700 border border-red-200" title="Totales (global)">
+                    Revocadas (Total): <strong>{globalStats.revoked}</strong>
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-purple-50 text-purple-700 border border-purple-200" title="Totales (global)">
+                    Eliminadas (Total): <strong>{globalStats.deleted}</strong>
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200" title="Totales (global)">
+                    Verificadas (Total): <strong>{globalStats.verified}</strong>
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-yellow-50 text-yellow-700 border border-yellow-200" title="Totales (global)">
+                    Pendientes (Total): <strong>{globalStats.pending}</strong>
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-gray-50 text-gray-700 border border-gray-200" title="Página actual">
+                    En lista — Revocadas: <strong>{revokedCount}</strong>, Eliminadas (sesión): <strong>{deletedCount}</strong>
+                  </span>
+                </div>
+              );
+            })()}
             <div className="hidden md:block overflow-x-auto bg-white rounded-lg shadow-soft">
               <table className="min-w-full">
               <thead>
@@ -1004,15 +1167,49 @@ function InstitutionDashboard({ demo = false }) {
                 </tr>
               </thead>
               <tbody>
-                {credentials.map((c) => (
+                {(searchQuery ? credentials.filter(x => {
+                  const q = String(searchQuery || '').toLowerCase().trim();
+                  const name = String(x.studentName || '').toLowerCase();
+                  const title = String(x.title || '').toLowerCase();
+                  const tokenId = String(x.tokenId || x.id || '').toLowerCase();
+                  const serial = String(x.serialNumber || '').toLowerCase();
+                  const hash = String(x.uniqueHash || '').toLowerCase();
+                  const ipfs = String(x.ipfsURI || '').toLowerCase();
+                  const hederaTx = String(x.externalProofs?.hederaTx || '').toLowerCase();
+                  const xrpTx = String(x.externalProofs?.xrpTxHash || '').toLowerCase();
+                  const algoTx = String(x.externalProofs?.algoTxId || '').toLowerCase();
+                  const match = [name, title, tokenId, serial, hash, ipfs, hederaTx, xrpTx, algoTx].some(v => v.includes(q));
+                  if (!match) return false;
+                  const st = String(x.status || '').toLowerCase();
+                  if (statusFilter === 'all') return true;
+                  if (statusFilter === 'verified') return st === 'verified';
+                  if (statusFilter === 'pending') return st === 'pending';
+                  if (statusFilter === 'revoked') return st === 'revoked';
+                  if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
+                  return true;
+                }) : credentials.filter(x => {
+                  const st = String(x.status || '').toLowerCase();
+                  if (statusFilter === 'all') return true;
+                  if (statusFilter === 'verified') return st === 'verified';
+                  if (statusFilter === 'pending') return st === 'pending';
+                  if (statusFilter === 'revoked') return st === 'revoked';
+                  if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
+                  return true;
+                })).map((c) => (
                   <tr key={`${c.tokenId}-${c.serialNumber}`} className="border-t text-sm">
                     <td className="px-4 py-2">{c.tokenId}</td>
                     <td className="px-4 py-2">{c.serialNumber}</td>
                     <td className="px-4 py-2"><button className="btn-secondary btn-sm" onClick={() => { setDocUrl(toGateway(c.ipfsURI)); setDocOpen(true); }}>Ver</button></td>
                     <td className="px-4 py-2">{c.xrpAnchor?.xrpTxHash ? <a href={`https://testnet.xrplexplorer.com/tx/${c.xrpAnchor.xrpTxHash}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{c.xrpAnchor.xrpTxHash.slice(0, 8)}...</a> : 'N/A'}</td>
-                    <td className="px-4 py-2 space-x-2">
+                  <td className="px-4 py-2 space-x-2">
+                      <button className="btn-secondary btn-sm border-green-600 text-green-700 hover:bg-green-50" disabled={demo} onClick={() => handleRequestVerification(c)}>
+                        Solicitar verificación
+                      </button>
                       <button className="btn-secondary btn-sm text-red-600 hover:bg-red-50 border-red-200" disabled={demo || c.status === 'REVOKED'} onClick={() => handleRevokeClick(c)}>
                         {c.status === 'REVOKED' ? 'Revocada' : 'Revocar'}
+                      </button>
+                      <button className="btn-secondary btn-sm text-red-600 hover:bg-red-50 border-red-200" disabled={demo} onClick={() => handleDeleteIssuedCredential(c)}>
+                        Borrar
                       </button>
                       <button className="btn-secondary btn-sm" disabled={demo} onClick={() => {
                         const base = import.meta.env.VITE_API_URL;
@@ -1043,7 +1240,35 @@ function InstitutionDashboard({ demo = false }) {
               </table>
             </div>
             <div className="md:hidden space-y-3">
-              {credentials.map((c) => (
+              {(searchQuery ? credentials.filter(x => {
+                const q = String(searchQuery || '').toLowerCase().trim();
+                const name = String(x.studentName || '').toLowerCase();
+                const title = String(x.title || '').toLowerCase();
+                const tokenId = String(x.tokenId || x.id || '').toLowerCase();
+                const serial = String(x.serialNumber || '').toLowerCase();
+                const hash = String(x.uniqueHash || '').toLowerCase();
+                const ipfs = String(x.ipfsURI || '').toLowerCase();
+                const hederaTx = String(x.externalProofs?.hederaTx || '').toLowerCase();
+                const xrpTx = String(x.externalProofs?.xrpTxHash || '').toLowerCase();
+                const algoTx = String(x.externalProofs?.algoTxId || '').toLowerCase();
+                const match = [name, title, tokenId, serial, hash, ipfs, hederaTx, xrpTx, algoTx].some(v => v.includes(q));
+                if (!match) return false;
+                const st = String(x.status || '').toLowerCase();
+                if (statusFilter === 'all') return true;
+                if (statusFilter === 'verified') return st === 'verified';
+                if (statusFilter === 'pending') return st === 'pending';
+                if (statusFilter === 'revoked') return st === 'revoked';
+                if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
+                return true;
+              }) : credentials.filter(x => {
+                const st = String(x.status || '').toLowerCase();
+                if (statusFilter === 'all') return true;
+                if (statusFilter === 'verified') return st === 'verified';
+                if (statusFilter === 'pending') return st === 'pending';
+                if (statusFilter === 'revoked') return st === 'revoked';
+                if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
+                return true;
+              })).map((c) => (
                 <div key={`${c.tokenId}-${c.serialNumber}`} className="credential-card">
                   <div className="flex items-center justify-between">
                     <div className="font-mono text-sm max-w-[60%] overflow-wrap">{c.tokenId}</div>
@@ -1057,7 +1282,9 @@ function InstitutionDashboard({ demo = false }) {
                     )}
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button className="btn-secondary btn-sm border-green-600 text-green-700 hover:bg-green-50" disabled={demo} onClick={() => handleRequestVerification(c)}>Solicitar verificación</button>
                     <button className="btn-secondary btn-sm" onClick={() => { setDocUrl(toGateway(c.ipfsURI)); setDocOpen(true); }}>Ver Documento</button>
+                    <button className="btn-secondary btn-sm text-red-600 hover:bg-red-50 border-red-200" disabled={demo} onClick={() => handleDeleteIssuedCredential(c)}>Borrar</button>
                     <button className="btn-secondary btn-sm" disabled={demo} onClick={() => {
                       const base = import.meta.env.VITE_API_URL || '';
                       const u = `${base}/api/verification/qr/generate/${c.universityId}/${c.tokenId}/${c.serialNumber}?format=png&width=${qrPngSize}`;

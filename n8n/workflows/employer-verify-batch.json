@@ -14,41 +14,139 @@
     },
     {
       "parameters": {
-        "mode": "json"
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.headers['x-security-token']}}",
+              "operation": "equal",
+              "value2": "={{$env.N8N_WEBHOOK_SECURITY_TOKEN || $env.WEBHOOK_SECURITY_TOKEN}}"
+            }
+          ]
+        }
       },
-      "name": "Split In Batches",
-      "type": "n8n-nodes-base.splitInBatches",
+      "name": "Security Guard (X-Security-Token)",
+      "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [200, 0]
     },
     {
       "parameters": {
-        "operation": "extract",
-        "binaryPropertyName": "data"
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Unauthorized\"}",
+        "options": { "responseCode": 401 }
       },
-      "name": "Read PDF/Image",
-      "type": "n8n-nodes-base.readPdf",
+      "name": "Reject",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = ($json.body && Array.isArray($json.body.items)) ? $json.body.items : [$json.body || $json];\nreturn items.map((it) => ({ json: it }));"
+      },
+      "name": "Explode Items",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [400, 0]
     },
     {
       "parameters": {
-        "jsCode": "const text = $input.item.json.text;\nconst idMatch = text.match(/DID:([a-zA-Z0-9]+)/);\nreturn {\n  json: {\n    identityId: idMatch ? idMatch[1] : null,\n    hasBlockchainProof: text.includes('AcademicChain Verified')\n  }\n};"
+        "conditions": {
+          "string": [
+            { "value1": "={{$json.url || ''}}", "operation": "notEqual", "value2": "" }
+          ]
+        }
       },
-      "name": "Extract Identity",
-      "type": "n8n-nodes-base.code",
+      "name": "Has URL?",
+      "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [600, 0]
     },
     {
       "parameters": {
-        "url": "={{$env.API_URL}}/verify/{{$json.identityId}}",
-        "method": "GET"
+        "url": "={{$json.url}}",
+        "responseFormat": "file",
+        "download": true,
+        "options": { "splitIntoItems": false },
+        "sendQuery": false
+      },
+      "name": "Download File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [820, -80]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base64 = ($json.data || '').replace(/^data:[^,]+,/, ''); const mime = $json.mimeType || 'application/pdf'; const fileName = $json.fileName || 'input'; return { json: { mimeType: mime, fileName }, binary: { file: { data: base64, mimeType: mime, fileName } } };"
+      },
+      "name": "Build Binary From Base64",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [820, 80]
+    },
+    {
+      "parameters": {
+        "url": "https://api.ocr.space/parse/image",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{$env.OCR_SPACE_API_KEY}}"}
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "formData",
+        "formDataParameters": {
+          "parameters": [
+            {
+              "name": "base64Image",
+              "value": "={{'data:' + ($json.mimeType || $binary.file.mimeType || 'application/pdf') + ';base64,' + ($binary?.file?.data || $binary?.data?.data)}}"
+            },
+            { "name": "OCREngine", "value": "2" },
+            { "name": "scale", "value": "true" },
+            { "name": "isTable", "value": "true" }
+          ]
+        }
+      },
+      "name": "OCR Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1040, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.item.json || {}; const text = (res.ParsedResults && res.ParsedResults[0] && res.ParsedResults[0].ParsedText) || ''; return { json: { text } };"
+      },
+      "name": "Parse OCR",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1240, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = ($json.text || '').replace(/\\r/g, ''); const email = (text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/i) || [null])[0]; const dni = (text.match(/\\b\\d{8}[A-Z]\\b|\\b\\d{8}\\b/) || [null])[0]; const nameMatch = text.match(/Nombre[:\\s]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ\\s]+)/); const name = nameMatch ? nameMatch[1].trim() : null; const identityId = dni || email || null; return { json: { identityId, email, dni, name, hasBlockchainProof: /AcademicChain\\s+Verified/i.test(text) } };"
+      },
+      "name": "Extract Identity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1440, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.API_URL || 'https://api.academicchain.local'}}/verify/{{$json.identityId}}",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-acl-auth-key", "value": "={{$env.ACL_AUTH_KEY}}"}
+          ]
+        }
       },
       "name": "Verify On Chain",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 1,
-      "position": [800, 0]
+      "typeVersion": 4,
+      "position": [1640, 0]
     },
     {
       "parameters": {
@@ -58,17 +156,38 @@
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1000, 0]
+      "position": [1840, 0]
     }
   ],
   "connections": {
     "Webhook": {
-      "main": [[{"node": "Split In Batches", "type": "main", "index": 0}]]
+      "main": [[{"node": "Security Guard", "type": "main", "index": 0}]]
     },
-    "Split In Batches": {
-      "main": [[{"node": "Read PDF/Image", "type": "main", "index": 0}]]
+    "Security Guard": {
+      "main": [
+        [{"node": "Explode Items", "type": "main", "index": 0}],
+        [{"node": "Reject", "type": "main", "index": 0}]
+      ]
     },
-    "Read PDF/Image": {
+    "Explode Items": {
+      "main": [[{"node": "Has URL?", "type": "main", "index": 0}]]
+    },
+    "Has URL?": {
+      "main": [
+        [{"node": "Download File", "type": "main", "index": 0}],
+        [{"node": "Build Binary From Base64", "type": "main", "index": 0}]
+      ]
+    },
+    "Download File": {
+      "main": [[{"node": "OCR Text", "type": "main", "index": 0}]]
+    },
+    "Build Binary From Base64": {
+      "main": [[{"node": "OCR Text", "type": "main", "index": 0}]]
+    },
+    "OCR Text": {
+      "main": [[{"node": "Parse OCR", "type": "main", "index": 0}]]
+    },
+    "Parse OCR": {
       "main": [[{"node": "Extract Identity", "type": "main", "index": 0}]]
     },
     "Extract Identity": {

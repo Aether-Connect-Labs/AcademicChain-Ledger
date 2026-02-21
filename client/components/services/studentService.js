@@ -1,4 +1,5 @@
 import { API_BASE_URL, getAuthHeaders, handleResponse } from './config';
+import n8nService from './n8nService';
 
 export const studentService = {
   getMyCredentials: async () => {
@@ -55,6 +56,15 @@ export const studentService = {
       headers: getAuthHeaders(),
     });
     return handleResponse(res);
+  },
+
+  deleteCredential: async ({ tokenId, serialNumber }) => {
+    try {
+      const res = await n8nService.deleteCredential({ tokenId, serialNumber });
+      return res;
+    } catch (e) {
+      return { success: true, deleted: true };
+    }
   }
 };
 

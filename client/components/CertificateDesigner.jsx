@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Canvas, IText, Rect, Shadow, Image as FabricImage } from 'fabric';
-import { Toaster, toast } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { Trash2, FileText, Upload, LayoutTemplate, Type, FileUp, Layers, Move, Maximize, Minimize, ChevronUp, ChevronDown, Lock, Unlock, Eye, EyeOff, BringToFront, SendToBack, Grid, Image as ImageIcon, Eraser, MousePointer2, PenTool, Stamp, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowRightFromLine, ArrowDownFromLine, Undo2, Redo2 } from 'lucide-react';
+import { Trash2, FileText, Upload, LayoutTemplate, Type, FileUp, ChevronUp, ChevronDown, Lock, Unlock, Eye, EyeOff, BringToFront, SendToBack, Image as ImageIcon, MousePointer2, PenTool, Stamp, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowRightFromLine, ArrowDownFromLine, Undo2, Redo2 } from 'lucide-react';
 import n8nService from './services/n8nService';
 import { mockCredentials, templates } from '../utils/mockData';
 
@@ -141,7 +141,7 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
         break;
       case 'delete':
         if (obj.data?.isBackground) {
-            if (confirm("¿Estás seguro de eliminar el fondo?")) {
+            if (window.confirm("¿Estás seguro de eliminar el fondo?")) {
                 fabricCanvas.remove(obj);
             }
         } else {
@@ -903,117 +903,7 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
     }
   };
 
-  const handleLogoUpload = (e) => {
-    const f = e.target.files[0];
-    if (f && fabricCanvas) {
-      const reader = new FileReader();
-      reader.onload = (f) => {
-        FabricImage.fromURL(f.target.result).then(img => {
-           img.scaleToWidth(150);
-           img.set({
-               left: fabricCanvas.width / 2,
-               top: fabricCanvas.height / 2,
-               originX: 'center', 
-               originY: 'center',
-               data: { name: 'Logo Institucional' }
-           });
-           fabricCanvas.add(img);
-           fabricCanvas.setActiveObject(img);
-           fabricCanvas.requestRenderAll();
-           updateLayers();
-           toast.success('Logo añadido');
-        });
-      };
-      reader.readAsDataURL(f);
-    }
-  };
-
-  const clearCanvas = () => {
-      if (confirm("¿Estás seguro de limpiar todo el diseño?")) {
-          fabricCanvas.clear();
-          fabricCanvas.backgroundColor = '#ffffff';
-          setLayers([]);
-          setSelectedObject(null);
-          toast.success('Lienzo limpiado');
-      }
-  };
-
-  const loadStructure = (type) => {
-      if (!fabricCanvas) return;
-      if (!confirm("Esto reemplazará tu diseño actual. ¿Continuar?")) return;
-
-      skipHistoryRef.current = true;
-      try {
-        fabricCanvas.clear();
-        fabricCanvas.backgroundColor = '#ffffff';
-        
-        const cx = fabricCanvas.width / 2;
-        const cy = fabricCanvas.height / 2;
-
-        if (type === 'Titulo') {
-            fabricCanvas.add(new IText('TÍTULO PROFESIONAL', { 
-                left: cx, 
-                top: 100, 
-                fontSize: 50, 
-                fontFamily: 'Orbitron', 
-                fontWeight: 'bold',
-                charSpacing: 250,
-                fill: '#000000',
-                shadow: new Shadow({ color: 'rgba(0,0,0,0.1)', blur: 4, offsetX: 2, offsetY: 2 }),
-                originX: 'center', 
-                data: { name: 'Título Doc', isTitle: true } 
-            }));
-            fabricCanvas.add(new IText('{{nombre_alumno}}', { left: cx, top: 250, fontSize: 30, fontFamily: 'Inter', originX: 'center', data: { isSmart: true, name: 'Nombre Alumno' } }));
-            fabricCanvas.add(new IText('{{carrera}}', { left: cx, top: 320, fontSize: 24, fontFamily: 'Inter', originX: 'center', fill: '#666', data: { isSmart: true, name: 'Carrera' } }));
-            
-            const sigY = fabricCanvas.height - 150;
-            [-200, 0, 200].forEach((offset, i) => {
-               fabricCanvas.add(new Rect({ left: cx + offset - 60, top: sigY, width: 120, height: 1, fill: '#000', originX: 'left', data: { name: `Línea Firma ${i+1}` } }));
-               fabricCanvas.add(new IText('Autoridad', { left: cx + offset, top: sigY + 10, fontSize: 12, originX: 'center', data: { name: `Cargo Firma ${i+1}` } }));
-            });
-        } else if (type === 'Diploma') {
-            fabricCanvas.add(new IText('DIPLOMA TÉCNICO', { 
-                left: cx, 
-                top: 100, 
-                fontSize: 50, 
-                fontFamily: 'Orbitron', 
-                fontWeight: 'bold',
-                charSpacing: 250,
-                fill: '#000000',
-                shadow: new Shadow({ color: 'rgba(0,0,0,0.1)', blur: 4, offsetX: 2, offsetY: 2 }),
-                originX: 'center', 
-                data: { name: 'Título Doc', isTitle: true } 
-            }));
-            fabricCanvas.add(new IText('{{nombre_alumno}}', { left: cx, top: 250, fontSize: 30, fontFamily: 'Inter', originX: 'center', data: { isSmart: true, name: 'Nombre Alumno' } }));
-            
-            fabricCanvas.add(new Rect({ left: cx + 300, top: cy, width: 100, height: 100, fill: '#eee', stroke: '#000', strokeDashArray: [5, 5], originX: 'center', data: { name: 'Placeholder QR' } }));
-            fabricCanvas.add(new IText('QR', { left: cx + 300, top: cy, fontSize: 20, originX: 'center', originY: 'center', fill: '#999', selectable: false }));
-        } else if (type === 'Constancia') {
-             fabricCanvas.add(new IText('CONSTANCIA DE ESTUDIOS', { 
-                 left: cx, 
-                 top: 100, 
-                 fontSize: 40, 
-                 fontFamily: 'Orbitron', 
-                 fontWeight: 'bold',
-                 charSpacing: 200,
-                 fill: '#000000',
-                 shadow: new Shadow({ color: 'rgba(0,0,0,0.1)', blur: 4, offsetX: 2, offsetY: 2 }),
-                 originX: 'center', 
-                 data: { name: 'Título Doc', isTitle: true } 
-             }));
-             fabricCanvas.add(new IText('Por la presente se hace constar que:', { left: cx, top: 180, fontSize: 16, originX: 'center' }));
-             fabricCanvas.add(new IText('{{nombre_alumno}}', { left: cx, top: 220, fontSize: 24, fontFamily: 'Inter', originX: 'center', fontWeight: 'bold', data: { isSmart: true, name: 'Nombre Alumno' } }));
-        }
-
-        fabricCanvas.requestRenderAll();
-        updateLayers();
-        skipHistoryRef.current = false;
-        saveHistory();
-      } catch (e) {
-        console.error("Error loading structure", e);
-        skipHistoryRef.current = false;
-      }
-  };
+  /* funciones no usadas eliminadas para limpiar advertencias */
 
 
   const saveAsTemplate = async () => {
@@ -1447,7 +1337,7 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
     const tmpl = allTemplates.find(t => t.id === templateId);
     if (!tmpl) return;
 
-    if (!confirm(`¿Cargar plantilla "${tmpl.name}"? Se reemplazará el diseño actual.`)) return;
+    if (!window.confirm(`¿Cargar plantilla "${tmpl.name}"? Se reemplazará el diseño actual.`)) return;
 
     skipHistoryRef.current = true;
     try {

@@ -15,7 +15,6 @@ import IssuanceSummary from './IssuanceSummary';
 import ErrorReport from './ui/ErrorReport';
 import AiInsightsPanel from './ui/AiInsightsPanel';
 import { Toaster, toast } from 'react-hot-toast';
-import { toGateway } from './utils/ipfsUtils';
 
 const XrpAnchorCell = ({ tokenId, serialNumber }) => {
   const [hash, setHash] = useState(null);
@@ -50,7 +49,7 @@ const XrpAnchorCell = ({ tokenId, serialNumber }) => {
 };
 
 const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComplete }) => {
-  const { account, isConnected, connectWallet, signTransactionBytes } = useHedera();
+  const { account, isConnected, connectWallet } = useHedera();
   const { token } = useAuth(); // Obtener el token de autenticación
   const { socket, isConnected: isSocketConnected } = useWebSocket(token); // Usar el token real
   const { trackHederaOperation, trackCredentialOperation } = useAnalytics();
@@ -366,9 +365,6 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
   }, [socket, processResult?.data?.masterJobId]);
 
   useEffect(() => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL;
-    const token = (() => { try { return localStorage.getItem('authToken'); } catch { return null; } })();
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const masterJobId = processResult?.data?.masterJobId;
     if (!masterJobId || processResult?.summary?.status !== 'queued') {
       if (isPolling) setIsPolling(false);

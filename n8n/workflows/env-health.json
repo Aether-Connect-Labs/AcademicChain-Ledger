@@ -1,0 +1,74 @@
+{
+  "name": "Environment Health (AcademicChain)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "env-health",
+        "options": {}
+      },
+      "name": "Webhook_Env_Health",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.headers['x-acl-auth-key']}}",
+              "operation": "equal",
+              "value2": "={{$env.ACL_AUTH_KEY}}"
+            }
+          ]
+        }
+      },
+      "name": "Auth_Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Unauthorized\"}",
+        "options": { "responseCode": 401 }
+      },
+      "name": "Reject",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [200, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const has = (v) => typeof v === 'string' && v.trim().length > 0; const payload = { hedera: has($env.HEDERA_OPERATOR_KEY) || has($env.HEDERA_ACCOUNT_PRIVATE_KEY) || false, xrp: has($env.XRP_SEED) || has($env.XRPL_SECRET) || false, algorand: has($env.ALGORAND_MNEMONIC) || has($env.ALGORAND_PRIVATE_KEY) || false, pinata: has($env.PINATA_JWT) || false, acl: has($env.ACL_AUTH_KEY) || false, timestamp: new Date().toISOString() }; return { json: payload };"
+      },
+      "name": "Compute Env Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"success\": true, \"env\": {{$json}} }",
+        "options": {}
+      },
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [600, 0]
+    }
+  ],
+  "connections": {
+    "Webhook_Env_Health": { "main": [[{ "node": "Auth_Check", "type": "main", "index": 0 }]] },
+    "Auth_Check": {
+      "main": [
+        [{ "node": "Compute Env Status", "type": "main", "index": 0 }],
+        [{ "node": "Reject", "type": "main", "index": 0 }]
+      ]
+    },
+    "Compute Env Status": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import '../styles/tour.css';
 
@@ -54,7 +54,7 @@ const InteractiveTour = () => {
   const totalSteps = steps.length;
   const currentStep = steps[stepIndex];
 
-  const computePositions = (el) => {
+  const computePositions = useCallback((el) => {
     const rect = el.getBoundingClientRect();
     setTargetRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
     const vw = window.innerWidth;
@@ -62,7 +62,6 @@ const InteractiveTour = () => {
     const spaceRight = vw - rect.right;
     const spaceLeft = rect.left;
     const spaceBottom = vh - rect.bottom;
-    const spaceTop = rect.top;
     if (spaceRight > 260) {
       setTooltipPos({ top: rect.top + Math.min(rect.height / 2, 200), left: rect.right + 16, placement: 'right' });
     } else if (spaceLeft > 260) {
@@ -72,9 +71,9 @@ const InteractiveTour = () => {
     } else {
       setTooltipPos({ top: Math.max(16, rect.top - 160), left: Math.max(16, rect.left), placement: 'top' });
     }
-  };
+  }, []);
 
-  const trySelectElement = () => {
+  const trySelectElement = useCallback(() => {
     if (!currentStep) return;
     const el = document.querySelector(currentStep.selector);
     if (el) {
@@ -84,15 +83,15 @@ const InteractiveTour = () => {
       return true;
     }
     return false;
-  };
+  }, [currentStep, computePositions]);
 
-  const navigateToStep = (idx) => {
+  const navigateToStep = useCallback((idx) => {
     const s = steps[idx];
     if (!s) return;
     if (location.pathname !== s.route) navigate(s.route);
     setWaitingElement(true);
     setStepIndex(idx);
-  };
+  }, [steps, location.pathname, navigate]);
 
   useEffect(() => {
     if (completed) return;
@@ -103,7 +102,7 @@ const InteractiveTour = () => {
       }
     }, 2000);
     return () => clearTimeout(t);
-  }, [location.pathname, completed]);
+  }, [location.pathname, completed, navigateToStep]);
 
   useEffect(() => {
     const handler = () => {
@@ -114,7 +113,7 @@ const InteractiveTour = () => {
     };
     window.addEventListener('tour:restart', handler);
     return () => window.removeEventListener('tour:restart', handler);
-  }, []);
+  }, [navigateToStep]);
 
   useEffect(() => {
     if (!active) return;
@@ -134,7 +133,7 @@ const InteractiveTour = () => {
         pollRef.current = null;
       }
     };
-  }, [active, stepIndex, location.pathname, currentStep?.selector]);
+  }, [active, stepIndex, location.pathname, currentStep?.selector, trySelectElement]);
 
   useEffect(() => {
     const onResize = () => {
@@ -148,7 +147,7 @@ const InteractiveTour = () => {
       window.removeEventListener('resize', onResize);
       window.removeEventListener('scroll', onResize, true);
     };
-  }, [currentStep]);
+  }, [currentStep, computePositions]);
 
   const handleNext = () => {
     const nextIdx = stepIndex + 1;

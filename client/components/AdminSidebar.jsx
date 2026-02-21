@@ -17,7 +17,7 @@ const AdminSidebar = ({
   const [xrpInfo, setXrpInfo] = useState({ enabled: false, network: 'disabled', address: null, balance: null });
   const [loadingXrp, setLoadingXrp] = useState(false);
   const [errorXrp, setErrorXrp] = useState('');
-  const [hederaApiBalance, setHederaApiBalance] = useState(null);
+  
 
   // TODO: La lógica de `navigationSections` y `hasPermission` debería venir del backend
   // o estar definida en un servicio de configuración de roles.
@@ -75,11 +75,7 @@ const AdminSidebar = ({
       } finally {
         setLoadingXrp(false);
       }
-      try {
-        const dataH = await AdminAPI.getHederaBalance();
-        const hb = dataH?.data?.hbars;
-        if (typeof hb === 'number') setHederaApiBalance(hb);
-      } catch {}
+      
     })();
   }, []);
 

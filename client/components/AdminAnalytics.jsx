@@ -12,7 +12,6 @@ const AdminAnalytics = () => {
   const [hedera, setHedera] = useState({ hbars: null, network: 'unknown', connected: false });
   const [usage, setUsage] = useState([]);
   const [billing, setBilling] = useState({ items: [], currency: 'USD' });
-  const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [verification, setVerification] = useState(null);
@@ -22,12 +21,11 @@ const AdminAnalytics = () => {
     const init = async () => {
       setLoading(true); setError('');
       try {
-        const [hb, us, bill, ver, met] = await Promise.allSettled([
+        const [hb, us, bill, ver] = await Promise.allSettled([
           AdminAPI.getHederaBalance(),
           AdminAPI.getUsageByInstitution(),
           AdminAPI.getBillingConsumption(),
-          AdminAPI.getVerificationStatus(),
-          AdminAPI.getMetrics()
+          AdminAPI.getVerificationStatus()
         ]);
         if (hb.status === 'fulfilled') {
           const h = hb.value?.data || hb.value || {};
@@ -42,9 +40,7 @@ const AdminAnalytics = () => {
         if (ver.status === 'fulfilled') {
           setVerification(ver.value?.data || ver.value || null);
         }
-        if (met.status === 'fulfilled') {
-          setMetrics(met.value?.data || met.value || null);
-        }
+        
       } catch (e) {
         setError(e.message || 'Error de carga');
       } finally {

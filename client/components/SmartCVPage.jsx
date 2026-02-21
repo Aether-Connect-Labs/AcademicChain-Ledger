@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, ShieldCheck, Search, CheckCircle, Award, Share2, Download, Eye, ArrowLeft, Linkedin, AlertCircle, RefreshCw, Zap, QrCode, Camera, X, UserCheck, XCircle } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Award, Share2, Download, ArrowLeft, Linkedin, AlertCircle, RefreshCw, Zap, QrCode, X, UserCheck, XCircle } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { useAuth } from './useAuth';
+import n8nService from './services/n8nService';
 
 const SmartCVPage = () => {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ const SmartCVPage = () => {
 
   // LinkedIn & Credential State
   const [linkedInUrl, setLinkedInUrl] = useState(location.state?.linkedInUrl || '');
-  const [isVerified, setIsVerified] = useState(location.state?.isLinkedInVerified || false);
+  const [isVerified] = useState(location.state?.isLinkedInVerified || false);
   const [credentialId, setCredentialId] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const scannerRef = useRef(null);
@@ -214,7 +215,6 @@ const SmartCVPage = () => {
             <div className="flex justify-center mb-12">
                 <div className="flex items-center gap-4">
                     {['Conexión', 'Perfil', 'Análisis', 'Resultado'].map((label, idx) => {
-                        const steps = ['initial', 'survey', 'scanning', 'feedback']; // scanning/analyzing map to 2
                         const currentIdx = step === 'initial' ? 0 : step === 'survey' ? 1 : (step === 'scanning' || step === 'analyzing') ? 2 : 3;
                         const isActive = idx === currentIdx;
                         const isCompleted = idx < currentIdx;

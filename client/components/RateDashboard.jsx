@@ -26,6 +26,7 @@ const CONNECTION_STATES = {
 
 const RateDashboard = () => {
   const token = useMemo(() => { try { return localStorage.getItem('authToken'); } catch { return null; } }, []);
+  const SOCKET_URL = useMemo(() => API_BASE_URL, []);
 
   const [error, setError] = useState('');
   const [rate, setRate] = useState(null);
@@ -130,9 +131,9 @@ const RateDashboard = () => {
     };
 
     try {
-      if (API_BASE_URL) {
+      if (SOCKET_URL) {
         setConnectionState(CONNECTION_STATES.CONNECTING);
-        socket = socketIO(API_BASE_URL, { auth: { token }, ...SOCKET_CONFIG });
+        socket = socketIO(SOCKET_URL, { auth: { token }, ...SOCKET_CONFIG });
 
         socket.on('connect', () => {
           setConnectionState(CONNECTION_STATES.CONNECTED);
@@ -188,17 +189,17 @@ const RateDashboard = () => {
       if (metricsTimer) clearInterval(metricsTimer);
       try { if (socket) socket.disconnect(); } catch {}
     };
-  }, [API_BASE_URL, token, fetchRate, fetchMetrics, sendConnectionMetrics]);
+  }, [token, fetchRate, fetchMetrics, sendConnectionMetrics, SOCKET_URL]);
 
   const reconnectNow = useCallback(() => {
     try {
       setReconnectCount(0);
       setIsFallbackMode(false);
       setConnectionState(CONNECTION_STATES.RECONNECTING);
-      const s = socketIO(API_BASE_URL, { auth: { token }, ...SOCKET_CONFIG });
+      const s = socketIO(SOCKET_URL, { auth: { token }, ...SOCKET_CONFIG });
       s.connect();
     } catch {}
-  }, [API_BASE_URL, token]);
+  }, [token, SOCKET_URL]);
 
   const volatilityWarning = rate?.volatility && rate.volatility > 5;
 

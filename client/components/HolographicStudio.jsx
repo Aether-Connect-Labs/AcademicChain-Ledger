@@ -4,23 +4,15 @@ import {
   Eye, 
   Settings, 
   Layers, 
-  Move, 
-  Maximize, 
-  Minimize, 
   Type, 
-  Image as ImageIcon, 
   QrCode,
-  LayoutTemplate,
-  FileText,
-  ChevronRight,
-  ChevronDown,
   Square
 } from 'lucide-react';
 
 const HolographicStudio = () => {
   const [orientation, setOrientation] = useState('horizontal');
   const [docType, setDocType] = useState('Certificado');
-  const [selectedLayer, setSelectedLayer] = useState(0);
+ 
 
   return (
     <div className="flex h-screen w-full bg-[#050510] text-white font-sans overflow-hidden selection:bg-pink-500 selection:text-white">

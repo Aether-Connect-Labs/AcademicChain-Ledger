@@ -18,7 +18,7 @@ const LinkedInButton = ({ credential }) => {
   // Actually, the prompt says: `organizationId={{TU_ID_ORG}}`. We should probably store this in the credential or university profile.
   // For now, I'll use a generic one or empty to let user fill it, or try to map it.
   // Let's assume we use the name for now if ID is missing.
-  const universityName = getAttr('University') || 'AcademicChain Institution';
+  
   
   const dateStr = attrs.find(a => a.display_type === 'date')?.value;
   let issueYear = new Date().getFullYear();

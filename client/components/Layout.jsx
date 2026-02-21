@@ -119,7 +119,7 @@ const Layout = ({
     });
     observer.observe(headerRef.current);
     return () => observer.disconnect();
-  }, [headerRef.current]);
+  }, []);
 
   // Scroll to top en cambio de ruta
   useEffect(() => {

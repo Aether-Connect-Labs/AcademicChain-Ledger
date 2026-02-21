@@ -1,17 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from 'chart.js';
 import CreatorIssuance from './CreatorIssuance';
 import { toGateway } from './utils/ipfsUtils';
+import n8nService from './services/n8nService';
+import { verificationService } from './services/verificationService';
+import useAnalytics from './useAnalytics';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
 const CreatorDashboard = () => {
   // Mock data states
-  const [credentials, setCredentials] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [, setCredentials] = useState([]);
+  const [, setLoading] = useState(false);
+  const [, setError] = useState('');
   const [stats, setStats] = useState({
     totalIssued: 0,
     totalStudents: 0,
@@ -19,14 +22,15 @@ const CreatorDashboard = () => {
     successRate: 0
   });
   const [recentActivity, setRecentActivity] = useState([]);
-  const [creatorProfile, setCreatorProfile] = useState({
+  const { trackCredentialOperation } = useAnalytics();
+  const [creatorProfile] = useState({
     name: 'Creador Demo',
     did: 'did:hedera:testnet:z6Mk...',
     brand: 'Academia Demo',
     apiKey: 'sk_live_51M...'
   });
 
-  const loadCreatorData = async () => {
+  const loadCreatorData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -41,21 +45,27 @@ const CreatorDashboard = () => {
           credentialType: 'Curso: Marketing Digital',
           issuedAt: new Date().toISOString(),
           metadata: { mentorVerified: true },
-          issuerBrand: 'Academia Demo'
+          issuerBrand: 'Academia Demo',
+          tokenId: '0.0.123456',
+          serialNumber: '101'
         },
         {
           studentName: 'Carlos Ruiz',
           credentialType: 'Taller: React Avanzado',
           issuedAt: new Date(Date.now() - 86400000).toISOString(),
           metadata: { mentorVerified: true },
-          issuerBrand: 'Academia Demo'
+          issuerBrand: 'Academia Demo',
+          tokenId: '0.0.123456',
+          serialNumber: '102'
         },
         {
           studentName: 'Elena Torres',
           credentialType: 'Bootcamp: Full Stack',
           issuedAt: new Date(Date.now() - 172800000).toISOString(),
           metadata: { mentorVerified: true },
-          issuerBrand: 'Academia Demo'
+          issuerBrand: 'Academia Demo',
+          tokenId: '0.0.987654',
+          serialNumber: '1'
         }
       ];
 
@@ -69,7 +79,7 @@ const CreatorDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const calculateStats = (credentials) => {
     // Mock stats calculation + base values to look populated
@@ -127,7 +137,91 @@ const CreatorDashboard = () => {
 
   useEffect(() => {
     loadCreatorData();
-  }, []);
+  }, [loadCreatorData]);
+
+  const handleDelete = async (item) => {
+    if (!item?.tokenId || !item?.serialNumber) {
+      alert('No hay identificadores de credencial disponibles en este elemento.');
+      return;
+    }
+    const ok = window.confirm('¿Borrar esta emisión del portal de Creador? No afecta estado on-chain.');
+    if (!ok) return;
+    try {
+      await n8nService.deleteCredential({ tokenId: item.tokenId, serialNumber: item.serialNumber });
+      setRecentActivity(prev => prev.filter(x => !(String(x.tokenId) === String(item.tokenId) && String(x.serialNumber) === String(item.serialNumber))));
+      setDeletedCount(v => v + 1);
+      try { await refreshGlobalStats(); } catch {}
+      try {
+        trackCredentialOperation({
+          operation: 'delete',
+          role: 'creator',
+          tokenId: item.tokenId,
+          serialNumber: String(item.serialNumber || ''),
+          context: 'creator_recent_activity'
+        });
+      } catch {}
+    } catch (e) {
+      alert('No se pudo borrar esta emisión.');
+    }
+  };
+
+  const handleRevoke = async (item) => {
+    if (!item?.tokenId || !item?.serialNumber) {
+      alert('No hay identificadores de credencial disponibles en este elemento.');
+      return;
+    }
+    const reason = window.prompt('Ingresa la razón de revocación (p.ej., Superseded, Compromised):', 'Superseded') || '';
+    if (!reason.trim()) return;
+    try {
+      await n8nService.revokeCredential({ tokenId: item.tokenId, serialNumber: item.serialNumber, reason });
+      alert('Revocación enviada.');
+      try { await refreshGlobalStats(); } catch {}
+      try {
+        trackCredentialOperation({
+          operation: 'revoke',
+          role: 'creator',
+          tokenId: item.tokenId,
+          serialNumber: String(item.serialNumber || ''),
+          reason
+        });
+      } catch {}
+    } catch (e) {
+      alert('Error al revocar. Puede requerirse una API Key válida.');
+    }
+  };
+
+  const [deletedCount, setDeletedCount] = useState(0);
+  const [globalStats, setGlobalStats] = useState({ revoked: 0, deleted: 0, verified: 0, pending: 0 });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const refreshGlobalStats = useCallback(async () => {
+    try {
+      const s = await n8nService.getCredentialStats({ scope: 'creator', issuerId: creatorProfile?.did || undefined, role: 'creator' });
+      if (s && s.success) {
+        setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
+      }
+    } catch {}
+  }, [creatorProfile?.did]);
+
+  useEffect(() => {
+    (async () => { try { await refreshGlobalStats(); } catch {} })();
+  }, [refreshGlobalStats]);
+
+  const handleRequestVerification = async (item) => {
+    if (!item?.tokenId || !item?.serialNumber) {
+      alert('No hay identificadores de credencial disponibles en este elemento.');
+      return;
+    }
+    try {
+      await n8nService.requestCredentialVerification({ tokenId: item.tokenId, serialNumber: item.serialNumber, role: 'creator' });
+      setRecentActivity(prev => prev.map(x => (x.tokenId === item.tokenId && String(x.serialNumber) === String(item.serialNumber)) ? { ...x, status: 'pending' } : x));
+      alert('Solicitud de verificación enviada a n8n. Estado: Pendiente');
+      try { await refreshGlobalStats(); } catch {}
+    } catch (e) {
+      alert('No se pudo enviar la solicitud de verificación.');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans">
@@ -191,6 +285,35 @@ const CreatorDashboard = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="mb-4 flex items-center gap-3">
+          <input
+            className="input-primary w-full md:w-96"
+            placeholder="Buscar por nombre, hash, tokenId, serial o id"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <select className="input-primary w-48" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="all">Todas</option>
+            <option value="verified">Verificadas</option>
+            <option value="pending">Pendientes</option>
+            <option value="revoked">Revocadas</option>
+            <option value="confirmed">Confirmadas</option>
+          </select>
+        </div>
+        <div className="mb-6 flex items-center gap-3">
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/30" title="Totales (global)">
+            Revocadas (Total): <strong>{globalStats.revoked}</strong>
+          </span>
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-purple-500/10 text-purple-300 border border-purple-500/30" title="Totales (global)">
+            Eliminadas (Total): <strong>{globalStats.deleted}</strong>
+          </span>
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 text-green-400 border border-green-500/30" title="Totales (global)">
+            Verificadas (Total): <strong>{globalStats.verified}</strong>
+          </span>
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/30" title="Totales (global)">
+            Pendientes (Total): <strong>{globalStats.pending}</strong>
+          </span>
+        </div>
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg hover:border-cyan-500/30 transition-all group">
@@ -268,7 +391,35 @@ const CreatorDashboard = () => {
               <span className="text-blue-500">⚡</span> Actividad Reciente
             </h3>
             <div className="space-y-4">
-              {recentActivity.map((activity, index) => (
+              {(searchQuery ? recentActivity.filter(x => {
+                const q = String(searchQuery || '').toLowerCase().trim();
+                const name = String(x.studentName || '').toLowerCase();
+                const type = String(x.credentialType || '').toLowerCase();
+                const tokenId = String(x.tokenId || x.id || '').toLowerCase();
+                const serial = String(x.serialNumber || '').toLowerCase();
+                const hash = String(x.uniqueHash || '').toLowerCase();
+                const ipfs = String(x.ipfsURI || '').toLowerCase();
+                const hederaTx = String(x.externalProofs?.hederaTx || '').toLowerCase();
+                const xrpTx = String(x.externalProofs?.xrpTxHash || '').toLowerCase();
+                const algoTx = String(x.externalProofs?.algoTxId || '').toLowerCase();
+                const match = [name, type, tokenId, serial, hash, ipfs, hederaTx, xrpTx, algoTx].some(v => v.includes(q));
+                if (!match) return false;
+                const st = String(x.status || '').toLowerCase();
+                if (statusFilter === 'all') return true;
+                if (statusFilter === 'verified') return st === 'verified';
+                if (statusFilter === 'pending') return st === 'pending';
+                if (statusFilter === 'revoked') return st === 'revoked';
+                if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
+                return true;
+              }) : recentActivity.filter(x => {
+                const st = String(x.status || '').toLowerCase();
+                if (statusFilter === 'all') return true;
+                if (statusFilter === 'verified') return st === 'verified';
+                if (statusFilter === 'pending') return st === 'pending';
+                if (statusFilter === 'revoked') return st === 'revoked';
+                if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
+                return true;
+              })).map((activity, index) => (
                 <div key={index} className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-700 group">
                   <div className="bg-cyan-500/10 text-cyan-400 p-2 rounded-full group-hover:bg-cyan-500 group-hover:text-black transition-all">
                     <span className="text-xl">🎓</span>
@@ -279,10 +430,42 @@ const CreatorDashboard = () => {
                     <div className="text-xs text-slate-600 mt-1">
                       {new Date(activity.issuedAt).toLocaleDateString()}
                     </div>
+                    {activity.tokenId && activity.serialNumber && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded text-[10px] border ${
+                          String(activity.status || '').toLowerCase() === 'revoked'
+                            ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                            : String(activity.status || '') === 'pending'
+                              ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                              : 'bg-green-500/20 text-green-400 border-green-500/30'
+                        }`}>
+                          {String(activity.status || '').toLowerCase() === 'revoked' ? 'Revocada' : (activity.status === 'verified' ? 'Verificado' : (activity.status === 'pending' ? 'Pendiente' : 'Confirmado'))}
+                        </span>
+                        {activity.status !== 'verified' && (
+                          <button className="btn-secondary btn-sm border-green-400/40 text-green-400 hover:bg-green-500/10" onClick={() => handleRequestVerification(activity)}>Solicitar verificación</button>
+                        )}
+                        <button className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10" onClick={() => handleRevoke(activity)}>Revocar</button>
+                        <button className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10" onClick={() => handleDelete(activity)}>Borrar</button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
-              {recentActivity.length === 0 && (
+              {(searchQuery ? recentActivity.filter(x => {
+                const q = String(searchQuery || '').toLowerCase().trim();
+                const fields = [
+                  String(x.studentName || '').toLowerCase(),
+                  String(x.credentialType || '').toLowerCase(),
+                  String(x.tokenId || x.id || '').toLowerCase(),
+                  String(x.serialNumber || '').toLowerCase(),
+                  String(x.uniqueHash || '').toLowerCase(),
+                  String(x.ipfsURI || '').toLowerCase(),
+                  String(x.externalProofs?.hederaTx || '').toLowerCase(),
+                  String(x.externalProofs?.xrpTxHash || '').toLowerCase(),
+                  String(x.externalProofs?.algoTxId || '').toLowerCase()
+                ];
+                return fields.some(v => v.includes(q));
+              }) : recentActivity).length === 0 && (
                 <div className="text-slate-500 text-center py-8">No hay actividad reciente.</div>
               )}
             </div>

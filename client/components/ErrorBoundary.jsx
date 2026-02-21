@@ -48,7 +48,7 @@ class ErrorBoundary extends React.Component {
 
     // Llamar callback personalizado si existe
     if (this.props.onError) {
-      this.props.onError(error, errorInfo, eventId);
+      this.props.onError(error, errorInfo, this.state.eventId);
     }
   }
 

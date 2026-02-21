@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { 
   TrendingUp, Users, Activity, Target, Brain, Lock, 
-  BarChart2, PieChart, Briefcase, AlertCircle
+  Briefcase, AlertCircle, BarChart2
 } from 'lucide-react';
 import n8nService from './services/n8nService';
 

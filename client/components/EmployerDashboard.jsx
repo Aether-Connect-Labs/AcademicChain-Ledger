@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scan, Upload, UserCheck, Search, FileText, CheckCircle, XCircle, Camera, Shield, Briefcase, Lock, MapPin } from 'lucide-react';
-import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
+import { Scan, Upload, Search, FileText, CheckCircle, XCircle, Camera, Shield, Lock, MapPin } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
 import n8nService from './services/n8nService';
 import { toast, Toaster } from 'react-hot-toast';
 import { toGateway } from './utils/ipfsUtils';
@@ -12,13 +12,13 @@ const EmployerDashboard = () => {
   const [activeTab, setActiveTab] = useState('scan'); // scan, search, cv-validation
   const [verificationResult, setVerificationResult] = useState(null);
   const [bulkResults, setBulkResults] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState(null); // Filter state
-  const [jobDescriptionFile, setJobDescriptionFile] = useState(null);
-  const [cvFiles, setCvFiles] = useState([]);
+  const [, setJobDescriptionFile] = useState(null);
+  const [, setCvFiles] = useState([]);
   const [cvValidationResults, setCvValidationResults] = useState([]);
   const [generatingReport, setGeneratingReport] = useState(false);
   const scannerRef = useRef(null);
@@ -353,7 +353,6 @@ const EmployerDashboard = () => {
   };
 
   const handleImageUpload = async (e) => {
-    // Legacy function kept for reference but unused in new UI without verification tab
     const file = e.target.files[0];
     if (!file) return;
   };
@@ -387,7 +386,7 @@ const EmployerDashboard = () => {
               {/* Logo Upload */}
               <div className="relative group w-10 h-10">
                   <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-600 overflow-hidden flex items-center justify-center">
-                      <img src={employerLogo} alt="Logo" className="w-full h-full object-cover" />
+                      <img src={employerLogo} alt="Employer logo" className="w-full h-full object-cover" />
                   </div>
                   <label className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                       <span className="text-[8px] font-bold text-white">EDIT</span>
@@ -716,9 +715,9 @@ const EmployerDashboard = () => {
                                                 {/* Blockchain Network Badge */}
                                                 <div className="flex flex-col items-end gap-1">
                                                     <div className="bg-slate-900 border border-slate-700 px-2 py-1 rounded text-[10px] flex items-center gap-1.5 text-slate-300">
-                                                        {talent.network === 'Hedera' && <img src="https://cryptologos.cc/logos/hedera-hashgraph-hbar-logo.png?v=026" className="w-3 h-3" />}
-                                                        {talent.network === 'Ethereum' && <img src="https://cryptologos.cc/logos/ethereum-eth-logo.png?v=026" className="w-3 h-3" />}
-                                                        {talent.network === 'Algorand' && <img src="https://cryptologos.cc/logos/algorand-algo-logo.png?v=026" className="w-3 h-3" />}
+                                                        {talent.network === 'Hedera' && <img alt="Hedera" src="https://cryptologos.cc/logos/hedera-hashgraph-hbar-logo.png?v=026" className="w-3 h-3" />}
+                                                        {talent.network === 'Ethereum' && <img alt="Ethereum" src="https://cryptologos.cc/logos/ethereum-eth-logo.png?v=026" className="w-3 h-3" />}
+                                                        {talent.network === 'Algorand' && <img alt="Algorand" src="https://cryptologos.cc/logos/algorand-algo-logo.png?v=026" className="w-3 h-3" />}
                                                         <span>{talent.network}</span>
                                                     </div>
                                                 </div>

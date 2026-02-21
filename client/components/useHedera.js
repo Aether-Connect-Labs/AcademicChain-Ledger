@@ -12,7 +12,7 @@ export const useHedera = () => {
   const [account, setAccount] = useState(null);
   const [balance, setBalance] = useState(null);
   const [network, setNetwork] = useState('unknown');
-  const [networkStatus, setNetworkStatus] = useState('Normal'); // 'Normal' | 'High Traffic'
+  const networkStatus = 'Normal';
 
   // Simulación de tráfico eliminada a petición del usuario para evitar interrupciones innecesarias.
   // El estado se mantendrá en 'Normal' por defecto.

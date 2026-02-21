@@ -3,12 +3,16 @@ import * as XLSX from 'xlsx';
 const MAX_ROWS = 10000;
 const MAX_COLS = 100;
 const MAX_CELL_LEN = 1024;
+const CONTROL_RANGE = new RegExp(
+  `[${String.fromCharCode(0)}-${String.fromCharCode(31)}\u007F]`,
+  'g'
+);
 
 function sanitizeValue(v) {
   if (v == null) return '';
   let s = String(v);
   if (s.length > MAX_CELL_LEN) s = s.slice(0, MAX_CELL_LEN);
-  s = s.replace(/[\u0000-\u001F\u007F]/g, '');
+  s = s.replace(CONTROL_RANGE, '');
   s = s.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
   return s.trim();
 }
@@ -40,4 +44,5 @@ export function sheetToSanitizedJSON(ws) {
   });
 }
 
-export default { readSafe, sheetToSanitizedJSON };
+const xlsxSanitizer = { readSafe, sheetToSanitizedJSON };
+export default xlsxSanitizer;

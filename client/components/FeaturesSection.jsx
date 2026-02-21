@@ -1,14 +1,6 @@
 import React from 'react';
 import { theme } from './themeConfig';
 
-const Row = ({ items }) => (
-  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
-    {items.map((t, i) => (
-      <div key={i} className="p-2 rounded-lg border bg-gray-900/70 border-gray-700 text-white">{t}</div>
-    ))}
-  </div>
-);
-
 const FeaturesSection = () => {
   return (
     <section className="relative overflow-hidden bg-[#0b1224] pt-24 sm:pt-32" style={{ paddingBottom: theme.spacing.sectionPb }}>

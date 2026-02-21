@@ -4,7 +4,7 @@ import { useInView } from 'react-intersection-observer';
 import { useAnalytics } from './useAnalytics';
 import { useNavigate } from 'react-router-dom';
 import { theme } from './themeConfig';
-import { Building2, GraduationCap, Rocket, ShieldCheck, Wrench, Book, CircleDollarSign, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Wrench, Book, CircleDollarSign } from 'lucide-react';
 
 const CTASection = ({ 
   variant = 'primary', 
@@ -125,39 +125,7 @@ const CTASection = ({
   }, [inView, subtitle, content.subtitle]);
 
 
-  const handleCTAClick = (type) => {
-    trackButtonClick({
-      buttonType: 'cta',
-      action: type,
-      variant: variant,
-      section: 'cta'
-    });
-
-    console.log(`[DEBUG] Navigating to action: ${type}`);
-
-    switch (type) {
-      case 'institution':
-        navigate('/institution/login');
-        break;
-      case 'student':
-        navigate('/students/login');
-        break;
-      case 'demo':
-        window.open('https://calendly.com/academicchain/demo', '_blank');
-        break;
-      case 'free':
-        try {
-          const allowInstitutionRegister = import.meta.env.VITE_ALLOW_INSTITUTION_REGISTER === '1';
-          navigate(allowInstitutionRegister ? '/institution/register?next=/institution/dashboard' : '/register?next=/student/portal');
-        } catch {
-          navigate('/register?next=/student/portal');
-        }
-        break;
-      default:
-        console.warn(`[DEBUG] Unknown navigation action: ${type}`);
-        break;
-    }
-  };
+  
 
   const handleDemoSubmit = async (e) => {
     e.preventDefault();

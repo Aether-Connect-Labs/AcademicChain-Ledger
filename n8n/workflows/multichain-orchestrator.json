@@ -42,7 +42,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const q = $json.query || {}; const b = $json.body || {}; const docHash = String(q.documentHash || b.documentHash || b.uniqueHash || '').trim(); const studentName = String(q.studentName || b.studentName || '').trim(); let plan = String(q.plan || b.plan || '').toLowerCase().trim(); const uniqueHash = docHash || ('hash-'+Date.now()); const normalizePlan = (p)=>{ if(['triple','3','enterprise','ent','empresarial'].includes(p)) return 'triple'; if(['dual','2','professional','pro','profesional'].includes(p)) return 'dual'; if(['base','1','basic','esencial','essential'].includes(p)) return 'base'; return 'base'; }; const planNormalized = normalizePlan(plan); return { json: { uniqueHash, studentName, plan: planNormalized, originalPlan: plan || 'auto' } };"
+        "jsCode": "const q = $json.query || {}; const b = $json.body || {}; const docHash = String(q.documentHash || b.documentHash || b.uniqueHash || '').trim(); const studentName = String(q.studentName || b.studentName || '').trim(); const pdfUrl = String(q.pdfUrl || b.pdfUrl || '').trim(); const pdfBase64 = String(q.pdfBase64 || b.pdfBase64 || '').trim(); let plan = String(q.plan || b.plan || '').toLowerCase().trim(); const uniqueHash = docHash || ('hash-'+Date.now()); const normalizePlan = (p)=>{ if(['triple','3','enterprise','ent','empresarial'].includes(p)) return 'triple'; if(['dual','2','professional','pro','profesional'].includes(p)) return 'dual'; if(['base','1','basic','esencial','essential'].includes(p)) return 'base'; return 'base'; }; const planNormalized = normalizePlan(plan); return { json: { uniqueHash, studentName, plan: planNormalized, originalPlan: plan || 'auto', pdfUrl, pdfBase64 } };"
       },
       "name": "Normalize Input",
       "type": "n8n-nodes-base.code",
@@ -111,7 +111,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $items(); let h=null,x=null,a=null,base=null; for (const it of items) { const j = it.json||{}; if (j.hederaTx) h=j.hederaTx; if (j.xrpTxHash) x=j.xrpTxHash; if (j.algoTxId) a=j.algoTxId; if (j.uniqueHash && !base) base=j; } const out = { uniqueHash: base?.uniqueHash || $json.uniqueHash, studentName: base?.studentName || $json.studentName, externalProofs: {} }; if (h) out.externalProofs.hederaTx = h; if (x) out.externalProofs.xrpTxHash = x; if (a) out.externalProofs.algoTxId = a; out.hash_hedera = h || null; out.hash_xrp = x || null; out.hash_algo = a || null; out.updatedAt = new Date().toISOString(); if (!out.createdAt) out.createdAt = out.updatedAt; return { json: out };"
+        "jsCode": "const items = $items(); let h=null,x=null,a=null,base=null; for (const it of items) { const j = it.json||{}; if (j.hederaTx) h=j.hederaTx; if (j.xrpTxHash) x=j.xrpTxHash; if (j.algoTxId) a=j.algoTxId; if (j.uniqueHash && !base) base=j; } const out = { uniqueHash: base?.uniqueHash || $json.uniqueHash, studentName: base?.studentName || $json.studentName, externalProofs: {} }; if (h) out.externalProofs.hederaTx = h; if (x) out.externalProofs.xrpTxHash = x; if (a) out.externalProofs.algoTxId = a; out.hash_hedera = h || null; out.hash_xrp = x || null; out.hash_algo = a || null; const tokenId = (h && h.includes('@')) ? h.split('@')[0] : ('0.0.' + (Math.floor(Math.random()*9000000)+1000000)); out.tokenId = tokenId; out.serialNumber = '1'; out.universityId = null; out.studentAccountId = null; out.updatedAt = new Date().toISOString(); if (!out.createdAt) out.createdAt = out.updatedAt; return { json: out };"
       },
       "name": "Consolidate Proofs",
       "type": "n8n-nodes-base.code",
@@ -120,9 +120,131 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "string": [
+            { "value1": "={{$json.pdfUrl}}", "operation": "isNotEmpty" }
+          ]
+        }
+      },
+      "name": "Has PDF",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1320, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            { "value1": "={{$json.pdfBase64}}", "operation": "isNotEmpty" }
+          ]
+        }
+      },
+      "name": "Has Base64",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1320, 120]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.pdfUrl}}",
+        "method": "GET",
+        "download": true
+      },
+      "name": "Fetch PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1400, -120]
+    },
+    {
+      "parameters": {
+        "jsCode": "const b64 = String($json.pdfBase64 || '').trim(); const clean = b64.includes(',') ? b64.split(',').pop() : b64; if (!clean) { return { json: $json }; } const buf = Buffer.from(clean, 'base64'); return { json: $json, binary: { file: { data: buf, mimeType: 'application/pdf', fileName: 'credential.pdf' } } };"
+      },
+      "name": "Create Binary (Base64)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1440, 120]
+    },
+    {
+      "parameters": {
+        "mode": "move",
+        "options": {
+          "setAll": true
+        },
+        "sourceKey": "data",
+        "destinationKey": "file"
+      },
+      "name": "Prepare Binary",
+      "type": "n8n-nodes-base.moveBinaryData",
+      "typeVersion": 1,
+      "position": [1500, -120]
+    },
+    {
+      "parameters": {
+        "url": "https://api.pinata.cloud/pinning/pinFileToIPFS",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{'Bearer ' + $env.PINATA_JWT}}" }
+          ]
+        },
+        "sendFormData": true,
+        "formDataParametersUi": {
+          "parameter": [
+            { "name": "file", "value": "={{$binary.file}}", "type": "formBinary" },
+            { "name": "pinataMetadata", "value": "={{JSON.stringify({ name: 'AcademicChain-Credential', keyvalues: { uniqueHash: $json.uniqueHash, studentName: $json.studentName, hederaTx: $json.hash_hedera || null, xrpTxHash: $json.hash_xrp || null, algoTxId: $json.hash_algo || null } })}}", "type": "formText" }
+          ]
+        }
+      },
+      "name": "Pin File (Pinata)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1600, -120]
+    },
+    {
+      "parameters": {
+        "jsCode": "const doc = { tokenId: $json.tokenId, serialNumber: $json.serialNumber || '1', universityId: $json.universityId || null, studentAccountId: $json.studentAccountId || null, uniqueHash: $json.uniqueHash, studentName: $json.studentName || null, externalProofs: $json.externalProofs || {}, createdAt: $json.createdAt || new Date().toISOString(), updatedAt: $json.updatedAt || new Date().toISOString() }; return { json: doc };"
+      },
+      "name": "Build Doc JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1360, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://api.pinata.cloud/pinning/pinJSONToIPFS",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{'Bearer ' + $env.PINATA_JWT}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json}}",
+        "options": {}
+      },
+      "name": "Pin JSON (Pinata)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1500, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "let shaVal = null; const resp = $input.item.json || {}; const ipfsHash = resp.IpfsHash || resp.ipfsHash || resp.Hash || null; const ipfsURI = ipfsHash ? ('ipfs://' + ipfsHash) : null; const link = ipfsURI || (resp.pinata_url || null); const toHash = String(link || '').trim(); try { const crypto = require('crypto'); if (toHash) { shaVal = 'hash-' + crypto.createHash('sha256').update(toHash).digest('hex'); } } catch (e) { if (toHash) { let h = 0; for (let i = 0; i < toHash.length; i++) { h = ((h << 5) - h) + toHash.charCodeAt(i); h |= 0; } shaVal = 'hash-fallback-' + Math.abs(h).toString(16); } } const out = { ...$json, ipfsURI: ipfsURI || $json.ipfsURI || null, uniqueHash: shaVal || $json.uniqueHash, updatedAt: new Date().toISOString() }; return { json: out };"
+      },
+      "name": "Compute SHA256 Link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1700, -40]
+    },
+    {
+      "parameters": {
         "operation": "update",
         "collection": "credentials",
-        "query": "={\"uniqueHash\": {{$node[\"Webhook_Entrada\"].json.query.documentHash || $json.uniqueHash}} }",
+        "query": "={\"uniqueHash\": {{$json.uniqueHash}} }",
         "fieldsUi": {
           "field": [
             { "fieldName": "uniqueHash", "fieldValue": "={{$json.uniqueHash}}" },
@@ -131,6 +253,12 @@
             { "fieldName": "externalProofs.xrpTxHash", "fieldValue": "={{$json.hash_xrp}}" },
             { "fieldName": "externalProofs.hederaTx", "fieldValue": "={{$json.hash_hedera}}" },
             { "fieldName": "externalProofs.algoTxId", "fieldValue": "={{$json.hash_algo}}" },
+            { "fieldName": "ipfsURI", "fieldValue": "={{$json.ipfsURI}}" },
+            { "fieldName": "tokenId", "fieldValue": "={{$json.tokenId}}" },
+            { "fieldName": "serialNumber", "fieldValue": "={{$json.serialNumber || '1'}}" },
+            { "fieldName": "universityId", "fieldValue": "={{$json.universityId}}" },
+            { "fieldName": "studentAccountId", "fieldValue": "={{$json.studentAccountId}}" },
+            { "fieldName": "createdAt", "fieldValue": "={{$json.createdAt}}" },
             { "fieldName": "updatedAt", "fieldValue": "={{$json.updatedAt}}" }
           ]
         },
@@ -139,7 +267,7 @@
       "name": "Guardar_MongoDB_MultiChain",
       "type": "n8n-nodes-base.mongoDb",
       "typeVersion": 1,
-      "position": [1440, 0],
+      "position": [1860, -40],
       "credentials": {
         "mongoDb": { "id": "mongo_cred", "name": "MongoDB Local" }
       }
@@ -153,7 +281,7 @@
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1640, 0]
+      "position": [2060, -40]
     }
   ],
   "connections": {
@@ -189,7 +317,26 @@
     "XRP_Emit": { "main": [[{ "node": "Unir_Hashes", "type": "main", "index": 1 }]] },
     "Algorand_Emit": { "main": [[{ "node": "Unir_Hashes", "type": "main", "index": 2 }]] },
     "Unir_Hashes": { "main": [[{ "node": "Consolidate Proofs", "type": "main", "index": 0 }]] },
-    "Consolidate Proofs": { "main": [[{ "node": "Guardar_MongoDB_MultiChain", "type": "main", "index": 0 }]] },
+    "Consolidate Proofs": { "main": [[{ "node": "Has PDF", "type": "main", "index": 0 }]] },
+    "Has PDF": {
+      "main": [
+        [{ "node": "Fetch PDF", "type": "main", "index": 0 }],
+        [{ "node": "Has Base64", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Base64": {
+      "main": [
+        [{ "node": "Create Binary (Base64)", "type": "main", "index": 0 }],
+        [{ "node": "Build Doc JSON", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch PDF": { "main": [[{ "node": "Prepare Binary", "type": "main", "index": 0 }]] },
+    "Prepare Binary": { "main": [[{ "node": "Pin File (Pinata)", "type": "main", "index": 0 }]] },
+    "Create Binary (Base64)": { "main": [[{ "node": "Pin File (Pinata)", "type": "main", "index": 0 }]] },
+    "Pin File (Pinata)": { "main": [[{ "node": "Compute SHA256 Link", "type": "main", "index": 0 }]] },
+    "Build Doc JSON": { "main": [[{ "node": "Pin JSON (Pinata)", "type": "main", "index": 0 }]] },
+    "Pin JSON (Pinata)": { "main": [[{ "node": "Compute SHA256 Link", "type": "main", "index": 0 }]] },
+    "Compute SHA256 Link": { "main": [[{ "node": "Guardar_MongoDB_MultiChain", "type": "main", "index": 0 }]] },
     "Guardar_MongoDB_MultiChain": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
   }
 }

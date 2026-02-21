@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Check, Shield, Zap, Users, School, GraduationCap, Building, PenTool } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Check, Shield, School, GraduationCap, Building, PenTool } from 'lucide-react';
 import { motion } from 'framer-motion';
 import InstitutionSubscriptionModal from './InstitutionSubscriptionModal';
 import CreatorSubscriptionModal from './CreatorSubscriptionModal';

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, Shield, Zap, Database, Globe, ArrowRight, Building, Users } from 'lucide-react';
+import { Search, Shield, Zap, Database, ArrowRight } from 'lucide-react';
 
 const EmployerLanding = () => {
   const navigate = useNavigate();

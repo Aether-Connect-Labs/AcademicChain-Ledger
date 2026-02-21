@@ -13,14 +13,7 @@ const withTimeout = async (url, options = {}, ms = 5000) => {
 
 class ConnectionService {
   static async healthCheck() {
-    // n8n is serverless/headless, so we assume it's up or check webhooks
-    // We can try a simple GET to the base URL
-    try {
-      // Just return true to avoid 'Backend unavailable' blocking UI in n8n mode
-      return true;
-    } catch (e) {
-      return false;
-    }
+    return true;
   }
 
   static async fetchWithFallback(endpoint, fallbackData) {

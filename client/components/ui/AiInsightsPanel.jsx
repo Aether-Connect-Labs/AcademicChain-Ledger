@@ -3,7 +3,7 @@ import React from 'react';
 const AiInsightsPanel = ({ analysis, onFixRequest }) => {
   if (!analysis) return null;
 
-  const { riskScore, confidence, issues } = analysis.details.analysis;
+  const { riskScore, issues } = analysis.details.analysis;
   const { gas } = analysis.details;
   const isSafe = analysis.status === 'safe';
 

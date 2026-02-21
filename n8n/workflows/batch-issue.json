@@ -2,7 +2,7 @@
   "name": "Institution - Batch Credential Issuance",
   "nodes": [
     {
-      "parameters": {
+      "parameters": {         
         "httpMethod": "POST",
         "path": "batch-issue",
         "options": {}

@@ -185,7 +185,7 @@ const AdminUsage = () => {
   };
   const deleteSavedView = (viewId, e) => {
     e?.stopPropagation?.();
-    if (!confirm('¿Eliminar esta vista guardada?')) return;
+    if (!window.confirm('¿Eliminar esta vista guardada?')) return;
     const updated = savedViews.filter(v => v.id !== viewId);
     setSavedViews(updated);
     try { localStorage.setItem('admin_saved_views', JSON.stringify(updated)); } catch {}

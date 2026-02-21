@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, Briefcase, Wallet, ShoppingBag, CheckCircle, AlertCircle, Linkedin, ExternalLink, ShieldCheck, Copy, FileText, Search, Award } from 'lucide-react';
+import { BookOpen, Wallet, ShoppingBag, CheckCircle, Linkedin, ExternalLink, ShieldCheck, FileText, Search, Award } from 'lucide-react';
 import ConnectionService from './services/connectionService';
 import CredentialVerifier from './credentials/CredentialVerifier';
 import demoService from './services/demoService';
@@ -14,7 +14,7 @@ function EnhancedStudentPortal({ demo = false }) {
   const [error, setError] = useState('');
   const [connectionStatus, setConnectionStatus] = useState('checking');
   const [issuing, setIssuing] = useState(false);
-  const [issueResult, setIssueResult] = useState(null);
+  const [, setIssueResult] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   
   // LinkedIn Verification State
@@ -49,12 +49,7 @@ function EnhancedStudentPortal({ demo = false }) {
     { id: 'wallet', label: 'Billetera Digital', icon: Wallet },
     { id: 'marketplace', label: 'Beneficios', icon: ShoppingBag }
   ];
-
-  useEffect(() => {
-    loadStudentData();
-  }, []);
-
-  const loadStudentData = async () => {
+  const loadStudentData = useCallback(async () => {
     try {
       setLoading(true);
       setConnectionStatus('checking');
@@ -89,7 +84,11 @@ function EnhancedStudentPortal({ demo = false }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [demo]);
+ 
+  useEffect(() => {
+    loadStudentData();
+  }, [loadStudentData]);
 
   const mapCredential = (c) => ({
     id: c.id || `${c.tokenId}-${c.serialNumber}`,

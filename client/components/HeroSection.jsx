@@ -52,7 +52,7 @@ export const HeroSection = () => {
   const t = (key, defaultValue) => defaultValue;
   const [health, setHealth] = useState(null);
   const [latencyMs, setLatencyMs] = useState(null);
-  const [statusLabel, setStatusLabel] = useState('Plataforma Operacional');
+ 
 
   useEffect(() => {
     let mounted = true;
@@ -63,7 +63,7 @@ export const HeroSection = () => {
       if (!mounted) return;
       setLatencyMs(Math.max(0, t1 - t0));
       setHealth(data);
-      setStatusLabel((data && data.status === 'OK') ? 'Operacional en Tiempo Real' : 'Degradado');
+      
     };
     fetchHealth();
     const id = setInterval(fetchHealth, 10000);

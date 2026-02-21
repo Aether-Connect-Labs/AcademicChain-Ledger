@@ -3,9 +3,11 @@ import { useAuth } from './useAuth';
 import QRCode from 'react-qr-code';
 import DocumentViewer from './ui/DocumentViewer';
 import { studentService } from './services/studentService';
+import { verificationService } from './services/verificationService';
 import { toGateway } from './utils/ipfsUtils';
+import useAnalytics from './useAnalytics';
 
-const CredentialCard = ({ credential }) => {
+const CredentialCard = ({ credential, onDelete, onRevoke }) => {
   const link = `${window.location.origin}/#/verificar?tokenId=${encodeURIComponent(credential.tokenId)}\u0026serialNumber=${encodeURIComponent(credential.serialNumber)}`;
   const [docOpen, setDocOpen] = useState(false);
   const [showWidget, setShowWidget] = useState(false);
@@ -60,6 +62,18 @@ const CredentialCard = ({ credential }) => {
             <button className="btn-secondary btn-sm" onClick={() => setDocOpen(true)} disabled={!docUrl}>Ver documento</button>
             <button className="btn-secondary btn-sm" onClick={handleShowWidget}>Embed Widget</button>
             <a className="btn-secondary btn-sm" href={evidenceUrl}>Ver evidencias</a>
+            <button
+              className="btn-secondary btn-sm text-red-600 border-red-200 hover:bg-red-50"
+              onClick={onRevoke}
+            >
+              Revocar
+            </button>
+            <button
+              className="btn-secondary btn-sm text-red-600 border-red-200 hover:bg-red-50"
+              onClick={onDelete}
+            >
+              Borrar
+            </button>
             {credential.tokenId && credential.serialNumber && (
               <a
                 className="btn-secondary btn-sm text-center"
@@ -113,6 +127,63 @@ const StudentCredentials = ({ demo = false }) => {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true); // Estado de carga
   const [error, setError] = useState(null); // Estado de error
+  const [revokeOpen, setRevokeOpen] = useState(false);
+  const [revokeReason, setRevokeReason] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [revoking, setRevoking] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const { trackCredentialOperation } = useAnalytics();
+
+  const handleDelete = async (cred) => {
+    const ok = window.confirm('¿Seguro que deseas borrar esta credencial de tu portal? Esta acción no afecta la revocación on-chain.');
+    if (!ok) return;
+    try {
+      await studentService.deleteCredential({ tokenId: cred.tokenId, serialNumber: cred.serialNumber });
+      setCredentials(prev => prev.filter(x => !(String(x.tokenId) === String(cred.tokenId) && String(x.serialNumber) === String(cred.serialNumber))));
+      try {
+        trackCredentialOperation({
+          operation: 'delete',
+          role: 'student',
+          tokenId: cred.tokenId,
+          serialNumber: String(cred.serialNumber || ''),
+          title: cred.title,
+          issuer: cred.issuer
+        });
+      } catch {}
+    } catch (e) {
+      alert('No se pudo borrar la credencial.');
+    }
+  };
+
+  const handleRevoke = (cred) => {
+    setSelected(cred);
+    setRevokeReason('');
+    setApiKey('');
+    setRevokeOpen(true);
+  };
+
+  const confirmRevoke = async () => {
+    if (!selected || !revokeReason) return;
+    setRevoking(true);
+    try {
+      await verificationService.revokeCredential(selected.tokenId, selected.serialNumber, revokeReason, apiKey || undefined);
+      alert('Revocación enviada. Verificación pública reflejará el estado en cuanto el backend confirme.');
+      try {
+        trackCredentialOperation({
+          operation: 'revoke',
+          role: 'student',
+          tokenId: selected.tokenId,
+          serialNumber: String(selected.serialNumber || ''),
+          reason: revokeReason
+        });
+      } catch {}
+      setRevokeOpen(false);
+    } catch (e) {
+      alert('Error al revocar. Verifica si necesitas una API Key válida.');
+    } finally {
+      setRevoking(false);
+    }
+  };
 
   useEffect(() => {
     let intervalId;
@@ -187,8 +258,47 @@ const StudentCredentials = ({ demo = false }) => {
             <p className="text-gray-600 mt-2">No hay credenciales</p>
           </div>
         )}
-        {!isLoading && !error && filtered.length > 0 && filtered.map(c => <CredentialCard key={c.id} credential={c} />)}
+        {!isLoading && !error && filtered.length > 0 && filtered.map(c => (
+          <CredentialCard
+            key={`${c.tokenId}-${c.serialNumber}-${c.id || ''}`}
+            credential={c}
+            onDelete={() => handleDelete(c)}
+            onRevoke={() => handleRevoke(c)}
+          />
+        ))}
       </div>
+      {revokeOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setRevokeOpen(false)} />
+          <div className="relative bg-white rounded-xl shadow-strong w-full max-w-md p-6">
+            <h3 className="text-lg font-bold mb-4">Revocar Credencial</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Token <strong>{selected?.tokenId}</strong> · Serial <strong>{selected?.serialNumber}</strong>
+            </p>
+            <div className="form-control mb-3">
+              <label className="label-text">Razón</label>
+              <select className="input-primary" value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)}>
+                <option value="">Selecciona una razón...</option>
+                <option value="PrivilegeWithdrawn">Privilegio Retirado</option>
+                <option value="CessationOfOperation">Cese de Operaciones</option>
+                <option value="AffiliationChanged">Cambio de Afiliación</option>
+                <option value="Superseded">Reemplazada</option>
+                <option value="Compromised">Comprometida</option>
+              </select>
+            </div>
+            <div className="form-control mb-4">
+              <label className="label-text">API Key (opcional)</label>
+              <input className="input-primary" placeholder="x-api-key (si es requerida)" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button className="btn-ghost" onClick={() => setRevokeOpen(false)} disabled={revoking}>Cancelar</button>
+              <button className="btn-primary bg-red-600 hover:bg-red-700 border-red-600 text-white" onClick={confirmRevoke} disabled={!revokeReason || revoking}>
+                {revoking ? 'Revocando...' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

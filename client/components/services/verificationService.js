@@ -1,4 +1,4 @@
-import { API_BASE_URL, getAuthHeaders, handleResponse } from './config';
+import { API_BASE_URL, handleResponse } from './config';
 
 export const verificationService = {
   /**

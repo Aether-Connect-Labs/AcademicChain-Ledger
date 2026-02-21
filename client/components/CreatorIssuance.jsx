@@ -9,7 +9,6 @@ const CreatorIssuance = () => {
   const [studentEmail, setStudentEmail] = useState('');
   const [cohortFile, setCohortFile] = useState(null);
   const [credentialType, setCredentialType] = useState('Curso');
-  const [courseName, setCourseName] = useState('');
   const [issuing, setIssuing] = useState(false);
   const [result, setResult] = useState(null);
 

@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useSearchParams, useParams } from 'react-router-dom';
-import { verificationService } from './services/verificationService';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { toGateway } from './utils/ipfsUtils';
-import { theme } from './themeConfig';
 import { motion } from "framer-motion";
 import { API_BASE_URL } from "./services/config";
 
