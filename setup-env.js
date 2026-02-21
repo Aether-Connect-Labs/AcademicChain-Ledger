@@ -72,8 +72,9 @@ ACL_CONTRACT_ADDRESS=0x0000000000000000000000000000000000735bcb
 TREASURY_ACCOUNT_ID=0.0.7174400
 TREASURY_PRIVATE_KEY=
 
-# Frontend permitido (Vercel)
-CLIENT_URL=https://academic-chain-ledger.vercel.app
+# Frontend permitido (Cloudflare Pages)
+# Ajusta este valor al dominio real de tu proyecto en Cloudflare
+CLIENT_URL=https://academicchain-ledger.pages.dev
 VITE_API_URL=https://profound-uta-aether-connect-labs-b6f74389.koyeb.app
 `;
 
