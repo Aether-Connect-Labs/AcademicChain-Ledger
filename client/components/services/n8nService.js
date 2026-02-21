@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://n8n-b0be.onrender.com/webhook/submit-document';
+const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://acl-academicchain.aether-connect-labs.workers.dev/submit-document';
 
 const n8nService = {
     /**

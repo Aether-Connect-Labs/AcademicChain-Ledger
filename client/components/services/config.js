@@ -15,7 +15,7 @@ export const getApiBaseUrl = () => {
       return n8nUrl;
     }
   }
-  return 'https://primary-production-4224.up.railway.app/webhook'; // Default Fallback
+  return 'https://acl-academicchain.aether-connect-labs.workers.dev';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
