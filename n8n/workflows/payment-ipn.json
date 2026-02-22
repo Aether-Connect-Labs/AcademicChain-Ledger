@@ -14,6 +14,31 @@
     },
     {
       "parameters": {
+        "jsCode": "const headers = $json.headers || {}; const sig = headers['x-nowpayments-sig'] || headers['X-NOWPAYMENTS-SIG'] || ''; const body = $json.body || {}; function sortObject(obj){ return Object.keys(obj).sort().reduce((r,k)=>{ const v = obj[k]; r[k] = v && typeof v === 'object' && !Array.isArray(v) ? sortObject(v) : v; return r; },{}); } let valid = false; const secret = $env.NOWPAYMENTS_IPN_SECRET || ''; if (secret && sig) { const crypto = require('crypto'); const payload = JSON.stringify(sortObject(body)); const hmac = crypto.createHmac('sha512', secret); hmac.update(payload); const expected = hmac.digest('hex'); valid = expected === sig; } return { json: { ...$json, ipnValid: valid } };"
+      },
+      "name": "Validate IPN Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [120, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.ipnValid}}",
+              "operation": "isTrue"
+            }
+          ]
+        }
+      },
+      "name": "Is Signature Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
         "conditions": {
             "string": [
                 {
@@ -33,35 +58,47 @@
       "name": "Check Status",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [200, 0]
+      "position": [380, 0]
     },
     {
       "parameters": {
-        "url": "={{$env.API_URL}}/api/credits/add",
+        "url": "={{($env.API_URL || 'https://academicchain-ledger.onrender.com')}}/api/credits/add",
         "method": "POST",
         "jsonParameters": true,
         "options": {},
         "bodyParametersUi": {
-            "parameter": [
-                {
-                    "name": "orderId",
-                    "value": "={{$json.body.order_id}}"
-                },
-                {
-                    "name": "amount",
-                    "value": "={{$json.body.price_amount}}"
-                },
-                {
-                    "name": "currency",
-                    "value": "={{$json.body.price_currency}}"
-                }
-            ]
+          "parameter": [
+            {
+              "name": "orderId",
+              "value": "={{$json.body.order_id}}"
+            },
+            {
+              "name": "amount",
+              "value": "={{$json.body.price_amount}}"
+            },
+            {
+              "name": "currency",
+              "value": "={{$json.body.price_currency}}"
+            }
+          ]
+        },
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "x-acl-auth-key",
+              "value": "={{$env.ACL_AUTH_KEY || ''}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
         }
       },
       "name": "Add Credits",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [400, 0]
+      "position": [580, 0]
     },
      {
       "parameters": {
@@ -72,7 +109,7 @@
       "name": "Send Email",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 1,
-      "position": [600, 0]
+      "position": [780, 0]
     },
     {
         "parameters": {
@@ -84,12 +121,34 @@
         "name": "Log Success",
         "type": "n8n-nodes-base.logger",
         "typeVersion": 1,
-        "position": [600, 200]
+        "position": [780, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"success\": false, \"message\": \"Invalid IPN signature\"}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "name": "Reject Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [380, 200]
     }
   ],
   "connections": {
     "Webhook": {
-      "main": [[{"node": "Check Status", "type": "main", "index": 0}]]
+      "main": [[{"node": "Validate IPN Signature", "type": "main", "index": 0}]]
+    },
+    "Validate IPN Signature": {
+      "main": [[{"node": "Is Signature Valid", "type": "main", "index": 0}]]
+    },
+    "Is Signature Valid": {
+      "main": [
+        [{"node": "Check Status", "type": "main", "index": 0}],
+        [{"node": "Reject Invalid", "type": "main", "index": 0}]
+      ]
     },
     "Check Status": {
       "main": [

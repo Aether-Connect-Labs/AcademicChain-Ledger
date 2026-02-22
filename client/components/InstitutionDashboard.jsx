@@ -1162,7 +1162,10 @@ function InstitutionDashboard({ demo = false }) {
                   <th className="px-4 py-2 text-left">Token</th>
                   <th className="px-4 py-2 text-left">Serial</th>
                   <th className="px-4 py-2 text-left">IPFS</th>
+                  <th className="px-4 py-2 text-left">Hedera Tx</th>
                   <th className="px-4 py-2 text-left">XRP Tx</th>
+                  <th className="px-4 py-2 text-left">Algorand Tx</th>
+                  <th className="px-4 py-2 text-left">SHA-256</th>
                   <th className="px-4 py-2 text-left">Acciones</th>
                 </tr>
               </thead>
@@ -1199,9 +1202,60 @@ function InstitutionDashboard({ demo = false }) {
                   <tr key={`${c.tokenId}-${c.serialNumber}`} className="border-t text-sm">
                     <td className="px-4 py-2">{c.tokenId}</td>
                     <td className="px-4 py-2">{c.serialNumber}</td>
-                    <td className="px-4 py-2"><button className="btn-secondary btn-sm" onClick={() => { setDocUrl(toGateway(c.ipfsURI)); setDocOpen(true); }}>Ver</button></td>
-                    <td className="px-4 py-2">{c.xrpAnchor?.xrpTxHash ? <a href={`https://testnet.xrplexplorer.com/tx/${c.xrpAnchor.xrpTxHash}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{c.xrpAnchor.xrpTxHash.slice(0, 8)}...</a> : 'N/A'}</td>
-                  <td className="px-4 py-2 space-x-2">
+                    <td className="px-4 py-2">
+                      <button
+                        className="btn-secondary btn-sm"
+                        onClick={() => {
+                          setDocUrl(toGateway(c.ipfsURI));
+                          setDocOpen(true);
+                        }}
+                      >
+                        Ver
+                      </button>
+                    </td>
+                    <td className="px-4 py-2 font-mono text-xs">
+                      {c.externalProofs?.hederaTx ? (
+                        <span title={c.externalProofs.hederaTx}>
+                          {c.externalProofs.hederaTx.slice(0, 10)}...
+                        </span>
+                      ) : (
+                        'N/A'
+                      )}
+                    </td>
+                    <td className="px-4 py-2 font-mono text-xs">
+                      {c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash ? (
+                        <a
+                          href={`https://testnet.xrplexplorer.com/tx/${c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 hover:underline"
+                          title={c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash}
+                        >
+                          {(c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash).slice(0, 8)}...
+                        </a>
+                      ) : (
+                        'N/A'
+                      )}
+                    </td>
+                    <td className="px-4 py-2 font-mono text-xs">
+                      {c.externalProofs?.algoTxId ? (
+                        <span title={c.externalProofs.algoTxId}>
+                          {c.externalProofs.algoTxId.slice(0, 10)}...
+                        </span>
+                      ) : (
+                        'N/A'
+                      )}
+                    </td>
+                    <td className="px-4 py-2 font-mono text-xs">
+                      {c.uniqueHash ? (
+                        <span title={c.uniqueHash}>
+                          {c.uniqueHash.slice(0, 10)}...
+                        </span>
+                      ) : (
+                        'N/A'
+                      )}
+                    </td>
+                    <td className="px-4 py-2 space-x-2">
                       <button className="btn-secondary btn-sm border-green-600 text-green-700 hover:bg-green-50" disabled={demo} onClick={() => handleRequestVerification(c)}>
                         Solicitar verificación
                       </button>
@@ -1275,11 +1329,52 @@ function InstitutionDashboard({ demo = false }) {
                     <div className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">#{c.serialNumber}</div>
                   </div>
                   <div className="mt-2 text-xs text-gray-600 break-all">
-                    {c.xrpAnchor?.xrpTxHash ? (
-                      <a href={`https://testnet.xrplexplorer.com/tx/${c.xrpAnchor.xrpTxHash}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">XRPL {c.xrpAnchor.xrpTxHash.slice(0, 8)}...</a>
-                    ) : (
-                      <span>XRPL N/A</span>
-                    )}
+                    <div>
+                      <span className="font-semibold">Hedera:</span>{' '}
+                      {c.externalProofs?.hederaTx ? (
+                        <span title={c.externalProofs.hederaTx} className="font-mono">
+                          {c.externalProofs.hederaTx.slice(0, 10)}...
+                        </span>
+                      ) : (
+                        <span>N/A</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="font-semibold">XRP:</span>{' '}
+                      {c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash ? (
+                        <a
+                          href={`https://testnet.xrplexplorer.com/tx/${c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 hover:underline font-mono"
+                          title={c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash}
+                        >
+                          {(c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash).slice(0, 8)}...
+                        </a>
+                      ) : (
+                        <span>N/A</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Algorand:</span>{' '}
+                      {c.externalProofs?.algoTxId ? (
+                        <span title={c.externalProofs.algoTxId} className="font-mono">
+                          {c.externalProofs.algoTxId.slice(0, 10)}...
+                        </span>
+                      ) : (
+                        <span>N/A</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="font-semibold">SHA-256:</span>{' '}
+                      {c.uniqueHash ? (
+                        <span title={c.uniqueHash} className="font-mono">
+                          {c.uniqueHash.slice(0, 10)}...
+                        </span>
+                      ) : (
+                        <span>N/A</span>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button className="btn-secondary btn-sm border-green-600 text-green-700 hover:bg-green-50" disabled={demo} onClick={() => handleRequestVerification(c)}>Solicitar verificación</button>

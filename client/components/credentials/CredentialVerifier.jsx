@@ -328,7 +328,9 @@ const CredentialVerifier = () => {
             try { proofArr = JSON.parse(decodeURIComponent(proofRaw)); } catch { proofArr = []; }
             const ok = await verifyProof(String(hash).trim().toLowerCase(), proofArr, root);
             const xrplUrl = xrplTx ? `https://${(import.meta.env.VITE_XRPL_NETWORK || 'testnet').includes('main') ? 'livenet' : 'testnet'}.xrpl.org/transactions/${encodeURIComponent(xrplTx)}` : '';
-            const algoUrl = algoTx ? `https://testnet.explorer.perawallet.app/tx/${encodeURIComponent(algoTx)}/` : '';
+            const algoNetwork = (import.meta.env.VITE_ALGORAND_NETWORK || 'testnet').includes('main') ? 'mainnet' : 'testnet';
+            const algoBase = algoNetwork === 'mainnet' ? 'https://explorer.perawallet.app' : 'https://testnet.explorer.perawallet.app';
+            const algoUrl = algoTx ? `${algoBase}/tx/${encodeURIComponent(algoTx)}/` : '';
             setMerkle({
               ready: true,
               hash: String(hash).trim().toLowerCase(),
@@ -370,7 +372,9 @@ const CredentialVerifier = () => {
             } catch { proofArr = []; }
             const ok = await verifyProof(String(hash).trim().toLowerCase(), proofArr, root);
             const xrplUrl = xrplTx ? `https://${(import.meta.env.VITE_XRPL_NETWORK || 'testnet').includes('main') ? 'livenet' : 'testnet'}.xrpl.org/transactions/${encodeURIComponent(xrplTx)}` : '';
-            const algoUrl = algoTx ? `https://testnet.explorer.perawallet.app/tx/${encodeURIComponent(algoTx)}/` : '';
+            const algoNetwork = (import.meta.env.VITE_ALGORAND_NETWORK || 'testnet').includes('main') ? 'mainnet' : 'testnet';
+            const algoBase = algoNetwork === 'mainnet' ? 'https://explorer.perawallet.app' : 'https://testnet.explorer.perawallet.app';
+            const algoUrl = algoTx ? `${algoBase}/tx/${encodeURIComponent(algoTx)}/` : '';
             setMerkle({
               ready: true,
               hash: String(hash).trim().toLowerCase(),

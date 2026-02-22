@@ -15,7 +15,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "{\n  \"success\": true,\n  \"valid\": true,\n  \"creditsGranted\": 500,\n  \"status\": \"confirmed\",\n  \"transactionId\": \"{{$json.body.transactionId}}\"\n}",
+        "responseBody": "{\n  \"success\": true,\n  \"valid\": true,\n  \"status\": \"confirmed\",\n  \"transactionId\": \"{{$json.body.transactionId}}\",\n  \"method\": \"{{$json.body.method}}\",\n  \"planId\": \"{{$json.body.planId}}\",\n  \"creditsGranted\": {{ $json.body.planId === 'starter' ? 100 : $json.body.planId === 'business' ? 500 : $json.body.planId === 'enterprise' ? 1000 : 500 }}\n}",
         "options": {}
       },
       "name": "Respond Verification",

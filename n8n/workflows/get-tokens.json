@@ -18,7 +18,8 @@
           "string": [
             {
               "value1": "={{$json.headers['x-acl-auth-key']}}",
-              "operation": "isNotEmpty"
+              "operation": "equal",
+              "value2": "={{$env.ACL_AUTH_KEY}}"
             }
           ]
         }

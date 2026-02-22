@@ -4,7 +4,7 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "create-payment",
+        "path": "create-payment-mock",
         "options": {}
       },
       "name": "Create Payment Webhook",
@@ -26,7 +26,7 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "verify-payment",
+        "path": "verify-payment-mock",
         "options": {}
       },
       "name": "Verify Payment Webhook",

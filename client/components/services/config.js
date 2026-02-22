@@ -1,12 +1,18 @@
 export const getApiBaseUrl = () => {
   const env = import.meta.env || {};
-  // Prioritize N8N Webhook URL
+  const apiUrl = env.VITE_API_URL;
+  if (apiUrl) {
+    try {
+      const url = new URL(apiUrl);
+      return url.toString().replace(/\/+$/, "");
+    } catch (e) {
+      return apiUrl;
+    }
+  }
   const n8nUrl = env.VITE_N8N_WEBHOOK_URL;
   if (n8nUrl) {
-    // If it's a full URL like .../webhook/submit-document, get the base .../webhook/
     try {
       const url = new URL(n8nUrl);
-      // Remove the last segment if it looks like a specific action
       if (url.pathname.endsWith('/submit-document')) {
         return n8nUrl.replace('/submit-document', '');
       }

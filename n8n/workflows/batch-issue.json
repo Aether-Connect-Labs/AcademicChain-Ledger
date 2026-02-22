@@ -19,7 +19,7 @@
             {
               "value1": "={{$json.headers[\"x-acl-auth-key\"]}}",
               "operation": "equal",
-              "value2": "acl_live_sec_8f92a3b4"
+              "value2": "={{$env.ACL_AUTH_KEY}}"
             }
           ]
         }
@@ -53,7 +53,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Build normalized credential document per item\nconst item = $json || {};\nconst nowIso = new Date().toISOString();\n\nconst makeDoc = (i = {}) => {\n  const tokenId = String(i.tokenId || ('0.0.' + (Math.floor(Math.random()*9000000)+1000000)));\n  const serialNumber = String(i.serialNumber || '1');\n  const universityId = i.universityId || null;\n  const studentAccountId = (i.studentAccountId === undefined) ? null : i.studentAccountId;\n  const ipfsURI = i.ipfsURI || 'ipfs://QmTest';\n  const uniqueHash = i.uniqueHash || `hash-${Date.now()}`;\n  const externalProofs = {\n    xrpTxHash: (i.externalProofs && i.externalProofs.xrpTxHash) || `mock-xrp-fallback-${Date.now()}`,\n    algoTxId: (i.externalProofs && i.externalProofs.algoTxId) || `mock-algo-${Date.now()}`\n  };\n  return {\n    tokenId,\n    serialNumber,\n    universityId,\n    studentAccountId,\n    uniqueHash,\n    ipfsURI,\n    externalProofs,\n    createdAt: nowIso,\n    updatedAt: nowIso,\n    __v: 0\n  };\n};\n\nreturn { json: makeDoc(item) };"
+        "jsCode": "const item = $json || {};\nconst nowIso = new Date().toISOString();\n\nconst computeUniqueHash = (ipfsURI) => {\n  const link = String(ipfsURI || '').trim();\n  if (!link) return `hash-${Date.now()}`;\n  try {\n    const crypto = require('crypto');\n    return 'hash-' + crypto.createHash('sha256').update(link).digest('hex');\n  } catch (e) {\n    let h = 0;\n    for (let i = 0; i < link.length; i++) {\n      h = ((h << 5) - h) + link.charCodeAt(i);\n      h |= 0;\n    }\n    return 'hash-fallback-' + Math.abs(h).toString(16);\n  }\n};\n\nconst makeDoc = (i = {}) => {\n  const tokenId = String(i.tokenId || ('0.0.' + (Math.floor(Math.random() * 9000000) + 1000000)));\n  const serialNumber = String(i.serialNumber || '1');\n  const universityId = i.universityId || null;\n  const studentAccountId = (i.studentAccountId === undefined) ? null : i.studentAccountId;\n  const ipfsURI = i.ipfsURI || 'ipfs://QmTest';\n  const uniqueHash = i.uniqueHash || computeUniqueHash(ipfsURI);\n  const ext = i.externalProofs || {};\n  const externalProofs = {\n    hederaTx: ext.hederaTx || null,\n    xrpTxHash: ext.xrpTxHash || null,\n    algoTxId: ext.algoTxId || null\n  };\n  return {\n    tokenId,\n    serialNumber,\n    universityId,\n    studentAccountId,\n    uniqueHash,\n    ipfsURI,\n    externalProofs,\n    createdAt: nowIso,\n    updatedAt: nowIso,\n    __v: 0\n  };\n};\n\nreturn { json: makeDoc(item) };"
       },
       "name": "Build Credential Docs",
       "type": "n8n-nodes-base.code",

@@ -242,6 +242,33 @@
     },
     {
       "parameters": {
+        "url": "={{$env.API_URL || 'https://academicchain-ledger.onrender.com'}}/api/v1/credentials/issue-unified",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-API-Key",
+              "value": "={{$env.ACADEMIC_CHAIN_API_KEY || ''}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"tokenId\": \"{{$json.tokenId}}\", \"uniqueHash\": \"{{$json.uniqueHash}}\", \"ipfsURI\": \"{{$json.ipfsURI}}\", \"studentName\": \"{{$json.studentName || ''}}\", \"degree\": \"{{$json.degree || $json.title || ''}}\", \"recipientAccountId\": \"{{$json.studentAccountId || ''}}\", \"plan\": \"{{$json.plan || 'base'}}\" }",
+        "options": {}
+      },
+      "name": "Issue Unified (Backend)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1880, 80]
+    },
+    {
+      "parameters": {
         "operation": "update",
         "collection": "credentials",
         "query": "={\"uniqueHash\": {{$json.uniqueHash}} }",
@@ -336,7 +363,14 @@
     "Pin File (Pinata)": { "main": [[{ "node": "Compute SHA256 Link", "type": "main", "index": 0 }]] },
     "Build Doc JSON": { "main": [[{ "node": "Pin JSON (Pinata)", "type": "main", "index": 0 }]] },
     "Pin JSON (Pinata)": { "main": [[{ "node": "Compute SHA256 Link", "type": "main", "index": 0 }]] },
-    "Compute SHA256 Link": { "main": [[{ "node": "Guardar_MongoDB_MultiChain", "type": "main", "index": 0 }]] },
+    "Compute SHA256 Link": {
+      "main": [
+        [
+          { "node": "Guardar_MongoDB_MultiChain", "type": "main", "index": 0 },
+          { "node": "Issue Unified (Backend)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
     "Guardar_MongoDB_MultiChain": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
   }
 }

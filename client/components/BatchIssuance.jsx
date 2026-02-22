@@ -44,7 +44,9 @@ const XrpAnchorCell = ({ tokenId, serialNumber }) => {
   if (loading) return <span className="badge-info badge">Buscando...</span>;
   if (error) return <span className="badge-error badge">Error</span>;
   if (!hash) return <span className="text-gray-500">N/A</span>;
-  const href = network === 'mainnet' ? `https://xrpscan.com/tx/${hash}` : `https://testnet.xrplexplorer.com/tx/${hash}`;
+  const xrplNetwork = (import.meta.env.VITE_XRPL_NETWORK || network || 'testnet');
+  const xrplBase = xrplNetwork.includes('main') ? 'https://livenet.xrpl.org' : 'https://testnet.xrpl.org';
+  const href = `${xrplBase}/transactions/${hash}`;
   return <a href={href} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{hash.slice(0, 8)}...</a>;
 };
 
@@ -456,6 +458,11 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
       startTime: Date.now()
     };
 
+    if (!credentials.length) {
+      setIsProcessing(false);
+      return;
+    }
+
     try {
       // Plan Validation
       if (plan && plan.limit !== Infinity) {
@@ -849,7 +856,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
               
               <button
                 onClick={handleGeneratePreview}
-                disabled={!issuanceConfig.institution || isProcessing}
+                disabled={!fileData || !fileData.rowCount || !issuanceConfig.institution || !issuanceConfig.tokenId || isProcessing}
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isProcessing ? 'Generando...' : 'Generar Vista Previa →'}
@@ -900,7 +907,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
               
               <button
                 onClick={handleBatchIssuance}
-                disabled={(demo ? false : !isConnected) || isProcessing}
+                disabled={(demo ? false : !isConnected) || !credentials.length || isProcessing}
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 hover-lift"
               >
                 {isProcessing ? (
