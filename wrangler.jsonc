@@ -1,5 +1,5 @@
 {
-  "name": "academicchain-ledger-frontend",
+  "name": "academicchain-ledger",
   "compatibility_date": "2026-02-21",
   "main": "./worker/index.js",
   "vars": {
