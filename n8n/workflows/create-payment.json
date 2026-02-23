@@ -73,7 +73,7 @@
                 },
                 {
                     "name": "ipn_callback_url",
-                    "value": "={{$env.WEBHOOK_URL}}/payment-ipn"
+                    "value": "={{ ($env.WEBHOOK_URL ? ($env.WEBHOOK_URL.replace(/\\/+$/, '') + '/payment-ipn') : ($env.N8N_WEBHOOK_URL ? ($env.N8N_WEBHOOK_URL.replace(/\\/+$/, '') + '/payment-ipn') : (($env.N8N_BASE_URL ? ($env.N8N_BASE_URL.replace(/\\/+$/, '') + '/webhook/payment-ipn') : '')))) }}"
                 }
             ]
         }

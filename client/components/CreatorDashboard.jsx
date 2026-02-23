@@ -26,7 +26,7 @@ const CreatorDashboard = () => {
   const [creatorProfile] = useState({
     name: 'Creador Demo',
     did: 'did:hedera:testnet:z6Mk...',
-    brand: 'Academia Demo',
+    brand: 'Mi Universidad',
     apiKey: 'sk_live_51M...'
   });
 
@@ -246,7 +246,7 @@ const CreatorDashboard = () => {
                   className="h-10 w-10 rounded-full shadow-sm object-contain bg-white"
                 />
                 <div className="flex flex-col">
-                   <h3 className="text-lg font-bold text-slate-900 leading-none tracking-tight">AcademicChain</h3>
+                   <h3 className="text-lg font-bold text-slate-900 leading-none tracking-tight">{creatorProfile.brand}</h3>
                    <p className="text-[10px] text-slate-500 font-medium mt-0.5">Impulsado por AcademicChain</p>
                 </div>
              </div>

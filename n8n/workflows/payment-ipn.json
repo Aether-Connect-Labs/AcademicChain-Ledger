@@ -112,16 +112,29 @@
       "position": [780, 0]
     },
     {
-        "parameters": {
-            "message": "💰 Payment Confirmed: {{$json.body.payment_id}}",
-            "options": {
-                "level": "info"
-            }
-        },
-        "name": "Log Success",
-        "type": "n8n-nodes-base.logger",
-        "typeVersion": 1,
-        "position": [780, 200]
+      "parameters": {
+        "message": "💰 Payment Confirmed: {{$json.body.payment_id}}",
+        "options": {
+          "level": "info"
+        }
+      },
+      "name": "Registro de éxito",
+      "type": "n8n-nodes-base.logger",
+      "typeVersion": 1,
+      "position": [780, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"success\": true, \"message\": \"IPN processed successfully\", \"orderId\": \"{{$json.body.order_id}}\", \"paymentId\": \"{{$json.body.payment_id}}\"}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "name": "Responder éxito",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [980, 0]
     },
     {
       "parameters": {
@@ -135,6 +148,19 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [380, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"success\": true, \"message\": \"IPN ignored (status not finished/confirmed)\"}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "name": "Ignore Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [580, 200]
     }
   ],
   "connections": {
@@ -152,17 +178,42 @@
     },
     "Check Status": {
       "main": [
-        [{"node": "Add Credits", "type": "main", "index": 0}],
-        []
+        [
+          {
+            "node": "Add Credits",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignore Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Add Credits": {
-        "main": [
-            [
-                {"node": "Send Email", "type": "main", "index": 0},
-                {"node": "Log Success", "type": "main", "index": 0}
-            ]
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Registro de éxito",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Responder éxito",
+            "type": "main",
+            "index": 0
+          }
         ]
+      ]
     }
   }
 }

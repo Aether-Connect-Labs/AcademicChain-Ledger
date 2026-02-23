@@ -39,8 +39,7 @@ const EmployerDashboard = () => {
     }
   };
 
-  // Mock Talents Data with Blockchain Info
-  const mockTalents = [];
+  const [talents, setTalents] = useState([]);
 
   // Quick filters for Smart Matching
   const smartFilters = [
@@ -161,11 +160,46 @@ const EmployerDashboard = () => {
       setTimeout(() => navigate('/precios?tab=employers'), 1500);
   };
 
-  // Cleanup scanner on unmount
   useEffect(() => {
     return () => {
       if (scannerRef.current) {
         scannerRef.current.clear().catch(error => console.error('Failed to clear scanner', error));
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const readTalentPool = () => {
+      try {
+        const raw = localStorage.getItem('acl:talent-pool');
+        const stored = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(stored)) {
+          setTalents(stored);
+        }
+      } catch {}
+    };
+
+    readTalentPool();
+
+    const handleStorage = (event) => {
+      if (!event || event.key === null || event.key === 'acl:talent-pool') {
+        readTalentPool();
+      }
+    };
+
+    const handleCustom = () => {
+      readTalentPool();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorage);
+      window.addEventListener('acl:talent-updated', handleCustom);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('storage', handleStorage);
+        window.removeEventListener('acl:talent-updated', handleCustom);
       }
     };
   }, []);
@@ -648,21 +682,24 @@ const EmployerDashboard = () => {
                                 </div>
 
                                 <div className="grid md:grid-cols-2 gap-4 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
-                                    {mockTalents.filter(t => {
-                                        const matchesSearch = t.role.toLowerCase().includes(searchQuery.toLowerCase()) || t.skills.some(s => s.toLowerCase().includes(searchQuery.toLowerCase()));
+                                    {talents.filter(t => {
+                                        const query = searchQuery.toLowerCase().trim();
+                                        const nameMatch = (t.name || '').toLowerCase().includes(query);
+                                        const roleMatch = (t.role || '').toLowerCase().includes(query);
+                                        const institutionMatch = (t.institution || '').toLowerCase().includes(query);
+                                        const skillsMatch = Array.isArray(t.skills) && t.skills.some(s => (s || '').toLowerCase().includes(query));
+                                        const matchesSearch = !query || nameMatch || roleMatch || institutionMatch || skillsMatch;
                                         
                                         if (!activeFilter) return matchesSearch;
 
-                                        // Apply filters
                                         if (activeFilter === 'smart-match') {
-                                            // Simulate AI matching: return top 2 candidates
-                                            return t.id === 1 || t.id === 3; 
+                                            return matchesSearch;
                                         }
                                         if (activeFilter === 'verified') return matchesSearch && t.verified;
-                                        if (activeFilter === 'solidity') return matchesSearch && t.skills.some(s => s.toLowerCase().includes('solidity'));
-                                        if (activeFilter === 'security') return matchesSearch && (t.skills.some(s => s.toLowerCase().includes('security')) || t.role.toLowerCase().includes('auditor'));
-                                        if (activeFilter === 'defi') return matchesSearch && t.skills.some(s => s.toLowerCase().includes('defi'));
-                                        if (activeFilter === 'react') return matchesSearch && (t.skills.some(s => s.toLowerCase().includes('react')) || t.role.toLowerCase().includes('frontend'));
+                                        if (activeFilter === 'solidity') return matchesSearch && Array.isArray(t.skills) && t.skills.some(s => (s || '').toLowerCase().includes('solidity'));
+                                        if (activeFilter === 'security') return matchesSearch && (Array.isArray(t.skills) && t.skills.some(s => (s || '').toLowerCase().includes('security')) || (t.role || '').toLowerCase().includes('auditor'));
+                                        if (activeFilter === 'defi') return matchesSearch && Array.isArray(t.skills) && t.skills.some(s => (s || '').toLowerCase().includes('defi'));
+                                        if (activeFilter === 'react') return matchesSearch && (Array.isArray(t.skills) && t.skills.some(s => (s || '').toLowerCase().includes('react')) || (t.role || '').toLowerCase().includes('frontend'));
                                         
                                         return matchesSearch;
                                     }).map(talent => (

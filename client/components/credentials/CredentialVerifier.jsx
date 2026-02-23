@@ -633,27 +633,51 @@ const CredentialVerifier = () => {
                 </h3>
               </div>
               <div className="px-10 py-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div className="rounded-lg border p-4 bg-green-50 border-green-200">
-                    <div className="text-sm font-semibold">Hedera</div>
-                    <div className="mt-1 text-xs">Estado: Válido</div>
-                    {state.data?.tokenId ? (
-                      <a className="text-blue-600 text-xs underline" href={`https://hashscan.io/${import.meta.env.VITE_HEDERA_NETWORK || (import.meta.env.PROD ? 'mainnet' : 'testnet')}/token/${state.data.tokenId}`} target="_blank" rel="noreferrer">Ver en Hashscan</a>
-                    ) : null}
+                <div className="mb-6 rounded-lg border p-4 bg-green-50 border-green-200">
+                  <div className="text-sm font-semibold">Hedera (Triple Blindaje)</div>
+                  <div className="mt-1 text-xs">
+                    Estado: Válido
                   </div>
-                  <div className="rounded-lg border p-4">
-                    <div className="text-sm font-semibold">XRPL</div>
-                    <div className="mt-1 text-xs">Estado: {state.xrpAnchor?.xrpTxHash ? 'Anclado' : 'N/A'}</div>
-                    {state.xrpAnchor?.xrpTxHash ? (
-                      <a className="text-blue-600 text-xs underline" href={`https://${(import.meta.env.VITE_XRPL_NETWORK || 'testnet').includes('main') ? 'livenet' : 'testnet'}.xrpl.org/transactions/${state.xrpAnchor.xrpTxHash}`} target="_blank" rel="noreferrer">Ver Tx</a>
-                    ) : null}
-                  </div>
-                  <div className="rounded-lg border p-4">
-                    <div className="text-sm font-semibold">Algorand</div>
-                    <div className="mt-1 text-xs">Estado: {state.algorandAnchor?.algoTxId ? 'Anclado' : 'N/A'}</div>
-                    {state.algorandAnchor?.algoTxId ? (
-                      <a className="text-blue-600 text-xs underline" href={`https://${(import.meta.env.VITE_ALGORAND_NETWORK || 'testnet')==='mainnet'?'algoexplorer.io':'testnet.algoexplorer.io'}/tx/${state.algorandAnchor.algoTxId}`} target="_blank" rel="noreferrer">Ver Tx</a>
-                    ) : null}
+                  <div className="mt-2 space-y-1 text-xs">
+                    {state.data?.tokenId && (
+                      <div>
+                        NFT:{" "}
+                        <a
+                          className="text-blue-600 underline"
+                          href={`https://hashscan.io/${import.meta.env.VITE_HEDERA_NETWORK || (import.meta.env.PROD ? 'mainnet' : 'testnet')}/token/${state.data.tokenId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {state.data.tokenId}
+                        </a>
+                      </div>
+                    )}
+                    {state.xrpAnchor?.xrpTxHash && (
+                      <div>
+                        XRP:{" "}
+                        <a
+                          className="text-blue-600 underline"
+                          href={`https://${(import.meta.env.VITE_XRPL_NETWORK || 'testnet').includes('main') ? 'livenet' : 'testnet'}.xrpl.org/transactions/${state.xrpAnchor.xrpTxHash}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {state.xrpAnchor.xrpTxHash.slice(0, 10)}...
+                        </a>
+                      </div>
+                    )}
+                    {state.algorandAnchor?.algoTxId && (
+                      <div>
+                        Algorand:{" "}
+                        <a
+                          className="text-blue-600 underline"
+                          href={`https://${(import.meta.env.VITE_ALGORAND_NETWORK || 'testnet') === 'mainnet' ? 'algoexplorer.io' : 'testnet.algoexplorer.io'}/tx/${state.algorandAnchor.algoTxId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {state.algorandAnchor.algoTxId.slice(0, 10)}...
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="text-center">

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import issuanceService from './services/issuanceService';
 import n8nService from './services/n8nService';
 import { Toaster, toast } from 'react-hot-toast';
@@ -6,7 +7,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import CertificateDesigner from './CertificateDesigner';
 import LiveBlockVisualizer from './LiveBlockVisualizer';
 
-const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'], plan, emissionsUsed = 0, onEmissionComplete }) => {
+const IssueTitleForm = ({ 
+  variant = 'degree', 
+  demo = false, 
+  networks = ['hedera'], 
+  plan, 
+  emissionsUsed = 0, 
+  institutionName,
+  issuerId,
+  onEmissionComplete, 
+  onOpenDesigner 
+}) => {
   // Styles based on variant
   const getGradient = () => {
     if (variant === 'diploma') return 'from-purple-600 to-blue-600';
@@ -15,7 +26,6 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
   }
 
   const [formData, setFormData] = useState({
-    tokenId: '0.0.123456',
     studentName: '',
     courseName: '',
     issueDate: '',
@@ -31,36 +41,59 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
   const [message, setMessage] = useState('');
   const [file, setFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [tokens, setTokens] = useState([]);
   const [universityName, setUniversityName] = useState('');
   const [currentStep, setCurrentStep] = useState(1);
   const [resultData, setResultData] = useState(null);
+  const [savedTemplates, setSavedTemplates] = useState([]);
 
-  // Animation Variants
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
   };
+
+  const refreshSavedTemplates = () => {
+    try {
+      const raw = localStorage.getItem('customTemplates');
+      if (!raw) {
+        setSavedTemplates([]);
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setSavedTemplates(parsed);
+      } else {
+        setSavedTemplates([]);
+      }
+    } catch {
+      setSavedTemplates([]);
+    }
+  };
+
+  useEffect(() => {
+    if (institutionName) {
+      setUniversityName(institutionName);
+    }
+  }, [institutionName]);
 
   useEffect(() => {
     if (demo) return;
     const loadTokens = async () => {
       try {
         const data = await issuanceService.getTokens();
-        const list = data?.data?.tokens || [];
         const university = data?.data?.university || '';
-        setTokens(list);
-        setUniversityName(university || '');
-
-        if (list.length > 0 && !formData.tokenId) {
-          setFormData(prev => ({ ...prev, tokenId: list[0].tokenId }));
+        if (!institutionName) {
+          setUniversityName(prev => prev || university || '');
         }
       } catch (e) {
       } finally {
       }
     };
     loadTokens();
-  }, [demo, formData.tokenId]);
+  }, [demo]);
+
+  useEffect(() => {
+    refreshSavedTemplates();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -85,8 +118,12 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
   };
 
   const validateStepOne = () => {
+    if (!universityName) {
+      setError('La institución es obligatoria. Verifica que tu perfil institucional esté configurado.');
+      return false;
+    }
     if (!formData.studentName || !formData.courseName || !formData.issueDate) {
-      setError('Completa nombre del estudiante, título/curso y fecha de emisión.');
+      setError('Completa institución, nombre del estudiante, título/curso y fecha de emisión.');
       return false;
     }
     setError('');
@@ -94,8 +131,25 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
   };
 
   const validateStepTwo = () => {
-    if (!file && !designStructure) {
-      setError('Sube un documento o diseña el certificado antes de continuar.');
+    const hasInlineDesign = !!designStructure;
+    let hasSavedTemplate = false;
+
+    if (!hasInlineDesign) {
+      if (savedTemplates.length > 0) {
+        hasSavedTemplate = true;
+      } else {
+        try {
+          const raw = localStorage.getItem('customTemplates');
+          const parsed = raw ? JSON.parse(raw) : [];
+          hasSavedTemplate = Array.isArray(parsed) && parsed.length > 0;
+        } catch {
+          hasSavedTemplate = false;
+        }
+      }
+    }
+
+    if (!hasInlineDesign && !hasSavedTemplate) {
+      setError('Diseña y guarda el certificado en el Diseñador Holográfico antes de continuar.');
       return false;
     }
     setError('');
@@ -120,6 +174,18 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
     }
   };
 
+  const computeSha256 = async (blob) => {
+    try {
+      if (!blob || !crypto || !crypto.subtle) return null;
+      const buffer = await blob.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch {
+      return null;
+    }
+  };
+
   const readFileAsBase64 = () => {
     return new Promise((resolve) => {
       if (!file) {
@@ -136,6 +202,38 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  const pushToTalentPool = (payload) => {
+    try {
+      const raw = localStorage.getItem('acl:talent-pool');
+      const current = raw ? JSON.parse(raw) : [];
+      const role = payload.courseName || payload.credentialType || 'Credencial Académica';
+      const skills = [
+        'Título Verificado',
+        payload.credentialType,
+        payload.courseName
+      ].filter(Boolean);
+      const networkLabel = Array.isArray(networks) && networks.includes('hedera') ? 'Hedera' : 'Blockchain';
+      const next = [
+        {
+          id: payload.id || `talent-${Date.now()}`,
+          name: payload.studentName,
+          role,
+          skills,
+          location: payload.location || 'Remoto',
+          verified: true,
+          network: networkLabel,
+          txLink: payload.txId ? `https://hashscan.io/testnet/transaction/${payload.txId}` : '',
+          institution: payload.institution || universityName || ''
+        },
+        ...current
+      ].slice(0, 50);
+      localStorage.setItem('acl:talent-pool', JSON.stringify(next));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('acl:talent-updated'));
+      }
+    } catch {}
   };
 
   const handleSubmit = async (e) => {
@@ -157,22 +255,43 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
         return;
       }
 
-      const baseHash = `hash-${Date.now()}`;
       const pdfBase64 = await readFileAsBase64();
+      const sha256 = file ? await computeSha256(file) : null;
+      const baseHash = sha256 || `hash-${Date.now()}`;
+      let ipfsURI = null;
+
+      if (file) {
+        try {
+          ipfsURI = await issuanceService.uploadToIPFS(file);
+        } catch (e) {
+          console.warn('Fallo al subir PDF a IPFS, continuando sin CID dedicado', e);
+        }
+      }
+
       const effectivePlan = computePlanFromNetworks();
 
       const orchestratorRes = await n8nService.orchestrateIssuance({
         documentHash: baseHash,
         studentName: formData.studentName,
         plan: effectivePlan,
-        pdfUrl: null,
+        pdfUrl: ipfsURI || null,
         pdfBase64
       });
 
+      const effectiveInstitution = universityName || institutionName || '';
+      const effectiveIssuerId = issuerId || '';
+
       const payloadForLog = {
         documentHash: baseHash,
-        userId: 'user-123',
-        metadata: { ...formData, designStructure },
+        userId: effectiveIssuerId || 'institution-unknown',
+        institution: effectiveInstitution,
+        metadata: { 
+          ...formData, 
+          institution: effectiveInstitution,
+          designStructure, 
+          ipfsURI, 
+          sha256 
+        },
         issuanceType: variant,
         networks,
         orchestrator: orchestratorRes
@@ -181,7 +300,27 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
       await n8nService.submitDocument(payloadForLog);
 
       const data = orchestratorRes && orchestratorRes.data ? orchestratorRes.data : orchestratorRes;
-      setResultData(data || null);
+      const enriched = data || {};
+      if (ipfsURI && !enriched.ipfsURI) {
+        enriched.ipfsURI = ipfsURI;
+      }
+      if (sha256 && !enriched.sha256) {
+        enriched.sha256 = sha256;
+      }
+      setResultData(enriched);
+
+      try {
+        const talentPayload = {
+          id: data && (data.id || data.txId || data.transactionId),
+          studentName: formData.studentName,
+          courseName: formData.courseName,
+          credentialType: variant === 'certificate' ? 'Certificado' : 'Título',
+          txId: data && (data.txId || data.transactionId),
+          institution: universityName || formData.institutionName || ''
+        };
+        pushToTalentPool(talentPayload);
+      } catch {}
+
       setMessage('Emisión completada y registrada en orquestador multichain.');
       toast.success('Credencial emitida correctamente');
       if (onEmissionComplete) onEmissionComplete(1);
@@ -213,17 +352,27 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
 
       {/* Designer Modal */}
       <AnimatePresence>
-        {showDesigner && (
+        {showDesigner && typeof document !== 'undefined' && createPortal(
           <CertificateDesigner
-            onClose={() => setShowDesigner(false)}
+            onClose={() => {
+              setShowDesigner(false);
+              refreshSavedTemplates();
+            }}
             data={formData}
             onSave={(generatedFile, structure) => {
               setFile(generatedFile);
               setDesignStructure(structure);
               setShowDesigner(false);
+              refreshSavedTemplates();
               toast.success('Diseño guardado. Previsualización disponible en bloques.');
             }}
-          />
+            onNavigate={(action) => {
+              if (action === 'continue_to_issuance') {
+                setCurrentStep(3);
+              }
+            }}
+          />,
+          document.body
         )}
       </AnimatePresence>
 
@@ -253,21 +402,9 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
 
           {currentStep === 1 && (
             <>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label-text">Token ID</label>
-                  {tokens.length > 0 ? (
-                    <select name="tokenId" value={formData.tokenId} onChange={handleChange} className="input-primary appearance-none">
-                      {tokens.map(t => <option key={t.tokenId} value={t.tokenId}>{t.tokenName}</option>)}
-                    </select>
-                  ) : (
-                    <input type="text" name="tokenId" value={formData.tokenId} onChange={handleChange} className="input-primary" />
-                  )}
-                </div>
-                <div>
-                  <label className="label-text">Institución</label>
-                  <input type="text" value={universityName} readOnly className="input-primary opacity-50 cursor-not-allowed" placeholder="Detectando..." />
-                </div>
+              <div className="mb-4">
+                <label className="label-text">Institución</label>
+                <input type="text" value={universityName} readOnly className="input-primary opacity-50 cursor-not-allowed" placeholder="Detectando..." />
               </div>
 
               <div>
@@ -299,36 +436,62 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
           )}
 
           {currentStep === 2 && (
-            <div className="space-y-2">
-              {!file && (
-                <div className="p-4 border border-dashed border-slate-600 rounded-lg bg-black/20 hover:bg-black/40 transition-colors cursor-pointer group">
-                  <label className="block text-center cursor-pointer">
-                    <span className="text-sm text-slate-400 group-hover:text-primary transition-colors">Subir Documento (PDF/Img)</span>
-                    <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0])} />
-                  </label>
-                </div>
-              )}
-
-              {file && (
-                <div className="text-xs text-slate-300">
-                  Archivo seleccionado: <span className="font-semibold">{file.name}</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-center my-2 relative">
-                <span className="text-xs text-slate-500 uppercase px-2 bg-background z-10">O</span>
-                <div className="h-px bg-slate-800 w-full absolute"></div>
+            <div className="space-y-4">
+              <div className="text-sm text-slate-300">
+                Usa el editor visual para diseñar un certificado o diploma auténtico.
               </div>
 
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 type="button"
-                onClick={() => setShowDesigner(true)}
+                onClick={() => {
+                  if (typeof onOpenDesigner === 'function') {
+                    onOpenDesigner();
+                  } else {
+                    setShowDesigner(true);
+                  }
+                }}
                 className="w-full py-3 border border-purple-500/50 text-purple-300 rounded-xl hover:bg-purple-900/20 text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-900/10"
               >
                 <span>🎨</span> Diseñar Certificado (Editor Visual)
               </motion.button>
+
+              {savedTemplates.length > 0 && (
+                <div className="mt-2 border border-slate-700 rounded-lg bg-black/30 p-3">
+                  <div className="text-xs font-semibold text-slate-400 mb-2">
+                    Diseños guardados en Diseñador Holográfico
+                  </div>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {savedTemplates.map(t => (
+                      <div key={t.id} className="flex items-center justify-between text-xs text-slate-200">
+                        <div>
+                          <div className="font-semibold">{t.name || 'Diseño sin nombre'}</div>
+                          <div className="text-[10px] text-slate-500">
+                            {t.docType || t.category || 'Certificado'}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="px-2 py-1 rounded bg-slate-800 border border-slate-600 hover:border-cyan-500 text-[10px]"
+                          onClick={() => {
+                            try {
+                              localStorage.setItem('activeTemplateId', t.id);
+                            } catch {}
+                            if (typeof onOpenDesigner === 'function') {
+                              onOpenDesigner();
+                            } else {
+                              setShowDesigner(true);
+                            }
+                          }}
+                        >
+                          Abrir
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -357,9 +520,18 @@ const IssueTitleForm = ({ variant = 'degree', demo = false, networks = ['hedera'
               </div>
               {resultData && (
                 <div className="mt-2 p-3 rounded-lg bg-slate-900/60 border border-slate-700 text-xs text-slate-200">
-                  <div className="font-semibold mb-1">Hashes generados</div>
-                  <div>uniqueHash: {resultData.uniqueHash}</div>
-                  {resultData.ipfsURI && <div>ipfsURI: {resultData.ipfsURI}</div>}
+                  <div className="font-semibold mb-1">
+                    Huella criptográfica para {formData.studentName || 'estudiante'}
+                  </div>
+                  {resultData.sha256 && (
+                    <div>SHA-256: {resultData.sha256}</div>
+                  )}
+                  {resultData.uniqueHash && (
+                    <div>uniqueHash: {resultData.uniqueHash}</div>
+                  )}
+                  {resultData.ipfsURI && (
+                    <div>IPFS CID: {resultData.ipfsURI}</div>
+                  )}
                   {resultData.externalProofs && (
                     <>
                       {resultData.externalProofs.hederaTx && <div>hederaTx: {resultData.externalProofs.hederaTx}</div>}

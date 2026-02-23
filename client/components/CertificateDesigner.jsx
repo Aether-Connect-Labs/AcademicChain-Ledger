@@ -23,7 +23,8 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
   const [customTemplates, setCustomTemplates] = useState([]);
   const [docType, setDocType] = useState('Certificado');
   const [signatures, setSignatures] = useState([]);
-  const [, setForceUpdate] = useState(0); // For real-time property updates
+  const [, setForceUpdate] = useState(0);
+  const [isContinuing, setIsContinuing] = useState(false);
 
   /* Layer State */
   const [layers, setLayers] = useState([]);
@@ -1629,16 +1630,39 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
              </button>
              
              <button 
-                onClick={() => {
-                    const templateId = saveAsTemplate();
-                    if (templateId) {
-                        localStorage.setItem('activeTemplateId', templateId);
-                        if(onNavigate) onNavigate('masiva');
+                onClick={async () => {
+                    if (isContinuing) return;
+                    setIsContinuing(true);
+                    try {
+                        const templateId = await saveAsTemplate();
+                        if (templateId) {
+                            try {
+                                localStorage.setItem('activeTemplateId', templateId);
+                            } catch {}
+                        }
+                        if (typeof onNavigate === 'function') {
+                            onNavigate('continue_to_issuance');
+                        }
+                        if (onClose) {
+                            onClose();
+                        }
+                    } finally {
+                        setIsContinuing(false);
                     }
                 }} 
-                className="w-full py-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold shadow-lg hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold shadow-lg hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                disabled={isContinuing}
              >
-                <span>🚀</span> Guardar y Continuar a Emisión
+                {isContinuing ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Subiendo diseño...
+                  </>
+                ) : (
+                  <>
+                    <span>🚀</span> Guardar y Continuar a Emisión
+                  </>
+                )}
              </button>
 
              <div className="flex gap-2">

@@ -59,21 +59,35 @@ const VerifyCredentialPage = () => {
           if (!res.ok) throw new Error('Credencial no encontrada o inválida');
           const json = await res.json();
           const cred = json?.credential || {};
-          
+          const baseMeta = cred.metadata || {};
+          const baseAttrs = Array.isArray(baseMeta.attributes) ? baseMeta.attributes.slice() : [];
+          const pushOrUpdate = (trait, value) => {
+            const idx = baseAttrs.findIndex(a => a.trait_type === trait);
+            const v = value || "N/A";
+            if (idx >= 0) {
+              baseAttrs[idx] = { trait_type: trait, value: v };
+            } else {
+              baseAttrs.push({ trait_type: trait, value: v });
+            }
+          };
+
+          pushOrUpdate("Student Name", cred.studentName);
+          pushOrUpdate("Degree", cred.degree);
+          pushOrUpdate("University", cred.universityName);
+
+          const mergedMeta = {
+            ...baseMeta,
+            attributes: baseAttrs,
+            uri: json.proofs?.ipfs || baseMeta.uri
+          };
+
           setCredential({
             ...cred,
             status: json.status,
             revocationDetails: json.revocationDetails,
             verifiableCredential: json.verifiableCredential,
             externalProofs: json.proofs,
-            metadata: {
-               attributes: [
-                 { trait_type: "Student Name", value: cred.studentName || "N/A" },
-                 { trait_type: "Degree", value: cred.degree || "N/A" },
-                 { trait_type: "University", value: cred.universityName || "N/A" }
-               ],
-               uri: json.proofs?.ipfs
-            }
+            metadata: mergedMeta
           });
           setStatus(json.status || 'ACTIVE');
           // If loaded by hash, update state
@@ -206,6 +220,20 @@ const VerifyCredentialPage = () => {
 
                     <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
                          <h3 className="text-lg font-bold text-gray-800 mb-4">Detalles del Titular</h3>
+                         {(() => {
+                           const logoRaw = meta.image || (attrs.find(a => a.trait_type === 'Institution Logo')?.value || '');
+                           if (!logoRaw) return null;
+                           const logoUrl = toGateway(logoRaw);
+                           return (
+                             <div className="w-full flex justify-center mb-4">
+                               <img
+                                 src={logoUrl}
+                                 alt="Institución"
+                                 className="h-16 object-contain"
+                               />
+                             </div>
+                           );
+                         })()}
                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                              <div>
                                  <div className="text-xs text-gray-500 uppercase font-semibold">Nombre del Estudiante</div>
@@ -231,25 +259,15 @@ const VerifyCredentialPage = () => {
                         
                         <div className="space-y-4">
                             <BlockchainBadge 
-                                network="Hedera Hashgraph" 
-                                id={`${tokenId} #${serialNumber}`}
+                                network="Hedera · XRP · Algorand" 
+                                id={[
+                                    tokenId && `${tokenId} #${serialNumber}`,
+                                    credential?.externalProofs?.xrpTxHash && `XRP: ${(credential.externalProofs.xrpTxHash || '').slice(0, 10)}...`,
+                                    credential?.externalProofs?.algoTxId && `ALGO: ${(credential.externalProofs.algoTxId || '').slice(0, 10)}...`
+                                ].filter(Boolean).join(' | ')}
                                 color="bg-black"
                                 icon="Ħ"
                                 link={hederaLink}
-                            />
-                            <BlockchainBadge 
-                                network="XRP Ledger" 
-                                id={credential?.externalProofs?.xrpTxHash}
-                                color="bg-blue-600"
-                                icon="✕"
-                                link={xrpLink}
-                            />
-                            <BlockchainBadge 
-                                network="Algorand" 
-                                id={credential?.externalProofs?.algoTxId}
-                                color="bg-gray-800"
-                                icon="A"
-                                link={algoLink}
                             />
                         </div>
                         

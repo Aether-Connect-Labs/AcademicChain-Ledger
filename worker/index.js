@@ -46,6 +46,9 @@ export default {
 
 async function handleApi(request, env, corsHeaders, url) {
   const path = url.pathname;
+  if (path === "/api/issue-triple" && request.method === "POST") {
+    return issueTriple(request, env, corsHeaders);
+  }
   if (path === "/api/auth/login" && request.method === "POST") {
     let body;
     try {
@@ -134,4 +137,95 @@ function deriveBase(env) {
   } catch {
     return u.replace(/\/submit-document$/, "");
   }
+}
+
+async function callN8n(env, path, payload) {
+  const base = deriveBase(env);
+  if (!base) throw new Error("N8N base no configurado");
+  const url = `${base}/${path.replace(/^\/+/, "")}`;
+  const headers = { "Content-Type": "application/json" };
+  if (env.ACL_AUTH_KEY) headers["X-ACL-AUTH-KEY"] = env.ACL_AUTH_KEY;
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error("n8n error " + res.status + " " + text);
+  }
+  return res.json();
+}
+
+async function issueTriple(request, env, corsHeaders) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(
+      JSON.stringify({ error: "Bad Request" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  const studentName = body.studentName || "Alumno Demo";
+  const institutionName = body.institutionName || "Universidad Demo";
+  const issueDate = body.issueDate || new Date().toISOString().slice(0, 10);
+  const recipientHederaAccount = body.recipientHederaAccount || env.HEDERA_ACCOUNT_ID;
+  const pdfBase64 = body.pdfBase64 || null;
+  const ipfsFromClient = body.ipfsURI || null;
+
+  let uniqueHashHex = body.uniqueHash || null;
+
+  if (!uniqueHashHex) {
+    if (!pdfBase64) {
+      return new Response(
+        JSON.stringify({ error: "Envia pdfBase64 o uniqueHash en el body" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    uniqueHashHex = await sha256HexFromBase64(pdfBase64);
+  }
+  if (!uniqueHashHex.startsWith("0x")) uniqueHashHex = "0x" + uniqueHashHex;
+
+  const n8nPayload = {
+    documentHash: uniqueHashHex,
+    studentName,
+    institutionName,
+    plan: "triple",
+    pdfBase64,
+    ipfsURI: ipfsFromClient
+  };
+
+  const n8nJson = await callN8n(env, "multichain-orchestrator", n8nPayload);
+  const proofs = n8nJson.proofs || n8nJson.data || {};
+  const ipfsURI =
+    proofs.ipfs ||
+    proofs.ipfsURI ||
+    n8nJson.ipfsURI ||
+    ipfsFromClient ||
+    "";
+  const hashXRP = proofs.xrpTxHash || proofs.xrp || "";
+  const hashAlgo = proofs.algoTxId || proofs.algo || "";
+
+  const responseBody = {
+    success: true,
+    uniqueHash: uniqueHashHex,
+    ipfsURI,
+    studentName,
+    institutionName,
+    issueDate,
+    proofs: {
+      hederaStatus: proofs.hederaStatus || proofs.hedera || null,
+      hederaTxId: proofs.hederaTxId || null,
+      xrpTxHash: hashXRP || null,
+      algoTxId: hashAlgo || null
+    },
+    n8nRaw: n8nJson
+  };
+
+  return new Response(JSON.stringify(responseBody), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" }
+  });
 }

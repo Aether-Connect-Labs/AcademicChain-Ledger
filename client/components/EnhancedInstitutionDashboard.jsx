@@ -21,6 +21,7 @@ import CyberBackground from './CyberBackground';
 import InstitutionAnalytics from './InstitutionAnalytics';
 import InstitutionSubscriptionModal from './InstitutionSubscriptionModal';
 import n8nService from './services/n8nService';
+import DocumentViewer from './ui/DocumentViewer';
 
 // Plan Definitions
 const PLANS = {
@@ -55,6 +56,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('emitir'); // 'emitir' | 'masiva' | 'credenciales' | 'designer' | 'recargar'
+  const [issuanceMode, setIssuanceMode] = useState('individual'); // 'individual' | 'mass'
   const [connectionStatus, setConnectionStatus] = useState('connected');
   const [aclBalance, setAclBalance] = useState(5000);
   
@@ -115,14 +117,17 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   const [selectedCred, setSelectedCred] = useState(null);
   const [globalStats, setGlobalStats] = useState({ revoked: 0, deleted: 0, verified: 0, pending: 0 });
   const [searchQuery, setSearchQuery] = useState('');
+  const [docOpen, setDocOpen] = useState(false);
+  const [docUrl, setDocUrl] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         // Fetch Plan Details
-        const planData = await n8nService.getInstitutionPlan('inst-123');
+        const planData = await n8nService.getInstitutionPlan(String(user?.id || user?.universityId || 'inst-123'));
         setCurrentPlan(planData.details);
         setEmissionsUsed(planData.emissionsUsed);
         setSelectedNetworks(planData.details.networks);
@@ -130,8 +135,18 @@ function EnhancedInstitutionDashboard({ demo = false }) {
         // Intentar cargar datos reales si hay token
         if (token && !demo) {
              try {
-                 const creds = await institutionService.getIssuedCredentials(token);
-                 setCredentials(creds || []);
+                const creds = await institutionService.getIssuedCredentials(token);
+                 const normalized = Array.isArray(creds) ? creds.map(c => ({
+                   ...c,
+                   title: c.title || c.degree || c.courseName || c.metadata?.degree || 'Título',
+                   type: c.type || c.credentialType || 'titulo'
+                 })) : [];
+                 const ordered = [...normalized].sort((a, b) => {
+                   const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                   const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                   return db - da;
+                 });
+                 setCredentials(ordered);
                  setStats({
                     totalCredentials: creds.length,
                     totalTokens: new Set(creds.map(c => c.tokenId)).size,
@@ -141,7 +156,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                  console.warn("Could not fetch real data, using fallback", err);
                  // Fallback mock data to prevent empty dashboard
                  setCredentials([
-                    { studentName: 'Estudiante Demo', title: 'Certificado de Prueba', id: '0.0.12345', status: 'confirmed' }
+                    { studentName: 'Estudiante Demo', title: 'Título de Prueba', id: '0.0.12345', status: 'confirmed', type: 'titulo' }
                  ]);
              }
         } else {
@@ -149,9 +164,9 @@ function EnhancedInstitutionDashboard({ demo = false }) {
             await new Promise(r => setTimeout(r, 800)); // Simulate network
             setStats({ totalCredentials: 1240, totalTokens: 3, totalRecipients: 850 });
             setCredentials([
-                { studentName: 'Ana García', title: 'Ingeniería de Software', id: '0.0.123456', status: 'confirmed' },
-                { studentName: 'Carlos López', title: 'Arquitectura', id: '0.0.789012', status: 'confirmed' },
-                { studentName: 'Maria Rodriguez', title: 'Master en Data Science', id: '0.0.456789', status: 'confirmed' }
+                { studentName: 'Ana García', title: 'Título: Ingeniería de Software', id: '0.0.123456', status: 'confirmed', type: 'titulo', createdAt: new Date().toISOString() },
+                { studentName: 'Carlos López', title: 'Título: Arquitectura', id: '0.0.789012', status: 'confirmed', type: 'titulo', createdAt: new Date(Date.now() - 86400000).toISOString() },
+                { studentName: 'Maria Rodriguez', title: 'Título: Master en Data Science', id: '0.0.456789', status: 'confirmed', type: 'titulo', createdAt: new Date(Date.now() - 2*86400000).toISOString() }
             ]);
         }
         try {
@@ -289,7 +304,53 @@ function EnhancedInstitutionDashboard({ demo = false }) {
             <CreditRecharge />
           </motion.div>
         );
-      case 'credenciales':
+      case 'credenciales': {
+        const filteredCredentials = (searchQuery ? credentials.filter(x => {
+          const q = String(searchQuery || '').toLowerCase().trim();
+          const fields = [
+            String(x.studentName || '').toLowerCase(),
+            String(x.title || '').toLowerCase(),
+            String(x.tokenId || x.id || '').toLowerCase(),
+            String(x.serialNumber || '').toLowerCase(),
+            String(x.uniqueHash || '').toLowerCase(),
+            String(x.ipfsURI || '').toLowerCase(),
+            String(x.externalProofs?.hederaTx || '').toLowerCase(),
+            String(x.externalProofs?.xrpTxHash || '').toLowerCase(),
+            String(x.externalProofs?.algoTxId || '').toLowerCase()
+          ];
+          const match = fields.some(v => v.includes(q));
+          if (!match) return false;
+          const st = String(x.status || '').toLowerCase();
+          const tp = String(x.type || x.credentialType || '').toLowerCase();
+          if (statusFilter === 'all') return true;
+          if (statusFilter === 'verified') return st === 'verified';
+          if (statusFilter === 'pending') return st === 'pending';
+          if (statusFilter === 'revoked') return st === 'revoked';
+          if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
+          if (typeFilter === 'all') return true;
+          if (typeFilter === 'titulo') return tp === 'titulo' || tp === 'degree';
+          if (typeFilter === 'certificado') return tp.includes('cert');
+          if (typeFilter === 'otro') return tp && tp !== 'titulo' && !tp.includes('cert');
+          return false;
+        }) : credentials.filter(x => {
+          const st = String(x.status || '').toLowerCase();
+          const tp = String(x.type || x.credentialType || '').toLowerCase();
+          if (statusFilter === 'all') return true;
+          if (statusFilter === 'verified') return st === 'verified';
+          if (statusFilter === 'pending') return st === 'pending';
+          if (statusFilter === 'revoked') return st === 'revoked';
+          if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
+          if (typeFilter === 'all') return true;
+          if (typeFilter === 'titulo') return tp === 'titulo' || tp === 'degree';
+          if (typeFilter === 'certificado') return tp.includes('cert');
+          if (typeFilter === 'otro') return tp && tp !== 'titulo' && !tp.includes('cert');
+          return false;
+        }));
+        const orderedCredentials = [...filteredCredentials].sort((a, b) => {
+          const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return db - da;
+        });
         return (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-panel overflow-hidden">
             <div className="p-6 border-b border-slate-700/50 flex justify-between items-center">
@@ -299,7 +360,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                 <button className="btn-primary text-xs" onClick={() => setActiveTab('emitir')}>Nueva Emisión</button>
               </div>
             </div>
-            <div className="px-6 py-3 flex items-center gap-3 border-b border-slate-800/60">
+            <div className="px-6 py-3 flex flex-wrap items-center gap-3 border-b border-slate-800/60">
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/30" title="Totales (global)">
                 Revocadas (Total): <strong>{globalStats.revoked}</strong>
               </span>
@@ -313,67 +374,49 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                 Pendientes (Total): <strong>{globalStats.pending}</strong>
               </span>
               <input
-                className="input-primary ml-auto w-72"
+                className="input-primary w-full md:w-72 md:ml-auto"
                 placeholder="Buscar por nombre, hash, tokenId, serial o id"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-              <select className="input-primary w-48" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                <option value="all">Todas</option>
-                <option value="verified">Verificadas</option>
-                <option value="pending">Pendientes</option>
-                <option value="revoked">Revocadas</option>
-                <option value="confirmed">Confirmadas</option>
+              <select className="input-primary w-full md:w-40" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="all">Estado: Todas</option>
+                <option value="verified">Solo verificadas</option>
+                <option value="pending">Solo pendientes</option>
+                <option value="revoked">Solo revocadas</option>
+                <option value="confirmed">Solo confirmadas</option>
+              </select>
+              <select className="input-primary w-full md:w-40" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                <option value="all">Tipo: Todos</option>
+                <option value="titulo">Solo títulos</option>
+                <option value="certificado">Solo certificados</option>
+                <option value="otro">Otros</option>
               </select>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto hidden md:block">
               <table className="w-full text-sm text-left">
                 <thead className="bg-white/5 text-slate-400">
                   <tr>
                     <th className="px-6 py-4">Estudiante</th>
                     <th className="px-6 py-4">Título</th>
-                    <th className="px-6 py-4">ID Transacción</th>
+                    <th className="px-6 py-4 hidden md:table-cell">ID Transacción</th>
+                    <th className="px-6 py-4 hidden md:table-cell">Tipo</th>
                     <th className="px-6 py-4">Fecha</th>
                     <th className="px-6 py-4">Estado</th>
                     <th className="px-6 py-4">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {(searchQuery ? credentials.filter(x => {
-                    const q = String(searchQuery || '').toLowerCase().trim();
-                    const fields = [
-                      String(x.studentName || '').toLowerCase(),
-                      String(x.title || '').toLowerCase(),
-                      String(x.tokenId || x.id || '').toLowerCase(),
-                      String(x.serialNumber || '').toLowerCase(),
-                      String(x.uniqueHash || '').toLowerCase(),
-                      String(x.ipfsURI || '').toLowerCase(),
-                      String(x.externalProofs?.hederaTx || '').toLowerCase(),
-                      String(x.externalProofs?.xrpTxHash || '').toLowerCase(),
-                      String(x.externalProofs?.algoTxId || '').toLowerCase()
-                    ];
-                    const match = fields.some(v => v.includes(q));
-                    if (!match) return false;
-                    const st = String(x.status || '').toLowerCase();
-                    if (statusFilter === 'all') return true;
-                    if (statusFilter === 'verified') return st === 'verified';
-                    if (statusFilter === 'pending') return st === 'pending';
-                    if (statusFilter === 'revoked') return st === 'revoked';
-                    if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
-                    return true;
-                  }) : credentials.filter(x => {
-                    const st = String(x.status || '').toLowerCase();
-                    if (statusFilter === 'all') return true;
-                    if (statusFilter === 'verified') return st === 'verified';
-                    if (statusFilter === 'pending') return st === 'pending';
-                    if (statusFilter === 'revoked') return st === 'revoked';
-                    if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
-                    return true;
-                  })).map((cred, idx) => (
+                  {orderedCredentials.map((cred, idx) => (
                     <tr key={idx} className="hover:bg-white/5 transition-colors">
                       <td className="px-6 py-4 font-medium text-white">{cred.studentName || 'Anon'}</td>
                       <td className="px-6 py-4 text-slate-300">{cred.title}</td>
-                      <td className="px-6 py-4 font-mono text-xs text-slate-500">{cred.id || 'N/A'}</td>
+                      <td className="px-6 py-4 font-mono text-xs text-slate-500 hidden md:table-cell">{cred.id || 'N/A'}</td>
+                      <td className="px-6 py-4 hidden md:table-cell">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] border border-slate-600 text-slate-200">
+                          {String(cred.type || 'titulo').toLowerCase().includes('cert') ? 'Certificado' : 'Título'}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 text-slate-400">{cred.createdAt ? new Date(cred.createdAt).toLocaleDateString() : 'Hoy'}</td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${
@@ -389,7 +432,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                       <td className="px-6 py-4">
                         <div className="flex gap-2">
                           {cred.status !== 'verified' && (
-                            <button
+                          <button
                               className="btn-secondary btn-sm border-green-400/40 text-green-400 hover:bg-green-500/10"
                               onClick={async () => {
                                 await n8nService.requestCredentialVerification({ tokenId: cred.tokenId || cred.id, serialNumber: String(cred.serialNumber || 1), role: 'institution' });
@@ -407,6 +450,20 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                               Solicitar verificación
                             </button>
                           )}
+                          <button
+                            className="btn-secondary btn-sm border-slate-500/40 text-slate-200 hover:bg-slate-500/10"
+                            onClick={() => {
+                              const url = toGateway(cred.ipfsURI);
+                              if (!url) {
+                                toast.error('Este registro aún no tiene documento en IPFS');
+                                return;
+                              }
+                              setDocUrl(url);
+                              setDocOpen(true);
+                            }}
+                          >
+                            Ver documento
+                          </button>
                           <button
                             className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10"
                             onClick={() => { setSelectedCred(cred); setRevokeReason(''); setRevokeOpen(true); }}
@@ -433,15 +490,115 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                       </td>
                     </tr>
                   ))}
-                  {credentials.length === 0 && (
+                  {filteredCredentials.length === 0 && (
                     <tr>
-                      <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
+                      <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
                         No hay credenciales emitidas aún.
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
+            </div>
+              <div className="md:hidden px-4 py-4 space-y-4">
+              {orderedCredentials.map((cred, idx) => (
+                <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-2">
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <div className="font-semibold text-white">{cred.studentName || 'Anon'}</div>
+                      <div className="text-sm text-slate-300">{cred.title}</div>
+                      <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] border border-slate-600 text-slate-300">
+                        {String(cred.type || 'titulo').toLowerCase().includes('cert') ? 'Certificado' : 'Título'}
+                      </div>
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] border ${
+                      String(cred.status || '').toLowerCase() === 'revoked'
+                        ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                        : String(cred.status || '') === 'pending'
+                          ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                          : 'bg-green-500/20 text-green-400 border-green-500/30'
+                    }`}>
+                      {String(cred.status || '').toLowerCase() === 'revoked' ? 'Revocada' : (cred.status === 'verified' ? 'Verificado' : (cred.status === 'pending' ? 'Pendiente' : 'Confirmado'))}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-500 flex flex-col gap-1">
+                    <span>Fecha: {cred.createdAt ? new Date(cred.createdAt).toLocaleDateString() : 'Hoy'}</span>
+                    {(
+                      (cred.tokenId && cred.serialNumber) ||
+                      cred.tokenId ||
+                      cred.id
+                    ) && (
+                      <span className="font-mono truncate">
+                        Hedera ID: {cred.tokenId && cred.serialNumber
+                          ? `${cred.tokenId}-${cred.serialNumber}`
+                          : (cred.tokenId || cred.id)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {cred.status !== 'verified' && (
+                      <button
+                        className="btn-secondary btn-sm border-green-400/40 text-green-400 hover:bg-green-500/10 flex-1 min-w-[140px]"
+                        onClick={async () => {
+                          await n8nService.requestCredentialVerification({ tokenId: cred.tokenId || cred.id, serialNumber: String(cred.serialNumber || 1), role: 'institution' });
+                          setCredentials(prev => prev.map(c => (c === cred) ? { ...c, status: 'pending' } : c));
+                          try { 
+                            let issuerId = ''; 
+                            try { issuerId = String(user?.id || user?.universityId || ''); } catch {} 
+                            await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
+                              if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) }); 
+                            }); 
+                          } catch {}
+                          alert('Solicitud de verificación enviada a n8n. Estado: Pendiente');
+                        }}
+                      >
+                        Solicitar verificación
+                      </button>
+                    )}
+                    <button
+                      className="btn-secondary btn-sm border-slate-500/40 text-slate-200 hover:bg-slate-500/10 flex-1 min-w-[100px]"
+                      onClick={() => {
+                        const url = toGateway(cred.ipfsURI);
+                        if (!url) {
+                          toast.error('Este registro aún no tiene documento en IPFS');
+                          return;
+                        }
+                        setDocUrl(url);
+                        setDocOpen(true);
+                      }}
+                    >
+                      Ver documento
+                    </button>
+                    <button
+                      className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10 flex-1 min-w-[100px]"
+                      onClick={() => { setSelectedCred(cred); setRevokeReason(''); setRevokeOpen(true); }}
+                    >
+                      Revocar
+                    </button>
+                    <button
+                      className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10 flex-1 min-w-[100px]"
+                      onClick={async () => {
+                        await n8nService.deleteCredential({ tokenId: cred.tokenId || cred.id, serialNumber: String(cred.serialNumber || 1) });
+                        setCredentials(prev => prev.filter(c => c !== cred));
+                        try { 
+                          let issuerId = ''; 
+                          try { issuerId = String(user?.id || user?.universityId || ''); } catch {} 
+                          await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
+                            if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) }); 
+                          }); 
+                        } catch {}
+                      }}
+                    >
+                      Borrar
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {filteredCredentials.length === 0 && (
+                <div className="text-slate-500 text-center py-8 text-sm">
+                  No hay credenciales emitidas aún.
+                </div>
+              )}
             </div>
             {revokeOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -487,98 +644,133 @@ function EnhancedInstitutionDashboard({ demo = false }) {
             )}
           </motion.div>
         );
+      }
       case 'emitir':
       default:
         return (
           <>
             {renderLimitBanner()}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Left Column: Form */}
-              <div>
-                <div className="glass-panel p-1 rounded-xl">
-                  <IssueTitleForm 
-                    demo={demo || connectionStatus === 'demo'} 
-                    networks={selectedNetworks} 
-                    plan={currentPlan}
-                    emissionsUsed={emissionsUsed}
-                    onEmissionComplete={(count) => {
-                      setEmissionsUsed(prev => prev + count);
-                      (async () => {
-                        try {
-                          const issuerId = String(user?.id || user?.universityId || '');
-                          const s = await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
-                          if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
-                        } catch {}
-                      })();
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Right Column: Quick Actions & Batch */}
-              <div className="space-y-6">
-                <div 
-                  className="glass-card p-6 relative overflow-hidden group cursor-pointer"
-                  onClick={() => setActiveTab('masiva')}
+            <div className="flex justify-between items-center mb-4">
+              <div className="inline-flex items-center bg-slate-900 rounded-full p-1 border border-slate-700 shadow-inner">
+                <button
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all ${
+                    issuanceMode === 'individual'
+                      ? 'bg-cyan-500 text-black shadow-md'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                  onClick={() => setIssuanceMode('individual')}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl opacity-20 group-hover:opacity-40 blur transition duration-500"></div>
-
-                  <div className="relative z-10">
-                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-white">
-                      <span className="text-cyan-400 text-xl animate-pulse">⚡</span>
-                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">Emisión Masiva</span>
-                    </h3>
-                    <div className="border-2 border-dashed border-slate-600/50 rounded-xl p-8 text-center hover:border-cyan-500/50 transition-all bg-black/40 backdrop-blur-sm group-hover:bg-black/60">
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800/50 flex items-center justify-center border border-slate-700 group-hover:border-cyan-500/50 group-hover:scale-110 transition-all duration-300">
-                        <span className="text-3xl">📄</span>
-                      </div>
-                      <p className="text-slate-200 font-medium mb-1">Arrastra PDF o Excel aquí</p>
-                      <p className="text-xs text-slate-500 mb-4">Certificación instantánea en lote</p>
-                      <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-lg border border-slate-600 hover:border-cyan-500 transition-all shadow-lg hover:shadow-cyan-500/20">
-                        Ir a Emisión Masiva
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div 
-                    className="glass-card p-4 cursor-pointer hover:bg-white/5 transition-all group"
-                    onClick={() => setActiveTab('narrativas')}
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="p-2 bg-purple-500/20 rounded-lg text-purple-400 group-hover:scale-110 transition-transform">
-                        <span className="text-xl">📖</span>
-                      </div>
-                      <h3 className="font-bold text-white text-sm">Narrativas</h3>
-                    </div>
-                    <p className="text-xs text-slate-400">Configura relatos y mensajes personalizados.</p>
-                  </div>
-
-                  <div 
-                    className="glass-card p-4 cursor-pointer hover:bg-white/5 transition-all group"
-                    onClick={() => setActiveTab('designer')}
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="p-2 bg-pink-500/20 rounded-lg text-pink-400 group-hover:scale-110 transition-transform">
-                        <span className="text-xl">🎨</span>
-                      </div>
-                      <h3 className="font-bold text-white text-sm">Studio</h3>
-                    </div>
-                    <p className="text-xs text-slate-400">Diseña diplomas y certificados holográficos.</p>
-                  </div>
-                </div>
-
-                <div className="glass-card p-6">
-                  <h3 className="text-lg font-bold mb-4 text-white">Acciones Rápidas</h3>
-                  <div className="flex flex-wrap gap-2">
-                    <button className="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-slate-200 border border-slate-600 transition-colors" onClick={() => setActiveTab('designer')}>Diseñar Nuevo Título</button>
-                    <button className="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-slate-200 border border-slate-600 transition-colors" onClick={() => setActiveTab('recargar')}>Recargar Saldo</button>
-                  </div>
-                </div>
+                  Emitir 1 Credencial
+                </button>
+                <button
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all ${
+                    issuanceMode === 'mass'
+                      ? 'bg-purple-500 text-white shadow-md'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                  onClick={() => setIssuanceMode('mass')}
+                >
+                  Emisión Masiva (Excel)
+                </button>
+              </div>
+              <div className="hidden md:flex items-center gap-2 text-xs text-slate-400">
+                <span className="uppercase tracking-widest text-slate-500">Modo</span>
+                <span className="px-2 py-1 rounded-full bg-slate-900 border border-slate-700 text-primary-300 font-mono">
+                  {issuanceMode === 'individual' ? 'INDIVIDUAL' : 'MASIVO'}
+                </span>
               </div>
             </div>
+
+            {issuanceMode === 'individual' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                  <div className="glass-panel p-1 rounded-xl">
+                    <IssueTitleForm 
+                      demo={demo || connectionStatus === 'demo'} 
+                      networks={selectedNetworks} 
+                      plan={currentPlan}
+                      emissionsUsed={emissionsUsed}
+                      institutionName={institutionName || user?.universityName || user?.institutionName || user?.name || ''}
+                      issuerId={String(user?.id || user?.universityId || '')}
+                      onEmissionComplete={(count) => {
+                        setEmissionsUsed(prev => prev + count);
+                        (async () => {
+                          try {
+                            const issuerId = String(user?.id || user?.universityId || '');
+                            const s = await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
+                            if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
+                          } catch {}
+                        })();
+                      }}
+                      onOpenDesigner={() => setActiveTab('designer')}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div 
+                    className="glass-card p-6 relative overflow-hidden group cursor-pointer"
+                    onClick={() => setIssuanceMode('mass')}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl opacity-20 group-hover:opacity-40 blur transition duration-500"></div>
+
+                    <div className="relative z-10">
+                      <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-white">
+                        <span className="text-cyan-400 text-xl animate-pulse">📚</span>
+                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">Emisión Masiva con Excel</span>
+                      </h3>
+                      <p className="text-slate-300 text-sm mb-4">
+                        Si tienes muchos estudiantes, prepara un archivo Excel/CSV y emite todas las credenciales en un solo flujo guiado.
+                      </p>
+                      <ul className="text-xs text-slate-400 space-y-1">
+                        <li>• Ideal para graduaciones o cohortes completas</li>
+                        <li>• Validación previa con IA y vista previa</li>
+                        <li>• Opcional: envío por email y QR para cada alumno</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="glass-card p-6">
+                    <h3 className="text-lg font-bold mb-4 text-white">Acciones Rápidas</h3>
+                    <div className="flex flex-wrap gap-2">
+                      <button className="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-slate-200 border border-slate-600 transition-colors" onClick={() => setActiveTab('designer')}>Diseñar Nuevo Título</button>
+                      <button className="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-slate-200 border border-slate-600 transition-colors" onClick={() => setActiveTab('recargar')}>Recargar Saldo</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="glass-panel p-6">
+                <h2 className="text-2xl font-bold mb-4 text-white flex items-center gap-2">
+                  <span className="text-purple-400 text-xl">📚</span>
+                  Emisión Masiva de Credenciales
+                </h2>
+                <p className="text-slate-300 text-sm mb-4">
+                  Sube un archivo Excel o CSV con una fila por estudiante. El sistema te guiará paso a paso: carga, configuración, vista previa y emisión en lote.
+                </p>
+                <div className="mb-6 p-4 rounded-lg bg-slate-900/60 border border-slate-700">
+                  <h3 className="text-xs font-bold text-slate-200 mb-2 uppercase tracking-widest">
+                    ¿Qué debe contener tu Excel?
+                  </h3>
+                  <p className="text-xs text-slate-300 mb-2">
+                    Orden recomendado de columnas:
+                  </p>
+                  <ul className="text-xs text-slate-400 list-disc list-inside space-y-1">
+                    <li><strong>firstName</strong> – Nombre del estudiante</li>
+                    <li><strong>lastName</strong> – Apellidos</li>
+                    <li><strong>studentId</strong> – Matrícula o identificador interno</li>
+                    <li><strong>degree</strong> – Nombre del título o programa</li>
+                    <li><strong>major</strong> – Especialidad (opcional)</li>
+                    <li><strong>gpa</strong> – Nota final o promedio (opcional)</li>
+                    <li><strong>graduationDate</strong> – Fecha de graduación (YYYY-MM-DD)</li>
+                    <li><strong>email</strong> – Email del alumno para notificaciones</li>
+                    <li><strong>honors</strong> – Menciones especiales (opcional)</li>
+                  </ul>
+                </div>
+                <BatchIssuance demo={demo} />
+              </div>
+            )}
           </>
         );
     }
@@ -587,7 +779,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#030014]"><div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-cyan-500 shadow-neon-blue"></div></div>;
 
   return (
-    <div className="h-screen text-slate-100 flex overflow-hidden relative font-sans selection:bg-cyan-500/30">
+    <div className="min-h-screen text-slate-100 flex flex-col md:flex-row overflow-hidden md:overflow-hidden relative font-sans selection:bg-cyan-500/30">
       <CyberBackground />
       <Toaster position="bottom-right" toastOptions={{ style: { background: 'rgba(15, 23, 42, 0.9)', color: '#fff', border: '1px solid rgba(51, 65, 85, 0.5)', backdropFilter: 'blur(10px)' } }} />
 
@@ -674,7 +866,12 @@ function EnhancedInstitutionDashboard({ demo = false }) {
             <button
               key={item.id}
               onClick={() => {
-                setActiveTab(item.id);
+                if (item.id === 'masiva') {
+                  setActiveTab('emitir');
+                  setIssuanceMode('mass');
+                } else {
+                  setActiveTab(item.id);
+                }
                 setSidebarOpen(false);
               }}
               className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 transition-colors ${activeTab === item.id ? 'bg-white/10 border border-white/10 shadow-neon-blue' : ''} ${item.color || 'text-slate-300'}`}
@@ -771,6 +968,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
             />
         )}
       </AnimatePresence>
+      <DocumentViewer open={docOpen} src={docUrl} title="Documento" onClose={() => setDocOpen(false)} />
     </div>
   );
 }

@@ -72,8 +72,7 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
     addToHedera: true,
     generateQR: true,
     sendEmail: false,
-    template: 'default',
-    tokenId: '0.0.123456',
+    template: '',
     customMessage: ''
   });
   const [preSignTemplates, setPreSignTemplates] = useState([]);
@@ -108,8 +107,11 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
     }
     
     const activeId = localStorage.getItem('activeTemplateId');
-    if (activeId && saved.find(t => t.id === activeId)) {
+    const hasActive = activeId && saved.find(t => t.id === activeId);
+    if (hasActive) {
         setIssuanceConfig(prev => ({ ...prev, template: activeId }));
+    } else if (saved.length > 0) {
+        setIssuanceConfig(prev => ({ ...prev, template: saved[0].id }));
     }
   }, []);
 
@@ -117,19 +119,19 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
     const items = [];
     const prepared = Array.isArray(processResult?.data?.prepared) ? processResult.data.prepared : [];
     for (const p of prepared) {
-      const tokenId = issuanceConfig.tokenId;
+      const tokenId = p?.tokenId || p?.mint?.tokenId;
       const serialNumber = p?.mint?.serialNumber;
       if (tokenId && serialNumber) items.push({ tokenId, serialNumber, source: 'prepared' });
     }
     const verified = Array.isArray(processResult?.data?.verified) ? processResult.data.verified : [];
     for (const v of verified) {
-      const tokenId = v?.credential?.tokenId || v?.tokenId || issuanceConfig.tokenId;
+      const tokenId = v?.credential?.tokenId || v?.tokenId;
       const serialNumber = v?.credential?.serialNumber || v?.serialNumber || v?.mint?.serialNumber;
       if (tokenId && serialNumber) items.push({ tokenId, serialNumber, source: 'verified' });
     }
     const results = Array.isArray(processResult?.data?.results) ? processResult.data.results : [];
     for (const r of results) {
-      const tokenId = r?.tokenId || issuanceConfig.tokenId;
+      const tokenId = r?.tokenId;
       const serialNumber = r?.mint?.serialNumber || r?.serialNumber;
       if (tokenId && serialNumber) items.push({ tokenId, serialNumber, source: 'result' });
     }
@@ -496,7 +498,6 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
       // Unified Batch Processing via n8n
       // This handles all networks (Hedera, XRP, etc.) centrally
       const batchData = {
-        tokenId: issuanceConfig.tokenId,
         credentials: credentials.map(c => c.credential),
         institution: issuanceConfig.institution,
         templateId: issuanceConfig.template,
@@ -607,15 +608,6 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
               <p className="text-sm text-gray-500 mt-4">
                 Formatos soportados: CSV, Excel (.xlsx, .xls)
               </p>
-              
-              <div className="mt-6 text-left bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium text-gray-800 mb-2">Estructura esperada del CSV:</h4>
-                <pre className="text-xs text-gray-600 bg-white p-3 rounded border">
-{`firstName,lastName,studentId,degree,major,gpa,graduationDate
-Juan,Pérez,2023001,Ingeniería Civil,Construcción,3.8,2023-12-15
-María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
-                </pre>
-              </div>
             </div>
           </div>
         );
@@ -638,19 +630,32 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Plantilla de Diseño
                   </label>
-                  <select
-                    value={issuanceConfig.template}
-                    onChange={(e) => setIssuanceConfig(prev => ({
-                      ...prev,
-                      template: e.target.value
-                    }))}
-                    className="input-primary"
-                  >
-                    <option value="default">Por defecto</option>
-                    {availableTemplates.map(t => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
+                  {availableTemplates.length === 0 ? (
+                    <select
+                      value={issuanceConfig.template || 'default'}
+                      onChange={(e) => setIssuanceConfig(prev => ({
+                        ...prev,
+                        template: e.target.value
+                      }))}
+                      className="input-primary"
+                    >
+                      <option value="default">Por defecto</option>
+                    </select>
+                  ) : (
+                    <select
+                      value={issuanceConfig.template}
+                      onChange={(e) => setIssuanceConfig(prev => ({
+                        ...prev,
+                        template: e.target.value
+                      }))}
+                      className="input-primary"
+                    >
+                      <option value="">Selecciona una plantilla guardada</option>
+                      {availableTemplates.map(t => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>
@@ -684,22 +689,6 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
                       institution: e.target.value
                     }))}
                     placeholder="Nombre de la institución"
-                    className="input-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Token ID
-                  </label>
-                  <input
-                    type="text"
-                    value={issuanceConfig.tokenId}
-                    onChange={(e) => setIssuanceConfig(prev => ({
-                      ...prev,
-                      tokenId: e.target.value
-                    }))}
-                    placeholder="0.0.xxxxxx"
                     className="input-primary"
                   />
                 </div>
@@ -856,7 +845,13 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
               
               <button
                 onClick={handleGeneratePreview}
-                disabled={!fileData || !fileData.rowCount || !issuanceConfig.institution || !issuanceConfig.tokenId || isProcessing}
+                disabled={
+                  !fileData ||
+                  !fileData.rowCount ||
+                  !issuanceConfig.institution ||
+                  (availableTemplates.length > 0 && !issuanceConfig.template) ||
+                  isProcessing
+                }
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isProcessing ? 'Generando...' : 'Generar Vista Previa →'}
@@ -1098,7 +1093,7 @@ María,González,2023002,Medicina,Cardiología,3.9,2023-12-15`}
               {(() => {
                 const prepared = Array.isArray(processResult?.data?.prepared) ? processResult.data.prepared : [];
                 const last = prepared[prepared.length - 1] || null;
-                const tokenId = issuanceConfig?.tokenId || last?.tokenId || '';
+                const tokenId = last?.tokenId || '';
                 const serial = last?.mint?.serialNumber || last?.serialNumber || '';
                 if (!tokenId || !serial) return null;
                 const params = new URLSearchParams();
