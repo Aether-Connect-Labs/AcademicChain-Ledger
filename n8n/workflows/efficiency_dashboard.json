@@ -1,0 +1,35 @@
+{
+  "name": "ACL - Efficiency Dashboard",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "metrics/log",
+        "options": {}
+      },
+      "id": "metrics-webhook",
+      "name": "Webhook Métricas",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "database": "academic_chain",
+        "collection": "metrics_log",
+        "fields": ["timestamp", "source", "saved_cost"]
+      },
+      "id": "mongo-save",
+      "name": "Guardar en MongoDB",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [250, 0]
+    }
+  ],
+  "connections": {
+    "Webhook Métricas": {
+      "main": [[{"node": "Guardar en MongoDB", "type": "main", "index": 0}]]
+    }
+  }
+}

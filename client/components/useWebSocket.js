@@ -20,8 +20,8 @@ const guessLocal = (() => {
   try {
     const u = new URL(window.location.origin);
     const host = u.hostname || 'localhost';
-    return [`http://${host}:3001`, `http://${host}:3002`];
-  } catch { return ['http://localhost:3001','http://localhost:3002']; }
+    return [`http://${host}:3000`, `http://${host}:3001`, `http://${host}:3002`, 'ws://127.0.0.1:18789'];
+  } catch { return ['http://localhost:3000', 'http://localhost:3001','http://localhost:3002', 'ws://127.0.0.1:18789']; }
 })();
 const CANDIDATES = primary ? [primary, ...guessLocal] : guessLocal;
 

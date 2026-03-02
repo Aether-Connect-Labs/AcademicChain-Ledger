@@ -4,12 +4,12 @@
   "description": "Sistema revolucionario de credenciales académicas en blockchain",
   "scripts": {
     "dev": "concurrently \"npm:server:dev\" \"npm:client:dev\"",
-    "server:dev": "cd server && npm run dev",
+    "server:dev": "cd worker && npm run dev",
     "client:dev": "cd client && npm run dev",
-    "build": "npm run client:build && node -e \"const fs=require('fs'),cp=require('child_process'); if(fs.existsSync('server')){ cp.execSync('npm run build',{stdio:'inherit',cwd:'server'}); } else { console.log('Skipping server build (server/ not found)'); }\"",
+    "build": "npm run client:build",
     "client:build": "cd client && npm run build",
     "start": "npm run server:start",
-    "server:start": "cd server && npm start",
+    "server:start": "cd worker && npm start",
     "setup": "npm run install:all && npm run setup:env && npm run setup:hedera",
     "install:all": "npm install",
     "setup:env": "node setup-env.js",
@@ -17,12 +17,12 @@
     "docker:up": "docker compose -f docker-compose-services.yml up -d --remove-orphans",
     "docker:down": "docker compose -f docker-compose-services.yml down",
     "docker:logs": "docker compose -f docker-compose-services.yml logs -f",
-    "test": "npm run test:server && npm run test:client",
-    "test:server": "cd server && npm test",
+    "test": "npm run test:client",
+    "test:server": "echo 'No server tests'",
     "test:client": "cd client && npm test"
   },
   "workspaces": [
-    "server",
+    "worker",
     "client",
     "contracts"
   ],

@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: academicchain-backend
+  labels:
+    app: academicchain-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: academicchain-backend
+  template:
+    metadata:
+      labels:
+        app: academicchain-backend
+    spec:
+      containers:
+      - name: academicchain-backend
+        image: academicchain-backend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PORT
+          value: "3000"
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        - name: N8N_WEBHOOK_URL
+          value: "http://academicchain-n8n:5678/webhook"
+        - name: JWT_SECRET
+          value: "academic-chain-ledger-secret-key-2024" # Should use Secrets in prod
+        - name: ACL_AUTH_KEY
+          value: "some-secret-key" # Should use Secrets in prod

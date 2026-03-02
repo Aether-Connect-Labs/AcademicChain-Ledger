@@ -15,27 +15,33 @@ export default {
     if (url.pathname.startsWith("/api/")) {
       return handleApi(request, env, corsHeaders, url);
     }
-    if (request.method !== "POST") {
+    // Permitir GET y POST para el proxy genérico (necesario para n8n Chat Trigger y webhooks)
+    if (request.method !== "POST" && request.method !== "GET") {
       return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
     }
-    let payload;
-    try {
-      payload = await request.json();
-    } catch {
-      return new Response("Bad Request", { status: 400, headers: corsHeaders });
+    let payload = {};
+    if (request.method === "POST") {
+      try {
+        payload = await request.json();
+      } catch {
+        return new Response("Bad Request", { status: 400, headers: corsHeaders });
+      }
     }
     const endpoint = url.pathname.replace(/^\/+/, "");
     const base = deriveBase(env);
     const target = `${base}/${endpoint || "submit-document"}`;
     try {
-      const res = await fetch(target, {
-        method: "POST",
+      const fetchOptions = {
+        method: request.method,
         headers: {
           "Content-Type": "application/json",
           "X-ACL-AUTH-KEY": env.ACL_AUTH_KEY || ""
-        },
-        body: JSON.stringify(payload)
-      });
+        }
+      };
+      if (request.method === "POST") {
+        fetchOptions.body = JSON.stringify(payload);
+      }
+      const res = await fetch(target, fetchOptions);
       const text = await res.text();
       return new Response(text, { status: res.status, headers: { ...corsHeaders, "Content-Type": res.headers.get("content-type") || "application/json" } });
     } catch {
@@ -97,6 +103,32 @@ async function handleApi(request, env, corsHeaders, url) {
       return new Response(JSON.stringify(fallback), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
   }
+
+  if (path === "/api/universities/credentials" && request.method === "GET") {
+    // Mock response for credentials list
+    const mockCredentials = {
+      success: true,
+      data: [],
+      meta: { total: 0, page: 1, limit: 10 }
+    };
+    return new Response(JSON.stringify(mockCredentials), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  if (path === "/api/universities/create-token" && request.method === "POST") {
+    // Mock response for token creation
+    return new Response(JSON.stringify({ success: true, message: "Token created (mock)" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  if (path === "/api/universities/execute-issuance" && request.method === "POST") {
+    // Mock response for issuance execution
+    return new Response(JSON.stringify({ success: true, message: "Issuance executed (mock)" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  if (path === "/api/antigravity/test" && request.method === "GET") {
+    // Simulate Firewall Blocking
+    return new Response(JSON.stringify({ error: "Access Denied by Antigravity Firewall", reason: "Suspicious Activity Detected" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
   if (request.method === "GET") {
     return new Response("Not Found", { status: 404, headers: corsHeaders });
   }

@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useAuth } from './useAuth';
 
 /**
  * 🛡️ Live Block Visualizer
  * Futuristic component to visualize Triple Shield Consensus
  */
 const LiveBlockVisualizer = ({ pendingTransaction }) => {
+    const { user } = useAuth();
     const [blocks, setBlocks] = useState([]);
 
     // Simulation of incoming blocks
@@ -88,7 +90,7 @@ const LiveBlockVisualizer = ({ pendingTransaction }) => {
                         transition={{ duration: 0.3 }}
                         className={`p-3 rounded-lg border bg-black/40 backdrop-blur-sm ${getNetworkColor(block.network)} relative overflow-hidden`}
                     >
-                        {block.preview && (
+                        {block.preview && user && ['creator', 'institution', 'university', 'admin'].includes(user.role) && (
                             <img src={URL.createObjectURL(block.preview)} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-20 hover:opacity-40 transition-opacity" />
                         )}
                         <div className="flex justify-between items-center mb-1 relative z-10">

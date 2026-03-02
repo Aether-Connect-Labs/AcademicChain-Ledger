@@ -1,0 +1,103 @@
+{
+  "name": "AI Certificate Designer Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "model": "gpt-4-turbo",
+        "options": {
+          "temperature": 0.7,
+          "systemMessage": "You are an expert Certificate Design Assistant for AcademicChain, a blockchain credentialing platform. \nYour goal is to help users modify certificate designs using natural language commands.\n\nCRITICAL INSTRUCTION:\n- You MUST respect the Institution Name provided in the context: \"{{ $json.institutionName }}\".\n- If the user asks to change the institution name, you should generate a modification for the 'institution-name' element.\n- If the user's request is ambiguous, prioritize professional, academic aesthetics suitable for blockchain verification.\n\nOUTPUT FORMAT:\nYou must output a SINGLE valid JSON object (no markdown, no extra text) with this structure:\n{\n  \"action\": \"modify_design\" | \"create_design\" | \"suggest_template\",\n  \"modifications\": [\n    {\n      \"type\": \"color-theme\" | \"add-element\" | \"update-text\" | \"layout\" | \"template\",\n      \"target\": \"background\" | \"title-main\" | \"institution-name\" | \"student-name\" | \"date\" | \"all\",\n      \"value\": \"string value (for text)\",\n      \"colors\": { \"bg\": \"#hex\", \"primary\": \"#hex\", \"text\": \"#hex\" },\n      \"element\": \"seal\" | \"signature-line\" | \"border\" | \"qr-code\",\n      \"mode\": \"Landscape\" | \"Portrait\",\n      \"templateId\": \"minimal\" | \"blockchain\" | \"holographic-1\" | \"classic\"\n    }\n  ],\n  \"message\": \"A friendly, brief explanation of what you changed (in Spanish).\"\n}\n\nAVAILABLE MODIFICATIONS:\n1. Colors: \"blue\", \"red\", \"green\", \"gold\", \"dark\", \"light\". Returns 'color-theme' type.\n2. Elements: \"seal\", \"signature\", \"border\", \"qr\". Returns 'add-element' type.\n3. Text: \"change title to...\", \"update institution to...\". Returns 'update-text' type.\n4. Layout: \"horizontal\", \"vertical\". Returns 'layout' type.\n5. Templates: \"modern\", \"classic\", \"futuristic\", \"blockchain\". Returns 'template' type.\n\nCONTEXT:\n- Institution: {{ $json.institutionName }}\n- Current Template: {{ $json.currentTemplate }}\n- User Request: {{ $json.userMessage }}"
+        }
+      },
+      "id": "7d9f3b2a-1e4c-4d8b-9a2f-5c6d7e8f9a0b",
+      "name": "AI Design Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-certificate-designer",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2c5a1b3d-4e6f-7g8h-9i0j-1k2l3m4n5o6p",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ],
+      "webhookId": "academic-chain-design-agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "3d6b2c4e-5f7g-8h9i-0j1k-2l3m4n5o6p7q",
+      "name": "Parse Input",
+      "type": "n8n-nodes-base.jsonParse",
+      "typeVersion": 1,
+      "position": [
+        280,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.message ? $json : ($json.choices ? $json.choices[0].message.content : $json) }}",
+        "options": {}
+      },
+      "id": "4e7c3d5f-6g8h-9i0j-1k2l-3m4n5o6p7q8r",
+      "name": "Respond to App",
+      "type": "n8n-nodes-base.webhookResponse",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Input": {
+      "main": [
+        [
+          {
+            "node": "AI Design Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Design Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to App",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

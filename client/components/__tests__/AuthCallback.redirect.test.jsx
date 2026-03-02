@@ -1,11 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 
-jest.mock('../AuthCallback.jsx', () => {
-  const Real = jest.requireActual('../AuthCallback.jsx').default;
-  return Real;
-});
-
 jest.mock('react-router-dom', () => {
   const actual = jest.requireActual('react-router-dom');
   return {
@@ -35,7 +30,7 @@ jest.mock('../useAuth', () => {
   };
 });
 
-const AuthCallback = require('../AuthCallback.jsx').default;
+import AuthCallback from '../AuthCallback.jsx';
 
 describe('AuthCallback redirect mapping', () => {
   const origLocation = window.location;

@@ -75,7 +75,7 @@ TREASURY_PRIVATE_KEY=
 # Frontend permitido (Cloudflare Pages)
 # Ajusta este valor al dominio real de tu proyecto en Cloudflare
 CLIENT_URL=https://academicchain-ledger.pages.dev
-VITE_API_URL=https://profound-uta-aether-connect-labs-b6f74389.koyeb.app
+VITE_API_URL=http://localhost:5678
 `;
 
   const targetPath = 'server/.env';

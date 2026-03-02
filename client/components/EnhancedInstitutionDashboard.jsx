@@ -22,6 +22,7 @@ import InstitutionAnalytics from './InstitutionAnalytics';
 import InstitutionSubscriptionModal from './InstitutionSubscriptionModal';
 import n8nService from './services/n8nService';
 import DocumentViewer from './ui/DocumentViewer';
+import LiveBlockVisualizer from './LiveBlockVisualizer';
 
 // Plan Definitions
 const PLANS = {
@@ -55,22 +56,63 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   const { token, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('emitir'); // 'emitir' | 'masiva' | 'credenciales' | 'designer' | 'recargar'
+  const [activeTab, setActiveTab] = useState('designer'); // Default to Designer as per user request
   const [issuanceMode, setIssuanceMode] = useState('individual'); // 'individual' | 'mass'
   const [connectionStatus, setConnectionStatus] = useState('connected');
   const [aclBalance, setAclBalance] = useState(5000);
   
   // Branding State
-  const [institutionName, setInstitutionName] = useState('Mi Universidad');
+  const [institutionName, setInstitutionName] = useState(() => {
+    // Try to load from localStorage immediately to avoid flicker
+    if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('acl:brand:name');
+        if (saved && saved !== 'Academic Chain Institute') return saved;
+    }
+    return 'AcademicChain Ledger';
+  });
   const [institutionLogo, setInstitutionLogo] = useState('');
   const [isEditingName, setIsEditingName] = useState(false);
+  const [savedDesign, setSavedDesign] = useState(null);
+  const [issueFormData, setIssueFormData] = useState({
+    studentName: '',
+    courseName: '',
+    issueDate: '',
+    grade: '',
+    recipientAccountId: '',
+  });
+  const [activeDesignFile, setActiveDesignFile] = useState(null);
 
   useEffect(() => {
-    const savedName = localStorage.getItem('acl:brand:name');
-    const savedLogo = localStorage.getItem('acl:brand:logo');
-    if (savedName) setInstitutionName(savedName);
-    if (savedLogo) setInstitutionLogo(savedLogo);
-  }, []);
+    if (savedDesign?.file) {
+      setActiveDesignFile(savedDesign.file);
+    }
+  }, [savedDesign]);
+
+  useEffect(() => {
+    // Sync with User Profile (Institution ID 444)
+    if (user?.name || user?.institutionName) {
+        // Enforce the name from the authenticated user
+        // If user is the specific "444" institution or name is numeric/generic, FORCE the name
+        if (user.id === '444' || user.institutionName === 'AcademicChain Ledger' || user.name === '444') {
+             setInstitutionName('AcademicChain Ledger');
+             localStorage.setItem('acl:brand:name', 'AcademicChain Ledger');
+        } else {
+             // For other users, respect localStorage if set, else user name
+             const savedName = localStorage.getItem('acl:brand:name');
+             if (savedName && savedName !== 'Academic Chain Institute') {
+                 setInstitutionName(savedName);
+             } else {
+                 setInstitutionName(user.institutionName || user.name);
+             }
+        }
+    } else {
+        // Fallback for demo/no-user
+        const savedName = localStorage.getItem('acl:brand:name');
+        const savedLogo = localStorage.getItem('acl:brand:logo');
+        if (savedName) setInstitutionName(savedName);
+        if (savedLogo) setInstitutionLogo(savedLogo);
+    }
+  }, [user]);
 
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
@@ -119,6 +161,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [docOpen, setDocOpen] = useState(false);
   const [docUrl, setDocUrl] = useState('');
+  const [docMetadata, setDocMetadata] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
 
@@ -136,11 +179,27 @@ function EnhancedInstitutionDashboard({ demo = false }) {
         if (token && !demo) {
              try {
                 const creds = await institutionService.getIssuedCredentials(token);
-                 const normalized = Array.isArray(creds) ? creds.map(c => ({
+                 // Merge with local credentials from 'con todo' issuance
+                 const localCredsRaw = localStorage.getItem('acl:credentials');
+                 const localCreds = localCredsRaw ? JSON.parse(localCredsRaw) : [];
+                 
+                 // Combine API credentials with Local credentials (deduplicating by ID)
+                 const allCreds = [...(Array.isArray(creds) ? creds : []), ...localCreds];
+                 const uniqueCreds = Array.from(new Map(allCreds.map(item => [item.id || item.tokenId, item])).values());
+
+                 const normalized = uniqueCreds.map(c => ({
                    ...c,
                    title: c.title || c.degree || c.courseName || c.metadata?.degree || 'Título',
-                   type: c.type || c.credentialType || 'titulo'
-                 })) : [];
+                   type: c.type || c.credentialType || 'titulo',
+                   // Ensure we pull from metadata if not at top level
+                   ipfsHash256: c.ipfsHash256 || c.metadata?.ipfsHash256 || c.metadata?.sha256,
+                   ipfsCid: c.ipfsCid || c.metadata?.ipfsCid,
+                   encryptedCid: c.encryptedCid || c.metadata?.encryptedCid, // Ensure encryptedCid is pulled
+                   hederaTxId: c.hederaTxId || c.metadata?.hederaTxId || c.externalProofs?.hederaTx, // Ensure hederaTxId is pulled
+                   xrpHash: c.xrpHash || c.metadata?.xrpHash || c.externalProofs?.xrpTxHash,
+                   algorandHash: c.algorandHash || c.metadata?.algorandHash || c.externalProofs?.algoTxId,
+                   id: c.hederaId || c.metadata?.hederaId || c.id || c.tokenId
+                 }));
                  const ordered = [...normalized].sort((a, b) => {
                    const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
                    const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -162,12 +221,68 @@ function EnhancedInstitutionDashboard({ demo = false }) {
         } else {
             // Mock data for demo mode
             await new Promise(r => setTimeout(r, 800)); // Simulate network
-            setStats({ totalCredentials: 1240, totalTokens: 3, totalRecipients: 850 });
-            setCredentials([
-                { studentName: 'Ana García', title: 'Título: Ingeniería de Software', id: '0.0.123456', status: 'confirmed', type: 'titulo', createdAt: new Date().toISOString() },
-                { studentName: 'Carlos López', title: 'Título: Arquitectura', id: '0.0.789012', status: 'confirmed', type: 'titulo', createdAt: new Date(Date.now() - 86400000).toISOString() },
-                { studentName: 'Maria Rodriguez', title: 'Título: Master en Data Science', id: '0.0.456789', status: 'confirmed', type: 'titulo', createdAt: new Date(Date.now() - 2*86400000).toISOString() }
-            ]);
+            
+            // Load local credentials even in demo mode
+            const localCredsRaw = localStorage.getItem('acl:credentials');
+            const localCreds = localCredsRaw ? JSON.parse(localCredsRaw) : [];
+            
+            const demoCredentials = [
+                { 
+                  studentName: 'Ana García', 
+                  title: 'Título: Ingeniería de Software', 
+                  id: '0.0.123456', 
+                  status: 'confirmed', 
+                  type: 'titulo', 
+                  createdAt: new Date().toISOString(),
+                  ipfsCid: 'QmXyZ12345abcde67890fghij12345klmno67890pqrs',
+                  encryptedCid: 'U2FsdGVkX1+...', // Mock Encrypted CID
+                  ipfsHash256: 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2',
+                  hederaTxId: '0.0.123456@1709876543.123456',
+                  xrpHash: null,
+                  algorandHash: null,
+                  ipfsURI: 'ipfs://QmXyZ12345abcde67890fghij12345klmno67890pqrs',
+                  networkType: 'single' // Hedera Only
+                },
+                { 
+                  studentName: 'Carlos López', 
+                  title: 'Título: Arquitectura', 
+                  id: '0.0.789012', 
+                  status: 'confirmed', 
+                  type: 'titulo', 
+                  createdAt: new Date(Date.now() - 86400000).toISOString(),
+                  ipfsCid: 'QmAbCdEfGhIjKlMnOpQrStUvWxYz1234567890AbCdEf',
+                  encryptedCid: 'U2FsdGVkX1/abcdef...', // Mock Encrypted CID
+                  ipfsHash256: 'f1e2d3c4b5a697887766554433221100f1e2d3c4b5a697887766554433221100',
+                  hederaTxId: '0.0.789012@1709790143.654321',
+                  xrpHash: 'X0Y1Z2A3B4C5D6E7F8G9H0I1J2K3L4M5N6O7P8Q9R0S1T2U3V4W5X6Y7Z8A9B0C1',
+                  algorandHash: null,
+                  ipfsURI: 'ipfs://QmAbCdEfGhIjKlMnOpQrStUvWxYz1234567890AbCdEf',
+                  networkType: 'dual' // Hedera + XRP
+                },
+                { 
+                  studentName: 'Maria Rodriguez', 
+                  title: 'Título: Master en Data Science', 
+                  id: '0.0.456789', 
+                  status: 'confirmed', 
+                  type: 'titulo', 
+                  createdAt: new Date(Date.now() - 2*86400000).toISOString(),
+                  ipfsCid: 'Qm1234567890abcdef1234567890abcdef1234567890',
+                  encryptedCid: 'U2FsdGVkX1+987654...', // Mock Encrypted CID
+                  ipfsHash256: '9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba',
+                  hederaTxId: '0.0.456789@1709703743.987654',
+                  xrpHash: 'R9S0T1U2V3W4X5Y6Z7A8B9C0D1E2F3G4H5I6J7K8L9M0N1O2P3Q4R5S6T7U8V9W0',
+                  algorandHash: 'G3H4I5J6K7L8M9N0O1P2Q3R4S5T6U7V8W9X0Y1Z2A3B4C5D6E7F8G9H0I1J2K3L4',
+                  ipfsURI: 'ipfs://Qm1234567890abcdef1234567890abcdef1234567890',
+                  networkType: 'triple' // Hedera + XRP + Algorand
+                }
+            ];
+            
+            // Combine Demo + Local
+            const combined = [...localCreds, ...demoCredentials];
+            const uniqueCombined = Array.from(new Map(combined.map(item => [item.id || item.tokenId, item])).values());
+            
+            setStats({ totalCredentials: 1240 + localCreds.length, totalTokens: 3 + localCreds.length, totalRecipients: 850 + localCreds.length });
+            setCredentials(uniqueCombined);
         }
         try {
           const issuerId = String(user?.id || user?.universityId || '');
@@ -236,6 +351,59 @@ function EnhancedInstitutionDashboard({ demo = false }) {
     </div>
   );
 
+  const handleExportCSV = () => {
+    // Export all credentials currently loaded
+    const dataToExport = credentials;
+
+    if (!dataToExport || dataToExport.length === 0) {
+      toast.error("No hay datos para exportar");
+      return;
+    }
+
+    const headers = [
+      "Estudiante",
+      "Título",
+      "Fecha Emisión",
+      "Hedera Creation ID (TxID)",
+      "Token ID",
+      "CID (IPFS)",
+      "CID Cifrado (AES)",
+      "Hash Documento (SHA-256)",
+      "XRP Ledger Hash",
+      "Algorand Hash",
+      "Estado"
+    ];
+
+    const rows = dataToExport.map(cred => [
+      cred.studentName || "N/A",
+      cred.title || "N/A",
+      cred.createdAt ? new Date(cred.createdAt).toLocaleDateString() : "N/A",
+      cred.hederaTxId || cred.externalProofs?.hederaTx || "N/A",
+      cred.id || cred.tokenId || "N/A",
+      cred.ipfsCid || (cred.ipfsURI ? cred.ipfsURI.replace("ipfs://", "") : "N/A"),
+      cred.encryptedCid || "N/A",
+      cred.ipfsHash256 || cred.metadata?.ipfsHash256 || "N/A",
+      cred.xrpHash || cred.externalProofs?.xrpTxHash || "N/A",
+      cred.algorandHash || cred.externalProofs?.algoTxId || "N/A",
+      cred.status || "N/A"
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `emisiones_academicchain_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Exportación CSV completada");
+  };
+
   const renderLimitBanner = () => {
     if (currentPlan?.limit !== Infinity && emissionsUsed >= currentPlan?.limit) {
       return (
@@ -273,15 +441,27 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                 {currentPlan?.limit === Infinity ? 'Ilimitado' : `${emissionsUsed} / ${currentPlan?.limit} Títulos`}
               </span>
             </h2>
-            <BatchIssuance demo={demo} plan={currentPlan} />
+            <BatchIssuance 
+              demo={demo} 
+              plan={currentPlan} 
+              emissionsUsed={emissionsUsed}
+              onEmissionComplete={(count) => setEmissionsUsed(prev => prev + count)}
+              institutionName={institutionName}
+            />
           </motion.div>
         );
       case 'designer':
         return (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
              <CertificateDesigner 
+                initialDesign={savedDesign}
+                institutionName={institutionName}
                 onClose={() => setActiveTab('emitir')} 
-                onSave={() => { toast.success('Diseño guardado'); setActiveTab('emitir'); }} 
+                onSave={(file, structure) => { 
+                  setSavedDesign({ file, structure });
+                  toast.success('Diseño guardado'); 
+                  setActiveTab('emitir'); 
+                }} 
                 onNavigate={(tab) => setActiveTab(tab)}
              />
           </motion.div>
@@ -313,6 +493,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
             String(x.tokenId || x.id || '').toLowerCase(),
             String(x.serialNumber || '').toLowerCase(),
             String(x.uniqueHash || '').toLowerCase(),
+            String(x.ipfsHash256 || '').toLowerCase(),
             String(x.ipfsURI || '').toLowerCase(),
             String(x.externalProofs?.hederaTx || '').toLowerCase(),
             String(x.externalProofs?.xrpTxHash || '').toLowerCase(),
@@ -356,7 +537,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
             <div className="p-6 border-b border-slate-700/50 flex justify-between items-center">
               <h3 className="font-bold text-xl text-white">Historial Completo de Emisiones</h3>
               <div className="flex gap-2">
-                <button className="btn-ghost text-xs">Exportar CSV</button>
+                <button className="btn-ghost text-xs" onClick={handleExportCSV}>Exportar CSV</button>
                 <button className="btn-primary text-xs" onClick={() => setActiveTab('emitir')}>Nueva Emisión</button>
               </div>
             </div>
@@ -432,22 +613,10 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                       <td className="px-6 py-4">
                         <div className="flex gap-2">
                           {cred.status !== 'verified' && (
-                          <button
-                              className="btn-secondary btn-sm border-green-400/40 text-green-400 hover:bg-green-500/10"
-                              onClick={async () => {
-                                await n8nService.requestCredentialVerification({ tokenId: cred.tokenId || cred.id, serialNumber: String(cred.serialNumber || 1), role: 'institution' });
-                                setCredentials(prev => prev.map(c => (c === cred) ? { ...c, status: 'pending' } : c));
-                                try { 
-                                  let issuerId = ''; 
-                                  try { issuerId = String(user?.id || user?.universityId || ''); } catch {} 
-                                  await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
-                                    if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) }); 
-                                  }); 
-                                } catch {}
-                                alert('Solicitud de verificación enviada a n8n. Estado: Pendiente');
-                              }}
+                            <button
+                              className="hidden"
+                              onClick={() => {}}
                             >
-                              Solicitar verificación
                             </button>
                           )}
                           <button
@@ -459,6 +628,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                                 return;
                               }
                               setDocUrl(url);
+                              setDocMetadata(cred);
                               setDocOpen(true);
                             }}
                           >
@@ -536,25 +706,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2 pt-2">
-                    {cred.status !== 'verified' && (
-                      <button
-                        className="btn-secondary btn-sm border-green-400/40 text-green-400 hover:bg-green-500/10 flex-1 min-w-[140px]"
-                        onClick={async () => {
-                          await n8nService.requestCredentialVerification({ tokenId: cred.tokenId || cred.id, serialNumber: String(cred.serialNumber || 1), role: 'institution' });
-                          setCredentials(prev => prev.map(c => (c === cred) ? { ...c, status: 'pending' } : c));
-                          try { 
-                            let issuerId = ''; 
-                            try { issuerId = String(user?.id || user?.universityId || ''); } catch {} 
-                            await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
-                              if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) }); 
-                            }); 
-                          } catch {}
-                          alert('Solicitud de verificación enviada a n8n. Estado: Pendiente');
-                        }}
-                      >
-                        Solicitar verificación
-                      </button>
-                    )}
+
                     <button
                       className="btn-secondary btn-sm border-slate-500/40 text-slate-200 hover:bg-slate-500/10 flex-1 min-w-[100px]"
                       onClick={() => {
@@ -692,8 +844,22 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                       emissionsUsed={emissionsUsed}
                       institutionName={institutionName || user?.universityName || user?.institutionName || user?.name || ''}
                       issuerId={String(user?.id || user?.universityId || '')}
+                      initialDesign={savedDesign}
+                      onFileChange={setActiveDesignFile}
+                      formData={issueFormData}
+                      onFormDataChange={setIssueFormData}
+                      onOpenDesigner={() => setActiveTab('designer')}
                       onEmissionComplete={(count) => {
                         setEmissionsUsed(prev => prev + count);
+                        setSavedDesign(null);
+                        setActiveDesignFile(null);
+                        setIssueFormData({
+                          studentName: '',
+                          courseName: '',
+                          issueDate: '',
+                          grade: '',
+                          recipientAccountId: '',
+                        });
                         (async () => {
                           try {
                             const issuerId = String(user?.id || user?.universityId || '');
@@ -702,12 +868,24 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                           } catch {}
                         })();
                       }}
-                      onOpenDesigner={() => setActiveTab('designer')}
-                    />
+        />
                   </div>
                 </div>
 
                 <div className="space-y-6">
+                  <AnimatePresence>
+                    {activeDesignFile && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="glass-panel overflow-hidden"
+                      >
+                        <LiveBlockVisualizer pendingTransaction={{ preview: activeDesignFile }} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <div 
                     className="glass-card p-6 relative overflow-hidden group cursor-pointer"
                     onClick={() => setIssuanceMode('mass')}
@@ -768,7 +946,10 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                     <li><strong>honors</strong> – Menciones especiales (opcional)</li>
                   </ul>
                 </div>
-                <BatchIssuance demo={demo} />
+                <BatchIssuance 
+                  demo={demo} 
+                  institutionName={institutionName}
+                />
               </div>
             )}
           </>
@@ -790,17 +971,15 @@ function EnhancedInstitutionDashboard({ demo = false }) {
         animate={{ x: 0, opacity: 1 }}
         className={`fixed md:static top-0 left-0 h-full w-64 z-50 glass-panel border-r border-slate-700/50 flex flex-col flex-shrink-0 overflow-y-auto ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} transition-transform duration-300`}
       >
-        {/* AcademicChain Branding Header - Matching Global Header Style */}
+        {/* Institution Branding Header */}
         <div className="py-4 px-6 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
            <div className="flex items-center gap-3">
-              <img
-                src={toGateway('ipfs://bafkreicickkyjjn3ztitciypfh635lqowdskzbv54fiqbrhs4zbmwhjv4q')}
-                alt="AcademicChain Logo"
-                className="h-10 w-10 rounded-full shadow-sm object-contain bg-white"
-              />
+              <div className="h-10 w-10 rounded-full shadow-sm bg-indigo-600 flex items-center justify-center text-white font-bold">
+                  {institutionName.substring(0, 2).toUpperCase()}
+              </div>
               <div className="flex flex-col">
-                 <h3 className="text-lg font-bold text-slate-900 leading-none tracking-tight">AcademicChain</h3>
-                 <p className="text-[10px] text-slate-500 font-medium mt-0.5">Impulsado por AcademicChain</p>
+                 <h3 className="text-sm font-bold text-slate-900 leading-none tracking-tight">{institutionName}</h3>
+                 <p className="text-[10px] text-slate-500 font-medium mt-0.5">Panel de Gestión</p>
               </div>
            </div>
         </div>
@@ -856,10 +1035,10 @@ function EnhancedInstitutionDashboard({ demo = false }) {
 
         <nav className="flex-1 p-4 space-y-2">
           {[
+            { id: 'designer', label: 'Diseñador Holográfico', icon: '🎨', color: 'text-purple-400' },
             { id: 'emitir', label: 'Emitir Credencial', icon: '⚡' },
             { id: 'masiva', label: 'Emisión Masiva', icon: '📚' },
-            { id: 'credenciales', label: 'Historial', icon: 'clock' },
-            { id: 'designer', label: 'Diseñador Holográfico', icon: '🎨', color: 'text-purple-400' },
+            { id: 'credenciales', label: 'Historial', icon: '🕰️' },
             { id: 'analiticas', label: 'Mercado & Impacto', icon: '📈', color: 'text-pink-400' },
             { id: 'recargar', label: 'Recargar Gas', icon: '⛽', color: 'text-green-400' }
           ].map(item => (
@@ -869,12 +1048,21 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                 if (item.id === 'masiva') {
                   setActiveTab('emitir');
                   setIssuanceMode('mass');
+                } else if (item.id === 'emitir') {
+                  setActiveTab('emitir');
+                  setIssuanceMode('individual');
                 } else {
                   setActiveTab(item.id);
                 }
                 setSidebarOpen(false);
               }}
-              className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 transition-colors ${activeTab === item.id ? 'bg-white/10 border border-white/10 shadow-neon-blue' : ''} ${item.color || 'text-slate-300'}`}
+              className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 transition-colors ${
+                (item.id === 'masiva' && activeTab === 'emitir' && issuanceMode === 'mass') ||
+                (item.id === 'emitir' && activeTab === 'emitir' && issuanceMode === 'individual') ||
+                (activeTab === item.id && item.id !== 'masiva' && item.id !== 'emitir')
+                  ? 'bg-white/10 border border-white/10 shadow-neon-blue'
+                  : ''
+              } ${item.color || 'text-slate-300'}`}
             >
               <span>{item.icon}</span>
               <span className="font-medium">{item.label}</span>
@@ -968,7 +1156,13 @@ function EnhancedInstitutionDashboard({ demo = false }) {
             />
         )}
       </AnimatePresence>
-      <DocumentViewer open={docOpen} src={docUrl} title="Documento" onClose={() => setDocOpen(false)} />
+      <DocumentViewer 
+        open={docOpen} 
+        src={docUrl} 
+        title="Documento Credencial" 
+        metadata={docMetadata}
+        onClose={() => setDocOpen(false)} 
+      />
     </div>
   );
 }

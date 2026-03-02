@@ -5,6 +5,13 @@ import CertificateDesigner from './CertificateDesigner';
 const CreatorDesignerPage = () => {
   const navigate = useNavigate();
 
+  const [institutionName, setInstitutionName] = React.useState('Mi Universidad');
+
+  React.useEffect(() => {
+    const savedName = localStorage.getItem('acl:brand:name');
+    if (savedName) setInstitutionName(savedName);
+  }, []);
+
   const handleClose = () => {
     navigate('/portal-creadores');
   };
@@ -37,6 +44,7 @@ const CreatorDesignerPage = () => {
 
       <div className="flex-grow relative overflow-hidden">
         <CertificateDesigner 
+            institutionName={institutionName}
             onClose={handleClose}
             onSave={handleSave}
             onNavigate={(path) => navigate(path)}

@@ -54,11 +54,14 @@ import EmployerLanding from './components/EmployerLanding';
 import SmartCVPage from './components/SmartCVPage';
 
 import StudentUpgradePage from './components/StudentUpgradePage';
+import SupportBot from './components/SupportBot';
+import CertificateRequest from './components/CertificateRequest';
 
 const AppRoutes = () => {
   return (
     <>
     <InteractiveTour />
+    <SupportBot />
     <Routes>
       <Route path="/" element={<Layout><HomePage /></Layout>} />
       <Route path="/login" element={<Layout><LoginPage /></Layout>} />
@@ -70,6 +73,7 @@ const AppRoutes = () => {
       <Route path="/students/upgrade" element={<Layout><StudentUpgradePage /></Layout>} />
       <Route path="/creators/login" element={<Layout><LoginPage userType="creator" /></Layout>} />
       <Route path="/creators/register" element={<Layout><LoginPage userType="creator" mode="register" /></Layout>} />
+      <Route path="/solicitar-certificado" element={<Layout><CertificateRequest /></Layout>} />
       {/* Employer Login removed for simulation mode */}
       <Route path="/auth/callback" element={<Layout><AuthCallback /></Layout>} />
       <Route path="/comenzar-gratis" element={<Layout><ComenzarGratisPage /></Layout>} />

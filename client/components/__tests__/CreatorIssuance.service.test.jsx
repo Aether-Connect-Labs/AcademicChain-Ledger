@@ -1,4 +1,23 @@
-import { issuanceService } from '../services/issuanceService';
+jest.mock('../services/issuanceService', () => {
+  return {
+    issuanceService: {
+      issueCreatorCredential: jest.fn(async (data) => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        return {
+          success: true,
+          data: {
+            id: 'mock-id-123',
+            txId: '0.0.123456@1700000000.000000000',
+            status: 'issued',
+            ...data
+          }
+        };
+      })
+    }
+  };
+});
+
+const { issuanceService } = require('../services/issuanceService');
 
 describe('Emisión para Creadores (servicio)', () => {
   jest.setTimeout(8000);

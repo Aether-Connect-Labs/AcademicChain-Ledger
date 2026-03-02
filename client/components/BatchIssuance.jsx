@@ -50,7 +50,7 @@ const XrpAnchorCell = ({ tokenId, serialNumber }) => {
   return <a href={href} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{hash.slice(0, 8)}...</a>;
 };
 
-const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComplete }) => {
+const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComplete, institutionName }) => {
   const { account, isConnected, connectWallet } = useHedera();
   const { token } = useAuth(); // Obtener el token de autenticación
   const { socket, isConnected: isSocketConnected } = useWebSocket(token); // Usar el token real
@@ -82,6 +82,12 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
   const [xrpBatchIntents, setXrpBatchIntents] = useState([]);
   const [xrpBatchHashes, setXrpBatchHashes] = useState({});
   const [availableTemplates, setAvailableTemplates] = useState([]);
+
+  useEffect(() => {
+    if (institutionName) {
+      setIssuanceConfig(prev => ({ ...prev, institution: institutionName }));
+    }
+  }, [institutionName]);
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem('customTemplates') || '[]');
@@ -336,6 +342,8 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
     const handleCompleted = (data) => {
       if (data.jobId === masterJobId) {
         console.log('Job Completed:', data.result);
+        const successCount = data.result?.data?.successful?.length || 0;
+        
         // Actualizar el resumen final con los datos detallados del resultado del job
         setProcessResult(prev => ({
           ...prev,
@@ -343,7 +351,7 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
             ...prev.summary,
             status: 'completed',
             progress: 100,
-            successful: data.result?.data?.successful?.length || 0,
+            successful: successCount,
             failed: data.result?.data?.failed?.length || 0,
             dualOk: (() => {
               const succ = Array.isArray(data.result?.data?.successful) ? data.result.data.successful : [];
@@ -354,6 +362,10 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
           // Guardar los resultados detallados para el reporte
           data: { ...prev.data, ...data.result?.data }
         }));
+
+        if (onEmissionComplete && successCount > 0) {
+            onEmissionComplete(successCount);
+        }
       }
     };
 
@@ -396,6 +408,11 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
         if (data.status === 'completed' || data.status === 'failed') {
           setIsPolling(false);
           clearInterval(interval);
+          
+          if (data.status === 'completed' && onEmissionComplete) {
+              const count = data.successfulCount || data.successful?.length || 0;
+              if (count > 0) onEmissionComplete(count);
+          }
         }
       } catch (e) {
         console.error('Polling error:', e);
@@ -442,14 +459,10 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
   }, [aiAnalysis, credentials]);
 
   const handleBatchIssuance = async () => {
-    if (!demo) {
-      if (!isConnected || !account) {
-        const ok = await connectWallet();
-        if (!ok) {
-          alert('Por favor, conecta tu wallet de Hedera primero');
-          return;
-        }
-      }
+    // Wallet connection is optional for managed issuance via n8n
+    if (!demo && issuanceConfig.addToHedera && !account) {
+       // Optional: Warn user or just proceed if using custodial service
+       console.log('Proceeding with managed issuance (no wallet connected)');
     }
 
     setIsProcessing(true);
@@ -902,7 +915,7 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
               
               <button
                 onClick={handleBatchIssuance}
-                disabled={(demo ? false : !isConnected) || !credentials.length || isProcessing}
+                disabled={!credentials.length || isProcessing}
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 hover-lift"
               >
                 {isProcessing ? (
@@ -913,7 +926,11 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                 ) : (
                   <>
                     <span>🚀</span>
-                    <span>Encolar {credentials.length} Credenciales</span>
+                    <span>
+                      {(!demo && issuanceConfig.addToHedera && !account) 
+                        ? `Emitir Gestionado (${credentials.length})` 
+                        : `Confirmar y Emitir (${credentials.length})`}
+                    </span>
                   </>
                 )}
               </button>

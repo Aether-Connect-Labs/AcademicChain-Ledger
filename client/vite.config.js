@@ -11,7 +11,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['@sentry/react','@sentry/tracing','@sentry-internal/replay','@sentry/core','@sentry/browser'],
-    include: ['react','react-dom','react-router-dom', 'pdfjs-dist', 'fabric'],
+    include: ['react','react-dom','react-router-dom', 'pdfjs-dist', 'fabric', 'hashconnect'],
     noDiscovery: false
   },
   server: {
@@ -20,34 +20,46 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3000', // Backend Node.js Express
         changeOrigin: true,
-        ws: true,
+        secure: false,
       },
       '/socket.io': {
-        target: 'ws://localhost:3001',
+        target: 'http://127.0.0.1:18789',
         ws: true,
         changeOrigin: true,
+        secure: false,
       },
       '/metrics': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3000',
         changeOrigin: true,
+        secure: false,
       },
       '/health': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3000',
         changeOrigin: true,
+        secure: false,
       },
       '/live': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3000',
         changeOrigin: true,
+        secure: false,
       },
       '/ready': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3000',
         changeOrigin: true,
+        secure: false,
       },
       '/excel-metrics.html': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3000',
         changeOrigin: true,
+        secure: false,
+      },
+      '/n8n': {
+        target: 'http://localhost:5678',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/n8n/, ''),
       },
     },
   },

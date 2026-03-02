@@ -1,10 +1,10 @@
 {
-  "name": "Institution - Batch Credential Issuance",
+  "name": "Institution - Batch Credential Issuance - FIXED",
   "nodes": [
     {
       "parameters": {         
         "httpMethod": "POST",
-        "path": "batch-issue",
+        "path": "batch-issue-acledger-v1",
         "options": {}
       },
       "name": "Webhook",

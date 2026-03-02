@@ -112,11 +112,12 @@ export const authService = {
       const allowInstitutionMock = (import.meta.env.DEV || import.meta.env.VITE_ALLOW_INSTITUTION_LOGIN === '1');
       if (allowInstitutionMock) {
         const user = {
-          id: `university-${crypto.randomUUID()}`,
-          name: 'Administrador Institución',
+          id: '444',
+          name: 'AcademicChain Ledger',
           email,
           role: 'university',
-          universityName: 'Institución Demo',
+          institutionName: 'AcademicChain Ledger',
+          universityName: 'AcademicChain Ledger',
           permissions: ['issue_credentials', 'verify_credential']
         };
         const token = `mock-jwt-token-for-admin-${Date.now()}`;
@@ -192,7 +193,7 @@ export const authService = {
     } catch {}
 
     if (token && token.startsWith('mock-jwt-token-for-admin')) {
-      return mockApiCall({ id: 'admin-123', name: 'Administrador Principal', email: 'admin@academicchain.com', role: 'admin', permissions: ['view_dashboard', 'bulk_issue', 'view_job_monitor', 'manage_institutions', 'manage_users', 'manage_settings'] });
+      return mockApiCall({ id: '444', name: 'AcademicChain Ledger', email: 'admin@academicchain.com', role: 'admin', institutionName: 'AcademicChain Ledger', permissions: ['view_dashboard', 'bulk_issue', 'view_job_monitor', 'manage_institutions', 'manage_users', 'manage_settings'] });
     }
     if (token && token.startsWith('mock-jwt-token-for-creator')) {
       return mockApiCall({ id: 'creator-123', name: 'Creador Demo', email: 'creator@demo.com', role: 'CREATOR', brand: 'Academia Digital', permissions: ['issue_credentials', 'view_dashboard'] });

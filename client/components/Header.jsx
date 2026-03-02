@@ -21,14 +21,13 @@ const Header = () => {
     const next = logoGateways.current[logoGwIndex.current] || logoSrc;
     setLogoSrc(next);
   };
-  const [institutionName, setInstitutionName] = useState('');
+
   useEffect(() => {
     try {
-      const storedLogo = localStorage.getItem('acl:brand:logoUrl');
-      const storedName = localStorage.getItem('acl:brand:institutionName');
+      const storedLogo = localStorage.getItem('acl:brand:logo');
       const storedColor = localStorage.getItem('acl:brand:primaryColor');
+      
       if (storedLogo) setLogoSrc(storedLogo);
-      if (storedName) setInstitutionName(storedName);
       if (storedColor) {
         document.documentElement.style.setProperty('--brand-primary', storedColor);
       }
@@ -98,13 +97,10 @@ const Header = () => {
                 style={{ aspectRatio: '1 / 1', objectFit: 'contain' }}
               />
             </Link>
-            <div className="flex flex-col items-start gap-1">
-              <Link to="/" className="flex flex-col">
-                <span className={`font-bold text-lg leading-tight ${effectiveScrolled ? 'text-gray-900' : 'text-white'}`}>
-                  {institutionName || 'AcademicChain'}
-                </span>
-                <span className={`text-xs ${effectiveScrolled ? 'text-gray-800' : 'text-white/90'}`}>
-                  Impulsado por AcademicChain
+            <div className="flex flex-col items-start justify-center h-full">
+              <Link to="/" className="flex items-center">
+                <span className={`font-bold text-lg ${effectiveScrolled ? 'text-gray-900' : 'text-white'}`}>
+                  AcademicChain Ledger
                 </span>
               </Link>
             </div>

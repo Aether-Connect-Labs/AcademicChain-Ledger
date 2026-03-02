@@ -5,7 +5,7 @@
 
 const axios = require('axios');
 
-const TARGET_URL = 'http://localhost:3001/api/antigravity/test';
+const TARGET_URL = 'http://localhost:8787/api/antigravity/test';
 // const TARGET_URL = 'http://localhost:3000/api/antigravity/test'; // Try port 3000 if 3001 fails (dev vs prod)
 
 async function runSimulation() {

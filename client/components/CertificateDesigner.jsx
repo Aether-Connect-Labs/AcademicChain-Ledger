@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Canvas, IText, Rect, Shadow, Image as FabricImage } from 'fabric';
+import { Canvas, IText, Rect, Shadow, Circle, Image as FabricImage } from 'fabric';
+import { jsPDF } from 'jspdf';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { Trash2, FileText, Upload, LayoutTemplate, Type, FileUp, ChevronUp, ChevronDown, Lock, Unlock, Eye, EyeOff, BringToFront, SendToBack, Image as ImageIcon, MousePointer2, PenTool, Stamp, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowRightFromLine, ArrowDownFromLine, Undo2, Redo2 } from 'lucide-react';
 import n8nService from './services/n8nService';
 import { mockCredentials, templates } from '../utils/mockData';
 
-const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
+const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDesign, institutionName = 'AcademicChain Ledger' }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [fabricCanvas, setFabricCanvas] = useState(null);
@@ -24,10 +25,22 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
   const [docType, setDocType] = useState('Certificado');
   const [signatures, setSignatures] = useState([]);
   const [, setForceUpdate] = useState(0);
-  const [isContinuing, setIsContinuing] = useState(false);
 
-  /* Layer State */
-  const [layers, setLayers] = useState([]);
+
+  /* AI Chat State */
+  const [showAIChat, setShowAIChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+      { role: 'ai', text: '¡Hola! Soy tu diseñador inteligente. 🤖\n\nPuedo crear diseños completos o ajustar detalles. Prueba con:\n• "Un certificado moderno en azul"\n• "Añadir un sello y un borde"\n• "Cambiar título a DIPLOMA DE HONOR"\n• "Estilo futurista para blockchain"' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [isAiTyping, setIsAiTyping] = useState(false);
+  const chatScrollRef = useRef(null);
+
+  useEffect(() => {
+      if (chatScrollRef.current) {
+          chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+      }
+  }, [chatMessages, showAIChat]);
 
   /* History State (Undo/Redo) */
   const [history, setHistory] = useState([]);
@@ -35,64 +48,10 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
   const [isHistoryProcessing, setIsHistoryProcessing] = useState(false);
   const skipHistoryRef = useRef(false);
 
-  const saveHistory = () => {
-    if (!fabricCanvas || isHistoryProcessing || skipHistoryRef.current) return;
-    try {
-        const json = JSON.stringify(fabricCanvas.toJSON(['data', 'selectable', 'evented', 'lockMovementX', 'lockMovementY', 'lockScalingX', 'lockScalingY', 'lockRotation', 'id', 'name']));
-        
-        setHistory(prev => {
-            // Avoid duplicates if nothing changed
-            if (prev.length > 0 && prev[prev.length - 1] === json) return prev;
-            
-            const newHistory = [...prev, json];
-            if (newHistory.length > 30) newHistory.shift(); // Limit to 30 steps
-            return newHistory;
-        });
-        setRedoHistory([]); // Clear redo on new change
-    } catch (e) {
-        console.error("Error saving history", e);
-    }
-  };
+  /* Layers State */
+  const [layers, setLayers] = useState([]);
 
-  const undo = () => {
-    if (history.length <= 1 || !fabricCanvas) return; // Need at least current state + 1 previous
-    
-    setIsHistoryProcessing(true);
-    
-    // Current state is at history[length-1]
-    // We want to go to history[length-2]
-    const currentState = history[history.length - 1];
-    const previousState = history[history.length - 2];
-    
-    setRedoHistory(prev => [...prev, currentState]);
-    setHistory(prev => prev.slice(0, -1));
-    
-    fabricCanvas.loadFromJSON(previousState, () => {
-        fabricCanvas.renderAll();
-        updateLayers();
-        setIsHistoryProcessing(false);
-        toast.success('Deshacer realizado');
-    });
-  };
-
-  const redo = () => {
-    if (redoHistory.length === 0 || !fabricCanvas) return;
-    
-    setIsHistoryProcessing(true);
-    
-    const nextState = redoHistory[redoHistory.length - 1];
-    
-    setHistory(prev => [...prev, nextState]);
-    setRedoHistory(prev => prev.slice(0, -1));
-    
-    fabricCanvas.loadFromJSON(nextState, () => {
-        fabricCanvas.renderAll();
-        updateLayers();
-        setIsHistoryProcessing(false);
-        toast.success('Rehacer realizado');
-    });
-  };
-
+  /* History & Layer Management */
   const updateLayers = () => {
     if (fabricCanvas) {
       const objects = fabricCanvas.getObjects();
@@ -101,6 +60,452 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
       setForceUpdate(prev => prev + 1);
     }
   };
+
+  const saveHistory = () => {
+    if (!fabricCanvas || isHistoryProcessing || skipHistoryRef.current) return;
+    
+    // STRICT: Never save an empty canvas state
+    if (fabricCanvas.getObjects().length === 0) return;
+
+    try {
+        const json = JSON.stringify(fabricCanvas.toJSON(['data', 'selectable', 'evented', 'lockMovementX', 'lockMovementY', 'lockScalingX', 'lockScalingY', 'lockRotation', 'id', 'name']));
+        
+        setHistory(prev => {
+            if (prev.length > 0 && prev[prev.length - 1] === json) return prev;
+            const newHistory = [...prev, json];
+            if (newHistory.length > 30) newHistory.shift();
+            return newHistory;
+        });
+        setRedoHistory([]); 
+    } catch (e) {
+        console.error("Error saving history", e);
+    }
+  };
+
+  const undo = () => {
+    if (history.length === 0 || !fabricCanvas) return;
+    
+    setIsHistoryProcessing(true);
+    skipHistoryRef.current = true;
+    
+    // Find the last valid state that is NOT the current one
+    let targetIndex = history.length - 2;
+    
+    // If we only have 1 state (initial), and user wants to undo, 
+    // it implies they want to go back to "empty" or "default", 
+    // but usually we keep the initial state.
+    // If history has 1 item, we can't undo further unless we want to clear.
+    if (targetIndex < 0) {
+        // Nothing to undo to
+        setIsHistoryProcessing(false);
+        skipHistoryRef.current = false;
+        toast('No hay más acciones para deshacer', { icon: 'ℹ️' });
+        return;
+    }
+
+    let targetState = null;
+    let foundValid = false;
+
+    // Search backwards for a valid state
+    while (targetIndex >= 0) {
+        const candidate = history[targetIndex];
+        try {
+            const parsed = JSON.parse(candidate);
+            if (parsed.objects) { // Allow empty objects if that was the state
+                targetState = candidate;
+                foundValid = true;
+                break;
+            }
+        } catch (e) {
+            console.warn("Invalid history state encountered", e);
+        }
+        targetIndex--;
+    }
+
+    if (!foundValid) {
+        // If we can't find a valid previous state, don't just clear everything.
+        // Stay where we are or warn user.
+        console.warn("No valid history found to undo to.");
+        setIsHistoryProcessing(false);
+        skipHistoryRef.current = false;
+        toast.error('No se pudo deshacer');
+        return;
+    }
+    
+    // Save current state to redo history before switching
+    const currentState = history[history.length - 1];
+    setRedoHistory(prev => [...prev, currentState]);
+    
+    // Update history to remove the current state and any skipped invalid ones
+    setHistory(prev => prev.slice(0, targetIndex + 1));
+    
+    try {
+        const parsedState = JSON.parse(targetState);
+        fabricCanvas.loadFromJSON(parsedState, () => {
+            fabricCanvas.renderAll();
+            updateLayers();
+            setIsHistoryProcessing(false);
+            skipHistoryRef.current = false;
+            toast.success('Deshacer realizado');
+        });
+    } catch (e) {
+        console.error("Error undoing", e);
+        setIsHistoryProcessing(false);
+        skipHistoryRef.current = false;
+        toast.error('Error al restaurar estado');
+    }
+  };
+
+  const redo = () => {
+    if (redoHistory.length === 0 || !fabricCanvas) return;
+    
+    setIsHistoryProcessing(true);
+    skipHistoryRef.current = true;
+    
+    const nextState = redoHistory[redoHistory.length - 1];
+    
+    setHistory(prev => [...prev, nextState]);
+    setRedoHistory(prev => prev.slice(0, -1));
+    
+    try {
+        const parsedState = JSON.parse(nextState);
+        fabricCanvas.loadFromJSON(parsedState, () => {
+            fabricCanvas.renderAll();
+            updateLayers();
+            setIsHistoryProcessing(false);
+            skipHistoryRef.current = false;
+            toast.success('Rehacer realizado');
+        });
+    } catch (e) {
+        console.error("Error doing redo", e);
+        setIsHistoryProcessing(false);
+        skipHistoryRef.current = false;
+    }
+  };
+
+  const applyAIModifications = (mods) => {
+      if (!fabricCanvas) return;
+      
+      // Handle Template first (if any)
+      const templateMod = mods.find(m => m.type === 'template');
+      if (templateMod) {
+          loadTemplate(templateMod.templateId || templateMod.id, true);
+      }
+
+      // Handle Layout
+      const layoutMod = mods.find(m => m.type === 'layout');
+      if (layoutMod) {
+           if (layoutMod.mode === 'Landscape' && pageSize !== 'Landscape') setPageSize('Landscape');
+           if (layoutMod.mode === 'Portrait' && pageSize !== 'Portrait') setPageSize('Portrait');
+      }
+
+      mods.forEach(mod => {
+          if (mod.type === 'template' || mod.type === 'layout') return;
+
+          if (mod.type === 'color-theme') {
+              // Apply background
+              if (fabricCanvas.backgroundColor) fabricCanvas.backgroundColor = mod.colors.bg;
+              
+              // Apply to objects
+              fabricCanvas.getObjects().forEach(obj => {
+                  // Text Colors
+                  if (obj.type === 'i-text' || obj.type === 'text') {
+                      if (['title-main', 'student-name', 'degree-name', 'institution-name'].includes(obj.data?.type)) {
+                          obj.set('fill', mod.colors.text);
+                      } else {
+                          // Secondary text
+                          obj.set('fill', '#64748b'); // Slate-500 default
+                      }
+                  }
+                  
+                  // Accents
+                  if (obj.data?.type === 'header-bar' || obj.data?.type === 'logo-bg' || obj.data?.type?.startsWith('corner-')) {
+                      obj.set('fill', mod.colors.primary);
+                  }
+                  if (obj.data?.type === 'logo-text') {
+                      obj.set('fill', '#ffffff');
+                  }
+              });
+          }
+          
+          if (mod.type === 'add-element') {
+              const center = fabricCanvas.getCenter();
+              const w = fabricCanvas.width;
+              const h = fabricCanvas.height;
+
+              if (mod.element === 'signature-line') {
+                  const line = new Rect({
+                      left: w * 0.75,
+                      top: h * 0.85,
+                      width: 200,
+                      height: 2,
+                      fill: '#334155',
+                      originX: 'center',
+                      originY: 'center'
+                  });
+                  const text = new IText('Firma Autorizada', {
+                      left: w * 0.75,
+                      top: h * 0.85 + 20,
+                      fontSize: 14,
+                      originX: 'center',
+                      fill: '#64748b',
+                      fontFamily: 'Inter'
+                  });
+                  fabricCanvas.add(line, text);
+              }
+              if (mod.element === 'seal') {
+                   const circle = new Circle({
+                       left: w * 0.25,
+                       top: h * 0.85,
+                       radius: 45,
+                       fill: 'transparent',
+                       stroke: '#334155',
+                       strokeWidth: 4,
+                       originX: 'center',
+                       originY: 'center'
+                   });
+                   const inner = new Circle({
+                       left: w * 0.25,
+                       top: h * 0.85,
+                       radius: 35,
+                       fill: 'transparent',
+                       stroke: '#334155',
+                       strokeWidth: 1,
+                       originX: 'center',
+                       originY: 'center'
+                   });
+                   const text = new IText('VALIDADO', {
+                       left: w * 0.25,
+                       top: h * 0.85,
+                       fontSize: 10,
+                       originX: 'center',
+                       originY: 'center',
+                       fontFamily: 'Orbitron',
+                       fill: '#334155',
+                       fontWeight: 'bold'
+                   });
+                   fabricCanvas.add(circle, inner, text);
+              }
+              if (mod.element === 'border') {
+                  const border = new Rect({
+                      left: w / 2,
+                      top: h / 2,
+                      width: w - 60,
+                      height: h - 60,
+                      fill: 'transparent',
+                      stroke: '#334155', 
+                      strokeWidth: 8,
+                      originX: 'center',
+                      originY: 'center',
+                      selectable: false,
+                      evented: false,
+                      data: { type: 'ornamental-border' }
+                  });
+                  fabricCanvas.add(border);
+                  // Ensure it's not covering interactions but visible
+                  fabricCanvas.sendToBack(border);
+                  // If background exists, move border in front of it
+                  const bg = fabricCanvas.getObjects().find(o => o.data?.type === 'background-main');
+                  if (bg) border.bringToFront(); // Actually we want it on top of BG but behind content. 
+                  // Simply adding it last puts it on top. We want it safe.
+                  border.moveTo(1); // Just above background
+              }
+          }
+
+          if (mod.type === 'update-text') {
+              const obj = fabricCanvas.getObjects().find(o => o.data?.type === mod.target);
+              if (obj) {
+                  obj.set('text', mod.value);
+                  // Re-center if needed
+                  if (obj.originX === 'center') {
+                      obj.centerH();
+                  }
+              }
+          }
+      });
+      
+      fabricCanvas.requestRenderAll();
+      updateLayers();
+      saveHistory(); 
+  };
+
+  const processAICommand = (input) => {
+      const text = input.toLowerCase();
+      let response = "He aplicado cambios según tu solicitud.";
+      let templateId = null;
+      let modifications = [];
+      
+      // Check for Reset Intent
+      const shouldReset = text.includes('borrar') || text.includes('reiniciar') || text.includes('desde cero') || text.includes('nuevo documento');
+
+      // 1. Detect Template/Style
+      if (text.includes('moderno') || text.includes('minimal') || text.includes('limpio')) {
+          templateId = 'minimal';
+          response = "He cargado un diseño **Moderno y Minimalista**. Ideal para tecnología y cursos cortos.";
+      } else if (text.includes('blockchain') || text.includes('crypto') || text.includes('bitcoin')) {
+          templateId = 'blockchain';
+          response = "Aplicando estilo **Blockchain Elite**. Incluye nodos decorativos y estructura de bloque.";
+      } else if (text.includes('futuro') || text.includes('futurista') || text.includes('holografico') || text.includes('neon') || text.includes('oscuro')) {
+          templateId = 'holographic-1';
+          response = "¡Viajando al futuro! 🚀 He cargado el tema **Holographic Future** con efectos neón.";
+      } else if (text.includes('clasico') || text.includes('elegante') || text.includes('gold') || text.includes('dorado') || text.includes('oro')) {
+          // Use minimal as base but apply gold theme
+          templateId = 'minimal'; 
+          response = "He aplicado un estilo **Clásico y Elegante** con toques dorados.";
+          modifications.push({ type: 'color-theme', colors: { bg: '#fffbf0', primary: '#b45309', text: '#451a03' } });
+      }
+
+      // 2. Detect Layout
+      if (text.includes('horizontal') || text.includes('paisaje')) {
+          if (pageSize !== 'Landscape') {
+             setPageSize('Landscape');
+             response += " Y he cambiado la orientación a **Horizontal**.";
+             // Force update if template is already loaded to re-layout
+             if (!templateId) {
+                 const current = templates.find(t => t.id === 'minimal'); // Fallback
+                 if (current) loadTemplate(current.id, true, !shouldReset); 
+             }
+          }
+      } else if (text.includes('vertical') || text.includes('retrato')) {
+          if (pageSize !== 'Portrait') {
+             setPageSize('Portrait');
+             response += " Y he cambiado la orientación a **Vertical**.";
+          }
+      }
+
+      // 3. Detect Modifications
+      // Colors
+      if (text.includes('azul') || text.includes('blue')) {
+           modifications.push({ type: 'color-theme', colors: { bg: '#eff6ff', primary: '#2563eb', text: '#1e3a8a' } });
+           response += " He ajustado la paleta a tonos azules profesionales.";
+      } else if (text.includes('rojo') || text.includes('red') || text.includes('vino')) {
+           modifications.push({ type: 'color-theme', colors: { bg: '#fff1f2', primary: '#be123c', text: '#881337' } });
+           response += " He aplicado una paleta en tonos vino y rojo.";
+      } else if (text.includes('verde') || text.includes('green') || text.includes('eco')) {
+           modifications.push({ type: 'color-theme', colors: { bg: '#f0fdf4', primary: '#15803d', text: '#14532d' } });
+           response += " He aplicado un estilo ecológico en verde.";
+      }
+
+      // Elements
+      if (text.includes('firma') || text.includes('firmas')) {
+          modifications.push({ type: 'add-element', element: 'signature-line' });
+          response += " He añadido una línea de firma adicional.";
+      }
+      if (text.includes('sello') || text.includes('seal') || text.includes('logo')) {
+          modifications.push({ type: 'add-element', element: 'seal' });
+          response += " He añadido un sello de validación.";
+      }
+      if (text.includes('borde') || text.includes('marco')) {
+          modifications.push({ type: 'add-element', element: 'border' });
+          response += " He añadido un borde ornamental.";
+      }
+
+      // Text Content
+      if (text.includes('cambiar titulo') || (text.includes('titulo') && text.includes('sea'))) {
+          // Try to extract content between quotes first
+          let newTitle = null;
+          const quoteMatch = text.match(/["']([^"']+)["']/);
+          if (quoteMatch) {
+              newTitle = quoteMatch[1];
+          } else {
+             // Fallback: try to get text after "titulo"
+             const parts = text.split('titulo');
+             if (parts.length > 1) {
+                 const potential = parts[1].trim().replace(/^a |^sea |^por /, '');
+                 if (potential.length > 3) newTitle = potential;
+             }
+          }
+          
+          if (newTitle) {
+              modifications.push({ type: 'update-text', target: 'title-main', value: newTitle.toUpperCase() });
+              response += ` He actualizado el título a "${newTitle}".`;
+          }
+      }
+
+      // Institution Name
+      if (text.includes('institucion') || text.includes('universidad') || text.includes('colegio') || text.includes('escuela') || text.includes('instituto') || text.includes('academia')) {
+          let newInstitution = null;
+          const quoteMatch = text.match(/["']([^"']+)["']/);
+          if (quoteMatch) {
+              newInstitution = quoteMatch[1];
+          } else {
+             // Fallback: try to get text after keywords
+             const keywords = ['institucion', 'universidad', 'colegio', 'escuela', 'instituto', 'academia'];
+             for (const keyword of keywords) {
+                 if (text.includes(keyword)) {
+                     const parts = text.split(keyword);
+                     if (parts.length > 1) {
+                         const potential = parts[1].trim().replace(/^a |^la |^el |^del |^de |^sea |^por |^cambia |^nombre /, '');
+                         if (potential.length > 3) {
+                             newInstitution = potential;
+                             break;
+                         }
+                     }
+                 }
+             }
+          }
+          
+          if (newInstitution) {
+              modifications.push({ type: 'update-text', target: 'institution-name', value: newInstitution.toUpperCase() });
+              response += ` He actualizado el nombre de la institución a "${newInstitution}".`;
+          }
+      }
+
+      // Execute Template Load
+      if (templateId) {
+          loadTemplate(templateId, false, !shouldReset);
+      } else if (modifications.length === 0 && !text.includes('horizontal') && !text.includes('vertical')) {
+          // Fallback for unknown commands
+          const random = templates[Math.floor(Math.random() * templates.length)];
+          loadTemplate(random.id, false, !shouldReset);
+          response = `He creado algo único basado en el estilo **${random.name}**. ¿Qué te parece?`;
+      }
+
+      // Apply Modifications
+      if (modifications.length > 0) {
+          setTimeout(() => {
+              applyAIModifications(modifications);
+          }, templateId ? 800 : 100); // Wait for template load if needed
+      }
+      
+      return response;
+  };
+
+  const handleAISend = async () => {
+      if (!chatInput.trim()) return;
+      
+      const userText = chatInput;
+      setChatMessages(prev => [...prev, { role: 'user', text: userText }]);
+      setChatInput('');
+      setIsAiTyping(true);
+
+      // Try n8n AI First
+      const n8nResponse = await n8nService.processAIChat(userText, {
+          currentPageSize: pageSize,
+          currentTemplate: selectedObject?.id || 'unknown',
+          institutionName: institutionName
+      });
+
+      if (n8nResponse) {
+          setIsAiTyping(false);
+          setChatMessages(prev => [...prev, { role: 'ai', text: n8nResponse.message || "He procesado tu solicitud." }]);
+          
+          if (n8nResponse.modifications && Array.isArray(n8nResponse.modifications)) {
+              applyAIModifications(n8nResponse.modifications);
+              toast.success('Diseño actualizado por IA (Nube)', { icon: '☁️' });
+          }
+      } else {
+          // Local Simulation Fallback
+          const aiResponse = processAICommand(userText);
+          setIsAiTyping(false);
+          setChatMessages(prev => [...prev, { role: 'ai', text: aiResponse }]);
+          toast.success('Diseño actualizado por IA (Local)', { icon: '✨' });
+      }
+  };
+
+
+
+
 
   const getLayerName = (obj) => {
     if (obj.data?.name) return obj.data.name;
@@ -259,7 +664,8 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
         fabricCanvas.add(outerBorder, innerBorder);
 
         // 2. Header / Institution (Top Section)
-        const institutionText = new IText('ACADEMIC CHAIN INSTITUTE', {
+        const displayInstitutionName = institutionName === '444' ? 'AcademicChain Ledger' : institutionName;
+        const institutionText = new IText(displayInstitutionName.toUpperCase(), {
             left: cx, top: 120,
             fontSize: 32,
             fontFamily: 'Times New Roman',
@@ -381,40 +787,63 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
 
       // 9. QR Code 
       const qrSize = 100;
-      const qrX = 100; 
-      const qrY = height - 100;
+      const qrX = cx; 
+      const qrY = height - 120;
 
-      const qrPlaceholder = new Rect({
+      // QR Background (White box with gold border)
+      const qrBg = new Rect({
           left: qrX, top: qrY,
-          width: qrSize, height: qrSize,
-          fill: '#fff',
+          width: qrSize + 10, height: qrSize + 10,
+          fill: '#ffffff',
           stroke: '#d4af37',
           strokeWidth: 2,
-          originX: 'center',
-          originY: 'center',
+          originX: 'center', originY: 'center',
           rx: 5, ry: 5,
-          data: { isQR: true, name: 'Placeholder QR', type: 'qr-placeholder' }
+          data: { isQR: true, name: 'Fondo QR', type: 'qr-bg' }
       });
-        const qrText = new IText('QR', {
-             left: qrX, top: qrY,
-             fontSize: 24, fill: '#ccc',
-             originX: 'center', originY: 'center',
-             selectable: false, evented: false,
-             fontFamily: 'Helvetica'
-        });
-        
-        fabricCanvas.add(
-            institutionText, titleText, presentText, 
-            studentName, nameLine, reasonText, degreeText, dateText,
-            sigLine1, sigText1, sigLine2, sigText2,
-            qrPlaceholder, qrText
-        );
 
-        fabricCanvas.requestRenderAll();
-        updateLayers();
+      // Add all static elements first
+      fabricCanvas.add(
+        institutionText, titleText, presentText, 
+        studentName, nameLine, reasonText, degreeText, dateText,
+        sigLine1, sigText1, sigLine2, sigText2,
+        qrBg
+      );
 
-        skipHistoryRef.current = false;
-        saveHistory();
+      // Add verification text below QR
+      const qrLabel = new IText('ESCANEAR', {
+          left: qrX, top: qrY + 60,
+          fontSize: 10, fill: '#777',
+          originX: 'center',
+          fontFamily: 'Helvetica',
+          data: { name: 'Etiqueta QR' }
+      });
+      fabricCanvas.add(qrLabel);
+
+      // Try to load QR Image
+      FabricImage.fromURL('https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/QR_code_for_mobile_English_Wikipedia.svg/200px-QR_code_for_mobile_English_Wikipedia.svg.png', {
+        crossOrigin: 'anonymous'
+      }).then(img => {
+          img.set({
+              left: qrX, top: qrY,
+              originX: 'center', originY: 'center',
+              width: qrSize, height: qrSize,
+              data: { isQR: true, name: 'QR Code', type: 'qr-placeholder' }
+          });
+          fabricCanvas.add(img);
+          fabricCanvas.requestRenderAll();
+          updateLayers();
+          
+          skipHistoryRef.current = false;
+          saveHistory();
+      }).catch(err => {
+          console.warn("Could not load QR image, skipping", err);
+          fabricCanvas.requestRenderAll();
+          updateLayers();
+          skipHistoryRef.current = false;
+          saveHistory();
+      });
+
       } catch(e) {
         console.error("Error loading default design", e);
         skipHistoryRef.current = false;
@@ -494,15 +923,38 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
       setCustomTemplates(saved);
   }, []);
 
-  // Load Default if empty
+  // Load Default or Initial Design
   useEffect(() => {
       if (fabricCanvas && !data?.designStructure) {
           if (fabricCanvas.getObjects().length === 0) {
-              loadDefaultDesign('Certificado');
-              toast('Plantilla predeterminada cargada', { icon: 'ℹ️' });
+              if (initialDesign && initialDesign.structure) {
+                  try {
+                      skipHistoryRef.current = true;
+                      fabricCanvas.loadFromJSON(initialDesign.structure, () => {
+                          fabricCanvas.renderAll();
+                          if (initialDesign.structure.background) {
+                              fabricCanvas.backgroundColor = initialDesign.structure.background;
+                          }
+                          // Manually trigger layer update
+                          const objects = fabricCanvas.getObjects();
+                          setLayers([...objects].reverse());
+                          
+                          skipHistoryRef.current = false;
+                          saveHistory();
+                          toast.success('Diseño anterior restaurado');
+                      });
+                  } catch (e) {
+                      console.error("Error loading initial design", e);
+                      skipHistoryRef.current = false;
+                      loadDefaultDesign('Certificado');
+                  }
+              } else {
+                  loadDefaultDesign('Certificado');
+                  toast('Plantilla predeterminada cargada', { icon: 'ℹ️' });
+              }
           }
       }
-  }, [fabricCanvas]);
+  }, [fabricCanvas, initialDesign]);
 
   useEffect(() => {
     if (fabricCanvas) {
@@ -568,9 +1020,9 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
                obj.data = { ...obj.data, originalText: obj.text };
                obj.text = 'JUAN PÉREZ';
            } else if (obj.text.includes('{{nombre_institucion}}')) {
-               obj.data = { ...obj.data, originalText: obj.text };
-               obj.text = 'UNIVERSIDAD ACADEMIC CHAIN';
-           } else if (obj.text.includes('{{fecha}}')) {
+              obj.data = { ...obj.data, originalText: obj.text };
+              obj.text = institutionName.toUpperCase();
+          } else if (obj.text.includes('{{fecha}}')) {
                obj.data = { ...obj.data, originalText: obj.text };
                obj.text = new Date().toLocaleDateString();
            } else if (obj.data?.isSmart) {
@@ -907,65 +1359,7 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
   /* funciones no usadas eliminadas para limpiar advertencias */
 
 
-  const saveAsTemplate = async () => {
-      if (isPreviewMode) {
-          togglePreviewMode();
-          toast('Vista Previa desactivada para guardar', { icon: 'ℹ️' });
-      }
 
-      const name = prompt("Nombre para tu plantilla:");
-      if (!name) return false;
-      
-      const json = fabricCanvas.toJSON(['data', 'id', 'selectable', 'evented', 'lockMovementX', 'lockMovementY', 'lockScalingX', 'lockScalingY', 'shadow', 'stroke', 'strokeWidth', 'opacity']);
-      
-      // Extract AI Metadata for easier indexing in n8n
-      const aiMetadata = {
-          competencies: [],
-          projects: [],
-          smartFields: []
-      };
-
-      json.objects.forEach(obj => {
-          if (obj.data?.dataType === 'competence') {
-              aiMetadata.competencies.push(obj.text);
-          } else if (obj.data?.dataType === 'project') {
-              aiMetadata.projects.push(obj.text);
-          } else if (obj.data?.isSmart) {
-              aiMetadata.smartFields.push(obj.text);
-          }
-      });
-
-      const newTemplate = {
-          id: `custom-${Date.now()}`,
-          name: name,
-          thumbnail: 'bg-slate-800 border-dashed border-cyan-500', 
-          category: 'Personal',
-          bg: fabricCanvas.backgroundColor,
-          objects: json.objects,
-          tags: ['personal', ...aiMetadata.competencies], // Auto-tag with competencies
-          aiMetadata: aiMetadata, // Save metadata for "Perfect Match"
-          pageSize: pageSize,
-          docType: docType
-      };
-      
-      const updated = [...customTemplates, newTemplate];
-      setCustomTemplates(updated);
-      localStorage.setItem('customTemplates', JSON.stringify(updated));
-      
-      try {
-          await n8nService.saveTemplate({
-              ...newTemplate,
-              canvasJson: json 
-          });
-          toast.success('Plantilla guardada en Studio Cloud');
-      } catch (e) {
-          console.warn('Cloud save failed', e);
-          toast.success('Plantilla guardada localmente');
-      }
-
-      setActiveCategory('Personal');
-      return newTemplate.id;
-  };
 
   const deleteSelected = () => {
     if (fabricCanvas && selectedObject) {
@@ -1145,9 +1539,10 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
                            // Scale down slightly to fit better
                            obj.scale(0.8); 
                        } else {
-                           obj.set({ left: width - 120, top: height - 120 });
-                           obj.scale(1); // Restore size
-                       }
+                            // Center QR in Landscape (Gold Standard Layout)
+                            obj.set({ left: printableCx, top: height - 114 });
+                            obj.scale(1); // Restore size
+                        }
                    } else if (type.includes('sig-')) {
                        // Reset width for lines to ensure consistency
                        if (type.includes('line')) {
@@ -1332,26 +1727,61 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
       toast.error('La importación de PDF está temporalmente deshabilitada para mantenimiento.');
   };
 
-  const loadTemplate = (templateId) => {
+  const loadTemplate = (templateId, skipConfirm = false, preserveContent = true) => {
     if (!fabricCanvas) return;
     const allTemplates = [...templates, ...customTemplates];
     const tmpl = allTemplates.find(t => t.id === templateId);
     if (!tmpl) return;
 
-    if (!window.confirm(`¿Cargar plantilla "${tmpl.name}"? Se reemplazará el diseño actual.`)) return;
+    if (!skipConfirm && !window.confirm(`¿Cargar plantilla "${tmpl.name}"? Se reemplazará el diseño actual.`)) return;
 
     skipHistoryRef.current = true;
     try {
-        if (tmpl.pageSize) changePageSize(tmpl.pageSize);
+        // 1. Preserve content if requested
+        const preservedData = {};
+        if (preserveContent) {
+            fabricCanvas.getObjects().forEach(obj => {
+                if (obj.data?.type) {
+                    // Save text content for semantic types
+                    if (obj.type === 'i-text' || obj.type === 'text') {
+                        preservedData[obj.data.type] = obj.text;
+                    }
+                }
+            });
+        }
+
+        let targetObjects = tmpl.objects;
+        let targetSize = tmpl.pageSize || 'Portrait';
+
+        // Smart Layout Selection: Use specific layout if available and matches current orientation
+        // This ensures "Gold Standard" loads its optimized landscape version if user is in landscape mode
+        if (pageSize === 'Landscape' && tmpl.layouts && tmpl.layouts.landscape) {
+             targetObjects = tmpl.layouts.landscape;
+             targetSize = 'Landscape';
+        }
+
+        // Set dimensions directly
+        setPageSize(targetSize);
+        const width = targetSize === 'Landscape' ? 1123 : 794;
+        const height = targetSize === 'Landscape' ? 794 : 1123;
+        fabricCanvas.setDimensions({ width, height });
+
         if (tmpl.docType) setDocType(tmpl.docType);
 
         fabricCanvas.clear();
         fabricCanvas.backgroundColor = tmpl.bg;
         fabricCanvas.requestRenderAll();
 
-        tmpl.objects.forEach(obj => {
+        targetObjects.forEach(obj => {
         const { type, text, ...options } = obj;
         let textContent = text;
+
+        // 2. Restore preserved content or apply defaults
+        if (preserveContent && options.data?.type && preservedData[options.data.type]) {
+            textContent = preservedData[options.data.type];
+        } else if (options.data?.type === 'institution-name') {
+             textContent = (institutionName === '444' ? 'AcademicChain Ledger' : institutionName).toUpperCase();
+        }
 
         if (type === 'rect') {
             fabricCanvas.add(new Rect(options));
@@ -1359,19 +1789,32 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
             const textOptions = { ...options };
             
             if (textContent && textContent.includes('{{')) {
-            textOptions.data = { isSmart: true };
+            textOptions.data = { ...textOptions.data, isSmart: true };
             textOptions.editable = false;
             if (tmpl.category === 'Holographic') {
                 textOptions.shadow = new Shadow({ color: textOptions.fill, blur: 10 });
             }
             }
             fabricCanvas.add(new IText(textContent || 'Texto', textOptions));
+        } else if (type === 'image') {
+             // Support for image objects (like QR codes in templates)
+             FabricImage.fromURL(options.src, { crossOrigin: 'anonymous' }).then(img => {
+                 img.set(options);
+                 fabricCanvas.add(img);
+             });
+        } else if (type === 'circle') {
+            fabricCanvas.add(new Circle(options));
         }
         });
 
+        // Helper to ensure image loading doesn't race
+        setTimeout(() => {
+            fabricCanvas.requestRenderAll();
+            saveHistory();
+        }, 500);
+
         toast.success(`Plantilla cargada: ${tmpl.name}`);
         skipHistoryRef.current = false;
-        saveHistory();
     } catch(e) {
         console.error("Error loading template", e);
         skipHistoryRef.current = false;
@@ -1380,16 +1823,51 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
 
   const handleExport = () => {
     if (!fabricCanvas) return;
-    const dataUrl = fabricCanvas.toDataURL({ format: 'png', quality: 0.8 });
+    
+    // 1. Generate High Quality Image
+    const dataUrl = fabricCanvas.toDataURL({ format: 'png', quality: 1.0, multiplier: 2 });
 
-    fetch(dataUrl)
-      .then(res => res.blob())
-      .then(blob => {
-        const file = new File([blob], "certificate-design.png", { type: "image/png" });
-        const jsonStructure = fabricCanvas.toJSON(['data']);
-        onSave(file, jsonStructure);
-        onClose();
-      });
+    // 2. Generate PDF
+    const orientation = pageSize === 'Landscape' ? 'l' : 'p';
+    const pdf = new jsPDF(orientation, 'pt', 'a4');
+    
+    // Add Metadata
+    pdf.setProperties({
+        title: 'Certificado Digital Verificable',
+        subject: `Certificado emitido por ${institutionName}`,
+        author: institutionName,
+        keywords: 'certificado, blockchain, academicchain, verifiable credential, did',
+        creator: 'AcademicChain Decentralized Ledger',
+        producer: 'AcademicChain Designer'
+    });
+    
+    // A4 dimensions in points: 595.28 x 841.89
+    // Landscape: 841.89 x 595.28
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    
+    pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    
+    const pdfBlob = pdf.output('blob');
+    
+    // Extract Student Name for filename
+    let filenameStudent = '';
+    const studentObj = fabricCanvas.getObjects().find(o => o.data?.type === 'student-name');
+    if (studentObj && studentObj.text && !studentObj.text.includes('{{')) {
+        filenameStudent = `-${studentObj.text.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`;
+    }
+    
+    // Auto-download for user
+    const safeInstitution = institutionName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+    const filename = `certificado-${safeInstitution}${filenameStudent}-${Date.now()}.pdf`;
+    
+    pdf.save(filename);
+
+    const jsonStructure = fabricCanvas.toJSON(['data']);
+    const file = new File([pdfBlob], filename, { type: "application/pdf" });
+    
+    onSave(file, jsonStructure);
+    onClose();
   };
 
   const allTemplates = [...templates, ...customTemplates];
@@ -1424,22 +1902,22 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
             <h2 className="text-xl font-display font-bold text-white">Studio <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">Holográfico</span></h2>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-3">
+            <button
+                onClick={handleExport}
+                className="w-full py-4 px-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-400 hover:to-emerald-500 shadow-lg shadow-green-900/20 group"
+            >
+                <Upload size={20} className="group-hover:scale-110 transition-transform" /> 
+                <span>Guardar y Continuar</span>
+            </button>
+
             <button
                 onClick={togglePreviewMode}
-                className={`flex-1 py-4 px-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all border ${isPreviewMode ? 'bg-green-500/20 border-green-500 text-green-300 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
+                className={`w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all border ${isPreviewMode ? 'bg-green-500/20 border-green-500 text-green-300 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
             >
-                {isPreviewMode ? <EyeOff size={20} /> : <Eye size={20} />}
-                {isPreviewMode ? 'Editar' : 'Vista Previa'}
+                {isPreviewMode ? <EyeOff size={16} /> : <Eye size={16} />}
+                {isPreviewMode ? 'Volver a Editar' : 'Vista Previa'}
             </button>
-            {isPreviewMode && (
-                <button
-                    onClick={handleExport}
-                    className="flex-1 py-4 px-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all bg-blue-600 text-white hover:bg-blue-500 shadow-lg"
-                >
-                    <Upload size={20} /> Exportar
-                </button>
-            )}
           </div>
 
           {!isPreviewMode && (
@@ -1491,6 +1969,25 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
                 <input type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} />
             </label>
           </div>
+          
+          <button 
+              onClick={() => {
+                  loadDefaultDesign();
+                  toast.success('Plantilla Recomendada cargada');
+              }}
+              className="w-full mb-2 py-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold text-base rounded-xl text-center transition-all cursor-pointer border border-orange-500/50 flex items-center justify-center gap-2 group shadow-lg shadow-orange-900/20"
+          >
+              <span className="text-xl">⭐</span>
+              <span className="group-hover:text-white transition-colors">Recomendado</span>
+          </button>
+
+          <button 
+              onClick={() => setShowAIChat(true)}
+              className="w-full mb-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-base rounded-xl text-center transition-all cursor-pointer border border-purple-500/50 flex items-center justify-center gap-2 group shadow-lg shadow-purple-900/20"
+          >
+              <span className="text-xl">✨</span>
+              <span className="group-hover:text-white transition-colors">Generar con IA</span>
+          </button>
 
           <hr className="border-slate-800 mb-4" />
 
@@ -1624,54 +2121,7 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
           </>
           )}
 
-          <div className="mt-auto pt-4 flex flex-col gap-3">
-             <button onClick={saveAsTemplate} className="w-full py-2 rounded-lg border border-purple-500/50 text-purple-300 hover:bg-purple-900/20 font-medium text-xs flex items-center justify-center gap-2 transition-colors">
-                <span>💾</span> Guardar como Plantilla
-             </button>
-             
-             <button 
-                onClick={async () => {
-                    if (isContinuing) return;
-                    setIsContinuing(true);
-                    try {
-                        const templateId = await saveAsTemplate();
-                        if (templateId) {
-                            try {
-                                localStorage.setItem('activeTemplateId', templateId);
-                            } catch {}
-                        }
-                        if (typeof onNavigate === 'function') {
-                            onNavigate('continue_to_issuance');
-                        }
-                        if (onClose) {
-                            onClose();
-                        }
-                    } finally {
-                        setIsContinuing(false);
-                    }
-                }} 
-                className="w-full py-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold shadow-lg hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                disabled={isContinuing}
-             >
-                {isContinuing ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Subiendo diseño...
-                  </>
-                ) : (
-                  <>
-                    <span>🚀</span> Guardar y Continuar a Emisión
-                  </>
-                )}
-             </button>
 
-             <div className="flex gap-2">
-                <button onClick={onClose} className="flex-1 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800 font-medium text-xs">Cancelar</button>
-                <button onClick={handleExport} className="flex-1 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white hover:bg-slate-700 font-medium text-xs">
-                   Usar (1 Vez)
-                </button>
-             </div>
-          </div>
         </div>
 
         {/* Canvas Workspace */}
@@ -2153,6 +2603,80 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {} }) => {
         </div>
         </div>
         </div>
+        )}
+
+        {/* AI Chat Modal Overlay */}
+        {showAIChat && (
+            <div className="absolute bottom-4 right-4 z-50 w-80 md:w-96 bg-slate-900 border border-purple-500/30 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in duration-300 ring-1 ring-purple-500/20">
+                {/* Header */}
+                <div className="p-4 bg-gradient-to-r from-indigo-900/80 to-purple-900/80 border-b border-purple-500/20 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xl animate-pulse">✨</span>
+                        <div>
+                            <h3 className="font-bold text-white text-sm">Asistente IA</h3>
+                            <p className="text-[10px] text-purple-200">Diseño Generativo</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => setShowAIChat(false)}
+                        className="p-1 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white"
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                {/* Chat Area */}
+                <div 
+                    ref={chatScrollRef}
+                    className="flex-1 h-80 overflow-y-auto p-4 space-y-4 bg-slate-950/50 scrollbar-thin scrollbar-thumb-slate-700"
+                >
+                    {chatMessages.map((msg, idx) => (
+                        <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div 
+                                className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-sm ${
+                                    msg.role === 'user' 
+                                    ? 'bg-purple-600 text-white rounded-br-none' 
+                                    : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'
+                                }`}
+                            >
+                                <div className="whitespace-pre-line">{msg.text}</div>
+                            </div>
+                        </div>
+                    ))}
+                    
+                    {isAiTyping && (
+                        <div className="flex justify-start">
+                            <div className="bg-slate-800 border border-slate-700 p-3 rounded-2xl rounded-bl-none flex gap-1 items-center">
+                                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Input Area */}
+                <div className="p-3 bg-slate-900 border-t border-purple-500/20">
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            value={chatInput}
+                            onChange={(e) => setChatInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAISend()}
+                            placeholder="Describe tu diseño ideal..."
+                            className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors"
+                            autoFocus
+                        />
+                        <button 
+                            onClick={handleAISend}
+                            disabled={!chatInput.trim() || isAiTyping}
+                            className="p-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-900/20"
+                        >
+                            <ArrowRightFromLine className="rotate-180" size={16} />
+                        </button>
+                    </div>
+                </div>
+            </div>
         )}
 
       </motion.div>

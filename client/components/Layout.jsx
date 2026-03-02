@@ -8,6 +8,7 @@ import { useAnalytics } from './useAnalytics';
 import ErrorBoundary from './ErrorBoundary';
 import { useHedera } from './useHedera';
 import { useAuth } from './useAuth';
+import SupportBot from './SupportBot';
 // import SupportWidget from './SupportWidget';
 
 // Variantes de animación para transiciones de página
@@ -297,7 +298,8 @@ const Layout = ({
         </motion.button>
       )}
 
-      {/* Support Widget removed per user request */}
+      {/* Support Widget */}
+      {/* <SupportBot /> */}
 
       {/* Notificación de conexión Hedera */}
       {isConnected && (
@@ -341,6 +343,8 @@ const Layout = ({
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Support Bot */}
+      <SupportBot />
     </div>
   );
 };

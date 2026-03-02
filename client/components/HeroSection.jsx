@@ -117,10 +117,10 @@ export const HeroSection = () => {
           <motion.div variants={itemVariants} className="mb-8">
             <h1 className="text-4xl leading-tight sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight">
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-gray-400 block">
-                {t('hero.title.line1', 'El Futuro de las')}
+                {t('hero.title.line1', 'Ecosistema ACL:')}
               </span>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 block mt-2">
-                {t('hero.title.line2', 'Credenciales Académicas')}
+                {t('hero.title.line2', 'Infraestructura Híbrida de Certificación')}
               </span>
             </h1>
           </motion.div>
@@ -128,14 +128,19 @@ export const HeroSection = () => {
           {/* Subtítulo mejorado */}
           <motion.div variants={itemVariants} className="mb-10">
             <p className="text-lg sm:text-xl lg:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed font-light">
-            {t('hero.subtitle', 'Fe pública digital con garantía perpetua y estándar global. Blindaje total contra el fraude académico, verificación instantánea en cualquier lugar.')}
-          </p>
-            <motion.p 
+              {t('hero.subtitle', 'Infraestructura con Tecnología Blockchain para la Fe Pública Digital. AcademicChain Ledger es una infraestructura híbrida diseñada para otorgar validez inmutable a las credenciales académicas. No reemplazamos los sistemas institucionales; los potenciamos con una capa de Verdad Criptográfica que garantiza la autenticidad perpetua de cada documento.')}
+            </p>
+            <motion.div 
               variants={itemVariants}
-              className="mt-3 text-sm sm:text-base text-cyan-200/80 max-w-2xl mx-auto"
+              className="mt-6 text-sm sm:text-base text-cyan-200/90 max-w-3xl mx-auto space-y-4 text-left bg-white/5 p-6 rounded-xl border border-white/10 backdrop-blur-sm"
             >
-              {t('hero.description', 'Autoridad inquebrantable para títulos y certificados. Transparencia, confianza y cumplimiento sin fricción.')}
-            </motion.p>
+              <p>
+                <strong className="text-cyan-400">Arquitectura Híbrida Operativa:</strong> {t('hero.desc.p1', 'El ACL Engine actúa como un puente técnico, permitiendo que las universidades mantengan la privacidad de sus bases de datos mientras anclan la evidencia de los títulos en redes descentralizadas.')}
+              </p>
+              <p>
+                <strong className="text-cyan-400">Certificación Multichain:</strong> {t('hero.desc.p2', 'Utilizamos un protocolo de consenso distribuido que integra Hedera Hashgraph y XRPL, asegurando que la validación sea redundante, inalterable y de bajo costo.')}
+              </p>
+            </motion.div>
           </motion.div>
 
           {/* Botones CTA mejorados */}

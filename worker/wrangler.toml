@@ -1,7 +1,0 @@
-name = "academicchain-backend"
-main = "index.js"
-compatibility_date = "2024-02-23"
-node_compat = true
-
-[vars]
-N8N_BASE_URL = "https://n8n-b0be.onrender.com"

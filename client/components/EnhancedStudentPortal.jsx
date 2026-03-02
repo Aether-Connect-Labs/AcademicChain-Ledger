@@ -14,8 +14,12 @@ function EnhancedStudentPortal({ demo = false }) {
   const [error, setError] = useState('');
   const [connectionStatus, setConnectionStatus] = useState('checking');
   const [issuing, setIssuing] = useState(false);
-  const [, setIssueResult] = useState(null);
+  const [issueResult, setIssueResult] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Institution Branding
+  const [institutionName, setInstitutionName] = useState('AcademicChain Ledger');
+  const [institutionLogo, setInstitutionLogo] = useState(null);
   
   // LinkedIn Verification State
   const [linkedInUrl, setLinkedInUrl] = useState('');
@@ -88,12 +92,18 @@ function EnhancedStudentPortal({ demo = false }) {
  
   useEffect(() => {
     loadStudentData();
+    
+    // Load branding from localStorage
+    const savedName = localStorage.getItem('acl:brand:name');
+    const savedLogo = localStorage.getItem('acl:brand:logo');
+    if (savedName) setInstitutionName(savedName);
+    if (savedLogo) setInstitutionLogo(savedLogo);
   }, [loadStudentData]);
 
   const mapCredential = (c) => ({
     id: c.id || `${c.tokenId}-${c.serialNumber}`,
     title: c.title || 'Credential',
-    issuer: c.issuer || 'Demo Institution',
+    issuer: c.issuer || 'AcademicChain Ledger',
     issueDate: c.createdAt ? new Date(c.createdAt) : new Date(),
     expirationDate: null,
     metadata: {
@@ -135,13 +145,13 @@ function EnhancedStudentPortal({ demo = false }) {
           <div className="flex items-center gap-4">
              <div className="flex items-center gap-3">
                 <img
-                  src={toGateway('ipfs://bafkreicickkyjjn3ztitciypfh635lqowdskzbv54fiqbrhs4zbmwhjv4q')}
-                  alt="AcademicChain Logo"
+                  src={institutionLogo || toGateway('ipfs://bafkreicickkyjjn3ztitciypfh635lqowdskzbv54fiqbrhs4zbmwhjv4q')}
+                  alt={`${institutionName} Logo`}
                   className="h-10 w-10 rounded-full shadow-sm object-contain bg-white"
                 />
                 <div className="flex flex-col">
-                   <h3 className="text-lg font-bold text-slate-900 leading-none tracking-tight">AcademicChain</h3>
-                   <p className="text-[10px] text-slate-500 font-medium mt-0.5">Impulsado por AcademicChain</p>
+                   <h3 className="text-lg font-bold text-slate-900 leading-none tracking-tight">{institutionName}</h3>
+                   <p className="text-[10px] text-slate-500 font-medium mt-0.5">Impulsado por {institutionName}</p>
                 </div>
              </div>
              <div className="hidden md:block h-8 w-px bg-slate-300 mx-2"></div>
@@ -332,6 +342,7 @@ function EnhancedStudentPortal({ demo = false }) {
                                 </div>
                                 
                                 <p className="text-slate-300 mb-6 leading-relaxed">
+                                    Maximiza el valor de tus credenciales verificadas en <span className="text-white font-bold">{institutionName}</span>.
                                     Solo los perfiles con <span className="text-white font-bold">LinkedIn Verificado</span> y 
                                     <span className="text-white font-bold"> Títulos en Blockchain</span> aparecerán en las búsquedas de los empleadores.
                                 </p>

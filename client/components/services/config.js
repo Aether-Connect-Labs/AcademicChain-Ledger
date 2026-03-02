@@ -1,4 +1,13 @@
 export const getApiBaseUrl = () => {
+  // Auto-detect local environment first to avoid misconfiguration
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      console.log('Using local proxy for API');
+      return ''; // Use relative path to trigger Vite proxy
+    }
+  }
+
   const env = import.meta.env || {};
   const apiUrl = env.VITE_API_URL;
   if (apiUrl) {
@@ -9,6 +18,15 @@ export const getApiBaseUrl = () => {
       return apiUrl;
     }
   }
+  
+  // Auto-detect local environment
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return '';
+    }
+  }
+
   const n8nUrl = env.VITE_N8N_WEBHOOK_URL;
   if (n8nUrl) {
     try {
@@ -21,7 +39,8 @@ export const getApiBaseUrl = () => {
       return n8nUrl;
     }
   }
-  return 'https://acl-academicchain.aether-connect-labs.workers.dev';
+  // Fallback a Molbot local (Arkhia enabled) en lugar de Cloudflare
+  return 'http://localhost:5678';
 };
 
 export const API_BASE_URL = getApiBaseUrl();

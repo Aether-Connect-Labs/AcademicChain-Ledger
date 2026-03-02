@@ -11,6 +11,20 @@ import useAnalytics from './useAnalytics';
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
 const CreatorDashboard = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (location.state?.message) {
+      toast(location.state.message, { 
+        icon: location.state.type === 'success' ? '✅' : 'ℹ️',
+        duration: 4000 
+      });
+      // Clear state to prevent sticky toast
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
+
   // Mock data states
   const [, setCredentials] = useState([]);
   const [, setLoading] = useState(false);
@@ -441,9 +455,7 @@ const CreatorDashboard = () => {
                         }`}>
                           {String(activity.status || '').toLowerCase() === 'revoked' ? 'Revocada' : (activity.status === 'verified' ? 'Verificado' : (activity.status === 'pending' ? 'Pendiente' : 'Confirmado'))}
                         </span>
-                        {activity.status !== 'verified' && (
-                          <button className="btn-secondary btn-sm border-green-400/40 text-green-400 hover:bg-green-500/10" onClick={() => handleRequestVerification(activity)}>Solicitar verificación</button>
-                        )}
+
                         <button className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10" onClick={() => handleRevoke(activity)}>Revocar</button>
                         <button className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10" onClick={() => handleDelete(activity)}>Borrar</button>
                       </div>

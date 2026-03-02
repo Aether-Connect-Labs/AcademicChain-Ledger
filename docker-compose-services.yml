@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: academicchain-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: ./worker
+    container_name: academicchain-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - N8N_WEBHOOK_URL=http://n8n:5678/webhook
+      - JWT_SECRET=academic-chain-ledger-secret-key-2024
+      - ACL_AUTH_KEY=some-secret-key
+    depends_on:
+      - redis
+      - n8n
+
+  n8n:
+    image: n8nio/n8n
+    container_name: academicchain-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=n8n
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=America/New_York
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=n8n
+      - DB_POSTGRESDB_PASSWORD=n8n
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - redis
+      - postgres
+
+  postgres:
+    image: postgres:13
+    container_name: academicchain-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=n8n
+      - POSTGRES_PASSWORD=n8n
+      - POSTGRES_DB=n8n
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  mongo:
+    image: mongo:latest
+    container_name: academicchain-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  redis_data:
+  n8n_data:
+  postgres_data:
+  mongo_data:

@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: academicchain-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: academicchain-frontend
+  template:
+    metadata:
+      labels:
+        app: academicchain-frontend
+    spec:
+      containers:
+      - name: academicchain-frontend
+        image: academicchain/frontend:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: VITE_API_URL
+          value: "http://academicchain-backend:3000/api"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: academicchain-frontend
+spec:
+  selector:
+    app: academicchain-frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer

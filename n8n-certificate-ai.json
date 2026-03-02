@@ -1,0 +1,93 @@
+{
+  "name": "Certificate AI Designer",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "ai-certificate-designer",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4o"
+        },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an expert certificate designer assistant. Your goal is to interpret user commands and generate a structured JSON response to modify a certificate design on an HTML5 Canvas.\n\nInput: User prompt (e.g., \"Make it blue and add a seal\") and current context.\nOutput: JSON object with:\n1. \"message\": A friendly, short conversational response (in Spanish).\n2. \"modifications\": An array of modification actions.\n\nAllowed Modification Types:\n- type: \"color-theme\"\n  fields: colors { bg, primary, text } (Hex codes)\n- type: \"add-element\"\n  fields: element (\"signature-line\", \"seal\", \"border\")\n- type: \"update-text\"\n  fields: target (\"title-main\", \"student-name\", \"degree-name\", \"institution-name\", \"text-body\"), value (string)\n- type: \"layout\"\n  fields: mode (\"Landscape\", \"Portrait\")\n- type: \"template\"\n  fields: id (\"minimal\", \"blockchain\", \"holographic-1\", \"gold-standard\")\n\nCRITICAL INSTRUCTION - INSTITUTION VS STUDENT:\n- If the user provides a name for the university, college, school, or institution (e.g., \"Change university to Harvard\", \"Nombre de institucion: MIT\"), you MUST use target: \"institution-name\".\n- If the user provides a name for the recipient/student (e.g., \"Certificate for John Doe\", \"Student name is Alice\"), you MUST use target: \"student-name\".\n- NEVER confuse the two. The institution name appears at the top or bottom as the issuer. The student name is the main recipient.\n- If the user says \"donde vea eso va el nombre de la institucion\", they are referring to a placeholder or a specific location that should be the institution name.\n\nExample Response:\n{\n  \"message\": \"He actualizado el nombre de la institución a Universidad Tecnológica.\",\n  \"modifications\": [\n    { \"type\": \"update-text\", \"target\": \"institution-name\", \"value\": \"UNIVERSIDAD TECNOLÓGICA\" }\n  ]\n}"
+            },
+            {
+              "role": "user",
+              "content": "={{$json.body.prompt}}"
+            }
+          ]
+        },
+        "jsonOutput": true
+      },
+      "name": "AI Processing",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "1",
+          "name": "OpenAI Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json.output}}",
+        "options": {}
+      },
+      "name": "Respond to App",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Processing": {
+      "main": [
+        [
+          {
+            "node": "Respond to App",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
