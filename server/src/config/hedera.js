@@ -4,14 +4,15 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 // Configuración de Arkhia para Testnet
-const arkhiaUrl = `https://hedera.testnet.arkhia.io/api/v1/${process.env.ARKHIA_API_KEY}`;
+const arkhiaUrl = `https://pool.arkhia.io/hedera/testnet/api/v1`;
 
 const client = Client.forTestnet();
 
-// Inyectamos el endpoint de Arkhia para que las consultas pasen por sus nodos premium
+// Configuración opcional de Mirror Node de Arkhia (Si se tiene el endpoint GRPC correcto)
+// Por ahora usamos el default de Hedera para evitar errores de conexión GRPC
 if (process.env.ARKHIA_API_KEY) {
-    console.log("[Hedera] Configuring Arkhia Mirror Node...");
-    client.setMirrorNetwork(["testnet.mirrornode.arkhia.io:443"]);
+    console.log("[Hedera] Arkhia REST API configured.");
+    // client.setMirrorNetwork(["grpc.testnet.arkhia.io:443"]); 
 }
 
 const operatorId = process.env.HEDERA_OPERATOR_ID;
