@@ -1,9 +1,10 @@
-const { client } = require("../config/hedera");
+const { client, arkhiaUrl } = require("../config/hedera");
 const mockDb = require("../services/mockDb");
 const Student = require("../models/Student");
 const { TopicMessageSubmitTransaction } = require("@hashgraph/sdk");
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 
 console.log("DEBUG: certificationController.js LOADED - V2 CHECK");
 
@@ -262,5 +263,50 @@ exports.getAllStudents = (req, res) => {
     } catch (error) {
         console.error("Error obteniendo estudiantes:", error);
         return res.status(500).json({ success: false, message: "Error interno" });
+    }
+};
+
+// 5. Endpoint de prueba de conexión Arkhia (Nuevo)
+exports.testArkhiaConnection = async (req, res) => {
+    logToFile("testArkhiaConnection called");
+    console.log("DEBUG: Testing Arkhia connection...");
+    
+    if (!arkhiaUrl) {
+        return res.status(500).json({ 
+            success: false, 
+            message: "Arkhia URL not configured in hedera.js" 
+        });
+    }
+
+    try {
+        // Consultar nodos de la red Hedera a través de Arkhia
+        const response = await axios.get(`${arkhiaUrl}/network/nodes`);
+        
+        // Consultar Topic si existe
+        let topicInfo = null;
+        if (HCS_TOPIC_ID) {
+            try {
+                const topicRes = await axios.get(`${arkhiaUrl}/topics/${HCS_TOPIC_ID}/messages?limit=5`);
+                topicInfo = topicRes.data;
+            } catch (e) {
+                console.warn("Topic check failed (might be empty):", e.message);
+                topicInfo = { error: "Topic not found or empty", details: e.message };
+            }
+        }
+
+        res.json({
+            success: true,
+            provider: "Arkhia",
+            endpoint: arkhiaUrl,
+            network_nodes_count: response.data.nodes ? response.data.nodes.length : 0,
+            hcs_topic_status: topicInfo
+        });
+    } catch (error) {
+        console.error("Arkhia connection error:", error.message);
+        res.status(502).json({
+            success: false,
+            message: "Error connecting to Arkhia",
+            error: error.message
+        });
     }
 };
