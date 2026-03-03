@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "npm run dev --prefix client",
     "build": "npm run build --prefix client",
-    "deploy": "wrangler pages deploy client/dist --project-name academicchain-ledger",
+    "deploy": "npm run build --prefix client && wrangler pages deploy client/dist --project-name academicchain-ledger",
     "lint": "npm run lint --prefix client"
   },
   "workspaces": [
