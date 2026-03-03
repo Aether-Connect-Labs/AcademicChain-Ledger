@@ -57,7 +57,19 @@ const CreatorDashboard = () => {
         }));
     };
 
+    const handleBatchComplete = (event) => {
+        const { count } = event.detail || {};
+        if (count > 0) {
+            setStats(prev => ({
+                ...prev,
+                totalIssued: (prev.totalIssued || 0) + count
+            }));
+            toast.success(`Lote completado: Se emitieron ${count} certificados.`);
+        }
+    };
+
     window.addEventListener('acl:hired', handleHired);
+    window.addEventListener('acl:batch-complete', handleBatchComplete);
     
     // Listen to localStorage for cross-tab events
     const handleStorage = (e) => {
@@ -70,6 +82,7 @@ const CreatorDashboard = () => {
 
     return () => {
         window.removeEventListener('acl:hired', handleHired);
+        window.removeEventListener('acl:batch-complete', handleBatchComplete);
         window.removeEventListener('storage', handleStorage);
     };
   }, []);

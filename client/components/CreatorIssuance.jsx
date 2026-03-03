@@ -280,10 +280,10 @@ const CreatorIssuance = () => {
           </button>
           <button
             type="button"
-            onClick={() => setIssuanceMode('mass')}
-            className={`px-4 py-2 rounded-md font-bold transition-all ${issuanceMode === 'mass' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+            onClick={() => navigate('/portal-creadores/batch', { state: { returnUrl: '/portal-creadores' } })}
+            className={`px-4 py-2 rounded-md font-bold transition-all text-slate-400 hover:bg-slate-800 hover:text-white flex items-center gap-2`}
           >
-            Masiva (CSV)
+            <span>🚀</span> Masiva (Excel/CSV)
           </button>
         </div>
       </div>

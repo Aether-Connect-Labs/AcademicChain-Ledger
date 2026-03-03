@@ -100,6 +100,12 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/portal-creadores/batch"
+        element={
+          <Layout showNavbar={false} showFooter={false}><BatchIssuance demo={true} /></Layout>
+        }
+      />
+      <Route
         path="/portal-creadores/designer"
         element={
           <Layout showNavbar={false} showFooter={false}><CreatorDesignerPage /></Layout>

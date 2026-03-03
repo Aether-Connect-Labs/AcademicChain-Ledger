@@ -1,5 +1,6 @@
 // src/components/issuance/BatchIssuance.js
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useHedera } from './useHedera';
 import { useAuth } from './useAuth';
 import { useWebSocket } from './useWebSocket';
@@ -54,7 +55,10 @@ const XrpAnchorCell = ({ tokenId, serialNumber }) => {
 
 const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComplete, institutionName }) => {
   const { account, isConnected, connectWallet } = useHedera();
-  const { token } = useAuth(); // Obtener el token de autenticación
+  const location = useLocation();
+  const navigate = useNavigate();
+  const returnUrl = location.state?.returnUrl;
+  const { token, user } = useAuth(); // Obtener el token y usuario
   const { socket, isConnected: isSocketConnected } = useWebSocket(token); // Usar el token real
   const { trackHederaOperation, trackCredentialOperation } = useAnalytics();
   
@@ -88,8 +92,12 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
   useEffect(() => {
     if (institutionName) {
       setIssuanceConfig(prev => ({ ...prev, institution: institutionName }));
+    } else if (user?.institutionName || user?.name) {
+      setIssuanceConfig(prev => ({ ...prev, institution: user.institutionName || user.name }));
+    } else if (demo) {
+      setIssuanceConfig(prev => ({ ...prev, institution: 'Institución Demo' }));
     }
-  }, [institutionName]);
+  }, [institutionName, user, demo]);
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem('customTemplates') || '[]');
@@ -543,6 +551,8 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
         setCurrentStep(4);
         setIsProcessing(false);
         if (onEmissionComplete) onEmissionComplete(total);
+        // Notify Creator Dashboard
+        window.dispatchEvent(new CustomEvent('acl:batch-complete', { detail: { count: total } }));
         return;
       }
 
@@ -678,6 +688,10 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
 
       if (onEmissionComplete && aggregateResults.successful > 0) {
           onEmissionComplete(aggregateResults.successful);
+      }
+      
+      if (aggregateResults.successful > 0) {
+         window.dispatchEvent(new CustomEvent('acl:batch-complete', { detail: { count: aggregateResults.successful } }));
       }
 
     } catch (error) {
@@ -1362,6 +1376,14 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
 
   return (
     <div className="max-w-6xl mx-auto p-6 bg-gray-900 border border-gray-800 rounded-xl shadow-lg">
+      {returnUrl && (
+          <button 
+            onClick={() => navigate(returnUrl)}
+            className="mb-6 flex items-center gap-2 text-slate-400 hover:text-white transition-colors font-medium bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700 hover:bg-slate-800"
+          >
+            ← Volver al Dashboard
+          </button>
+      )}
       <Toaster position="top-right" toastOptions={{ style: { borderRadius: '8px', padding: '8px 12px', background: '#1f2937', color: '#fff' } }} />
       {/* Progress Tracker */}
       <ProgressTracker
