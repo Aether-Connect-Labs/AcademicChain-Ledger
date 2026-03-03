@@ -1,5 +1,5 @@
 name = "academicchain-ledger"
-compatibility_date = "2024-03-20"
+compatibility_date = "2024-04-05"
 
 [assets]
 directory = "./dist"
