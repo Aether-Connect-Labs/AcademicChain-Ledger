@@ -1,0 +1,13 @@
+{
+  "name": "academicchain-ledger-root",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix client",
+    "build": "npm run build --prefix client",
+    "deploy": "npm run deploy --prefix client",
+    "lint": "npm run lint --prefix client"
+  },
+  "workspaces": [
+    "client"
+  ]
+}
