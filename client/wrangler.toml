@@ -1,6 +1,9 @@
-name = "academicchain-client"
+name = "academicchain-ledger"
 compatibility_date = "2024-03-20"
-pages_build_output_dir = "dist"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
 
 [vars]
 VITE_API_URL = "https://api.tu-dominio.com" # Cambia esto por tu URL real del backend
