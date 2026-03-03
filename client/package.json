@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite --force",
     "build": "vite build",
+    "deploy": "wrangler pages deploy dist --project-name academicchain-ledger",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0 || echo lint skipped",
     "test": "jest --passWithNoTests"
@@ -84,7 +85,8 @@
     "postcss": "^8.4.32",
     "tailwindcss": "^3.3.6",
     "typescript": "^5.3.2",
-    "vite": "^5.0.10"
+    "vite": "^5.0.10",
+    "wrangler": "^4.69.0"
   },
   "engines": {
     "node": "22.x"

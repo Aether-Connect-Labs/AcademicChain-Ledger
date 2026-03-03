@@ -279,3 +279,35 @@ exports.testArkhiaConnection = async (req, res) => {
         });
     }
 };
+
+exports.getDashboardMetrics = async (req, res) => {
+    try {
+        const totalStudents = await Student.countDocuments();
+        
+        // Count total certificates across all students
+        const students = await Student.find().select('certificates hiringHistory');
+        const totalCertificates = students.reduce((acc, s) => acc + (s.certificates ? s.certificates.length : 0), 0);
+        
+        // Count anchored (those with hederaTransactionId)
+        const totalAnchored = students.reduce((acc, s) => {
+            return acc + (s.certificates ? s.certificates.filter(c => c.hederaTransactionId).length : 0);
+        }, 0);
+
+        // Employability Rate
+        const hiredStudents = students.filter(s => s.hiringHistory && s.hiringHistory.length > 0).length;
+        const employabilityRate = totalStudents > 0 ? ((hiredStudents / totalStudents) * 100).toFixed(1) : 0;
+
+        res.json({
+            success: true,
+            metrics: {
+                totalEmissions: totalCertificates,
+                successfulAnchors: totalAnchored,
+                employabilityRate: `${employabilityRate}%`,
+                totalStudents
+            }
+        });
+    } catch (error) {
+        console.error("Error getting dashboard metrics:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+};

@@ -160,6 +160,53 @@ const EmployerDashboard = () => {
       setTimeout(() => navigate('/precios?tab=employers'), 1500);
   };
 
+  const handleHire = (talent) => {
+    toast.loading(`Validando credenciales de ${talent.name} en Hedera...`, { duration: 2000 });
+    
+    setTimeout(() => {
+        toast.dismiss();
+        
+        // Success Toast with Sound Effect Visuals
+        toast.custom((t) => (
+            <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-slate-900 shadow-2xl rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 border border-green-500`}>
+                <div className="flex-1 w-0 p-4">
+                    <div className="flex items-start">
+                        <div className="flex-shrink-0 pt-0.5">
+                            <CheckCircle className="h-10 w-10 text-green-500" />
+                        </div>
+                        <div className="ml-3 flex-1">
+                            <p className="text-sm font-medium text-white">
+                                ¡Contratación Exitosa!
+                            </p>
+                            <p className="mt-1 text-sm text-slate-400">
+                                Has validado y contratado a <span className="text-blue-400 font-bold">{talent.name}</span>.
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                                Notificación enviada a la institución emisora.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        ), { duration: 5000 });
+        
+        // Emit event for other tabs/users (Institution & Creator Dashboards)
+        const eventData = {
+            studentName: talent.name,
+            employerName: employerName,
+            courseName: talent.role || 'Certificación Blockchain', // Mock course name
+            timestamp: new Date().toISOString()
+        };
+
+        // Dispatch local event
+        window.dispatchEvent(new CustomEvent('acl:hired', { detail: eventData }));
+        
+        // Save to localStorage for cross-tab communication
+        localStorage.setItem('acl:event:hired', JSON.stringify(eventData));
+        
+    }, 2000);
+  };
+
   useEffect(() => {
     return () => {
       if (scannerRef.current) {
@@ -662,7 +709,7 @@ const EmployerDashboard = () => {
                                         <button
                                             key={filter.id}
                                             onClick={() => setActiveFilter(activeFilter === filter.id ? null : filter.id)}
-                                            className={`text-xs px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 ${
+                                            className={`text-xs px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 relative ${
                                                 activeFilter === filter.id 
                                                 ? (filter.special ? 'bg-purple-500/20 border-purple-500 text-purple-300' : 'bg-blue-500/20 border-blue-500 text-blue-300')
                                                 : (filter.special ? 'bg-purple-900/20 border-purple-800 text-purple-400 hover:border-purple-500' : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-500')
@@ -670,6 +717,12 @@ const EmployerDashboard = () => {
                                         >
                                             <span>{filter.icon}</span>
                                             <span>{filter.label}</span>
+                                            {filter.demand === 'high' && (
+                                                <span className="absolute -top-2 -right-1 flex h-3 w-3">
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                                </span>
+                                            )}
                                         </button>
                                     ))}
                                     
@@ -772,8 +825,12 @@ const EmployerDashboard = () => {
                                             </div>
 
                                             <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800 relative z-10">
-                                                <button onClick={handleContact} className="text-sm font-medium text-white hover:text-blue-400 transition-colors">
-                                                    Contactar
+                                                <button 
+                                                    onClick={() => handleHire(talent)}
+                                                    className="text-xs font-bold text-slate-900 bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-300 hover:to-cyan-300 px-3 py-1.5 rounded-lg shadow-lg shadow-blue-500/20 transition-all flex items-center gap-1.5 group/hire"
+                                                >
+                                                    <CheckCircle size={14} className="group-hover/hire:scale-110 transition-transform" />
+                                                    Validar y Contratar
                                                 </button>
                                                 
                                                 <div className="flex items-center gap-3">

@@ -15,6 +15,8 @@ import IssuanceSummary from './IssuanceSummary';
 import ErrorReport from './ui/ErrorReport';
 import AiInsightsPanel from './ui/AiInsightsPanel';
 import { Toaster, toast } from 'react-hot-toast';
+import { Table, FileText, Download, AlertTriangle, Check, FileSpreadsheet, UploadCloud, RefreshCw, Eye } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const XrpAnchorCell = ({ tokenId, serialNumber }) => {
   const [hash, setHash] = useState(null);
@@ -47,7 +49,7 @@ const XrpAnchorCell = ({ tokenId, serialNumber }) => {
   const xrplNetwork = (import.meta.env.VITE_XRPL_NETWORK || network || 'testnet');
   const xrplBase = xrplNetwork.includes('main') ? 'https://livenet.xrpl.org' : 'https://testnet.xrpl.org';
   const href = `${xrplBase}/transactions/${hash}`;
-  return <a href={href} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{hash.slice(0, 8)}...</a>;
+  return <a href={href} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">{hash.slice(0, 8)}...</a>;
 };
 
 const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComplete, institutionName }) => {
@@ -192,6 +194,35 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
     }
   }, [processResult]);
 
+  const handleDownloadTemplate = () => {
+    const headers = [
+      'firstName', 'lastName', 'studentId', 'degree', 
+      'major', 'gpa', 'graduationDate', 'email', 'honors'
+    ];
+    const sampleData = [
+      ['Juan', 'Perez', 'A00123456', 'Ingeniería de Software', 'IA', '95', '2024-06-15', 'juan@example.com', 'Summa Cum Laude'],
+      ['Maria', 'Gomez', 'A00654321', 'Arquitectura', 'Urbanismo', '92', '2024-06-15', 'maria@example.com', '']
+    ];
+    
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleData]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
+    XLSX.writeFile(wb, "Plantilla_Emision_Masiva_ACL.xlsx");
+  };
+
+  const validateRows = (rows) => {
+    return rows.map(row => {
+      const errors = [];
+      if (!row.firstName) errors.push('Falta Nombre');
+      if (!row.lastName) errors.push('Falta Apellido');
+      if (!row.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)) errors.push('Email Inválido');
+      if (!row.studentId) errors.push('Falta ID Estudiante');
+      if (!row.degree) errors.push('Falta Título');
+      
+      return { ...row, errors, isValid: errors.length === 0 };
+    });
+  };
+
   // Paso 1: Manejo de archivos
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -206,40 +237,38 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
         fileSize: file.size
       });
 
+      // Use fileParser to get raw data
       const parsedData = await fileParser.parseCSV(file);
       
-      // Validar estructura básica
-      const validationResult = validationService.validateBatchData(parsedData);
+      // Apply our specific validation
+      const validatedData = validateRows(parsedData);
+      const validCount = validatedData.filter(r => r.isValid).length;
       
-      if (!validationResult.isValid) {
-        throw new Error(`Errores de validación: ${validationResult.errors.join(', ')}`);
-      }
-
       setFileData({
         name: file.name,
         size: file.size,
         type: file.type,
         rowCount: parsedData.length,
-        parsedData
+        validCount,
+        invalidCount: parsedData.length - validCount,
+        parsedData: validatedData
       });
 
-      setCurrentStep(2);
+      setCurrentStep(2); // Go to preview
       
       trackHederaOperation({
         operation: 'batch_file_processed',
         recordCount: parsedData.length,
-        validationErrors: validationResult.errors.length
+        validationErrors: parsedData.length - validCount
       });
 
     } catch (error) {
       console.error('Error processing file:', error);
-      setProcessResult({
-        success: false,
-        error: error.message,
-        step: 'file_processing'
-      });
+      toast.error(`Error al procesar archivo: ${error.message}`);
     } finally {
       setIsProcessing(false);
+      // Reset input
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -468,10 +497,16 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
     setIsProcessing(true);
     setProcessResult(null);
 
-    const results = {
-      total: credentials.length,
-      startTime: Date.now()
+    // Initialize results accumulator
+    const aggregateResults = {
+        successful: 0,
+        failed: 0,
+        details: [],
+        startTime: Date.now()
     };
+    
+    const BATCH_SIZE = 5;
+    const totalBatches = Math.ceil(credentials.length / BATCH_SIZE);
 
     if (!credentials.length) {
       setIsProcessing(false);
@@ -500,28 +535,28 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
           { id: 'preview_1', credential: issuanceService.createCredentialTemplate({ studentName: 'Bob Demo', degree: 'Math', credentialType: issuanceConfig.credentialType }) },
         ];
         setCredentials(demoCreds);
+        
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
         const summary = { total, successful: total, failed: 0, successRate: 100, duration: 1, status: 'completed' };
-        setProcessResult({ success: true, data: { total, startTime: results.startTime }, summary });
+        setProcessResult({ success: true, data: { total, startTime: aggregateResults.startTime }, summary });
         setCurrentStep(4);
         setIsProcessing(false);
         if (onEmissionComplete) onEmissionComplete(total);
         return;
       }
 
-      // Unified Batch Processing via n8n
-      // This handles all networks (Hedera, XRP, etc.) centrally
-      const batchData = {
-        credentials: credentials.map(c => c.credential),
-        institution: issuanceConfig.institution,
-        templateId: issuanceConfig.template,
-        customMessage: issuanceConfig.customMessage,
-        networks: plan ? plan.networks : ['hedera'],
-        options: {
-            addToHedera: issuanceConfig.addToHedera,
-            generateQR: issuanceConfig.generateQR,
-            sendEmail: issuanceConfig.sendEmail
+      // Initialize UI
+      setProcessResult({
+        summary: {
+            status: 'processing',
+            progress: 0,
+            successful: 0,
+            failed: 0,
+            batchCurrent: 0,
+            batchTotal: totalBatches
         }
-      };
+      });
 
       trackCredentialOperation({
         operation: 'batch_issuance_start',
@@ -529,35 +564,121 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
         institution: issuanceConfig.institution
       });
 
-      // Call n8n service
-      const response = await n8nService.submitBatch(batchData);
-      const masterJobId = response.jobId || `job-${Date.now()}`;
+      // Real issuance logic with batching (5 items per batch)
+      for (let i = 0; i < credentials.length; i += BATCH_SIZE) {
+          const chunk = credentials.slice(i, i + BATCH_SIZE);
+          const currentBatchIndex = Math.floor(i / BATCH_SIZE) + 1;
 
-      // Update UI
-      const summary = {
-        total: results.total,
-        successful: 0,
-        failed: 0,
-        successRate: 0,
-        duration: 0,
-        status: 'queued',
-        masterJobId: masterJobId
+          // Update UI for current batch
+          setProcessResult(prev => ({
+              ...prev,
+              summary: {
+                  ...prev.summary,
+                  batchCurrent: currentBatchIndex,
+                  batchTotal: totalBatches,
+                  status: `processing_batch_${currentBatchIndex}`,
+                  successful: aggregateResults.successful,
+                  failed: aggregateResults.failed
+              }
+          }));
+
+          const batchData = {
+            credentials: chunk.map(c => c.credential),
+            institution: issuanceConfig.institution,
+            templateId: issuanceConfig.template,
+            customMessage: issuanceConfig.customMessage,
+            networks: plan ? plan.networks : ['hedera'],
+            options: {
+                addToHedera: issuanceConfig.addToHedera,
+                generateQR: issuanceConfig.generateQR,
+                sendEmail: issuanceConfig.sendEmail
+            }
+          };
+
+          const response = await n8nService.submitBatch(batchData);
+          const jobId = response.jobId || response.data?.masterJobId;
+
+          if (!jobId) {
+             console.warn('No Job ID returned for batch', i);
+             continue; 
+          }
+
+          // Wait for this batch to complete using polling
+          await new Promise((resolve, reject) => {
+              const checkInterval = setInterval(async () => {
+                  try {
+                      const statusRes = await issuanceService.getBatchStatus(jobId);
+                      const statusData = statusRes.data || statusRes;
+                      
+                      if (statusData.status === 'completed' || statusData.status === 'failed') {
+                          clearInterval(checkInterval);
+                          
+                          // Aggregate results
+                          const chunkSuccess = statusData.successfulCount || statusData.successful?.length || 0;
+                          const chunkFailed = statusData.failedCount || statusData.failed?.length || 0;
+                          
+                          aggregateResults.successful += chunkSuccess;
+                          aggregateResults.failed += chunkFailed;
+                          
+                          if (statusData.results) {
+                              aggregateResults.details.push(...statusData.results);
+                          } else if (statusData.successful) {
+                              aggregateResults.details.push(...statusData.successful.map(s => ({...s, status: 'success'})));
+                          }
+                          
+                          // Update interim UI
+                          setProcessResult(prev => ({
+                              ...prev,
+                              summary: {
+                                  ...prev.summary,
+                                  successful: aggregateResults.successful,
+                                  failed: aggregateResults.failed,
+                                  progress: Math.round(((i + chunk.length) / credentials.length) * 100)
+                              }
+                          }));
+                          
+                          resolve(statusData);
+                      }
+                  } catch (e) {
+                      console.error('Polling error in batch:', e);
+                      clearInterval(checkInterval);
+                      reject(e);
+                  }
+              }, 2000); // Poll every 2s
+          });
+      }
+
+      // Finalize
+      const finalSummary = {
+        total: credentials.length,
+        successful: aggregateResults.successful,
+        failed: aggregateResults.failed,
+        successRate: Math.round((aggregateResults.successful / credentials.length) * 100),
+        duration: (Date.now() - aggregateResults.startTime) / 1000,
+        status: 'completed',
+        batchTotal: totalBatches
       };
 
       setProcessResult({
         success: true,
-        data: { ...results, masterJobId },
-        summary
+        summary: finalSummary,
+        data: {
+            results: aggregateResults.details
+        }
       });
 
       setCurrentStep(4);
 
       trackCredentialOperation({
         operation: 'batch_issuance_complete',
-        status: 'queued',
-        masterJobId: masterJobId,
-        total: results.total
+        status: 'completed',
+        total: credentials.length,
+        successful: aggregateResults.successful
       });
+
+      if (onEmissionComplete && aggregateResults.successful > 0) {
+          onEmissionComplete(aggregateResults.successful);
+      }
 
     } catch (error) {
       console.error('Error in batch issuance:', error);
@@ -566,13 +687,13 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
         success: false,
         error: error.message,
         step: 'batch_processing',
-        data: results // Puede contener datos parciales si la API falla
+        data: aggregateResults // Partial results
       });
 
       trackHederaOperation({
         operation: 'batch_issuance_failed',
         error: error.message,
-        processed: results.successful.length
+        processed: aggregateResults.successful
       });
 
     } finally {
@@ -586,21 +707,125 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
   const renderStep = () => {
     switch (currentStep) {
       case 1:
+        if (fileData) {
+           // Show Validation Table
+           return (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <div className="flex items-center justify-between bg-black/40 p-4 rounded-xl border border-gray-700">
+                  <div className="flex items-center gap-4">
+                     <div className="h-12 w-12 rounded-lg bg-green-900/30 flex items-center justify-center border border-green-700/50">
+                        <FileSpreadsheet className="text-green-400" />
+                     </div>
+                     <div>
+                        <h3 className="font-bold text-white">{fileData.name}</h3>
+                        <div className="flex gap-4 text-xs mt-1">
+                           <span className="text-gray-400">{fileData.rowCount} Registros</span>
+                           <span className="text-green-400 font-bold">{fileData.validCount} Válidos</span>
+                           {fileData.invalidCount > 0 && <span className="text-red-400 font-bold">{fileData.invalidCount} Errores</span>}
+                        </div>
+                     </div>
+                  </div>
+                  <div className="flex gap-2">
+                     <button 
+                        onClick={() => { setFileData(null); }}
+                        className="p-2 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-gray-200 transition-colors"
+                        title="Subir otro archivo"
+                     >
+                        <RefreshCw size={20} />
+                     </button>
+                  </div>
+               </div>
+    
+               {/* Validation Table */}
+               <div className="bg-gray-900 border border-gray-700 rounded-xl overflow-hidden max-h-[400px] overflow-y-auto custom-scrollbar shadow-sm">
+                  <table className="w-full text-sm text-left">
+                     <thead className="bg-gray-800 text-gray-400 sticky top-0 z-10 backdrop-blur-sm">
+                        <tr>
+                           <th className="px-4 py-3">Estado</th>
+                           <th className="px-4 py-3">Estudiante</th>
+                           <th className="px-4 py-3">ID</th>
+                           <th className="px-4 py-3">Título</th>
+                           <th className="px-4 py-3">Email</th>
+                           <th className="px-4 py-3">Detalles</th>
+                        </tr>
+                     </thead>
+                     <tbody className="divide-y divide-gray-700">
+                        {fileData.parsedData.map((row, idx) => (
+                           <tr key={idx} className={`hover:bg-gray-800 transition-colors ${!row.isValid ? 'bg-red-900/20' : ''}`}>
+                              <td className="px-4 py-3">
+                                 {row.isValid ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-900/30 text-green-300 border border-green-700/50">
+                                       <Check size={12} className="mr-1" /> Válido
+                                    </span>
+                                 ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-900/30 text-red-300 border border-red-700/50">
+                                       <AlertTriangle size={12} className="mr-1" /> Error
+                                    </span>
+                                 )}
+                              </td>
+                              <td className="px-4 py-3 font-medium text-gray-200">{row.firstName} {row.lastName}</td>
+                              <td className="px-4 py-3 text-gray-400">{row.studentId}</td>
+                              <td className="px-4 py-3 text-gray-400">{row.degree}</td>
+                              <td className="px-4 py-3 text-gray-400">{row.email}</td>
+                              <td className="px-4 py-3">
+                                 {!row.isValid && (
+                                    <span className="text-red-400 text-xs font-medium">{row.errors.join(', ')}</span>
+                                 )}
+                              </td>
+                           </tr>
+                        ))}
+                     </tbody>
+                  </table>
+               </div>
+    
+               <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
+                  <button 
+                     onClick={() => { setFileData(null); }}
+                     className="px-4 py-2 text-gray-400 hover:text-gray-200 transition-colors"
+                  >
+                     Cancelar
+                  </button>
+                  <button
+                     disabled={fileData.invalidCount > 0}
+                     onClick={() => setCurrentStep(2)}
+                     className={`px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-all ${
+                        fileData.invalidCount > 0 
+                           ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
+                           : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-purple-500/25'
+                     }`}
+                  >
+                     <Eye size={18} />
+                     {fileData.invalidCount > 0 ? 'Corrije los errores para continuar' : 'Continuar a Configuración'}
+                  </button>
+               </div>
+            </div>
+           );
+        }
+
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <div className="w-20 h-20 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
-                <span className="text-3xl">📤</span>
+              <div className="w-20 h-20 mx-auto mb-4 bg-blue-900/20 rounded-full flex items-center justify-center border border-blue-500/30">
+                <UploadCloud size={40} className="text-blue-400" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              <h2 className="text-2xl font-bold text-white mb-2">
                 Carga Masiva de Credenciales
               </h2>
-              <p className="text-gray-600 max-w-md mx-auto">
-                Sube un archivo CSV con los datos de los estudiantes para emitir credenciales académicas en lote.
+              <p className="text-gray-400 max-w-md mx-auto">
+                Sube un archivo CSV o Excel con los datos de los estudiantes.
               </p>
             </div>
 
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
+            <div 
+                className="border-2 border-dashed border-gray-600 rounded-xl p-12 text-center hover:border-blue-500 hover:bg-blue-900/10 transition-all cursor-pointer group relative overflow-hidden"
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleFileUpload({ target: { files: [file] } });
+                }}
+            >
               <input
                 ref={fileInputRef}
                 type="file"
@@ -610,17 +835,23 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                 disabled={isProcessing}
               />
               
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isProcessing}
-                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isProcessing ? 'Procesando...' : 'Seleccionar Archivo CSV'}
-              </button>
-              
-              <p className="text-sm text-gray-500 mt-4">
-                Formatos soportados: CSV, Excel (.xlsx, .xls)
-              </p>
+              <div className="relative z-10 flex flex-col items-center">
+                  <h3 className="text-xl font-bold text-gray-200 mb-2">Arrastra tu archivo aquí</h3>
+                  <p className="text-gray-400 mb-6">o haz clic para explorar</p>
+                  <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20">
+                    Seleccionar Archivo
+                  </button>
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+                <button 
+                    onClick={handleDownloadTemplate}
+                    className="flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-900/20"
+                >
+                    <Download size={16} />
+                    Descargar Plantilla Excel Estándar
+                </button>
             </div>
           </div>
         );
@@ -629,10 +860,10 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              <h2 className="text-2xl font-bold text-white mb-2">
                 Configurar Emisión
               </h2>
-              <p className="text-gray-600">
+              <p className="text-gray-400">
                 Archivo: <strong>{fileData?.name}</strong> ({fileData?.rowCount} registros)
               </p>
             </div>
@@ -640,7 +871,7 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Plantilla de Diseño
                   </label>
                   {availableTemplates.length === 0 ? (
@@ -672,7 +903,7 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Tipo de Credencial
                   </label>
                   <select
@@ -691,7 +922,7 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Institución
                   </label>
                   <input
@@ -707,7 +938,7 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Fecha de Expiración (opcional)
                   </label>
                   <input
@@ -722,7 +953,7 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
             </div>
             
             <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                     Mensaje Personalizado (Narrativa del Trayecto)
                 </label>
                 <div className="mb-2">
@@ -751,13 +982,13 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                     placeholder="Escribe tu mensaje personalizado (usa {{student_name}}, {{degree}}, etc.)"
                     className="input-primary h-32"
                 />
-                <div className="text-sm text-gray-500 mt-1">
+                <div className="text-sm text-gray-400 mt-1">
                     Variables disponibles: {'{{student_name}}, {{degree}}, {{institution}}, {{fecha_expedicion}}'}
                 </div>
                 {issuanceConfig.customMessage && (
-                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-2">
+                    <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 mt-2">
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Vista Previa del Email (Ejemplo)</label>
-                        <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed font-serif italic">
+                        <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed font-serif italic">
                             {(() => {
                                 let text = issuanceConfig.customMessage;
                                 const sample = fileData?.parsedData?.[0] || { 
@@ -792,9 +1023,9 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                       ...prev,
                       addToHedera: e.target.checked
                     }))}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded focus-visible"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-600 rounded focus-visible bg-gray-800"
                   />
-                  <label htmlFor="addToHedera" className="ml-2 block text-sm text-gray-700">
+                  <label htmlFor="addToHedera" className="ml-2 block text-sm text-gray-300">
                     Registrar en Hedera Blockchain
                   </label>
                 </div>
@@ -805,9 +1036,9 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                     id="preSignPayments"
                     checked={preSignPayments}
                     onChange={(e) => setPreSignPayments(e.target.checked)}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded focus-visible"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-600 rounded focus-visible bg-gray-800"
                   />
-                  <label htmlFor="preSignPayments" className="ml-2 block text-sm text-gray-700">
+                  <label htmlFor="preSignPayments" className="ml-2 block text-sm text-gray-300">
                     Pre-firmar pagos (si aplica)
                   </label>
                 </div>
@@ -823,9 +1054,9 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                       ...prev,
                       generateQR: e.target.checked
                     }))}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded focus-visible"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-600 rounded focus-visible bg-gray-800"
                   />
-                  <label htmlFor="generateQR" className="ml-2 block text-sm text-gray-700">
+                  <label htmlFor="generateQR" className="ml-2 block text-sm text-gray-300">
                     Generar códigos QR para verificación
                   </label>
                 </div>
@@ -839,9 +1070,9 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                       ...prev,
                       sendEmail: e.target.checked
                     }))}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded focus-visible"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-600 rounded focus-visible bg-gray-800"
                   />
-                  <label htmlFor="sendEmail" className="ml-2 block text-sm text-gray-700">
+                  <label htmlFor="sendEmail" className="ml-2 block text-sm text-gray-300">
                     Enviar notificación por email
                   </label>
                 </div>
@@ -877,10 +1108,10 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              <h2 className="text-2xl font-bold text-white mb-2">
                 Vista Previa de Emisión
               </h2>
-              <p className="text-gray-600">
+              <p className="text-gray-400">
                 Revisa las {credentials.length} credenciales antes de emitirlas en Hedera
               </p>
             </div>
@@ -961,21 +1192,21 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
               const items = getResultItems();
               if (!items.length) return null;
               return (
-                <div className="mt-6 overflow-x-auto bg-white rounded-lg border">
+                <div className="mt-6 overflow-x-auto bg-gray-900 rounded-lg border border-gray-700">
                   <table className="min-w-full">
                     <thead>
-                      <tr className="bg-gray-50 text-gray-700 text-sm">
+                      <tr className="bg-gray-800 text-gray-300 text-sm">
                         <th className="px-4 py-2 text-left">Token</th>
                         <th className="px-4 py-2 text-left">Serial</th>
                         <th className="px-4 py-2 text-left">Acciones</th>
                         <th className="px-4 py-2 text-left">XRP Tx</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="text-gray-300">
                       {items.map((it, idx) => {
                         const verifyUrl = `${API_BASE_URL}/api/verification/verify/${it.tokenId}/${it.serialNumber}`;
                         return (
-                          <tr key={`${it.tokenId}-${it.serialNumber}-${idx}`} className="border-t text-sm">
+                          <tr key={`${it.tokenId}-${it.serialNumber}-${idx}`} className="border-t border-gray-700 text-sm">
                             <td className="px-4 py-2">{it.tokenId}</td>
                             <td className="px-4 py-2">{it.serialNumber}</td>
                             <td className="px-4 py-2 space-x-2">
@@ -994,11 +1225,11 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
             })()}
 
             {processResult?.summary?.status === 'queued' && isSocketConnected && (
-              <div className="text-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-blue-700">Esperando inicio del proceso... Conectado al servidor de notificaciones.</p>
-                <div className="mt-2 text-xs text-gray-600">{isPolling ? 'Monitoreando por API...' : 'Iniciando monitoreo...'}</div>
+              <div className="text-center p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+                <p className="text-blue-400">Esperando inicio del proceso... Conectado al servidor de notificaciones.</p>
+                <div className="mt-2 text-xs text-gray-400">{isPolling ? 'Monitoreando por API...' : 'Iniciando monitoreo...'}</div>
                 {pollError && (
-                  <div className="mt-2 text-xs text-red-600">{pollError}</div>
+                  <div className="mt-2 text-xs text-red-400">{pollError}</div>
                 )}
                 <button className="btn-secondary btn-sm mt-3" onClick={async () => {
                   try {
@@ -1028,12 +1259,12 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
             )}
 
             {processResult?.summary?.status === 'awaiting_xrp' && (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-yellow-800 font-semibold">Pagos XRP requeridos para completar la emisión</p>
-                <div className="mt-3 overflow-x-auto bg-white rounded border">
+              <div className="p-4 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
+                <p className="text-yellow-300 font-semibold">Pagos XRP requeridos para completar la emisión</p>
+                <div className="mt-3 overflow-x-auto bg-gray-900 rounded border border-gray-700">
                   <table className="min-w-full text-sm">
                     <thead>
-                      <tr className="bg-gray-50 text-gray-700">
+                      <tr className="bg-gray-800 text-gray-300">
                         <th className="px-3 py-2 text-left">TxID</th>
                         <th className="px-3 py-2 text-left">Destino</th>
                         <th className="px-3 py-2 text-left">Drops</th>
@@ -1041,9 +1272,9 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                         <th className="px-3 py-2 text-left">XRPL Tx Hash</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="text-gray-300">
                       {xrpBatchIntents.map((it, idx) => (
-                        <tr key={`${it.transactionId}-${idx}`} className="border-t">
+                        <tr key={`${it.transactionId}-${idx}`} className="border-t border-gray-700">
                           <td className="px-3 py-2 font-mono">{it.transactionId}</td>
                           <td className="px-3 py-2 font-mono break-all">{it.xrpPaymentIntent.destination}</td>
                           <td className="px-3 py-2">{it.xrpPaymentIntent.amountDrops}</td>
@@ -1130,8 +1361,8 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-white rounded-xl shadow-lg">
-      <Toaster position="top-right" toastOptions={{ style: { borderRadius: '8px', padding: '8px 12px' } }} />
+    <div className="max-w-6xl mx-auto p-6 bg-gray-900 border border-gray-800 rounded-xl shadow-lg">
+      <Toaster position="top-right" toastOptions={{ style: { borderRadius: '8px', padding: '8px 12px', background: '#1f2937', color: '#fff' } }} />
       {/* Progress Tracker */}
       <ProgressTracker
         currentStep={currentStep}
@@ -1152,8 +1383,8 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
       {currentStep >= 3 && (
         <div className={`mt-6 p-4 rounded-lg border ${
           isConnected 
-            ? 'bg-green-50 border-green-200 text-green-800' 
-            : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+            ? 'bg-green-900/20 border-green-700/50 text-green-300' 
+            : 'bg-yellow-900/20 border-yellow-700/50 text-yellow-300'
         }`}>
           <div className="flex items-center space-x-2">
             <div className={`w-2 h-2 rounded-full ${

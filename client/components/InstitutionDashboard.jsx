@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import QRCode from 'react-qr-code';
 import { useSearchParams } from 'react-router-dom';
+import axios from 'axios'; // Added for metrics
+import { toast, Toaster } from 'react-hot-toast'; // Added notifications
+import CertificationStepper from './CertificationStepper'; // Added Stepper
 import IssueTitleForm from './IssueTitleForm';
 import BatchIssuance from './BatchIssuance';
 import DocumentViewer from './ui/DocumentViewer';
@@ -11,6 +14,7 @@ import { demoService } from './services/demoService';
 import { toGateway } from './utils/ipfsUtils';
 import { useAuth } from './useAuth.jsx';
 import developerService from './services/developerService';
+import TrustBadge from './TrustBadge'; // Added TrustBadge
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Tooltip, Legend } from 'chart.js';
 import jsPDF from 'jspdf';
@@ -98,6 +102,99 @@ function InstitutionDashboard({ demo = false }) {
   const [securityHover, setSecurityHover] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  // New Dashboard States
+  const [dashboardMetrics, setDashboardMetrics] = useState({
+      totalEmissions: 0,
+      successfulAnchors: 0,
+      employabilityRate: '0%',
+      totalStudents: 0
+  });
+  const [currentCertificationStep, setCurrentCertificationStep] = useState(0); 
+  const [latestTransactionId, setLatestTransactionId] = useState(null);
+
+  // Fetch Real-time Metrics
+  useEffect(() => {
+    const fetchMetrics = async () => {
+        try {
+            // Adjust endpoint if needed (using localhost for dev or relative path)
+            const res = await axios.get('/api/metrics/dashboard');
+            if (res.data.success) {
+                setDashboardMetrics(res.data.metrics);
+            }
+        } catch (error) {
+            console.error("Failed to fetch dashboard metrics", error);
+        }
+    };
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 10000); // Poll every 10s
+    return () => clearInterval(interval);
+  }, []);
+
+  // Listen for Hire Events (Success Notification)
+  useEffect(() => {
+    const handleHired = (event) => {
+        const { studentName, employerName, courseName } = event.detail || {};
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        audio.play().catch(e => console.log('Audio play failed', e));
+
+        toast.custom((t) => (
+            <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-slate-900 shadow-2xl rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 border border-green-500`}>
+                <div className="flex-1 w-0 p-4">
+                    <div className="flex items-start">
+                        <div className="flex-shrink-0 pt-0.5">
+                            <span className="text-3xl">🎉</span>
+                        </div>
+                        <div className="ml-3 flex-1">
+                            <p className="text-sm font-medium text-white">¡Impacto Confirmado!</p>
+                            <p className="mt-1 text-sm text-slate-400">
+                                <span className="text-green-400 font-bold">{studentName}</span> ha sido contratado por <span className="text-blue-400 font-bold">{employerName}</span>
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">Certificado: {courseName}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        ), { duration: 8000 });
+    };
+
+    window.addEventListener('acl:hired', handleHired);
+
+    const handleStorage = (e) => {
+        if (e.key === 'acl:event:hired') {
+            const data = JSON.parse(e.newValue);
+            handleHired({ detail: data });
+        }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+        window.removeEventListener('acl:hired', handleHired);
+        window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
+  // Simulate Stepper on Certification Start (Callback for IssueTitleForm if we modify it)
+  const handleCertificationStart = () => {
+      setCurrentCertificationStep(1);
+      setTimeout(() => setCurrentCertificationStep(2), 3000); // Simulate XRPL/Algo time
+      setTimeout(() => {
+          setCurrentCertificationStep(3);
+          setLatestTransactionId("0.0.4576394"); // Hardcoded for demo visualization
+      }, 6000); // Simulate Hedera time
+  };
+
+  const simulateEmission = () => {
+    toast.promise(
+      new Promise((resolve) => setTimeout(resolve, 6500)),
+      {
+        loading: 'Iniciando proceso de emisión multichain...',
+        success: '¡Certificado emitido con éxito en Hedera!',
+        error: 'Error en la emisión',
+      }
+    );
+    handleCertificationStart();
+  };
   
 
 
@@ -595,8 +692,79 @@ function InstitutionDashboard({ demo = false }) {
 
   return (
     <div className="container-responsive pb-10">
-      <h1 className="text-3xl font-extrabold text-gray-900 mb-2 gradient-text">Dashboard de la Institución</h1>
-      <p className="text-gray-600">Bienvenido al portal de la institución. Aquí podrás emitir títulos y subir archivos Excel.</p>
+      <Toaster position="top-right" />
+      
+      {/* Real-time Dashboard Header */}
+      <div className="mb-10">
+          <div className="flex justify-between items-start mb-6">
+              <div>
+                  <h1 className="text-3xl font-extrabold text-white mb-2 font-display">
+                      Panel de <span className="text-gradient">Control Institucional</span>
+                  </h1>
+                  <p className="text-slate-400">Gestiona y emite credenciales con respaldo blockchain.</p>
+              </div>
+              <button 
+                  onClick={() => {
+                      const code = `<script src="https://cdn.academicchain.com/widget.js" data-id="${user?.institutionId || 'demo'}"></script>`;
+                      navigator.clipboard.writeText(code);
+                      toast.success('Código copiado al portapapeles');
+                  }}
+                  className="hidden md:flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg transition-all border border-slate-700"
+              >
+                  <span className="text-cyan-400 font-mono text-xs">&lt;/&gt;</span>
+                  <span className="text-sm font-medium">Copiar Widget</span>
+              </button>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
+              {/* Main Metrics */}
+              <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="p-4 rounded-xl border border-blue-500/30 bg-blue-500/10 backdrop-blur-sm relative overflow-hidden group">
+                      <div className="absolute -right-4 -top-4 bg-blue-500/20 w-24 h-24 rounded-full blur-2xl group-hover:bg-blue-500/30 transition-all"></div>
+                      <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider relative z-10">Emisiones Totales</h3>
+                      <div className="text-3xl font-bold text-blue-400 my-2 font-display relative z-10">{dashboardMetrics.totalEmissions || 0}</div>
+                      <p className="text-xs text-slate-500 relative z-10">Certificados en MongoDB</p>
+                  </div>
+                  <div className="p-4 rounded-xl border border-green-500/30 bg-green-500/10 backdrop-blur-sm relative overflow-hidden group">
+                      <div className="absolute -right-4 -top-4 bg-green-500/20 w-24 h-24 rounded-full blur-2xl group-hover:bg-green-500/30 transition-all"></div>
+                      <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider relative z-10">Anclajes Exitosos</h3>
+                      <div className="text-3xl font-bold text-green-400 my-2 font-display relative z-10">{dashboardMetrics.successfulAnchors || 0}</div>
+                      <p className="text-xs text-slate-500 relative z-10">Confirmados en Hedera/Arkhia</p>
+                  </div>
+                  <div className="p-4 rounded-xl border border-purple-500/30 bg-purple-500/10 backdrop-blur-sm relative overflow-hidden group">
+                      <div className="absolute -right-4 -top-4 bg-purple-500/20 w-24 h-24 rounded-full blur-2xl group-hover:bg-purple-500/30 transition-all"></div>
+                      <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider relative z-10">Tasa de Empleabilidad</h3>
+                      <div className="text-3xl font-bold text-purple-400 my-2 font-display relative z-10">{dashboardMetrics.employabilityRate || 0}%</div>
+                      <p className="text-xs text-slate-500 relative z-10">Alumnos contratados</p>
+                  </div>
+              </div>
+
+              {/* Trust Badge Preview */}
+              <div className="lg:col-span-1">
+                  <div className="mb-2 flex justify-between items-center">
+                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Vista Pública (Widget)</h3>
+                      <span className="text-[10px] text-green-400 bg-green-900/30 px-2 py-0.5 rounded border border-green-900/50">Live</span>
+                  </div>
+                  <TrustBadge institutionId={user?.institutionId || 'demo-inst'} />
+              </div>
+          </div>
+
+          <div className="glass-panel p-6 border border-slate-700/50 mb-8">
+              <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-white">Flujo de Certificación en Tiempo Real</h3>
+                  <button 
+                      onClick={simulateEmission}
+                      className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded transition-colors"
+                  >
+                      Simular Emisión
+                  </button>
+              </div>
+              <CertificationStepper 
+                  currentStep={currentCertificationStep} 
+                  transactionId={latestTransactionId} 
+              />
+          </div>
+      </div>
       
       {!demo && user && !user.dpaAccepted && (
         <div className="bg-yellow-500/10 border-l-4 border-yellow-500 p-4 mb-6 shadow-md rounded-r-md backdrop-blur-sm">

@@ -66,16 +66,19 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    chunkSizeWarningLimit: 3000,
+    chunkSizeWarningLimit: 6000,
     rollupOptions: {
       output: {
         manualChunks: {
-          react: ['react', 'react-dom', 'react-router-dom'],
-          pdfjs: ['pdfjs-dist'],
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          pdf: ['pdfjs-dist', 'jspdf', 'html2canvas', 'pdf-lib', 'react-pdf'],
+          fabric: ['fabric'],
           three: ['three', '@react-three/fiber', '@react-three/drei'],
           charts: ['chart.js', 'react-chartjs-2'],
           ui: ['framer-motion', '@headlessui/react', 'lucide-react'],
           utils: ['axios', 'date-fns', 'uuid', 'zustand'],
+          hedera: ['hashconnect'],
+          lottie: ['lottie-react']
         },
       },
     },

@@ -1,18 +1,78 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from 'chart.js';
 import CreatorIssuance from './CreatorIssuance';
+import CreatorStepper from './CreatorStepper';
 import { toGateway } from './utils/ipfsUtils';
 import n8nService from './services/n8nService';
 import { verificationService } from './services/verificationService';
 import useAnalytics from './useAnalytics';
+import { toast, Toaster } from 'react-hot-toast';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
 const CreatorDashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Notification Listener for "Hired" Event
+  useEffect(() => {
+    const handleHired = (event) => {
+        const { studentName, employerName, courseName } = event.detail || {};
+        
+        // Play sound
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); // Success bell
+        audio.play().catch(e => console.log('Audio play failed', e));
+
+        // Show Toast
+        toast.custom((t) => (
+            <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-slate-900 shadow-2xl rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 border border-green-500`}>
+                <div className="flex-1 w-0 p-4">
+                    <div className="flex items-start">
+                        <div className="flex-shrink-0 pt-0.5">
+                            <span className="text-3xl">🎉</span>
+                        </div>
+                        <div className="ml-3 flex-1">
+                            <p className="text-sm font-medium text-white">
+                                ¡Nueva Contratación Confirmada!
+                            </p>
+                            <p className="mt-1 text-sm text-slate-400">
+                                <span className="text-green-400 font-bold">{studentName}</span> ha sido contratado por <span className="text-blue-400 font-bold">{employerName}</span>
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                                Certificado: {courseName}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        ), { duration: 8000 });
+
+        // Update stats
+        setStats(prev => ({
+            ...prev,
+            impactoLaboral: (prev.impactoLaboral || 0) + 1,
+            successRate: Math.min(100, (prev.successRate || 95) + 0.5)
+        }));
+    };
+
+    window.addEventListener('acl:hired', handleHired);
+    
+    // Listen to localStorage for cross-tab events
+    const handleStorage = (e) => {
+        if (e.key === 'acl:event:hired') {
+            const data = JSON.parse(e.newValue);
+            handleHired({ detail: data });
+        }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+        window.removeEventListener('acl:hired', handleHired);
+        window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
 
   useEffect(() => {
     if (location.state?.message) {
@@ -31,9 +91,9 @@ const CreatorDashboard = () => {
   const [, setError] = useState('');
   const [stats, setStats] = useState({
     totalIssued: 0,
-    totalStudents: 0,
-    thisMonth: 0,
-    successRate: 0
+    impactoLaboral: 0,
+    rankingSkills: 'Solidity, React',
+    uptime: '99.9%'
   });
   const [recentActivity, setRecentActivity] = useState([]);
   const { trackCredentialOperation } = useAnalytics();
@@ -63,24 +123,7 @@ const CreatorDashboard = () => {
           tokenId: '0.0.123456',
           serialNumber: '101'
         },
-        {
-          studentName: 'Carlos Ruiz',
-          credentialType: 'Taller: React Avanzado',
-          issuedAt: new Date(Date.now() - 86400000).toISOString(),
-          metadata: { mentorVerified: true },
-          issuerBrand: 'Academia Demo',
-          tokenId: '0.0.123456',
-          serialNumber: '102'
-        },
-        {
-          studentName: 'Elena Torres',
-          credentialType: 'Bootcamp: Full Stack',
-          issuedAt: new Date(Date.now() - 172800000).toISOString(),
-          metadata: { mentorVerified: true },
-          issuerBrand: 'Academia Demo',
-          tokenId: '0.0.987654',
-          serialNumber: '1'
-        }
+        // ... more mock data
       ];
 
       setCredentials(mockCredentials);
@@ -99,9 +142,9 @@ const CreatorDashboard = () => {
     // Mock stats calculation + base values to look populated
     setStats({
       totalIssued: 154,
-      totalStudents: 142,
-      thisMonth: 12,
-      successRate: 100
+      impactoLaboral: 42, // Mocked "Hired" count
+      rankingSkills: 'Solidity #1',
+      uptime: '100% (Arkhia)'
     });
   };
 
@@ -239,6 +282,7 @@ const CreatorDashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans">
+      <Toaster position="top-right" />
       {/* Simulation Banner */}
       <div className="bg-gradient-to-r from-cyan-600 to-blue-700 text-white flex justify-between items-center px-4 py-2 shadow-lg relative z-50">
         <span className="font-bold uppercase tracking-widest text-xs flex items-center gap-2">
@@ -328,9 +372,43 @@ const CreatorDashboard = () => {
             Pendientes (Total): <strong>{globalStats.pending}</strong>
           </span>
         </div>
+
+        {/* Real-time Emission Flow */}
+        <div className="mb-10 bg-slate-900/50 border border-slate-800 rounded-xl p-6 backdrop-blur-sm relative overflow-hidden">
+            <div className="absolute top-4 right-4 z-10">
+                <button 
+                    onClick={() => {
+                        const eventData = {
+                            studentName: 'Estudiante Demo ' + Math.floor(Math.random() * 1000),
+                            employerName: 'Tech Corp ' + Math.floor(Math.random() * 100),
+                            courseName: 'Desarrollo Blockchain Avanzado'
+                        };
+                        window.dispatchEvent(new CustomEvent('acl:hired', { detail: eventData }));
+                        localStorage.setItem('acl:event:hired', JSON.stringify(eventData));
+                        setTimeout(() => localStorage.removeItem('acl:event:hired'), 100);
+                    }}
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold py-2 px-4 rounded-lg shadow-lg shadow-green-900/20 transition-all active:scale-95 flex items-center gap-2 text-xs"
+                >
+                    <span>🔔</span> Simular Contratación
+                </button>
+            </div>
+            <div className="absolute top-0 right-0 p-4 opacity-20">
+                <span className="text-6xl">🔗</span>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                Flujo de Emisión en Tiempo Real
+            </h3>
+            <p className="text-slate-400 text-sm mb-6">Estado actual de la dispersión de certificados en la red.</p>
+            <CreatorStepper currentStep={3} />
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg hover:border-cyan-500/30 transition-all group">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg hover:border-cyan-500/30 transition-all group relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                 <span className="text-4xl">📜</span>
+            </div>
             <div className="text-cyan-400 text-4xl font-bold mb-2 group-hover:scale-105 transition-transform origin-left">
               {stats.totalIssued}
             </div>
@@ -340,33 +418,42 @@ const CreatorDashboard = () => {
             </div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg hover:border-blue-500/30 transition-all group">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg hover:border-blue-500/30 transition-all group relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                 <span className="text-4xl">💼</span>
+            </div>
             <div className="text-blue-400 text-4xl font-bold mb-2 group-hover:scale-105 transition-transform origin-left">
-              {stats.totalStudents}
+              {stats.impactoLaboral}
             </div>
-            <div className="text-slate-400 font-medium">Estudiantes Únicos</div>
+            <div className="text-slate-400 font-medium">Impacto Laboral</div>
             <div className="text-blue-600 text-xs mt-2 font-semibold uppercase tracking-wider">
-              👥 Alcance de impacto
+              👥 Alumnos Contratados
             </div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg hover:border-purple-500/30 transition-all group">
-            <div className="text-purple-400 text-4xl font-bold mb-2 group-hover:scale-105 transition-transform origin-left">
-              {stats.thisMonth}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg hover:border-purple-500/30 transition-all group relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                 <span className="text-4xl">🔥</span>
             </div>
-            <div className="text-slate-400 font-medium">Este Mes</div>
+            <div className="text-purple-400 text-2xl font-bold mb-2 group-hover:scale-105 transition-transform origin-left truncate">
+              {stats.rankingSkills}
+            </div>
+            <div className="text-slate-400 font-medium">Top Habilidad</div>
             <div className="text-purple-600 text-xs mt-2 font-semibold uppercase tracking-wider">
-              📈 Crecimiento actual
+              📈 Alta Demanda
             </div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg hover:border-green-500/30 transition-all group">
-            <div className="text-green-400 text-4xl font-bold mb-2 group-hover:scale-105 transition-transform origin-left">
-              {stats.successRate}%
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg hover:border-green-500/30 transition-all group relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                 <span className="text-4xl">🛡️</span>
             </div>
-            <div className="text-slate-400 font-medium">Tasa de Éxito</div>
+            <div className="text-green-400 text-2xl font-bold mb-2 group-hover:scale-105 transition-transform origin-left">
+              {stats.uptime}
+            </div>
+            <div className="text-slate-400 font-medium">Uptime de Confianza</div>
             <div className="text-green-600 text-xs mt-2 font-semibold uppercase tracking-wider">
-              ✅ Calidad garantizada
+              ✅ Arkhia & MongoDB
             </div>
           </div>
         </div>

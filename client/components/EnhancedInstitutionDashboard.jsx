@@ -15,6 +15,7 @@ import { theme } from './themeConfig';
 import jsPDF from 'jspdf';
 import CreditRecharge from './CreditRecharge';
 import CertificateDesigner from './CertificateDesigner';
+import CertificationStepper from './CertificationStepper';
 import NarrativeTemplateManager from './NarrativeTemplateManager';
 import { Toaster, toast } from 'react-hot-toast';
 import CyberBackground from './CyberBackground';
@@ -56,7 +57,23 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   const { token, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('designer'); // Default to Designer as per user request
+  const [activeTab, setActiveTab] = useState('emitir'); 
+  const [isEditingDesign, setIsEditingDesign] = useState(true); // Default to Designer as per user request
+  const [currentStep, setCurrentStep] = useState(() => {
+    const saved = localStorage.getItem('institution:step');
+    return saved ? parseInt(saved) : 1;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('institution:step', currentStep);
+  }, [currentStep]);
+
+  // Sync isEditingDesign with step
+  useEffect(() => {
+    if (currentStep === 1) setIsEditingDesign(true);
+    else setIsEditingDesign(false);
+  }, [currentStep]);
+
   const [issuanceMode, setIssuanceMode] = useState('individual'); // 'individual' | 'mass'
   const [connectionStatus, setConnectionStatus] = useState('connected');
   const [aclBalance, setAclBalance] = useState(5000);
@@ -450,22 +467,6 @@ function EnhancedInstitutionDashboard({ demo = false }) {
             />
           </motion.div>
         );
-      case 'designer':
-        return (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-             <CertificateDesigner 
-                initialDesign={savedDesign}
-                institutionName={institutionName}
-                onClose={() => setActiveTab('emitir')} 
-                onSave={(file, structure) => { 
-                  setSavedDesign({ file, structure });
-                  toast.success('Diseño guardado'); 
-                  setActiveTab('emitir'); 
-                }} 
-                onNavigate={(tab) => setActiveTab(tab)}
-             />
-          </motion.div>
-        );
       case 'narrativas':
         return (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-[calc(100vh-140px)]">
@@ -800,159 +801,215 @@ function EnhancedInstitutionDashboard({ demo = false }) {
       case 'emitir':
       default:
         return (
-          <>
-            {renderLimitBanner()}
-            <div className="flex justify-between items-center mb-4">
-              <div className="inline-flex items-center bg-slate-900 rounded-full p-1 border border-slate-700 shadow-inner">
-                <button
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all ${
-                    issuanceMode === 'individual'
-                      ? 'bg-cyan-500 text-black shadow-md'
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                  onClick={() => setIssuanceMode('individual')}
-                >
-                  Emitir 1 Credencial
-                </button>
-                <button
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all ${
-                    issuanceMode === 'mass'
-                      ? 'bg-purple-500 text-white shadow-md'
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                  onClick={() => setIssuanceMode('mass')}
-                >
-                  Emisión Masiva (Excel)
-                </button>
-              </div>
-              <div className="hidden md:flex items-center gap-2 text-xs text-slate-400">
-                <span className="uppercase tracking-widest text-slate-500">Modo</span>
-                <span className="px-2 py-1 rounded-full bg-slate-900 border border-slate-700 text-primary-300 font-mono">
-                  {issuanceMode === 'individual' ? 'INDIVIDUAL' : 'MASIVO'}
-                </span>
-              </div>
-            </div>
+          <div className="space-y-6">
+            {/* 
+                REGLA DE ORO: El Stepper SIEMPRE se mantiene visible 
+                independientemente de si estamos editando o no.
+            */}
+            <CertificationStepper currentStep={currentStep} />
 
-            {issuanceMode === 'individual' ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div>
-                  <div className="glass-panel p-1 rounded-xl">
-                    <IssueTitleForm 
-                      demo={demo || connectionStatus === 'demo'} 
-                      networks={selectedNetworks} 
-                      plan={currentPlan}
-                      emissionsUsed={emissionsUsed}
-                      institutionName={institutionName || user?.universityName || user?.institutionName || user?.name || ''}
-                      issuerId={String(user?.id || user?.universityId || '')}
+            <AnimatePresence mode="wait">
+              {isEditingDesign ? (
+                <motion.div 
+                  key="designer"
+                  initial={{ opacity: 0, y: 20 }} 
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="w-full"
+                >
+                   <CertificateDesigner 
                       initialDesign={savedDesign}
-                      onFileChange={setActiveDesignFile}
-                      formData={issueFormData}
-                      onFormDataChange={setIssueFormData}
-                      onOpenDesigner={() => setActiveTab('designer')}
-                      onEmissionComplete={(count) => {
-                        setEmissionsUsed(prev => prev + count);
-                        setSavedDesign(null);
-                        setActiveDesignFile(null);
-                        setIssueFormData({
-                          studentName: '',
-                          courseName: '',
-                          issueDate: '',
-                          grade: '',
-                          recipientAccountId: '',
-                        });
-                        (async () => {
-                          try {
-                            const issuerId = String(user?.id || user?.universityId || '');
-                            const s = await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
-                            if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
-                          } catch {}
-                        })();
+                      institutionName={institutionName}
+                      onClose={() => setIsEditingDesign(false)} 
+                      onSave={(file, structure) => { 
+                        setSavedDesign({ file, structure });
+                        toast.success('Diseño guardado'); 
+                        setIsEditingDesign(false);
+                        setCurrentStep(2);
+                      }} 
+                      onNavigate={(tab) => {
+                        // Handle internal navigation if needed, or close
+                        if (tab === 'emitir') setIsEditingDesign(false);
                       }}
-        />
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <AnimatePresence>
-                    {activeDesignFile && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="glass-panel overflow-hidden"
+                   />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="form"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  {renderLimitBanner()}
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="inline-flex items-center bg-slate-900 rounded-full p-1 border border-slate-700 shadow-inner">
+                      <button
+                        className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all ${
+                          issuanceMode === 'individual'
+                            ? 'bg-cyan-500 text-black shadow-md'
+                            : 'text-slate-300 hover:text-white'
+                        }`}
+                        onClick={() => setIssuanceMode('individual')}
                       >
-                        <LiveBlockVisualizer pendingTransaction={{ preview: activeDesignFile }} />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                        Emitir 1 Credencial
+                      </button>
+                      <button
+                        className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all ${
+                          issuanceMode === 'mass'
+                            ? 'bg-purple-500 text-white shadow-md'
+                            : 'text-slate-300 hover:text-white'
+                        }`}
+                        onClick={() => setIssuanceMode('mass')}
+                      >
+                        Emisión Masiva (Excel)
+                      </button>
+                    </div>
+                    <div className="hidden md:flex items-center gap-2 text-xs text-slate-400">
+                      <span className="uppercase tracking-widest text-slate-500">Modo</span>
+                      <span className="px-2 py-1 rounded-full bg-slate-900 border border-slate-700 text-primary-300 font-mono">
+                        {issuanceMode === 'individual' ? 'INDIVIDUAL' : 'MASIVO'}
+                      </span>
+                    </div>
+                  </div>
 
-                  <div 
-                    className="glass-card p-6 relative overflow-hidden group cursor-pointer"
-                    onClick={() => setIssuanceMode('mass')}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl opacity-20 group-hover:opacity-40 blur transition duration-500"></div>
+                  {issuanceMode === 'individual' ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div>
+                        <div className="glass-panel p-1 rounded-xl">
+                          <IssueTitleForm 
+                            demo={demo || connectionStatus === 'demo'} 
+                            networks={selectedNetworks} 
+                            plan={currentPlan}
+                            emissionsUsed={emissionsUsed}
+                            institutionName={institutionName || user?.universityName || user?.institutionName || user?.name || ''}
+                            issuerId={String(user?.id || user?.universityId || '')}
+                            initialDesign={savedDesign}
+                            onFileChange={setActiveDesignFile}
+                            formData={issueFormData}
+                            onFormDataChange={setIssueFormData}
+                            onOpenDesigner={() => setIsEditingDesign(true)}
+                            onEmissionComplete={(count) => {
+                              setEmissionsUsed(prev => prev + count);
+                              setSavedDesign(null);
+                              setActiveDesignFile(null);
+                              setCurrentStep(3);
+                              setIssueFormData({
+                                studentName: '',
+                                courseName: '',
+                                issueDate: '',
+                                grade: '',
+                                recipientAccountId: '',
+                              });
+                              (async () => {
+                                try {
+                                  const issuerId = String(user?.id || user?.universityId || '');
+                                  const s = await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
+                                  if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
+                                } catch {}
+                              })();
+                            }}
+              />
+                        </div>
+                      </div>
 
-                    <div className="relative z-10">
-                      <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-white">
-                        <span className="text-cyan-400 text-xl animate-pulse">📚</span>
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">Emisión Masiva con Excel</span>
-                      </h3>
+                      <div className="space-y-6">
+                        <AnimatePresence>
+                          {activeDesignFile && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="glass-panel overflow-hidden"
+                            >
+                              <LiveBlockVisualizer pendingTransaction={{ preview: activeDesignFile }} />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        <div 
+                          className="glass-card p-6 relative overflow-hidden group cursor-pointer"
+                          onClick={() => setIssuanceMode('mass')}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                          <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl opacity-20 group-hover:opacity-40 blur transition duration-500"></div>
+
+                          <div className="relative z-10">
+                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-white">
+                              <span className="text-cyan-400 text-xl animate-pulse">📚</span>
+                              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">Emisión Masiva con Excel</span>
+                            </h3>
+                            <p className="text-slate-300 text-sm mb-4">
+                              Si tienes muchos estudiantes, prepara un archivo Excel/CSV y emite todas las credenciales en un solo flujo guiado.
+                            </p>
+                            <ul className="text-xs text-slate-400 space-y-1">
+                              <li>• Ideal para graduaciones o cohortes completas</li>
+                              <li>• Validación previa con IA y vista previa</li>
+                              <li>• Opcional: envío por email y QR para cada alumno</li>
+                            </ul>
+                          </div>
+                        </div>
+
+                        <div className="glass-card p-6">
+                          <h3 className="text-lg font-bold mb-4 text-white">Acciones Rápidas</h3>
+                          <div className="flex flex-wrap gap-2">
+                            <button className="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-slate-200 border border-slate-600 transition-colors" onClick={() => setIsEditingDesign(true)}>Diseñar Nuevo Título</button>
+                            <button className="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-slate-200 border border-slate-600 transition-colors" onClick={() => setActiveTab('recargar')}>Recargar Saldo</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="glass-panel p-6">
+                      <h2 className="text-2xl font-bold mb-4 text-white flex items-center gap-2">
+                        <span className="text-purple-400 text-xl">📚</span>
+                        Emisión Masiva de Credenciales
+                      </h2>
                       <p className="text-slate-300 text-sm mb-4">
-                        Si tienes muchos estudiantes, prepara un archivo Excel/CSV y emite todas las credenciales en un solo flujo guiado.
+                        Sube un archivo Excel o CSV con una fila por estudiante. El sistema te guiará paso a paso: carga, configuración, vista previa y emisión en lote.
                       </p>
-                      <ul className="text-xs text-slate-400 space-y-1">
-                        <li>• Ideal para graduaciones o cohortes completas</li>
-                        <li>• Validación previa con IA y vista previa</li>
-                        <li>• Opcional: envío por email y QR para cada alumno</li>
-                      </ul>
+                      <div className="mb-6 p-4 rounded-lg bg-slate-900/60 border border-slate-700">
+                        <h3 className="text-xs font-bold text-slate-200 mb-2 uppercase tracking-widest">
+                          ¿Qué debe contener tu Excel?
+                        </h3>
+                        <p className="text-xs text-slate-300 mb-2">
+                          Orden recomendado de columnas:
+                        </p>
+                        <ul className="text-xs text-slate-400 list-disc list-inside space-y-1">
+                          <li><strong>firstName</strong> – Nombre del estudiante</li>
+                          <li><strong>lastName</strong> – Apellidos</li>
+                          <li><strong>studentId</strong> – Matrícula o identificador interno</li>
+                          <li><strong>degree</strong> – Nombre del título o programa</li>
+                          <li><strong>major</strong> – Especialidad (opcional)</li>
+                          <li><strong>gpa</strong> – Nota final o promedio (opcional)</li>
+                          <li><strong>graduationDate</strong> – Fecha de graduación (YYYY-MM-DD)</li>
+                          <li><strong>email</strong> – Email del alumno para notificaciones</li>
+                          <li><strong>honors</strong> – Menciones especiales (opcional)</li>
+                        </ul>
+                      </div>
+                      <BatchIssuance 
+                        demo={demo} 
+                        institutionName={institutionName}
+                        plan={currentPlan}
+                        emissionsUsed={emissionsUsed}
+                        onEmissionComplete={(count) => {
+                          setEmissionsUsed(prev => prev + count);
+                          setCurrentStep(3);
+                          toast.success(`Se han emitido ${count} credenciales exitosamente`);
+                          (async () => {
+                            try {
+                              const issuerId = String(user?.id || user?.universityId || '');
+                              const s = await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
+                              if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
+                            } catch {}
+                          })();
+                        }}
+                      />
                     </div>
-                  </div>
-
-                  <div className="glass-card p-6">
-                    <h3 className="text-lg font-bold mb-4 text-white">Acciones Rápidas</h3>
-                    <div className="flex flex-wrap gap-2">
-                      <button className="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-slate-200 border border-slate-600 transition-colors" onClick={() => setActiveTab('designer')}>Diseñar Nuevo Título</button>
-                      <button className="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-slate-200 border border-slate-600 transition-colors" onClick={() => setActiveTab('recargar')}>Recargar Saldo</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="glass-panel p-6">
-                <h2 className="text-2xl font-bold mb-4 text-white flex items-center gap-2">
-                  <span className="text-purple-400 text-xl">📚</span>
-                  Emisión Masiva de Credenciales
-                </h2>
-                <p className="text-slate-300 text-sm mb-4">
-                  Sube un archivo Excel o CSV con una fila por estudiante. El sistema te guiará paso a paso: carga, configuración, vista previa y emisión en lote.
-                </p>
-                <div className="mb-6 p-4 rounded-lg bg-slate-900/60 border border-slate-700">
-                  <h3 className="text-xs font-bold text-slate-200 mb-2 uppercase tracking-widest">
-                    ¿Qué debe contener tu Excel?
-                  </h3>
-                  <p className="text-xs text-slate-300 mb-2">
-                    Orden recomendado de columnas:
-                  </p>
-                  <ul className="text-xs text-slate-400 list-disc list-inside space-y-1">
-                    <li><strong>firstName</strong> – Nombre del estudiante</li>
-                    <li><strong>lastName</strong> – Apellidos</li>
-                    <li><strong>studentId</strong> – Matrícula o identificador interno</li>
-                    <li><strong>degree</strong> – Nombre del título o programa</li>
-                    <li><strong>major</strong> – Especialidad (opcional)</li>
-                    <li><strong>gpa</strong> – Nota final o promedio (opcional)</li>
-                    <li><strong>graduationDate</strong> – Fecha de graduación (YYYY-MM-DD)</li>
-                    <li><strong>email</strong> – Email del alumno para notificaciones</li>
-                    <li><strong>honors</strong> – Menciones especiales (opcional)</li>
-                  </ul>
-                </div>
-                <BatchIssuance 
-                  demo={demo} 
-                  institutionName={institutionName}
-                />
-              </div>
-            )}
-          </>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         );
     }
   };
@@ -1045,14 +1102,21 @@ function EnhancedInstitutionDashboard({ demo = false }) {
             <button
               key={item.id}
               onClick={() => {
-                if (item.id === 'masiva') {
+                if (item.id === 'designer') {
+                  setActiveTab('emitir');
+                  setIsEditingDesign(true);
+                  setIssuanceMode('individual');
+                } else if (item.id === 'masiva') {
                   setActiveTab('emitir');
                   setIssuanceMode('mass');
+                  setIsEditingDesign(false);
                 } else if (item.id === 'emitir') {
                   setActiveTab('emitir');
                   setIssuanceMode('individual');
+                  setIsEditingDesign(false);
                 } else {
                   setActiveTab(item.id);
+                  setIsEditingDesign(false);
                 }
                 setSidebarOpen(false);
               }}
@@ -1086,49 +1150,67 @@ function EnhancedInstitutionDashboard({ demo = false }) {
       {/* Main Content */}
       <div className="flex-1 relative overflow-y-auto h-full">
         {/* Header */}
-        <header className="sticky top-0 z-40 backdrop-blur-md bg-background/80 border-b border-slate-800 p-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <button className="md:hidden text-slate-300" onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
-            <div>
-              <h1 className="text-xl font-bold text-white">Dashboard Institucional</h1>
-              {renderConnectionStatus()}
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            {demo && (
-              <Link to="/" className="px-3 py-1 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg text-xs font-bold hover:bg-red-500/30 transition-colors">
-                Salir de la Demo
-              </Link>
-            )}
-            <div className="hidden md:flex flex-col items-end">
-              <span className="text-sm font-medium text-slate-200">Balance ACL</span>
-              <span className="text-xs font-mono text-primary-400">{aclBalance} CREDITS</span>
-            </div>
-            <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-primary to-secondary p-[2px]">
-              <div className="h-full w-full rounded-full bg-black flex items-center justify-center font-bold text-white text-xs">
-                INS
+        <div className="sticky top-0 z-40 flex flex-col backdrop-blur-md bg-background/80 border-b border-slate-800">
+            <header className="p-4 flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <button className="md:hidden text-slate-300" onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
+                <div>
+                  <h1 className="text-xl font-bold text-white">Dashboard Institucional</h1>
+                  {renderConnectionStatus()}
+                </div>
               </div>
+              <div className="flex items-center gap-4">
+                {demo && (
+                  <Link to="/" className="px-3 py-1 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg text-xs font-bold hover:bg-red-500/30 transition-colors">
+                    Salir de la Demo
+                  </Link>
+                )}
+                <div className="hidden md:flex flex-col items-end">
+                  <span className="text-sm font-medium text-slate-200">Balance ACL</span>
+                  <span className="text-xs font-mono text-primary-400">{aclBalance} CREDITS</span>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-primary to-secondary p-[2px]">
+                  <div className="h-full w-full rounded-full bg-black flex items-center justify-center font-bold text-white text-xs">
+                    INS
+                  </div>
+                </div>
+              </div>
+            </header>
+            
+            {/* Stats Bar (Compact) */}
+            <div className="bg-slate-900/50 border-t border-slate-800 px-6 py-2 flex items-center gap-6 overflow-x-auto text-xs">
+                <div className="flex items-center gap-2">
+                    <span className="text-slate-400">Credenciales Emitidas:</span>
+                    <span className="text-cyan-400 font-mono font-bold">{stats?.totalCredentials || 1240}</span>
+                </div>
+                <div className="w-px h-4 bg-slate-700"></div>
+                <div className="flex items-center gap-2">
+                    <span className="text-slate-400">Tokens Activos:</span>
+                    <span className="text-purple-400 font-mono font-bold">{stats?.totalTokens || 3}</span>
+                </div>
+                <div className="w-px h-4 bg-slate-700"></div>
+                <div className="flex items-center gap-2">
+                    <span className="text-slate-400">Destinatarios:</span>
+                    <span className="text-emerald-400 font-mono font-bold">{stats?.totalRecipients || 850}</span>
+                </div>
+                <div className="w-px h-4 bg-slate-700"></div>
+                <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-slate-400">Integridad del Sistema:</span>
+                    <span className="text-green-400 font-bold flex items-center gap-1">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                        100% OPERATIVO
+                    </span>
+                </div>
             </div>
-          </div>
-        </header>
+        </div>
 
         <main className="p-6 max-w-7xl mx-auto space-y-8">
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Credenciales Emitidas', value: stats?.totalCredentials || 1240, color: 'from-blue-500 to-cyan-500' },
-              { label: 'Tokens Activos', value: stats?.totalTokens || 3, color: 'from-purple-500 to-pink-500' },
-              { label: 'Destinatarios', value: stats?.totalRecipients || 850, color: 'from-green-500 to-emerald-500' },
-              { label: 'Integridad', value: '100%', color: 'from-orange-500 to-red-500' }
-            ].map((stat, i) => (
-              <div key={i} className="glass-card p-4 relative overflow-hidden group">
-                <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${stat.color} opacity-10 rounded-full -mr-10 -mt-10 blur-xl group-hover:opacity-20 transition-opacity`}></div>
-                <div className="text-sm text-slate-400">{stat.label}</div>
-                <div className="text-2xl font-bold font-display mt-1">{stat.value}</div>
-              </div>
-            ))}
-          </div>
+          {/* Stats Row Removed - Moved to Header */}
+
 
           {/* Dynamic Content Area */}
           <AnimatePresence mode="wait">
