@@ -1,57 +1,14 @@
 {
-  "name": "academicchain-ledger",
+  "name": "academicchain-ledger-root",
   "version": "1.0.0",
-  "description": "Sistema revolucionario de credenciales académicas en blockchain",
+  "private": true,
   "scripts": {
-    "dev": "concurrently \"npm:server:dev\" \"npm:client:dev\"",
-    "server:dev": "cd worker && npm run dev",
-    "client:dev": "cd client && npm run dev",
-    "build": "npm run client:build",
-    "client:build": "cd client && npm run build",
-    "start": "npm run server:start",
-    "server:start": "cd worker && npm start",
-    "setup": "npm run install:all && npm run setup:env && npm run setup:hedera",
-    "install:all": "npm install",
-    "setup:env": "node setup-env.js",
-    "setup:hedera": "cd contracts && node scripts/deploy.js",
-    "docker:up": "docker compose -f docker-compose-services.yml up -d --remove-orphans",
-    "docker:down": "docker compose -f docker-compose-services.yml down",
-    "docker:logs": "docker compose -f docker-compose-services.yml logs -f",
-    "test": "npm run test:client",
-    "test:server": "echo 'No server tests'",
-    "test:client": "cd client && npm test"
+    "deploy": "npm run deploy --prefix client",
+    "build": "npm run build --prefix client",
+    "dev": "npm run dev --prefix client",
+    "install:all": "npm install --prefix client && npm install --prefix server"
   },
   "workspaces": [
-    "worker",
-    "client",
-    "contracts"
-  ],
-  "overrides": {
-    "elliptic": "^6.5.5",
-    "pdfjs-dist": "^3.11.174",
-    "node-forge": "^1.3.0",
-    "validator": "^13.11.0",
-    "parse-duration": "^2.1.3",
-    "semver": "^7.5.0",
-    "tar": ">=6.2.1",
-    "undici": ">=5.29.0",
-    "jws": "^4.0.0"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2",
-    "cross-env": "^7.0.3"
-  },
-  "dependencies": {
-    "@veramo/core": "^6.0.0",
-    "@veramo/data-store": "^6.0.0",
-    "@veramo/did-manager": "^6.0.0",
-    "@veramo/did-provider-web": "^6.0.0",
-    "@veramo/key-manager": "^6.0.0",
-    "@veramo/kms-local": "^6.0.0",
-    "mongodb": "^6.20.0",
-    "sqlite3": "^5.1.7"
-  },
-  "engines": {
-    "node": "22.x"
-  }
+    "client"
+  ]
 }
