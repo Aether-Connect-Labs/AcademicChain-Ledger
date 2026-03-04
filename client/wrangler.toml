@@ -6,4 +6,4 @@ directory = "./dist"
 binding = "ASSETS"
 
 [vars]
-VITE_API_URL = "https://api.tu-dominio.com" # Cambia esto por tu URL real del backend
+VITE_API_URL = "https://academicchain-ledger.aether-connect-labs.workers.dev/api"
