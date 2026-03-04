@@ -3,8 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "npm run dev --prefix client",
-    "build": "npm install && npm run build --prefix client && echo 'Checking wrangler...' && ls -la node_modules/.bin/wrangler && node_modules/.bin/wrangler --version",
-    "deploy": "npx wrangler pages deploy client/dist",
+    "build": "npm run build --prefix client && echo 'Checking wrangler...' && ls -la node_modules/.bin/wrangler && node_modules/.bin/wrangler --version",
+    "deploy": "./node_modules/.bin/wrangler pages deploy client/dist",
     "lint": "npm run lint --prefix client"
   },
   "workspaces": [
