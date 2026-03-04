@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "npm run dev --prefix client",
     "build": "npm run build --prefix client",
-    "deploy": "npm run build --prefix client && npx wrangler pages deploy client/dist --project-name academicchain-ledger",
+    "deploy": "echo 'WARNING: Do not run deploy manually in Cloudflare Pages. Use git push.' && exit 0",
     "lint": "npm run lint --prefix client"
   },
   "workspaces": [
