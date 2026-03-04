@@ -246,7 +246,7 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
       });
 
       // Use fileParser to get raw data
-      const parsedData = await fileParser.parseCSV(file);
+      const parsedData = await fileParser.parseFile(file);
       
       // Apply our specific validation
       const validatedData = validateRows(parsedData);

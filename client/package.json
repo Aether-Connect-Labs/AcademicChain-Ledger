@@ -61,7 +61,7 @@
     "xlsx": "^0.18.5",
     "yup": "^1.3.3",
     "zustand": "^4.4.7",
-    "wrangler": "^3.101.0"
+    "wrangler": "^4.70.0"
   },
   "devDependencies": {
     "@babel/core": "^7.28.5",
