@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "npm run dev --prefix client",
-    "build": "npm install && npm run build --prefix client",
+    "build": "npm install && npm run build --prefix client && echo 'Checking wrangler...' && ls -la node_modules/.bin/wrangler && node_modules/.bin/wrangler --version",
     "deploy": "npx wrangler pages deploy client/dist",
     "lint": "npm run lint --prefix client"
   },
@@ -11,7 +11,7 @@
     "client"
   ],
   "dependencies": {
-    "wrangler": "^4.70.0"
+    "wrangler": "^3.101.0"
   },
   "engines": {
     "node": ">=20.0.0"
