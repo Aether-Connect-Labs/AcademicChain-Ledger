@@ -3,8 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "npm run dev --prefix client",
-    "build": "npm run build --prefix client && npm install wrangler --no-save",
-    "deploy": "echo 'WARNING: Do not run deploy manually in Cloudflare Pages. Use git push.' && exit 0",
+    "build": "npm install && npm run build --prefix client",
+    "deploy": "npx wrangler pages deploy client/dist",
     "lint": "npm run lint --prefix client"
   },
   "workspaces": [
