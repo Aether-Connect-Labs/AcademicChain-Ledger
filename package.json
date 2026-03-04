@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "npm run dev --prefix client",
-    "build": "npm run build --prefix client && npx wrangler@latest pages deploy client/dist --project-name academicchain-ledger",
+    "build": "npm run build --prefix client && ./node_modules/.bin/wrangler pages deploy client/dist --project-name academicchain-ledger",
     "deploy": "npm run build --prefix client && wrangler pages deploy client/dist --project-name academicchain-ledger",
     "lint": "npm run lint --prefix client"
   },
