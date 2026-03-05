@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "build": "wrangler deploy --dry-run",
-    "deploy": "wrangler deploy --config wrangler.toml",
+    "deploy": "node deploy.js",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {

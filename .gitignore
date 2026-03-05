@@ -98,14 +98,16 @@ temp/
 # OS generated files
 .DS_Store
 .DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
 
-# Cloudflare Wrangler
-.wrangler/
-worker/.wrangler/
-.d1/
-worker/.d1/
+# Wrangler local config (contains logs and temp files)
+.wrangler_local_config/
+worker/.wrangler_local_config/
+.config/
+worker/.config/
+worker/.wrangler-config/
+
+# Temporary test scripts with secrets
+worker/test_pinata_real.ts
+worker/test_ai_service_integration.ts
+worker/test_frontend_integration.js
+worker/check_auth.ps1

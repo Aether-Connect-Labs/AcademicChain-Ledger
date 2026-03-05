@@ -3,19 +3,19 @@ import { SecurityService } from './services/security';
 import { BlockchainService } from './services/blockchain';
 import { MongoService } from './services/mongo';
 
-export async function runFullStackVerify() {
+export async function runFullStackVerify(env: any = {}) {
   console.log("🚀 Starting Full Stack Verification: PDF -> Pinata -> Hash -> Blockchain -> DB");
 
-  // Load Env from process (populated by proof_of_work.ts or system)
+  // Load Env from argument or process (populated by proof_of_work.ts or system)
   const ENV = {
-    PINATA_JWT: process.env.PINATA_JWT,
-    HEDERA_ACCOUNT_ID: process.env.HEDERA_ACCOUNT_ID,
-    HEDERA_PRIVATE_KEY: process.env.HEDERA_PRIVATE_KEY,
+    PINATA_JWT: env.PINATA_JWT || (typeof process !== 'undefined' ? process.env?.PINATA_JWT : undefined),
+    HEDERA_ACCOUNT_ID: env.HEDERA_ACCOUNT_ID || (typeof process !== 'undefined' ? process.env?.HEDERA_ACCOUNT_ID : undefined),
+    HEDERA_PRIVATE_KEY: env.HEDERA_PRIVATE_KEY || (typeof process !== 'undefined' ? process.env?.HEDERA_PRIVATE_KEY : undefined),
     HEDERA_NETWORK: "testnet",
-    XRP_SECRET: process.env.XRP_SECRET,
-    ALGORAND_MNEMONIC: process.env.ALGORAND_MNEMONIC,
-    MONGO_DATA_API_KEY: process.env.MONGO_API_KEY,
-    MONGO_APP_ID: process.env.MONGO_APP_ID
+    XRP_SECRET: env.XRP_SECRET || (typeof process !== 'undefined' ? process.env?.XRP_SECRET : undefined),
+    ALGORAND_MNEMONIC: env.ALGORAND_MNEMONIC || (typeof process !== 'undefined' ? process.env?.ALGORAND_MNEMONIC : undefined),
+    MONGO_DATA_API_KEY: env.MONGO_API_KEY || (typeof process !== 'undefined' ? process.env?.MONGO_API_KEY : undefined),
+    MONGO_APP_ID: env.MONGO_APP_ID || (typeof process !== 'undefined' ? process.env?.MONGO_APP_ID : undefined)
   };
 
   const isReal = ENV.HEDERA_PRIVATE_KEY && !ENV.HEDERA_PRIVATE_KEY.includes('Mock');

@@ -262,7 +262,7 @@ app.get('/api/auth/me', async (c) => {
   const secret = c.env.JWT_SECRET || 'acl-secret-key-change-me'
 
   try {
-    const payload = await verify(token, secret)
+    const payload = await verify(token, secret, 'HS256')
     return c.json({
       success: true,
       data: {
@@ -327,8 +327,6 @@ app.post('/api/academic-chain-support', async (c) => {
 
   return c.json({ output: "Lo siento, el sistema de soporte automatizado no está disponible en este momento. Por favor verifica tu conexión o intenta más tarde." })
 })
-
-import { runFullStackVerify } from '../verify_full_stack'
 
 // --- ADMIN API (D1 INTEGRATED) ---
 
@@ -642,7 +640,7 @@ app.post('/api/creators/issue', async (c) => {
     HEDERA_PRIVATE_KEY: c.env.HEDERA_PRIVATE_KEY
   })
   const mongo = new MongoService({
-    MONGO_API_KEY: c.env.MONGO_API_KEY,
+    MONGO_DATA_API_KEY: c.env.MONGO_API_KEY,
     MONGO_APP_ID: c.env.MONGO_APP_ID
   })
 
@@ -896,7 +894,8 @@ app.get('/api/institution/:id/reputation', async (c) => {
       "SELECT COUNT(*) as total FROM certificates WHERE institution_id = ? AND status = 'issued'"
     ).bind(institutionId).all()
     
-    const totalCertificates = results[0]?.total || 0
+    const firstResult = results[0] as any
+    const totalCertificates = Number(firstResult?.total) || 0
     
     // Mock other metrics for now as we don't track employment yet
     const totalGraduates = Math.max(totalCertificates, 50) // Mock base

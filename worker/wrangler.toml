@@ -9,22 +9,25 @@ binding = "DB"
 database_name = "academic-db"
 database_id = "581c6b39-478f-4b86-80da-0c548187b89f"
 
-# R2 Bucket Binding (Requires R2 to be enabled in Cloudflare Dashboard)
-# [[r2_buckets]]
-# binding = "BUCKET"
-# bucket_name = "academic-storage"
-
 # Cloudflare Workflows Binding
-[[workflows]]
-name = "diploma-registration"
-binding = "DIPLOMA_WORKFLOW"
-class_name = "DiplomaRegistrationWorkflow"
+# [[workflows]]
+# name = "diploma-registration"
+# binding = "DIPLOMA_WORKFLOW"
+# class_name = "DiplomaRegistrationWorkflow"
 
 [vars]
 ENVIRONMENT = "production"
 JWT_SECRET = "acl-secret-key-change-me"
 ACL_AUTH_KEY = "demo-key"
 ALLOWED_ORIGINS = "*"
-# AI API Key (Gemini or OpenRouter)
-# For production: wrangler secret put AI_API_KEY
+# AI Keys
 AI_API_KEY = "AIzaSyA_gZVtl7hXtvMAj8lIbZfGtU5SMY0MtR8"
+
+# Blockchain & Storage Keys (From .dev.vars for prototype deployment)
+PINATA_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiI2YWEzNzc5OC1mZDAyLTQzMTktYWE3NC00Y2I2MWZhZDhjZmMiLCJlbWFpbCI6Indvb29zZWN1cmVAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsInBpbl9wb2xpY3kiOnsicmVnaW9ucyI6W3siZGVzaXJlZFJlcGxpY2F0aW9uQ291bnQiOjEsImlkIjoiRlJBMSJ9LHsiZGVzaXJlZFJlcGxpY2F0aW9uQ291bnQiOjEsImlkIjoiTllDMSJ9XSwidmVyc2lvbiI6MX0sIm1mYV9lbmFibGVkIjpmYWxzZSwic3RhdHVzIjoiQUNUSVZFIn0sImF1dGhlbnRpY2F0aW9uVHlwZSI6InNjb3BlZEtleSIsInNjb3BlZEtleUtleSI6IjcwN2YyZmNkMzhmOGM3ZmNiYmU2Iiwic2NvcGVkS2V5U2VjcmV0IjoiMWVkM2E2MDE4ODM2M2QzMWI4ZmFlNDQzYmU4OTExMTc5NGUyMjBiMDkwNjZmNzY5NWFmMDM1ZDg4ZTg2NGFlNyIsImV4cCI6MTc5NDg1ODA1M30.Wv6cpDcAFU1okBmZoXc7eBXEcOR1MlwLbEvZRodnP7c"
+HEDERA_ACCOUNT_ID = "0.0.7174400"
+HEDERA_PRIVATE_KEY = "0x4673c75820049d694ef09d40d832a4a6598ec3fd58995ed0a76d855221dc0d57"
+XRP_SECRET = "sEd7Aqv6rBSBkJwwCQzkK1o3SyVnJE5"
+ALGORAND_MNEMONIC = "window resemble group drop cruise distance peasant soccer music chimney feature script tongue hammer payment ecology fun vocal gain frown pattern noble lava absorb marble"
+MONGO_API_KEY = "placeholder_mongo_key"
+MONGO_APP_ID = "placeholder_app_id"

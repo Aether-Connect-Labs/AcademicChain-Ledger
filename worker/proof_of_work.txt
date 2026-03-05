@@ -1,7 +1,7 @@
 
 =========================================================
 ACADEMIC CHAIN LEDGER - SYSTEM CONNECTION PROOF
-Timestamp: 2026-03-05T17:36:43.620Z
+Timestamp: 2026-03-05T18:26:38.567Z
 =========================================================
 
 1. [INPUT] Certificate Data Received:
@@ -11,37 +11,38 @@ Timestamp: 2026-03-05T17:36:43.620Z
 
 2. [SECURITY] SHA-256 Encryption:
    - Status: SUCCESS
-   - Hash: 8859bef64468ee982556975e5503e4c9e3c65a6be9c53d8cef351647e1e665c4
+   - Hash: 58a86f660e27abaecd8a8c6a27f3de82e571674662f9926d40ee7d51c4497fff
    - Algorithm: SHA-256 (Native WebCrypto)
 
 3. [STORAGE] IPFS (Pinata) Upload:
    - Status: SUCCESS
-   - CID: QmYzvF18bT4JYE3rmcSyFuSoDNmW2kEqAnJsKduDHMDgUd
-   - Gateway URL: https://gateway.pinata.cloud/ipfs/QmYzvF18bT4JYE3rmcSyFuSoDNmW2kEqAnJsKduDHMDgUd
+   - CID: QmXyfzsYrRwVab41JQ1MzDfrwgLgLGLgKBQ7T7JAQdue6p
+   - Gateway URL: https://gateway.pinata.cloud/ipfs/QmXyfzsYrRwVab41JQ1MzDfrwgLgLGLgKBQ7T7JAQdue6p
    - Note: Metadata includes encrypted hash and certificate details.
 
 4. [BLOCKCHAIN] Multi-Chain Registration:
    A. Hedera Hashgraph (Consensus Service):
       - Status: CONNECTED
       - Topic ID: Simulated/Real
-      - Transaction Hash: 0.0.7174400@1772732183.536035685
-      - Explorer: https://hashscan.io/testnet/transaction/0.0.7174400@1772732183.536035685
+      - Transaction Hash: 0.0.7174400@1772735182.189344104
+      - Explorer: https://hashscan.io/testnet/transaction/0.0.7174400@1772735182.189344104
 
    B. XRPL (Ledger):
       - Status: CONNECTED
       - Ledger Index: Real Testnet
-      - Transaction Hash: D87311FF0AA3195316A8737796D074DA98EAE54BAE0AACA2A95A9A635908E3D0
-      - Explorer: https://testnet.xrpl.org/transactions/D87311FF0AA3195316A8737796D074DA98EAE54BAE0AACA2A95A9A635908E3D0
+      - Transaction Hash: 8CB4D8289F4F22CCA59771EBFF22C1E6F476A9A3833B77D10998C81BC4EA55C9
+      - Explorer: https://testnet.xrpl.org/transactions/8CB4D8289F4F22CCA59771EBFF22C1E6F476A9A3833B77D10998C81BC4EA55C9
 
    C. Algorand (Standard Asset):
       - Status: CONNECTED
       - Asset ID: Real Testnet
-      - Transaction Hash: VOQV3IIMCGFPFOY7Q365XS6ZCHRJ3KWZR7NLKPC7ELHTMQPC4BSQ
-      - Explorer: https://testnet.algoexplorer.io/tx/VOQV3IIMCGFPFOY7Q365XS6ZCHRJ3KWZR7NLKPC7ELHTMQPC4BSQ
+      - Transaction Hash: CYYBJGEWTLV6V3TN7Z4NXI5GE3KVHQUSNMDE6RLBQGZSJV7KGYZQ
+      - Explorer: https://testnet.algoexplorer.io/tx/CYYBJGEWTLV6V3TN7Z4NXI5GE3KVHQUSNMDE6RLBQGZSJV7KGYZQ
 
 5. [DATABASE] Persistence (MongoDB + D1):
    - Mongo Mode: MOCK
-   - Record ID: bce7e5e2-68af-45ca-b8f8-7ac4afcb0381
+   - D1 Fallback: ENABLED (Worker will save to Cloudflare D1 if Mongo fails)
+   - Record ID: 44341b4c-ae30-44c1-ac85-8308ff4f2306
    - Data Saved: Full JSON record with all cryptographic proofs.
 
 =========================================================

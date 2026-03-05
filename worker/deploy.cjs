@@ -13,7 +13,7 @@ console.log('Starting deployment wrapper (exec mode)...');
     // Do NOT set CLOUDFLARE_API_TOKEN to placeholder, let it use existing auth
   };
 
-  const command = 'npx wrangler deploy --config wrangler.toml --yes';
+  const command = 'npx wrangler whoami';
   
   // Determine correct CWD
   const cwd = process.cwd().endsWith('worker') ? process.cwd() : path.join(process.cwd(), 'worker');
