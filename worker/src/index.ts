@@ -110,17 +110,17 @@ app.post('/api/creators/issue-full', async (c) => {
     // 4. Register on Blockchains
     // Hedera
     const hederaResult = await blockchain.mintOnHedera(
-      '0.0.MockTopicID', // In real app, this would be a config or dynamic
+      c.env.HEDERA_TOPIC_ID || '', // Use env topic or create new one if empty
       JSON.stringify({ hash: sha256Hash, cid: ipfsResult.cid })
     )
 
-    // XRP (Mock/Real)
-    const xrpResult = await blockchain.mintOnXRPL('seed_placeholder', { hash: sha256Hash })
+    // XRP (Real Testnet via Env)
+    const xrpResult = await blockchain.mintOnXRPL(c.env.XRP_SECRET || '', { hash: sha256Hash })
     
-    // Algorand (Mock/Real)
-    const algoResult = await blockchain.mintOnAlgorand('mnemonic_placeholder', { hash: sha256Hash })
+    // Algorand (Real Testnet via Env)
+    const algoResult = await blockchain.mintOnAlgorand(c.env.ALGORAND_MNEMONIC || '', { hash: sha256Hash })
 
-    // 5. Save to MongoDB (and D1 for redundancy/local access)
+    // 5. Save to MongoDB (Primary) and D1 (Fallback/Redundancy)
     const record = {
       student: student_name,
       course: course_name,
@@ -142,23 +142,46 @@ app.post('/api/creators/issue-full', async (c) => {
       timestamp: new Date().toISOString()
     }
 
-    const mongoResult = await mongo.saveCertificate(record)
-
-    // Also save to D1 for our local dashboard
+    let mongoResult = { id: null, status: 'skipped' }
     try {
+        mongoResult = await mongo.saveCertificate(record)
+    } catch (mongoErr) {
+        console.warn('MongoDB Save Failed:', mongoErr)
+        mongoResult = { id: null, status: 'failed', error: mongoErr.message }
+    }
+
+    // Save to D1 (Robust Fallback)
+    try {
+      // Ensure table exists (simple check for prototype)
+      await c.env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS certificates (
+          id TEXT PRIMARY KEY,
+          student_name TEXT,
+          course_name TEXT,
+          graduation_date TEXT,
+          ipfs_cid TEXT,
+          tx_hash TEXT,
+          status TEXT,
+          created_at TEXT
+        )
+      `).run()
+
+      const d1Id = mongoResult.id || crypto.randomUUID()
       await c.env.DB.prepare(
-        "INSERT INTO certificates (id, student_name, course_name, graduation_date, ipfs_cid, tx_hash, status) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO certificates (id, student_name, course_name, graduation_date, ipfs_cid, tx_hash, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       ).bind(
-        mongoResult.id || crypto.randomUUID(),
+        d1Id,
         student_name,
         course_name,
         graduation_date,
         ipfsResult.cid || 'pending',
         hederaResult.txHash || 'pending',
-        'issued'
+        'issued',
+        new Date().toISOString()
       ).run()
+      console.log('Saved to D1 successfully')
     } catch (d1Err) {
-      console.warn('D1 Save Warning:', d1Err)
+      console.error('D1 Save Failed:', d1Err)
     }
 
     return c.json({
@@ -166,7 +189,8 @@ app.post('/api/creators/issue-full', async (c) => {
       message: 'Certificate Issued & Registered on Full Stack',
       data: record,
       mongo_status: mongoResult,
-      ipfs_status: ipfsResult
+      ipfs_status: ipfsResult,
+      d1_status: 'attempted'
     })
 
   } catch (e: any) {
