@@ -4,26 +4,27 @@ const fs = require('fs');
 
 console.log('Starting deployment wrapper (exec mode)...');
 
-const localConfigDir = path.join(__dirname, '.config');
-if (!fs.existsSync(localConfigDir)) {
-  try {
-    fs.mkdirSync(localConfigDir, { recursive: true });
-  } catch (err) {
-    console.error(`Failed to create config directory: ${err.message}`);
-  }
-}
+  // We will NOT override XDG_CONFIG_HOME to try to reuse existing credentials
+  // But we MUST disable logging to avoid the ENOENT error
+  
+  const env = { 
+    ...process.env, 
+    WRANGLER_LOG: 'none',
+    // Do NOT set CLOUDFLARE_API_TOKEN to placeholder, let it use existing auth
+  };
 
-const env = { 
-  ...process.env, 
-  WRANGLER_LOG: 'none',
-  XDG_CONFIG_HOME: localConfigDir,
-  WRANGLER_HOME: undefined
-};
+  const command = 'npx wrangler deploy --config wrangler.toml --yes';
+  
+  // Determine correct CWD
+  const cwd = process.cwd().endsWith('worker') ? process.cwd() : path.join(process.cwd(), 'worker');
 
-exec('npx wrangler deploy', { 
-  cwd: __dirname,
-  env: env 
-}, (error, stdout, stderr) => {
+  console.log(`Executing: ${command} in ${cwd}`);
+  console.log('Using WRANGLER_LOG: none');
+
+  exec(command, { 
+    cwd: cwd,
+    env: env
+  }, (error, stdout, stderr) => {
   if (error) {
     console.error(`exec error: ${error}`);
     console.error(`stderr: ${stderr}`);

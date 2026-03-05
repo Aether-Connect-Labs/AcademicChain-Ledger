@@ -3,26 +3,52 @@
 ## 1. Requisitos Previos
 - Node.js instalado.
 - Cuenta de Cloudflare activa.
+- Git instalado.
 
-## 2. Despliegue Automático
-Ejecuta el script de PowerShell incluido para autenticarte y desplegar:
+## 2. Autenticación en Cloudflare (IMPORTANTE)
+Antes de desplegar, debes iniciar sesión en Cloudflare Workers desde tu terminal:
 
-```powershell
-./deploy_worker.ps1
+```bash
+cd worker
+npx wrangler login
 ```
 
-## 3. Verificación
-Una vez desplegado, puedes verificar que todos los servicios (Blockchain, AI, IPFS, DB) están conectados accediendo a:
+Esto abrirá una ventana del navegador para autorizar el acceso.
 
-`https://<tu-worker-subdominio>.workers.dev/api/admin/verify-full-stack`
+## 3. Despliegue Automático
+Hemos creado un script robusto para manejar el despliegue y evitar errores comunes de logs:
 
-Esto ejecutará una prueba completa simulada que:
-1. Genera un certificado de prueba.
-2. Calcula su hash SHA-256.
-3. Lo sube a Pinata (IPFS).
-4. Lo registra en Hedera, XRP y Algorand.
-5. Guarda el registro en MongoDB y D1.
+```bash
+# Desde la carpeta raíz del proyecto
+node worker/deploy.cjs
+```
 
-## 4. Solución de Problemas
-- Si obtienes error `CLOUDFLARE_API_TOKEN`, ejecuta `npx wrangler login` manualmente.
-- Si obtienes error de logs, asegúrate de tener permisos de escritura en tu carpeta de usuario.
+O manualmente:
+```bash
+cd worker
+npm run deploy
+```
+
+## 4. Verificación de Conexiones (Proof of Work)
+Para verificar que todas las conexiones (Blockchain, AI, IPFS, DB) funcionan correctamente antes de desplegar:
+
+```bash
+cd worker
+npx tsx proof_of_work.ts
+```
+
+Esto generará un reporte detallado en `proof_of_work.txt` mostrando:
+1. Generación de certificado de prueba.
+2. Cálculo de hash SHA-256.
+3. Subida a Pinata (IPFS).
+4. Registro en Hedera (Consensus), XRP (Ledger) y Algorand (Asset).
+5. Guardado en base de datos (MongoDB/D1).
+
+## 5. Endpoints Disponibles
+Una vez desplegado, el Worker expondrá:
+- `POST /api/creators/issue-full`: Emisión completa multi-chain.
+- `GET /api/admin/verify-full-stack`: Verificación de estado del sistema.
+
+## 6. Solución de Problemas
+- **Error "You are not authenticated"**: Ejecuta `npx wrangler login`.
+- **Error de logs ENOENT**: El script `deploy.cjs` maneja esto automáticamente suprimiendo logs innecesarios.

@@ -23,6 +23,8 @@ type Bindings = {
   MONGO_APP_ID?: string
   HEDERA_ACCOUNT_ID?: string
   HEDERA_PRIVATE_KEY?: string
+  XRP_SECRET?: string
+  ALGORAND_MNEMONIC?: string
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -72,7 +74,9 @@ app.post('/api/creators/issue-full', async (c) => {
     const pinata = new PinataService(c.env.PINATA_JWT || 'placeholder')
     const blockchain = new BlockchainService({
       HEDERA_ACCOUNT_ID: c.env.HEDERA_ACCOUNT_ID,
-      HEDERA_PRIVATE_KEY: c.env.HEDERA_PRIVATE_KEY
+      HEDERA_PRIVATE_KEY: c.env.HEDERA_PRIVATE_KEY,
+      XRP_SECRET: c.env.XRP_SECRET,
+      ALGORAND_MNEMONIC: c.env.ALGORAND_MNEMONIC
     })
     const mongo = new MongoService({
       MONGO_DATA_API_KEY: c.env.MONGO_API_KEY,

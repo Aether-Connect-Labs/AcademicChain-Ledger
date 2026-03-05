@@ -11,6 +11,11 @@ pnpm-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
+# Worker logs
+worker/proof_of_work_log_*.txt
+worker/deploy_error.log
+worker/deploy_success.log
+.dev.vars
 
 # Build outputs
 .next/
@@ -104,7 +109,3 @@ Thumbs.db
 worker/.wrangler/
 .d1/
 worker/.d1/
-
-.wrangler/
-worker/.wrangler/
-.venv/
