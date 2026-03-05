@@ -37,6 +37,22 @@ const apiService = {
     return await response.json();
   },
 
+  // --- Full Stack Issuance (User Requested) ---
+  issueFullCredential: async (data) => {
+    console.log('[ApiService] Issuing FULL STACK credential...', data);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/creators/issue-full`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('[ApiService] Full Stack Issue Error:', error);
+      throw error;
+    }
+  },
+
   // --- Credentials Management ---
   deleteCredential: async ({ tokenId, serialNumber }) => {
     console.log('[ApiService] Deleting credential...', { tokenId, serialNumber });
