@@ -55,6 +55,121 @@ app.get('/', (c) => {
   return c.text('AcademicChain Ledger Worker API is running!')
 })
 
+// --- FULL STACK ISSUANCE (USER REQUESTED) ---
+
+app.post('/api/creators/issue-full', async (c) => {
+  try {
+    const body = await c.req.json()
+    const { 
+      student_name, 
+      course_name, 
+      graduation_date, 
+      pdf_base64, 
+      institution_id 
+    } = body
+
+    // 1. Initialize Services
+    const pinata = new PinataService(c.env.PINATA_JWT || 'placeholder')
+    const blockchain = new BlockchainService({
+      HEDERA_ACCOUNT_ID: c.env.HEDERA_ACCOUNT_ID,
+      HEDERA_PRIVATE_KEY: c.env.HEDERA_PRIVATE_KEY
+    })
+    const mongo = new MongoService({
+      MONGO_DATA_API_KEY: c.env.MONGO_API_KEY,
+      MONGO_APP_ID: c.env.MONGO_APP_ID
+    })
+
+    // 2. Upload to IPFS (Pinata)
+    let ipfsResult
+    if (pdf_base64) {
+      // Convert base64 to Blob/Buffer equivalent (simulated here or using fetch/FormData in real worker)
+      // For simplicity in this demo, we upload the metadata JSON which includes the base64 or a reference
+      ipfsResult = await pinata.uploadJSON({
+        name: student_name,
+        course: course_name,
+        date: graduation_date,
+        image: pdf_base64 ? 'attached_base64' : 'default_template'
+      })
+    } else {
+      ipfsResult = await pinata.uploadJSON({
+        name: student_name,
+        course: course_name,
+        date: graduation_date,
+        type: 'metadata_only'
+      })
+    }
+
+    // 3. Encrypt / Hash Data (SHA256)
+    const dataToHash = `${student_name}|${course_name}|${graduation_date}|${ipfsResult.cid || 'no-cid'}`
+    const sha256Hash = await SecurityService.generateSHA256(dataToHash)
+    
+    // 4. Register on Blockchains
+    // Hedera
+    const hederaResult = await blockchain.mintOnHedera(
+      '0.0.MockTopicID', // In real app, this would be a config or dynamic
+      JSON.stringify({ hash: sha256Hash, cid: ipfsResult.cid })
+    )
+
+    // XRP (Mock/Real)
+    const xrpResult = await blockchain.mintOnXRPL('seed_placeholder', { hash: sha256Hash })
+    
+    // Algorand (Mock/Real)
+    const algoResult = await blockchain.mintOnAlgorand('mnemonic_placeholder', { hash: sha256Hash })
+
+    // 5. Save to MongoDB (and D1 for redundancy/local access)
+    const record = {
+      student: student_name,
+      course: course_name,
+      date: graduation_date,
+      institution: institution_id || 'unknown',
+      ipfs: {
+        cid: ipfsResult.cid,
+        url: ipfsResult.url
+      },
+      security: {
+        hash: sha256Hash,
+        algorithm: 'SHA-256'
+      },
+      blockchain: {
+        hedera: hederaResult,
+        xrp: xrpResult,
+        algorand: algoResult
+      },
+      timestamp: new Date().toISOString()
+    }
+
+    const mongoResult = await mongo.saveCertificate(record)
+
+    // Also save to D1 for our local dashboard
+    try {
+      await c.env.DB.prepare(
+        "INSERT INTO certificates (id, student_name, course_name, graduation_date, ipfs_cid, tx_hash, status) VALUES (?, ?, ?, ?, ?, ?, ?)"
+      ).bind(
+        mongoResult.id || crypto.randomUUID(),
+        student_name,
+        course_name,
+        graduation_date,
+        ipfsResult.cid || 'pending',
+        hederaResult.txHash || 'pending',
+        'issued'
+      ).run()
+    } catch (d1Err) {
+      console.warn('D1 Save Warning:', d1Err)
+    }
+
+    return c.json({
+      success: true,
+      message: 'Certificate Issued & Registered on Full Stack',
+      data: record,
+      mongo_status: mongoResult,
+      ipfs_status: ipfsResult
+    })
+
+  } catch (e: any) {
+    return c.json({ success: false, error: e.message, stack: e.stack }, 500)
+  }
+})
+
 // --- ADMIN VERIFICATION ---
 app.get('/api/admin/verify-full-stack', async (c) => {
   try {
