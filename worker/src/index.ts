@@ -4,6 +4,7 @@ import { cors } from 'hono/cors'
 import { jwt, sign, verify } from 'hono/jwt'
 import { DiplomaRegistrationWorkflow } from './workflows/DiplomaRegistration'
 import { AIService } from './services/ai'
+import { runFullStackVerify } from './verify_full_stack'
 
 type Bindings = {
   DB: D1Database
@@ -43,6 +44,16 @@ app.onError((err, c) => {
 // Root Health Check
 app.get('/', (c) => {
   return c.text('AcademicChain Ledger Worker API is running!')
+})
+
+// --- ADMIN VERIFICATION ---
+app.get('/api/admin/verify-full-stack', async (c) => {
+  try {
+    const result = await runFullStackVerify()
+    return c.json(result)
+  } catch (e: any) {
+    return c.json({ success: false, error: e.message }, 500)
+  }
 })
 
 // --- AUTHENTICATION ---

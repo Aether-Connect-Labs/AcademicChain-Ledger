@@ -1,8 +1,7 @@
-
-import { PinataService } from './src/services/pinata';
-import { SecurityService } from './src/services/security';
-import { BlockchainService } from './src/services/blockchain';
-import { MongoService } from './src/services/mongo';
+import { PinataService } from './services/pinata';
+import { SecurityService } from './services/security';
+import { BlockchainService } from './services/blockchain';
+import { MongoService } from './services/mongo';
 
 // Mock Env for testing
 const MOCK_ENV = {
@@ -14,7 +13,7 @@ const MOCK_ENV = {
   MONGO_APP_ID: "data-app-id"
 };
 
-async function runFullStackVerify() {
+export async function runFullStackVerify() {
   console.log("🚀 Starting Full Stack Verification: PDF -> Pinata -> Hash -> Blockchain -> DB");
 
   // 1. Mock PDF Data / Smart CV Data
@@ -82,11 +81,3 @@ async function runFullStackVerify() {
     }
   };
 }
-
-// Run if called directly
-// In a real Worker, this would be an endpoint
-if (typeof require !== 'undefined' && require.main === module) {
-    runFullStackVerify().then(() => console.log("✅ Verification Complete"));
-}
-
-export { runFullStackVerify };

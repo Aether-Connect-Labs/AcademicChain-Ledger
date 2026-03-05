@@ -1,11 +1,7 @@
+import { runFullStackVerify } from './src/verify_full_stack';
 
-import { runFullStackVerify } from './verify_full_stack';
-
-runFullStackVerify()
-  .then((result) => {
-    console.log("\n✅ FULL STACK VERIFICATION RESULT:");
-    console.log(JSON.stringify(result, null, 2));
-  })
-  .catch((err) => {
-    console.error("❌ VERIFICATION FAILED:", err);
-  });
+runFullStackVerify().then(result => {
+  console.log(JSON.stringify(result, null, 2));
+}).catch(err => {
+  console.error(err);
+});
