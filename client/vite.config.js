@@ -55,12 +55,6 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      '/n8n': {
-        target: 'http://localhost:5678',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/n8n/, ''),
-      },
     },
   },
   build: {

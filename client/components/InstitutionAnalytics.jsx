@@ -3,7 +3,7 @@ import {
   TrendingUp, Users, Activity, Target, Brain, Lock, 
   Briefcase, AlertCircle, BarChart2
 } from 'lucide-react';
-import n8nService from './services/n8nService';
+import apiService from './services/apiService';
 
 const InstitutionAnalytics = ({ plan, onUpgrade }) => {
   const [loading, setLoading] = useState(true);
@@ -15,7 +15,7 @@ const InstitutionAnalytics = ({ plan, onUpgrade }) => {
 
   const loadAnalytics = async () => {
     try {
-        const result = await n8nService.getInstitutionAnalytics('inst-123');
+        const result = await apiService.getInstitutionAnalytics('inst-123');
         if (result.success) {
             setData(result);
         }
@@ -230,3 +230,4 @@ const StatCard = ({ title, value, subtitle, icon, trend }) => (
 );
 
 export default InstitutionAnalytics;
+

@@ -17,7 +17,7 @@ class ConnectionService {
   }
 
   static async fetchWithFallback(endpoint, fallbackData) {
-    // Intercept health check to avoid console errors in Demo/n8n mode
+    // Intercept health check to avoid console errors in Demo mode
     if (endpoint === '/health' || endpoint.includes('/health')) {
       return { success: true, data: { ...fallbackData, status: 'OK', uptime: 36000 + Math.random() * 1000 } };
     }

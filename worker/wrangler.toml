@@ -1,0 +1,30 @@
+name = "academicchain-worker"
+main = "src/index.ts"
+compatibility_date = "2024-04-05"
+compatibility_flags = [ "nodejs_compat" ]
+
+# D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "academic-db"
+database_id = "581c6b39-478f-4b86-80da-0c548187b89f"
+
+# R2 Bucket Binding (Requires R2 to be enabled in Cloudflare Dashboard)
+# [[r2_buckets]]
+# binding = "BUCKET"
+# bucket_name = "academic-storage"
+
+# Cloudflare Workflows Binding
+[[workflows]]
+name = "diploma-registration"
+binding = "DIPLOMA_WORKFLOW"
+class_name = "DiplomaRegistrationWorkflow"
+
+[vars]
+ENVIRONMENT = "production"
+JWT_SECRET = "acl-secret-key-change-me"
+ACL_AUTH_KEY = "demo-key"
+ALLOWED_ORIGINS = "*"
+# AI API Key (Gemini or OpenRouter)
+# For production: wrangler secret put AI_API_KEY
+AI_API_KEY = "AIzaSyA_gZVtl7hXtvMAj8lIbZfGtU5SMY0MtR8"

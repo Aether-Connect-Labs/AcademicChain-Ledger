@@ -18,7 +18,7 @@ import TrustBadge from './TrustBadge'; // Added TrustBadge
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Tooltip, Legend } from 'chart.js';
 import jsPDF from 'jspdf';
-import n8nService from './services/n8nService';
+import apiService from './services/apiService';
 import useAnalytics from './useAnalytics';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Tooltip, Legend);
@@ -250,7 +250,7 @@ function InstitutionDashboard({ demo = false }) {
     const ok = window.confirm('¿Borrar esta emisión del portal institucional? Esto no afecta el estado on-chain.');
     if (!ok) return;
     try {
-      await n8nService.deleteCredential({ tokenId: cred.tokenId, serialNumber: cred.serialNumber });
+      await apiService.deleteCredential({ tokenId: cred.tokenId, serialNumber: cred.serialNumber });
       setCredentials(prev => prev.filter(x => !(String(x.tokenId) === String(cred.tokenId) && String(x.serialNumber) === String(cred.serialNumber))));
       setDeletedCount(v => v + 1);
       try { await refreshGlobalStats(); } catch {}
@@ -269,7 +269,7 @@ function InstitutionDashboard({ demo = false }) {
 
   const handleRequestVerification = async (cred) => {
     try {
-      await n8nService.requestCredentialVerification({ tokenId: cred.tokenId, serialNumber: cred.serialNumber, role: 'institution' });
+      await apiService.requestCredentialVerification({ tokenId: cred.tokenId, serialNumber: cred.serialNumber, role: 'institution' });
       try {
         trackCredentialOperation({
           operation: 'verify',
@@ -281,7 +281,7 @@ function InstitutionDashboard({ demo = false }) {
       } catch {}
       setCredentials(prev => prev.map(x => (String(x.tokenId) === String(cred.tokenId) && String(x.serialNumber) === String(cred.serialNumber)) ? { ...x, status: 'pending' } : x));
       try { await refreshGlobalStats(); } catch {}
-      alert('Solicitud de verificación enviada a n8n. Estado: Pendiente');
+      alert('Solicitud de verificación enviada. Estado: Pendiente');
     } catch (e) {
       alert('No se pudo enviar la solicitud de verificación.');
     }
@@ -342,7 +342,7 @@ function InstitutionDashboard({ demo = false }) {
       if (!issuerId && credentials && credentials.length > 0) {
         issuerId = String(credentials[0]?.universityId || '');
       }
-      const statsResp = await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
+      const statsResp = await apiService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
       if (statsResp && statsResp.success) {
         setGlobalStats({
           revoked: Number(statsResp.revoked || 0),
@@ -388,7 +388,7 @@ function InstitutionDashboard({ demo = false }) {
     }
     (async () => {
       try {
-        const s = await n8nService.getCredentialStats();
+        const s = await apiService.getCredentialStats();
         if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
       } catch {}
     })();
@@ -1779,3 +1779,4 @@ function InstitutionDashboard({ demo = false }) {
 }
 
 export default InstitutionDashboard;
+

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Zap, Shield, Calendar, UserCheck, ArrowRight, Loader2, Mail, Lock } from 'lucide-react';
-import n8nService from './services/n8nService';
+import apiService from './services/apiService';
 import { toast } from 'react-hot-toast';
 
 const CreatorSubscriptionModal = ({ onClose, onSubscribe, currentPlanId }) => {
@@ -60,7 +60,7 @@ const CreatorSubscriptionModal = ({ onClose, onSubscribe, currentPlanId }) => {
     setLoading(true);
     setAuthError('');
     try {
-        const { exists } = await n8nService.checkCreatorAccount(email);
+        const { exists } = await apiService.checkCreatorAccount(email);
         if (exists) {
             setStep('login_password');
         } else {
@@ -85,7 +85,7 @@ const CreatorSubscriptionModal = ({ onClose, onSubscribe, currentPlanId }) => {
 
   const handleResetPassword = async () => {
     setLoading(true);
-    await n8nService.requestPasswordReset(email, 'creator');
+    await apiService.requestPasswordReset(email, 'creator');
     setLoading(false);
     toast.success('Enlace de recuperación enviado a tu correo');
     setStep('login_password'); // Go back to login or stay
@@ -315,3 +315,4 @@ const CreatorSubscriptionModal = ({ onClose, onSubscribe, currentPlanId }) => {
 };
 
 export default CreatorSubscriptionModal;
+

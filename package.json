@@ -3,12 +3,16 @@
   "private": true,
   "scripts": {
     "dev": "npm run dev --prefix client",
+    "dev:worker": "npm run dev --prefix worker",
     "build": "npm run build --prefix client && echo 'Checking wrangler...' && ls -la node_modules/.bin/wrangler && node_modules/.bin/wrangler --version",
-    "deploy": "./node_modules/.bin/wrangler pages deploy client/dist",
+    "deploy": "npm run deploy:frontend && npm run deploy:worker",
+    "deploy:frontend": "npx wrangler pages deploy client/dist",
+    "deploy:worker": "npm run deploy --prefix worker",
     "lint": "npm run lint --prefix client"
   },
   "workspaces": [
-    "client"
+    "client",
+    "worker"
   ],
   "dependencies": {
     "wrangler": "^4.70.0"

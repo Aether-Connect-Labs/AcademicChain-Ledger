@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Scan, Upload, Search, FileText, CheckCircle, XCircle, Camera, Shield, Lock, MapPin } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
-import n8nService from './services/n8nService';
+import apiService from './services/apiService';
 import { toast, Toaster } from 'react-hot-toast';
 import { toGateway } from './utils/ipfsUtils';
 
@@ -55,7 +55,7 @@ const EmployerDashboard = () => {
     const file = e.target.files[0];
     if (file) {
         setJobDescriptionFile(file);
-        // Simulate n8n processing
+        // Simulate processing
         toast.loading('Analizando descripción del cargo con IA...');
         setTimeout(() => {
             toast.dismiss();
@@ -87,7 +87,7 @@ const EmployerDashboard = () => {
     const finalResults = [...results];
     
     for (let i = 0; i < files.length; i++) {
-        // Simulate n8n processing time
+        // Simulate processing time
         await new Promise(r => setTimeout(r, 1200));
         
         // Generate generic data based on file
@@ -129,7 +129,7 @@ const EmployerDashboard = () => {
             results: cvValidationResults
         };
 
-        const res = await n8nService.generateEmployerReport(reportData);
+        const res = await apiService.generateEmployerReport(reportData);
         
         if (res.success) {
             toast.dismiss();
@@ -250,6 +250,58 @@ const EmployerDashboard = () => {
       }
     };
   }, []);
+
+  // Search Effect
+  useEffect(() => {
+    if (activeTab === 'search') {
+        const fetchTalents = async () => {
+            // Always fetch, even if query is empty (returns recent)
+            setLoading(true);
+            try {
+                const query = new URLSearchParams({ 
+                    q: searchQuery, 
+                    filter: activeFilter || '' 
+                }).toString();
+                
+                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8787'}/api/employer/search?${query}`);
+                const data = await response.json();
+                
+                if (data.success && data.candidates) {
+                    // Map API results to UI format
+                    const mappedTalents = data.candidates.map(c => ({
+                        id: c.id,
+                        name: c.student_name,
+                        role: c.degree,
+                        skills: c.major ? [c.major] : ['Blockchain', 'Smart Contracts'],
+                        network: c.network || 'Hedera',
+                        match: c.match_score || 95, // Use backend score if available
+                        location: 'Remoto',
+                        txLink: c.blockchain_tx ? `https://hashscan.io/testnet/transaction/${c.blockchain_tx}` : '#'
+                    }));
+                    setTalents(mappedTalents);
+                } else if (talents.length === 0) {
+                     // Fallback to localStorage if API returns nothing and we have nothing
+                     try {
+                        const raw = localStorage.getItem('acl:talent-pool');
+                        if (raw) setTalents(JSON.parse(raw));
+                     } catch {}
+                }
+            } catch (error) {
+                console.error("Search error:", error);
+                // Fallback to localStorage on error
+                try {
+                    const raw = localStorage.getItem('acl:talent-pool');
+                    if (raw) setTalents(JSON.parse(raw));
+                } catch {}
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        const timeoutId = setTimeout(fetchTalents, 500); // Debounce
+        return () => clearTimeout(timeoutId);
+    }
+  }, [searchQuery, activeFilter, activeTab]);
 
   const startScanner = async () => {
     try {
@@ -374,42 +426,41 @@ const EmployerDashboard = () => {
 
   const getVerificationData = async (qrData) => {
       try {
-          // Try to parse JSON for Certificate Data
-          let credentialData = null;
-          try {
-              const parsed = JSON.parse(qrData);
-              if (parsed.tokenId && parsed.serialNumber) {
-                  credentialData = parsed;
-              }
-          } catch (e) {
-              // Not JSON, treat as raw string or URL
-          }
+          // Call Backend API for verification
+          const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8787'}/api/employer/verify`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ qrContent: qrData })
+          });
 
-          if (credentialData) {
-              // It's a certificate!
-              // For demo purposes, we'll simulate a fetch using the parsed data
-              await new Promise(r => setTimeout(r, 500));
-              
+          const result = await response.json();
+
+          if (result.success && result.verified) {
               return {
                   type: 'credential',
                   valid: true,
                   data: {
-                      title: 'Certificado Blockchain',
-                      tokenId: credentialData.tokenId,
-                      serialNumber: credentialData.serialNumber,
-                      student: 'Estudiante Verificado', 
-                      issuer: 'Institución Verificada',
-                      date: new Date().toLocaleDateString()
-                  }
+                      title: result.record?.degree || result.data?.program || 'Certificado Verificado',
+                      tokenId: result.record?.token_id || 'N/A',
+                      serialNumber: result.record?.blockchain_tx || 'N/A',
+                      student: result.record?.student_name || result.data?.studentName || 'Estudiante',
+                      issuer: 'AcademicChain',
+                      date: result.record?.issue_date || new Date().toLocaleDateString()
+                  },
+                  confidence: '100%',
+                  status: 'Verificado en Blockchain'
               };
           } else {
-               await new Promise(r => setTimeout(r, 200));
+              // Fallback / Invalid
                return {
                   type: 'credential', 
-                  valid: true,
+                  valid: false,
+                  error: 'Credencial no encontrada o inválida',
                   data: {
                       title: 'Datos Escaneados',
-                      student: 'Información Cruda',
+                      student: 'Desconocido',
                       issuer: 'Desconocido',
                       raw: qrData,
                       date: new Date().toLocaleDateString()
@@ -417,7 +468,8 @@ const EmployerDashboard = () => {
               };
           }
       } catch (e) {
-          return { valid: false, error: 'Error verificando credencial' };
+          console.error("Verification error", e);
+          return { valid: false, error: 'Error de conexión verificando credencial' };
       }
   };
 
@@ -1073,3 +1125,4 @@ const EmployerDashboard = () => {
 };
 
 export default EmployerDashboard;
+

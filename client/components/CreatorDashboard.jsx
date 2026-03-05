@@ -5,7 +5,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, T
 import CreatorIssuance from './CreatorIssuance';
 import CreatorStepper from './CreatorStepper';
 import { toGateway } from './utils/ipfsUtils';
-import n8nService from './services/n8nService';
+import apiService from './services/apiService';
 import { verificationService } from './services/verificationService';
 import useAnalytics from './useAnalytics';
 import { toast, Toaster } from 'react-hot-toast';
@@ -217,7 +217,7 @@ const CreatorDashboard = () => {
     const ok = window.confirm('¿Borrar esta emisión del portal de Creador? No afecta estado on-chain.');
     if (!ok) return;
     try {
-      await n8nService.deleteCredential({ tokenId: item.tokenId, serialNumber: item.serialNumber });
+      await apiService.deleteCredential({ tokenId: item.tokenId, serialNumber: item.serialNumber });
       setRecentActivity(prev => prev.filter(x => !(String(x.tokenId) === String(item.tokenId) && String(x.serialNumber) === String(item.serialNumber))));
       setDeletedCount(v => v + 1);
       try { await refreshGlobalStats(); } catch {}
@@ -243,7 +243,7 @@ const CreatorDashboard = () => {
     const reason = window.prompt('Ingresa la razón de revocación (p.ej., Superseded, Compromised):', 'Superseded') || '';
     if (!reason.trim()) return;
     try {
-      await n8nService.revokeCredential({ tokenId: item.tokenId, serialNumber: item.serialNumber, reason });
+      await apiService.revokeCredential({ tokenId: item.tokenId, serialNumber: item.serialNumber, reason });
       alert('Revocación enviada.');
       try { await refreshGlobalStats(); } catch {}
       try {
@@ -267,7 +267,7 @@ const CreatorDashboard = () => {
 
   const refreshGlobalStats = useCallback(async () => {
     try {
-      const s = await n8nService.getCredentialStats({ scope: 'creator', issuerId: creatorProfile?.did || undefined, role: 'creator' });
+      const s = await apiService.getCredentialStats({ scope: 'creator', issuerId: creatorProfile?.did || undefined, role: 'creator' });
       if (s && s.success) {
         setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
       }
@@ -284,9 +284,9 @@ const CreatorDashboard = () => {
       return;
     }
     try {
-      await n8nService.requestCredentialVerification({ tokenId: item.tokenId, serialNumber: item.serialNumber, role: 'creator' });
+      await apiService.requestCredentialVerification({ tokenId: item.tokenId, serialNumber: item.serialNumber, role: 'creator' });
       setRecentActivity(prev => prev.map(x => (x.tokenId === item.tokenId && String(x.serialNumber) === String(item.serialNumber)) ? { ...x, status: 'pending' } : x));
-      alert('Solicitud de verificación enviada a n8n. Estado: Pendiente');
+      alert('Solicitud de verificación enviada. Estado: Pendiente');
       try { await refreshGlobalStats(); } catch {}
     } catch (e) {
       alert('No se pudo enviar la solicitud de verificación.');
@@ -589,3 +589,4 @@ const CreatorDashboard = () => {
 };
 
 export default CreatorDashboard;
+

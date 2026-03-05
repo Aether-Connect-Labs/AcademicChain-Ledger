@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import QRCode from 'react-qr-code';
 import { Toaster, toast } from 'react-hot-toast';
 import { toGateway, getGateways } from './utils/ipfsUtils';
-import n8nService from './services/n8nService';
+import apiService from './services/apiService';
 
 const TREASURY_ACCOUNT_ID = '0.0.7174400';
 const ACL_TOKEN_ID = '0.0.7560139';
@@ -61,8 +61,8 @@ const CreditRecharge = () => {
     }
     setLoading(true);
     try {
-      // Use n8n Service to verify on blockchain
-      const data = await n8nService.verifyTransaction({
+      // Use API Service to verify on blockchain
+      const data = await apiService.verifyTransaction({
         transactionId: txId.trim(),
         method: method, // 'ACL' or 'XRP'
         expectedAmount: selected.priceAcl || selected.priceUsd,
@@ -76,7 +76,7 @@ const CreditRecharge = () => {
       setShowModal(false);
       setTxId('');
     } catch (e) {
-      toast.error(e.message || 'Error verificando el pago con n8n');
+      toast.error(e.message || 'Error verificando el pago');
     } finally {
       setLoading(false);
     }
@@ -84,10 +84,10 @@ const CreditRecharge = () => {
 
   const handlePurchase = async (plan) => {
     try {
-      toast.loading('Contactando NOWPayments vía n8n...', { id: 'payment-load' });
+      toast.loading('Contactando NOWPayments...', { id: 'payment-load' });
 
-      // Call n8n Service to create payment intent
-      const data = await n8nService.createPayment({
+      // Call Payment Service
+      const data = await apiService.createPayment({
         planId: plan.id,
         amount: plan.priceUsd,
         currency: 'USD'
@@ -107,7 +107,7 @@ const CreditRecharge = () => {
     } catch (error) {
       console.error("Error al iniciar la compra:", error);
       toast.dismiss('payment-load');
-      toast.error('Error de conexión con n8n.');
+      toast.error('Error de conexión.');
     }
   };
 
@@ -277,3 +277,4 @@ const CreditRecharge = () => {
 };
 
 export default CreditRecharge;
+

@@ -5,7 +5,8 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { useAuth } from './useAuth';
-import n8nService from './services/n8nService';
+
+import apiService from './services/apiService';
 
 const SmartCVPage = () => {
   const navigate = useNavigate();
@@ -20,6 +21,7 @@ const SmartCVPage = () => {
   const [verificationStatus, setVerificationStatus] = useState('idle'); // idle, checking, success, failed
 
   // Survey Data State
+  const [cvData, setCvData] = useState(null);
   const [surveyData, setSurveyData] = useState({
     specialization: '',
     achievement: '',
@@ -122,11 +124,13 @@ const SmartCVPage = () => {
         
         if (analyzeProgress === 40) {
             setVerificationStatus('checking');
-            // Trigger n8n verification in background
+            // Trigger verification in background
             if (credentialId) {
                 try {
-                    const result = await n8nService.verifyTalent({ credentialId });
-                    if (result.success && result.verified) {
+                    // Use apiService for verification
+                    const verificationResult = await apiService.verifyTalent({ credentialId });
+                    
+                    if (verificationResult.success && verificationResult.verified) {
                         setVerificationStatus('success');
                         setFeedbackType('credential_verified');
                     } else {
@@ -134,13 +138,14 @@ const SmartCVPage = () => {
                         setFeedbackType('identity_mismatch');
                     }
                 } catch (e) {
+                    console.error("Verification error:", e);
                     setVerificationStatus('failed');
                     setFeedbackType('identity_mismatch');
                 }
             } else {
-                // Survey flow - trigger generation
+                // Survey flow - simulate analysis
                 try {
-                    await n8nService.generateSmartCV(surveyData);
+                    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate analysis
                     setVerificationStatus('success');
                     setFeedbackType('survey_completed');
                 } catch (e) {
@@ -177,9 +182,35 @@ const SmartCVPage = () => {
     }, 80); // Slower interval to allow async calls
   };
 
-  const finalizeGeneration = () => {
-      toast.success("¡Smart CV generado y optimizado!");
-      setStep('result');
+
+  const finalizeGeneration = async () => {
+      setIsGenerating(true);
+      
+      try {
+        const data = await apiService.generateSmartCV({
+            specialization: surveyData.specialization,
+            technologies: surveyData.technologies,
+            achievement: surveyData.achievement || 'Blockchain Certification',
+            linkedInUrl,
+            credentialId
+        });
+  
+        if (data.success && data.cvData) {
+          setCvData(data.cvData);
+          toast.success("¡Smart CV generado y optimizado!");
+          setStep('result');
+        } else {
+            console.error("Error generating CV:", data.error);
+            toast.error("Error al generar CV, usando modo offline");
+            setStep('result');
+        }
+      } catch (error) {
+        console.error("Connection error:", error);
+        toast.error("Error de conexión, usando modo offline");
+        setStep('result');
+      } finally {
+        setIsGenerating(false);
+      }
   };
 
   return (
@@ -788,23 +819,45 @@ const SmartCVPage = () => {
                                 <Zap size={16} className="text-yellow-500 fill-yellow-500" />
                                 Análisis de IA de Reclutamiento
                             </h4>
-                            <p className="text-slate-600 text-sm leading-relaxed mb-4">
-                                {credentialId 
+                            <div className="text-slate-600 text-sm leading-relaxed mb-4">
+                                {cvData?.personalProfile || (credentialId 
                                     ? `"La vinculación directa de credenciales AcademicChain eleva significativamente la confiabilidad del perfil. El ID ${credentialId.substring(0,8)}... confirma competencias técnicas validadas, posicionando al candidato en el percentil superior."`
                                     : feedbackType === 'survey_completed' 
                                         ? `Perfil generado a partir de datos declarados. El candidato indica especialización en ${surveyData.specialization} y destaca por: "${surveyData.achievement}". Se recomienda validación externa (LinkedIn) para confirmar historial.` 
                                         : `"Este perfil demuestra una trayectoria verificable en tecnologías Web3. La consistencia de las credenciales on-chain aumenta el Trust Score en un 98%, colocándolo como candidato prioritario para roles Fintech."`
-                                }
-                            </p>
+                                )}
+                            </div>
+
+                            {/* Skills from Backend */}
+                            {cvData?.skills && cvData.skills.length > 0 && (
+                                <div className="mb-4">
+                                    <h5 className="font-bold text-xs text-slate-500 uppercase mb-2">Habilidades Detectadas</h5>
+                                    <div className="flex flex-wrap gap-2">
+                                        {cvData.skills.map((skill, i) => (
+                                            <span key={i} className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-medium border border-blue-100">
+                                                {skill}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {cvData?.marketFit && (
+                                <div className="mb-4 p-3 bg-white/50 rounded-lg border border-blue-100">
+                                    <h5 className="font-bold text-xs text-blue-600 uppercase mb-1">Market Fit</h5>
+                                    <p className="text-xs text-slate-600">{cvData.marketFit}</p>
+                                </div>
+                            )}
                             
                             <div className="flex items-center gap-2">
                                 <div className="h-1.5 flex-1 bg-slate-200 rounded-full overflow-hidden">
                                     <div 
-                                        className={`h-full ${credentialId ? 'bg-green-500 w-[90%]' : feedbackType === 'survey_completed' ? 'bg-yellow-500 w-[60%]' : 'bg-green-500 w-[98%]'}`}
+                                        className={`h-full ${cvData?.trustScore ? 'bg-green-500' : credentialId ? 'bg-green-500' : feedbackType === 'survey_completed' ? 'bg-yellow-500' : 'bg-green-500'}`}
+                                        style={{ width: cvData?.trustScore ? `${cvData.trustScore}%` : credentialId ? '90%' : feedbackType === 'survey_completed' ? '60%' : '98%' }}
                                     ></div>
                                 </div>
                                 <span className={`text-xs font-bold ${feedbackType === 'survey_completed' && !credentialId ? 'text-yellow-600' : 'text-green-600'}`}>
-                                    {credentialId ? '90/100 Trust Score (Verificado)' : feedbackType === 'survey_completed' ? '60/100 Trust Score' : '98/100 Trust Score'}
+                                    {cvData?.trustScore ? `${cvData.trustScore}/100 Trust Score` : credentialId ? '90/100 Trust Score (Verificado)' : feedbackType === 'survey_completed' ? '60/100 Trust Score' : '98/100 Trust Score'}
                                 </span>
                             </div>
                         </div>

@@ -27,20 +27,9 @@ export const getApiBaseUrl = () => {
     }
   }
 
-  const n8nUrl = env.VITE_N8N_WEBHOOK_URL;
-  if (n8nUrl) {
-    try {
-      const url = new URL(n8nUrl);
-      if (url.pathname.endsWith('/submit-document')) {
-        return n8nUrl.replace('/submit-document', '');
-      }
-      return n8nUrl;
-    } catch (e) {
-      return n8nUrl;
-    }
-  }
-  // Fallback a Molbot local (Arkhia enabled) en lugar de Cloudflare
-  return 'http://localhost:5678';
+  // Default to empty string to allow relative paths or let the caller handle missing config
+  console.warn('API_BASE_URL not configured. Using relative path.');
+  return '';
 };
 
 export const API_BASE_URL = getApiBaseUrl();

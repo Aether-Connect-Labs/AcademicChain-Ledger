@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import issuanceService from './services/issuanceService';
-import n8nService from './services/n8nService';
+import apiService from './services/apiService';
 import { Toaster, toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import CertificateDesigner from './CertificateDesigner';
@@ -451,7 +451,7 @@ const IssueTitleForm = ({
 
         // --- SUBMIT TO BACKEND (Multi-Chain "Con Todo") ---
         try {
-            await n8nService.submitMultiChainCredential(newCredential);
+            await apiService.submitMultiChainCredential(newCredential);
             toast.success('¡Sincronizado con Backend!');
         } catch (backendErr) {
             console.warn('Backend sync failed, but local saved:', backendErr);
@@ -522,7 +522,7 @@ const IssueTitleForm = ({
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold font-display text-white">
             {variant === 'certificate' ? 'Emitir Certificado' : 'Emitir Título'}
-            <span className="ml-3 text-xs bg-secondary text-white px-2 py-1 rounded-full align-middle">Impulsado por n8n</span>
+            <span className="ml-3 text-xs bg-secondary text-white px-2 py-1 rounded-full align-middle">Impulsado por AcademicChain AI</span>
           </h2>
         </div>
 
@@ -839,3 +839,4 @@ const IssueTitleForm = ({
 };
 
 export default IssueTitleForm;
+

@@ -21,7 +21,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import CyberBackground from './CyberBackground';
 import InstitutionAnalytics from './InstitutionAnalytics';
 import InstitutionSubscriptionModal from './InstitutionSubscriptionModal';
-import n8nService from './services/n8nService';
+import apiService from './services/apiService';
 import DocumentViewer from './ui/DocumentViewer';
 import LiveBlockVisualizer from './LiveBlockVisualizer';
 
@@ -187,7 +187,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
       setLoading(true);
       try {
         // Fetch Plan Details
-        const planData = await n8nService.getInstitutionPlan(String(user?.id || user?.universityId || 'inst-123'));
+        const planData = await apiService.getInstitutionPlan(String(user?.id || user?.universityId || 'inst-123'));
         setCurrentPlan(planData.details);
         setEmissionsUsed(planData.emissionsUsed);
         setSelectedNetworks(planData.details.networks);
@@ -303,7 +303,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
         }
         try {
           const issuerId = String(user?.id || user?.universityId || '');
-          const s = await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
+          const s = await apiService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
           if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
         } catch {}
       } catch (error) {
@@ -320,7 +320,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   const handleSubscribe = async (planId) => {
     toast.loading("Actualizando plan institucional...");
     try {
-        const result = await n8nService.upgradePlan(planId);
+        const result = await apiService.upgradePlan(planId);
         if (result.success) {
             setCurrentPlan(result.plan);
             setSelectedNetworks(result.plan.networks);
@@ -644,12 +644,12 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                           <button
                             className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10"
                             onClick={async () => {
-                              await n8nService.deleteCredential({ tokenId: cred.tokenId || cred.id, serialNumber: String(cred.serialNumber || 1) });
+                              await apiService.deleteCredential({ tokenId: cred.tokenId || cred.id, serialNumber: String(cred.serialNumber || 1) });
                               setCredentials(prev => prev.filter(c => c !== cred));
                               try { 
                                 let issuerId = ''; 
                                 try { issuerId = String(user?.id || user?.universityId || ''); } catch {} 
-                                await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
+                                await apiService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
                                   if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) }); 
                                 }); 
                               } catch {}
@@ -731,12 +731,12 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                     <button
                       className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10 flex-1 min-w-[100px]"
                       onClick={async () => {
-                        await n8nService.deleteCredential({ tokenId: cred.tokenId || cred.id, serialNumber: String(cred.serialNumber || 1) });
+                        await apiService.deleteCredential({ tokenId: cred.tokenId || cred.id, serialNumber: String(cred.serialNumber || 1) });
                         setCredentials(prev => prev.filter(c => c !== cred));
                         try { 
                           let issuerId = ''; 
                           try { issuerId = String(user?.id || user?.universityId || ''); } catch {} 
-                          await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
+                          await apiService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
                             if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) }); 
                           }); 
                         } catch {}
@@ -778,12 +778,12 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                       className="btn-primary bg-red-600 hover:bg-red-700 border-red-600 text-white"
                       disabled={!revokeReason}
                       onClick={async () => {
-                        await n8nService.revokeCredential({ tokenId: selectedCred?.tokenId || selectedCred?.id, serialNumber: String(selectedCred?.serialNumber || 1), reason: revokeReason });
+                        await apiService.revokeCredential({ tokenId: selectedCred?.tokenId || selectedCred?.id, serialNumber: String(selectedCred?.serialNumber || 1), reason: revokeReason });
                         setRevokeOpen(false);
                           try { 
                             let issuerId = ''; 
                             try { issuerId = String(user?.id || user?.universityId || ''); } catch {} 
-                            await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
+                            await apiService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
                               if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) }); 
                             }); 
                           } catch {}
@@ -903,7 +903,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                               (async () => {
                                 try {
                                   const issuerId = String(user?.id || user?.universityId || '');
-                                  const s = await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
+                                  const s = await apiService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
                                   if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
                                 } catch {}
                               })();
@@ -998,7 +998,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                           (async () => {
                             try {
                               const issuerId = String(user?.id || user?.universityId || '');
-                              const s = await n8nService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
+                              const s = await apiService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
                               if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
                             } catch {}
                           })();
@@ -1250,3 +1250,4 @@ function EnhancedInstitutionDashboard({ demo = false }) {
 }
 
 export default EnhancedInstitutionDashboard;
+

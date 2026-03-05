@@ -1,6 +1,8 @@
 // src/components/issuance/BatchIssuance.js
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from './services/config';
+
 import { useHedera } from './useHedera';
 import { useAuth } from './useAuth';
 import { useWebSocket } from './useWebSocket';
@@ -9,7 +11,7 @@ import { issuanceService } from './services/issuanceService';
 import { verificationService } from './services/verificationService';
 import { fileParser } from './utils/fileParser';
 import { validationService } from './services/validationService';
-import n8nService from './services/n8nService';
+import apiService from './services/apiService';
 import ProgressTracker from './ui/ProgressTracker';
 import CredentialPreview from './CredentialPreview';
 import IssuanceSummary from './IssuanceSummary';
@@ -496,7 +498,7 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
   }, [aiAnalysis, credentials]);
 
   const handleBatchIssuance = async () => {
-    // Wallet connection is optional for managed issuance via n8n
+    // Wallet connection is optional for managed issuance
     if (!demo && issuanceConfig.addToHedera && !account) {
        // Optional: Warn user or just proceed if using custodial service
        console.log('Proceeding with managed issuance (no wallet connected)');
@@ -533,7 +535,7 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
       }
       if (plan && !plan.networks.includes('xrp') && plan.networks.includes('hedera') && plan.networks.length === 1) {
            // Si solo tiene Hedera (Esencial), asegurar que no intente usar XRP implícitamente o mostrar warning
-           // Por ahora el backend de n8n manejará las redes, pero validamos aquí.
+           // El backend manejará las redes, pero validamos aquí.
       }
 
       if (demo) {
@@ -605,7 +607,7 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
             }
           };
 
-          const response = await n8nService.submitBatch(batchData);
+          const response = await apiService.submitBatch(batchData);
           const jobId = response.jobId || response.data?.masterJobId;
 
           if (!jobId) {
@@ -1202,7 +1204,7 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
           </div>
 
             {processResult?.summary?.status === 'completed' && (() => {
-              const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://academicchain-ledger-b2lu.onrender.com' : 'http://localhost:3001');
+              // const API_BASE_URL = ... (removed in favor of frontend route)
               const items = getResultItems();
               if (!items.length) return null;
               return (
@@ -1218,7 +1220,8 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                     </thead>
                     <tbody className="text-gray-300">
                       {items.map((it, idx) => {
-                        const verifyUrl = `${API_BASE_URL}/api/verification/verify/${it.tokenId}/${it.serialNumber}`;
+                        // Point to frontend verification page instead of backend API
+                        const verifyUrl = `/verify/${it.tokenId}/${it.serialNumber}`;
                         return (
                           <tr key={`${it.tokenId}-${it.serialNumber}-${idx}`} className="border-t border-gray-700 text-sm">
                             <td className="px-4 py-2">{it.tokenId}</td>
@@ -1426,3 +1429,4 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
 };
 
 export default BatchIssuance;
+

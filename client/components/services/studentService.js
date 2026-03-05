@@ -1,5 +1,5 @@
-import { API_BASE_URL, getAuthHeaders, handleResponse } from './config';
-import n8nService from './n8nService';
+﻿import { API_BASE_URL, getAuthHeaders, handleResponse } from './config';
+import apiService from './apiService';
 
 export const studentService = {
   getMyCredentials: async () => {
@@ -20,7 +20,7 @@ export const studentService = {
             id: 'demo-1',
             tokenId: '0.0.123456',
             serialNumber: '1',
-            title: 'Título Profesional en Ingeniería',
+            title: 'TÃ­tulo Profesional en IngenierÃ­a',
             issuer: 'Demo University',
             ipfsURI: 'ipfs://QmDemoCid1',
             createdAt: new Date().toISOString(),
@@ -60,7 +60,7 @@ export const studentService = {
 
   deleteCredential: async ({ tokenId, serialNumber }) => {
     try {
-      const res = await n8nService.deleteCredential({ tokenId, serialNumber });
+      const res = await apiService.deleteCredential({ tokenId, serialNumber });
       return res;
     } catch (e) {
       return { success: true, deleted: true };
@@ -69,3 +69,4 @@ export const studentService = {
 };
 
 export default studentService;
+

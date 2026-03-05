@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, Zap, Shield, Globe, Calendar, UserCheck, ArrowRight, Loader2, Mail, Lock } from 'lucide-react';
-import n8nService from './services/n8nService';
+import apiService from './services/apiService';
 import { toast } from 'react-hot-toast';
 
 const InstitutionSubscriptionModal = ({ onClose, onSubscribe, currentPlanId }) => {
@@ -73,12 +73,12 @@ const InstitutionSubscriptionModal = ({ onClose, onSubscribe, currentPlanId }) =
     setLoading(true);
     setAuthError('');
     try {
-        const { exists } = await n8nService.checkInstitutionAccount(email);
+        const { exists } = await apiService.checkInstitutionAccount(email);
         if (exists) {
             setStep('login_password');
         } else {
             // If email doesn't exist, we might want to let them create one or contact sales
-            // User instruction: "si ya tiene una cuenta n8n revisara si ese correo existe y el tendra que poner su clave o crear una si se olvido"
+            // User instruction: "si ya tiene una cuenta revisara si ese correo existe y el tendra que poner su clave o crear una si se olvido"
             // Assuming "crear una si se olvido" refers to password reset/creation.
             // If account not found, maybe redirect to demo/signup?
             setAuthError('Cuenta no encontrada. ¿Deseas agendar una demo?');
@@ -102,7 +102,7 @@ const InstitutionSubscriptionModal = ({ onClose, onSubscribe, currentPlanId }) =
 
   const handleResetPassword = async () => {
     setLoading(true);
-    await n8nService.requestPasswordReset(email);
+    await apiService.requestPasswordReset(email);
     setLoading(false);
     toast.success('Enlace de recuperación enviado a tu correo');
     setStep('login_password'); // Go back to login or stay
@@ -322,3 +322,4 @@ const InstitutionSubscriptionModal = ({ onClose, onSubscribe, currentPlanId }) =
 };
 
 export default InstitutionSubscriptionModal;
+

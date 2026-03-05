@@ -1,6 +1,5 @@
 import { API_BASE_URL, getAuthHeaders, handleResponse } from './config';
 import { create as createIpfsClient } from 'ipfs-http-client';
-import n8nService from './n8nService';
 
 export const issuanceService = {
   createCredentialTemplate: (data) => {
@@ -21,27 +20,6 @@ export const issuanceService = {
   },
 
   getTokens: async () => {
-    try {
-      // Try to fetch from n8n first
-      const baseUrl = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://n8n-b0be.onrender.com/webhook/submit-document';
-      const n8nUrl = baseUrl.replace('submit-document', 'get-tokens');
-
-      if (n8nUrl) {
-        const res = await fetch(n8nUrl, { 
-          headers: { 
-            'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key',
-            ...getAuthHeaders()
-          } 
-        });
-        if (res.ok) {
-          const json = await res.json();
-          return json;
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to fetch tokens from n8n, falling back to mock', e);
-    }
-
     // Mock temporal para que la UI funcione sin el backend de Node viejo
     return {
       success: true,
@@ -50,7 +28,7 @@ export const issuanceService = {
           { tokenId: '0.0.123456', tokenName: 'Diploma Oficial Ingeniería' },
           { tokenId: '0.0.654321', tokenName: 'Certificado de Honor' }
         ],
-        university: 'Universidad Demo n8n'
+        university: 'Universidad Demo'
       }
     };
   },
@@ -89,8 +67,8 @@ export const issuanceService = {
   },
 
   prepareIssuance: async (data) => {
-    console.warn('prepareIssuance está obsoleto. Usar n8nService.submitDocument');
-    throw new Error('Función obsoleta. Use n8n directo.');
+    console.warn('prepareIssuance está obsoleto.');
+    throw new Error('Función obsoleta.');
   },
 
   executeIssuance: async (data) => {
@@ -103,18 +81,24 @@ export const issuanceService = {
   },
 
   issueBulkCredentials: async (payload) => {
+    // Try API first (Workflow/Worker)
     try {
-       return await n8nService.submitBatch(payload);
+        const res = await fetch(`${API_BASE_URL}/api/universities/execute-issuance`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) return handleResponse(res);
     } catch (e) {
-      console.warn('n8n Batch Submit Failed', e);
+        console.warn('API Batch Submit Failed', e);
     }
 
-    console.log('Simulating Bulk Issuance via n8n (Placeholder)...');
-    // Mock response
+    // Fallback Mock
+    console.log('Simulating Bulk Issuance (Placeholder)...');
     return {
       success: true,
       jobId: 'job-' + Date.now(),
-      message: 'Batch received by n8n (Simulated)'
+      message: 'Batch received (Simulated)'
     };
   },
 
@@ -164,23 +148,6 @@ export const issuanceService = {
 
   issueCreatorCredential: async (data) => {
     try {
-      // Try n8n endpoint first
-      const baseUrl = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://n8n-b0be.onrender.com/webhook/submit-document';
-      const n8nUrl = baseUrl.replace('submit-document', 'issue-creator-credential');
-
-      if (n8nUrl) {
-         const res = await fetch(n8nUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key',
-              ...getAuthHeaders()
-            },
-            body: JSON.stringify(data)
-         });
-         if (res.ok) return handleResponse(res);
-      }
-
       if (API_BASE_URL) {
         const res = await fetch(`${API_BASE_URL}/api/creators/issue`, {
           method: 'POST',
@@ -189,7 +156,9 @@ export const issuanceService = {
         });
         if (res.ok) return handleResponse(res);
       }
-    } catch { }
+    } catch (e) { 
+        console.error("Issuance Error", e);
+    }
 
     // Mock Simulation
     await new Promise(resolve => setTimeout(resolve, 1500));
@@ -212,7 +181,7 @@ export const issuanceService = {
   },
 
   uploadToIPFS: async (file) => {
-    // 1. Client-side Pinata/IPFS (Since backend is n8n headless)
+    // 1. Client-side Pinata/IPFS
     const pinataJwt = import.meta.env.VITE_PINATA_JWT || '';
     const pinataApiKey = import.meta.env.VITE_PINATA_API_KEY || '';
     const pinataSecretKey = import.meta.env.VITE_PINATA_SECRET_KEY || '';

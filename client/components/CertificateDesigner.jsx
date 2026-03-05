@@ -3,8 +3,9 @@ import { Canvas, IText, Rect, Shadow, Circle, Image as FabricImage } from 'fabri
 import { jsPDF } from 'jspdf';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
+
 import { Trash2, FileText, Upload, LayoutTemplate, Type, FileUp, ChevronUp, ChevronDown, Lock, Unlock, Eye, EyeOff, BringToFront, SendToBack, Image as ImageIcon, MousePointer2, PenTool, Stamp, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowRightFromLine, ArrowDownFromLine, Undo2, Redo2 } from 'lucide-react';
-import n8nService from './services/n8nService';
+import apiService from './services/apiService';
 import { mockCredentials, templates } from '../utils/mockData';
 
 const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDesign, institutionName = 'AcademicChain Ledger' }) => {
@@ -451,6 +452,52 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
           }
       }
 
+      // Color detection logic (Local Fallback)
+      const colorMap = {
+          'azul': '#1e3a8a',
+          'rojo': '#b91c1c',
+          'verde': '#15803d',
+          'negro': '#000000',
+          'blanco': '#ffffff',
+          'amarillo': '#facc15',
+          'dorado': '#d4af37',
+          'gold': '#d4af37',
+          'plateado': '#c0c0c0',
+          'gris': '#4b5563',
+          'crema': '#fdfbf7'
+      };
+
+      const foundColors = Object.keys(colorMap).filter(c => text.toLowerCase().includes(c));
+      
+      if (foundColors.length > 0) {
+          // Determine if it's for text or background
+          const isText = text.toLowerCase().includes('texto') || text.toLowerCase().includes('letra') || text.toLowerCase().includes('fuente');
+          const isBg = text.toLowerCase().includes('fondo') || text.toLowerCase().includes('background');
+          
+          const primaryColor = colorMap[foundColors[0]];
+          
+          if (isText) {
+               modifications.push({ 
+                  type: 'color-theme', 
+                  colors: { text: primaryColor, primary: primaryColor } 
+              });
+              response += ` He cambiado el color del texto a ${foundColors[0]}.`;
+          } else if (isBg) {
+              modifications.push({ 
+                  type: 'color-theme', 
+                  colors: { bg: primaryColor } 
+              });
+              response += ` He cambiado el fondo a ${foundColors[0]}.`;
+          } else {
+              // Default to primary theme change
+              modifications.push({ 
+                  type: 'color-theme', 
+                  colors: { text: primaryColor, primary: primaryColor, bg: '#ffffff' } 
+              });
+              response += ` He aplicado el tema ${foundColors[0]}.`;
+          }
+      }
+
       // Execute Template Load
       if (templateId) {
           loadTemplate(templateId, false, !shouldReset);
@@ -479,27 +526,31 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
       setChatInput('');
       setIsAiTyping(true);
 
-      // Try n8n AI First
-      const n8nResponse = await n8nService.processAIChat(userText, {
-          currentPageSize: pageSize,
-          currentTemplate: selectedObject?.id || 'unknown',
-          institutionName: institutionName
-      });
 
-      if (n8nResponse) {
-          setIsAiTyping(false);
-          setChatMessages(prev => [...prev, { role: 'ai', text: n8nResponse.message || "He procesado tu solicitud." }]);
-          
-          if (n8nResponse.modifications && Array.isArray(n8nResponse.modifications)) {
-              applyAIModifications(n8nResponse.modifications);
-              toast.success('Diseño actualizado por IA (Nube)', { icon: '☁️' });
-          }
-      } else {
-          // Local Simulation Fallback
+      // Try API First
+      try {
+        const response = await apiService.processAIChat(userText, {
+            currentPageSize: pageSize,
+            currentTemplate: selectedObject?.id || 'unknown',
+            institutionName: institutionName
+        });
+  
+        if (response && response.modifications && Array.isArray(response.modifications) && response.modifications.length > 0) {
+            setIsAiTyping(false);
+            setChatMessages(prev => [...prev, { role: 'ai', text: response.message || "Solicitud procesada." }]);
+            applyAIModifications(response.modifications);
+            toast.success('Diseño actualizado por IA', { icon: '✨' });
+        } else {
+             // Force fallback if no modifications returned
+             throw new Error("No modifications returned from AI");
+        }
+      } catch (e) {
+          // Fallback
+          console.error("AI Error or Empty Response:", e);
           const aiResponse = processAICommand(userText);
           setIsAiTyping(false);
           setChatMessages(prev => [...prev, { role: 'ai', text: aiResponse }]);
-          toast.success('Diseño actualizado por IA (Local)', { icon: '✨' });
+          toast.success('Diseño actualizado (Modo Offline)', { icon: '⚠️' });
       }
   };
 
@@ -861,7 +912,7 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
         return;
     }
     setIsProcessing(true);
-    const result = await n8nService.processCanvaDesign(canvaUrl);
+    const result = await apiService.processCanvaDesign(canvaUrl);
     setIsProcessing(false);
     
     if (result.success && result.imageUrl) {

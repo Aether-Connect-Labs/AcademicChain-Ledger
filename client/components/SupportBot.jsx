@@ -1,13 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, X, Send, User, Bot, Loader2 } from 'lucide-react';
-import { API_BASE_URL } from './services/config';
-
-// Si el Worker está configurado correctamente, esta URL debería apuntar a       
-// http://localhost:8787/academic-chain-support (o similar)
-// que a su vez redirige al Webhook de n8n.
-// UPDATE: Usamos el proxy /n8n para conectar directamente con el n8n local o cloud configurado en vite.config.js
-const CHAT_WEBHOOK_ENDPOINT = `/n8n/webhook/academic-chain-support`;
+import apiService from './services/apiService';
 
 const SupportBot = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -30,36 +24,21 @@ const SupportBot = () => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
+
     const userMessage = { id: Date.now(), role: 'user', text: input };
-    setMessages(prev => [...prev, userMessage]);
+    const newMessages = [...messages, userMessage];
+    
+    setMessages(newMessages);
     setInput('');
     setIsLoading(true);
 
     try {
-      // Estructura típica para n8n Chat Trigger o Webhook simple
-      // Ajustar según lo que espere el nodo "Chat Trigger" de n8n
-      const payload = {
-        chatInput: userMessage.text,
-        sessionId: `session-${Date.now()}` // Identificador de sesión simple
-      };
+      // Structure for Worker API
+      const history = newMessages.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
 
-      const res = await fetch(CHAT_WEBHOOK_ENDPOINT, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'X-ACL-AUTH-KEY': import.meta.env.VITE_N8N_AUTH_KEY || 'demo-key'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) throw new Error('Error en el servicio de chat');
-
-      const data = await res.json();
+      const data = await apiService.processSupportChat(userMessage.text, history);
       
-      // Asumimos que n8n devuelve { output: "respuesta..." } o similar
-      // Si devuelve un array, tomamos el primer elemento.
-      // Ajustar según la respuesta real del workflow.
-      const botResponseText = data.output || data.text || data.message || JSON.stringify(data);
+      const botResponseText = data.output || data.message || "Lo siento, no pude entender eso.";
 
       const botMessage = { 
         id: Date.now() + 1, 
