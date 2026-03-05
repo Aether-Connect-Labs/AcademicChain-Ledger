@@ -104,3 +104,7 @@ Thumbs.db
 worker/.wrangler/
 .d1/
 worker/.d1/
+
+.wrangler/
+worker/.wrangler/
+.venv/

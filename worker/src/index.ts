@@ -159,6 +159,22 @@ app.post('/api/academic-chain-support', async (c) => {
   return c.json({ output: "Lo siento, el sistema de soporte automatizado no está disponible en este momento. Por favor verifica tu conexión o intenta más tarde." })
 })
 
+import { runFullStackVerify } from '../verify_full_stack'
+
+// --- ADMIN VERIFICATION ---
+app.get('/api/admin/verify-full-stack', async (c) => {
+  try {
+    const result = await runFullStackVerify()
+    return c.json({ 
+      success: true, 
+      message: "Full Stack Integration Verified", 
+      details: result 
+    })
+  } catch (e: any) {
+    return c.json({ success: false, error: e.message }, 500)
+  }
+})
+
 // --- ADMIN API (D1 INTEGRATED) ---
 
 app.get('/api/admin/pending-institutions', async (c) => {

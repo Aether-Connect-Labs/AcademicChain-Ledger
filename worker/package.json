@@ -8,10 +8,13 @@
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
-    "hono": "^4.0.0"
+    "hono": "^4.0.0",
+    "@hashgraph/sdk": "^2.45.0",
+    "xrpl": "^3.0.0",
+    "algosdk": "^2.7.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240101.0",
-    "wrangler": "^4.70.0"
+    "wrangler": "^3.0.0"
   }
 }
