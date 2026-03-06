@@ -9,6 +9,7 @@ import { PinataService } from './services/pinata'
 import { BlockchainService } from './services/blockchain'
 import { MongoService } from './services/mongo'
 import { SecurityService } from './services/security'
+import { RedisService } from './services/redis'
 
 type Bindings = {
   DB: D1Database
@@ -25,6 +26,8 @@ type Bindings = {
   HEDERA_PRIVATE_KEY?: string
   XRP_SECRET?: string
   ALGORAND_MNEMONIC?: string
+  UPSTASH_REDIS_REST_URL?: string
+  UPSTASH_REDIS_REST_TOKEN?: string
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -71,6 +74,7 @@ app.post('/api/creators/issue-full', async (c) => {
     } = body
 
     // 1. Initialize Services
+    const redis = new RedisService(c.env)
     const pinata = new PinataService(c.env.PINATA_JWT || 'placeholder')
     const blockchain = new BlockchainService({
       HEDERA_ACCOUNT_ID: c.env.HEDERA_ACCOUNT_ID,
@@ -82,6 +86,23 @@ app.post('/api/creators/issue-full', async (c) => {
       MONGO_DATA_API_KEY: c.env.MONGO_API_KEY,
       MONGO_APP_ID: c.env.MONGO_APP_ID
     })
+
+    // 0. Check Cache (Redis) for Speed & Idempotency
+    const cacheKey = `cert:${student_name}:${course_name}:${graduation_date}`.replace(/\s+/g, '_')
+    try {
+      const cachedCert = await redis.get(cacheKey)
+      if (cachedCert) {
+        console.log('⚡ Redis Cache Hit:', cacheKey)
+        return c.json({
+          success: true,
+          message: 'Certificate Retrieved from Cache (Redis Speed Layer)',
+          data: cachedCert,
+          source: 'redis'
+        })
+      }
+    } catch (redisErr) {
+      console.warn('Redis Cache Check Failed:', redisErr)
+    }
 
     // 2. Upload to IPFS (Pinata)
     let ipfsResult
@@ -107,18 +128,32 @@ app.post('/api/creators/issue-full', async (c) => {
     const dataToHash = `${student_name}|${course_name}|${graduation_date}|${ipfsResult.cid || 'no-cid'}`
     const sha256Hash = await SecurityService.generateSHA256(dataToHash)
     
-    // 4. Register on Blockchains
-    // Hedera
-    const hederaResult = await blockchain.mintOnHedera(
-      c.env.HEDERA_TOPIC_ID || '', // Use env topic or create new one if empty
-      JSON.stringify({ hash: sha256Hash, cid: ipfsResult.cid })
-    )
+    // 4. Register on Blockchains (Parallel OpenClaw Strategy)
+    const mintTasks = [
+        // Hedera Task
+        (async () => {
+            try {
+                return await blockchain.mintOnHedera(
+                    c.env.HEDERA_TOPIC_ID || '', 
+                    JSON.stringify({ hash: sha256Hash, cid: ipfsResult.cid })
+                );
+            } catch (e) { return { success: false, error: e.message, chain: 'Hedera' }; }
+        })(),
+        // XRP Task
+        (async () => {
+            try {
+                return await blockchain.mintOnXRPL(c.env.XRP_SECRET || '', { hash: sha256Hash });
+            } catch (e) { return { success: false, error: e.message, chain: 'XRPL' }; }
+        })(),
+        // Algorand Task
+        (async () => {
+            try {
+                return await blockchain.mintOnAlgorand(c.env.ALGORAND_MNEMONIC || '', { hash: sha256Hash });
+            } catch (e) { return { success: false, error: e.message, chain: 'Algorand' }; }
+        })()
+    ];
 
-    // XRP (Real Testnet via Env)
-    const xrpResult = await blockchain.mintOnXRPL(c.env.XRP_SECRET || '', { hash: sha256Hash })
-    
-    // Algorand (Real Testnet via Env)
-    const algoResult = await blockchain.mintOnAlgorand(c.env.ALGORAND_MNEMONIC || '', { hash: sha256Hash })
+    const [hederaResult, xrpResult, algoResult] = await Promise.all(mintTasks);
 
     // 5. Save to MongoDB (Primary) and D1 (Fallback/Redundancy)
     const record = {
@@ -184,6 +219,14 @@ app.post('/api/creators/issue-full', async (c) => {
       console.error('D1 Save Failed:', d1Err)
     }
 
+    // 6. Cache in Redis (Speed Layer - 1 Hour Expiry)
+    try {
+      await redis.set(cacheKey, record, 3600)
+      console.log('⚡ Cached in Redis for Speed')
+    } catch (redisErr) {
+      console.warn('Redis Cache Set Failed:', redisErr)
+    }
+
     return c.json({
       success: true,
       message: 'Certificate Issued & Registered on Full Stack',
@@ -201,9 +244,9 @@ app.post('/api/creators/issue-full', async (c) => {
 // --- ADMIN VERIFICATION ---
 app.get('/api/admin/verify-full-stack', async (c) => {
   try {
-    // Inject environment variables into the verification run if needed
-    // For now, verify_full_stack.ts uses its own mock env or defaults
-    const result = await runFullStackVerify()
+    // Inject environment variables into the verification run
+    // This ensures deployed worker uses real bindings
+    const result = await runFullStackVerify(c.env)
     return c.json({ 
       success: true, 
       message: "Full Stack Integration Verified", 

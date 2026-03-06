@@ -6,20 +6,18 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Create a local temp directory for Wrangler config/logs to avoid system permission/path issues
-const localConfigDir = path.join(__dirname, '.wrangler_local_config'); 
-if (!fs.existsSync(localConfigDir)) {
-  fs.mkdirSync(localConfigDir, { recursive: true });
+// Get user home directory correctly on Windows
+const userHome = process.env.USERPROFILE || process.env.HOME || process.env.HOMEPATH;
+const globalWranglerDir = path.join(userHome, '.wrangler');
+const globalLogsDir = path.join(globalWranglerDir, 'logs');
+
+// Ensure the global logs directory exists to prevent ENOENT errors
+if (!fs.existsSync(globalLogsDir)) {
+  console.log(`Creating global logs directory: ${globalLogsDir}`);
+  fs.mkdirSync(globalLogsDir, { recursive: true });
 }
 
-// Ensure the logs directory exists to prevent ENOENT errors
-const logsDir = path.join(localConfigDir, '.wrangler', 'logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
-}
-
-console.log('🚀 Starting Robust Deployment Script...');
-console.log(`📂 Setting XDG_CONFIG_HOME to: ${localConfigDir}`);
+console.log('🚀 Starting Deployment Script (Global Config Mode)...');
 
 // Determine command based on args
 const mode = process.argv[2] || 'deploy';
@@ -27,47 +25,39 @@ let args = [];
 
 if (mode === 'login') {
   console.log('Tx Mode: LOGIN');
-  args = ['login', '--browser=false'];
+  args = ['login'];
 } else if (mode === 'whoami') {
   console.log('Tx Mode: WHOAMI');
   args = ['whoami'];
 } else {
-
   console.log('Tx Mode: DEPLOY');
-  // Remove -y as it is not a valid flag for wrangler deploy
   args = ['deploy']; 
 }
 
-// Resolve wrangler path from root node_modules to avoid npx issues
+// Resolve wrangler path from root node_modules
 const wranglerPath = path.resolve(__dirname, '../node_modules/wrangler/bin/wrangler.js');
-const cmd = `"${process.execPath}"`; // Quote node executable path
-args.unshift(wranglerPath); // Prepend wrangler script path to args
-args = args.map(arg => arg.includes(' ') ? `"${arg}"` : arg); // Quote args with spaces
+const cmd = `"${process.execPath}"`; 
+args.unshift(wranglerPath);
+args = args.map(arg => arg.includes(' ') ? `"${arg}"` : arg);
 
 const isInteractive = mode === 'login' || mode === 'whoami';
 
-// Merge current environment with our overrides
+// Merge current environment
 const env = {
   ...process.env,
-  XDG_CONFIG_HOME: localConfigDir,
-  // Ensure CI=true for non-interactive mode if not interactive
-  CI: isInteractive ? 'false' : 'true',
-  // Force terminal width to avoid line wrapping issues
-  COLUMNS: '120',
+  // Ensure basic path variables are present for Windows
+  PATH: process.env.PATH,
+  SystemRoot: process.env.SystemRoot,
   // Force color output
   FORCE_COLOR: '1',
-  // Set log level to debug to see what's happening
-  WRANGLER_LOG: 'debug',
-   // Ensure basic path variables are present for Windows
-   PATH: process.env.PATH,
-   SystemRoot: process.env.SystemRoot
- };
- 
- console.log(`Qw Executing: ${cmd} ${args.join(' ')}`);
+  WRANGLER_LOG: 'none' // Set to none to prevent ENOENT errors
+};
+
+console.log(`Qw Executing: ${cmd} ${args.join(' ')}`);
 
 const child = spawn(cmd, args, {
   env: env,
-  stdio: 'pipe', // Always pipe to capture output
+  stdio: 'pipe', // Change to pipe to capture output
   shell: true,
   cwd: __dirname
 });
@@ -79,7 +69,6 @@ child.stdout.on('data', (data) => {
 child.stderr.on('data', (data) => {
   console.error(data.toString());
 });
-
 
 child.on('error', (err) => {
   console.error('❌ Failed to start process:', err);

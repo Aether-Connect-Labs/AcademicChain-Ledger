@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@hashgraph/sdk": "^2.45.0",
+    "@upstash/redis": "^1.36.3",
     "algosdk": "^2.7.0",
     "hono": "^4.0.0",
     "xrpl": "^3.0.0"

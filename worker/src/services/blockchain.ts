@@ -15,9 +15,16 @@ export class BlockchainService {
   private hederaClient?: Client;
   private xrpClient?: xrpl.Client;
   private algoClient?: algosdk.Algodv2;
+  private env: { 
+    HEDERA_ACCOUNT_ID?: string, 
+    HEDERA_PRIVATE_KEY?: string, 
+    HEDERA_NETWORK?: string,
+    XRP_SECRET?: string,
+    ALGORAND_MNEMONIC?: string
+  };
   
   constructor(
-    private env: { 
+    env: { 
       HEDERA_ACCOUNT_ID?: string, 
       HEDERA_PRIVATE_KEY?: string, 
       HEDERA_NETWORK?: string,
@@ -25,6 +32,7 @@ export class BlockchainService {
       ALGORAND_MNEMONIC?: string
     }
   ) {
+    this.env = env;
     // Initialize Hedera
     if (env.HEDERA_ACCOUNT_ID && env.HEDERA_PRIVATE_KEY) {
       try {
