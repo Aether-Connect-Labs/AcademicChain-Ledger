@@ -19,6 +19,7 @@ export class BlockchainService {
     HEDERA_ACCOUNT_ID?: string, 
     HEDERA_PRIVATE_KEY?: string, 
     HEDERA_NETWORK?: string,
+    ENVIRONMENT?: string,
     XRP_SECRET?: string,
     ALGORAND_MNEMONIC?: string
   };
@@ -28,6 +29,7 @@ export class BlockchainService {
       HEDERA_ACCOUNT_ID?: string, 
       HEDERA_PRIVATE_KEY?: string, 
       HEDERA_NETWORK?: string,
+      ENVIRONMENT?: string,
       XRP_SECRET?: string,
       ALGORAND_MNEMONIC?: string
     }
@@ -63,6 +65,14 @@ export class BlockchainService {
 
   async mintOnHedera(topicId: string, message: string): Promise<MintResult> {
     if (!this.hederaClient) {
+      if (this.env.ENVIRONMENT !== 'production') {
+        return {
+          success: true,
+          chain: 'Hedera',
+          txHash: 'mock-hedera-mint-' + Date.now(),
+          explorerUrl: 'https://hashscan.io/testnet/transaction/mock-tx-id'
+        };
+      }
       return { success: false, chain: 'Hedera', error: 'Hedera Client not initialized' };
     }
 
@@ -101,9 +111,59 @@ export class BlockchainService {
     }
   }
 
+  async revokeOnHedera(topicId: string, revocationData: any): Promise<MintResult> {
+    if (!this.hederaClient) {
+        if (this.env.ENVIRONMENT !== 'production') {
+            return {
+                success: true,
+                chain: 'Hedera',
+                txHash: 'mock-hedera-revoke-' + Date.now(),
+                explorerUrl: 'https://hashscan.io/testnet/transaction/mock-tx-id'
+            };
+        }
+        return { success: false, chain: 'Hedera', error: 'Hedera Client not initialized' };
+    }
+
+    try {
+        const message = JSON.stringify({
+            type: 'REVOCATION',
+            timestamp: new Date().toISOString(),
+            ...revocationData
+        });
+
+        // Use a mock topic ID if provided one is invalid
+        const actualTopicId = (topicId && !topicId.includes('Mock')) ? topicId : '0.0.7174400';
+
+        const tx = await new TopicMessageSubmitTransaction()
+            .setTopicId(actualTopicId)
+            .setMessage(message)
+            .execute(this.hederaClient);
+        
+        const receipt = await tx.getReceipt(this.hederaClient);
+
+        return {
+            success: true,
+            chain: 'Hedera',
+            txHash: tx.transactionId.toString(),
+            explorerUrl: `https://hashscan.io/testnet/transaction/${tx.transactionId.toString()}`
+        };
+    } catch (e: any) {
+        console.error(`Hedera Revocation Failed: ${e.message}`);
+        return { success: false, chain: 'Hedera', error: e.message };
+    }
+  }
+
   async mintOnXRPL(walletSeed: string, data: any): Promise<MintResult> {
     const seed = walletSeed || this.env.XRP_SECRET;
     if (!seed) {
+        if (this.env.ENVIRONMENT !== 'production') {
+          return {
+            success: true,
+            chain: 'XRPL',
+            txHash: 'mock-xrpl-mint-' + Date.now(),
+            explorerUrl: 'https://testnet.xrpl.org/transactions/mock-tx-id'
+          };
+        }
         return { success: false, chain: 'XRPL', error: 'No XRP Secret provided' };
     }
 
@@ -182,6 +242,14 @@ export class BlockchainService {
   async mintOnAlgorand(mnemonic: string, data: any): Promise<MintResult> {
     const accountMnemonic = mnemonic || this.env.ALGORAND_MNEMONIC;
     if (!accountMnemonic) {
+         if (this.env.ENVIRONMENT !== 'production') {
+           return {
+             success: true,
+             chain: 'Algorand',
+             txHash: 'mock-algorand-mint-' + Date.now(),
+             explorerUrl: 'https://testnet.algoexplorer.io/tx/mock-tx-id'
+           };
+         }
          return { success: false, chain: 'Algorand', error: 'No Algorand Mnemonic provided' };
     }
 

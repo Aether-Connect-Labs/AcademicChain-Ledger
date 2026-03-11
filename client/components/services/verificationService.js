@@ -88,6 +88,28 @@ export const verificationService = {
   },
 
   /**
+   * Revoke a credential.
+   * @param {string} tokenId
+   * @param {string} serialNumber
+   * @param {string} reason
+   * @param {string} apiKey
+   * @returns {Promise<Object>} Revocation result
+   */
+  revokeCredential: async (tokenId, serialNumber, reason, apiKey) => {
+    // Maps to the Worker endpoint /api/creators/revoke
+    // tokenId is treated as certificateId (UUID) in the worker
+    const res = await fetch(`${API_BASE_URL}/api/creators/revoke`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? { 'x-api-key': apiKey } : {})
+      },
+      body: JSON.stringify({ certificateId: tokenId, serialNumber, reason }),
+    });
+    return handleResponse(res);
+  },
+
+  /**
    * Get the status of the verification service.
    * @returns {Promise<Object>} Service status
    */
@@ -120,18 +142,6 @@ export const verificationService = {
       headers: {
         'Accept': 'application/json',
       },
-    });
-    return handleResponse(res);
-  },
-
-  revokeCredential: async (tokenId, serialNumber, reason, apiKey) => {
-    const res = await fetch(`${API_BASE_URL}/api/v1/credentials/revoke`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(apiKey ? { 'x-api-key': apiKey } : {})
-      },
-      body: JSON.stringify({ tokenId, serialNumber, reason }),
     });
     return handleResponse(res);
   },

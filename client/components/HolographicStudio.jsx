@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { sanitizeString } from './utils/security';
 import { 
   Palette, 
   Eye, 
@@ -12,7 +13,19 @@ import {
 const HolographicStudio = () => {
   const [orientation, setOrientation] = useState('horizontal');
   const [docType, setDocType] = useState('Certificado');
- 
+
+  // Text Content State
+  const [universityName, setUniversityName] = useState('Universidad Saeko');
+  const [campusName, setCampusName] = useState('Campus Pachuca');
+  const [studentName, setStudentName] = useState('KARLA GUZMÁN BATRES');
+  const [degreeName, setDegreeName] = useState('Maestría en Ingeniería del Software');
+
+  // 🔒 Security: Sanitize Inputs
+  const handleTextChange = (setter) => (e) => {
+    const raw = e.target.value;
+    const clean = sanitizeString(raw);
+    setter(clean);
+  };
 
   return (
     <div className="flex h-screen w-full bg-[#050510] text-white font-sans overflow-hidden selection:bg-pink-500 selection:text-white">
@@ -161,6 +174,51 @@ const HolographicStudio = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+           {/* Text Fields */}
+           <div className="space-y-4">
+             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Contenido</h3>
+             
+             <div className="space-y-2">
+               <label className="text-xs text-gray-400">Universidad</label>
+               <input 
+                 type="text" 
+                 value={universityName}
+                 onChange={handleTextChange(setUniversityName)}
+                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-pink-500 focus:outline-none transition-colors"
+               />
+             </div>
+
+             <div className="space-y-2">
+               <label className="text-xs text-gray-400">Campus</label>
+               <input 
+                 type="text" 
+                 value={campusName}
+                 onChange={handleTextChange(setCampusName)}
+                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-pink-500 focus:outline-none transition-colors"
+               />
+             </div>
+
+             <div className="space-y-2">
+               <label className="text-xs text-gray-400">Estudiante</label>
+               <input 
+                 type="text" 
+                 value={studentName}
+                 onChange={handleTextChange(setStudentName)}
+                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-pink-500 focus:outline-none transition-colors"
+               />
+             </div>
+
+             <div className="space-y-2">
+               <label className="text-xs text-gray-400">Grado</label>
+               <input 
+                 type="text" 
+                 value={degreeName}
+                 onChange={handleTextChange(setDegreeName)}
+                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-pink-500 focus:outline-none transition-colors"
+               />
+             </div>
+           </div>
+
            {/* Background Color */}
            <div className="space-y-4">
              <div className="flex justify-between items-center">

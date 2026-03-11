@@ -36,8 +36,7 @@ async function setupEnvironment() {
   // Solicitar credenciales que siempre son manuales
   const hederaAccountId = await question('Hedera Account ID (0.0.xxxxx): ');
   const hederaPrivateKey = await question('Hedera Private Key: ');
-  const pinataApiKey = await question('Pinata API Key: ');
-  const pinataSecretKey = await question('Pinata Secret Key: ');
+  const filecoinApiKey = await question('Filecoin API Key: ');
   
   const envContent = `
 # ==============================================
@@ -62,9 +61,7 @@ SESSION_SECRET=${sessionSecret}
 HEDERA_NETWORK=testnet
 HEDERA_ACCOUNT_ID=${hederaAccountId}
 HEDERA_PRIVATE_KEY=${hederaPrivateKey}
-PINATA_API_KEY=${pinataApiKey}
-PINATA_SECRET_API_KEY=${pinataSecretKey}
-PINATA_JWT=
+FILECOIN_API_KEY=${filecoinApiKey}
 
 # Token ACL y Tesorería
 ACL_TOKEN_ID=0.0.7560139

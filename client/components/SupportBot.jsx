@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, X, Send, User, Bot, Loader2 } from 'lucide-react';
 import apiService from './services/apiService';
+import { sanitizeString } from './utils/security';
 
 const SupportBot = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,10 +23,13 @@ const SupportBot = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    const trimmedInput = input.trim();
+    if (!trimmedInput || isLoading) return;
 
+    // 🔒 Security: Centralized sanitization
+    const sanitizedInput = sanitizeString(trimmedInput);
 
-    const userMessage = { id: Date.now(), role: 'user', text: input };
+    const userMessage = { id: Date.now(), role: 'user', text: sanitizedInput };
     const newMessages = [...messages, userMessage];
     
     setMessages(newMessages);
@@ -34,9 +38,12 @@ const SupportBot = () => {
 
     try {
       // Structure for Worker API
-      const history = newMessages.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
+      const history = newMessages.map(m => ({ 
+        role: m.role === 'user' ? 'user' : 'assistant', 
+        content: m.text 
+      }));
 
-      const data = await apiService.processSupportChat(userMessage.text, history);
+      const data = await apiService.processSupportChat(sanitizedInput, history);
       
       const botResponseText = data.output || data.message || "Lo siento, no pude entender eso.";
 

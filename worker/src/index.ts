@@ -1,11 +1,12 @@
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { secureHeaders } from 'hono/secure-headers'
 import { jwt, sign, verify } from 'hono/jwt'
 import { DiplomaRegistrationWorkflow } from './workflows/DiplomaRegistration'
 import { AIService } from './services/ai'
 import { runFullStackVerify } from './verify_full_stack'
-import { PinataService } from './services/pinata'
+import { FilecoinService } from './services/filecoin'
 import { BlockchainService } from './services/blockchain'
 import { MongoService } from './services/mongo'
 import { SecurityService } from './services/security'
@@ -17,13 +18,15 @@ type Bindings = {
   JWT_SECRET: string
   ACL_AUTH_KEY: string
   ALLOWED_ORIGINS: string
+  ENVIRONMENT?: string
   DIPLOMA_WORKFLOW: Workflow
   AI_API_KEY?: string
-  PINATA_JWT?: string
+  FILECOIN_API_KEY?: string
   MONGO_API_KEY?: string
   MONGO_APP_ID?: string
   HEDERA_ACCOUNT_ID?: string
   HEDERA_PRIVATE_KEY?: string
+  HEDERA_NETWORK?: string
   XRP_SECRET?: string
   ALGORAND_MNEMONIC?: string
   UPSTASH_REDIS_REST_URL?: string
@@ -33,12 +36,16 @@ type Bindings = {
 const app = new Hono<{ Bindings: Bindings }>()
 
 // Global Middleware
+app.use('*', secureHeaders())
 app.use('*', async (c, next) => {
   const corsMiddleware = cors({
     origin: (origin) => {
       const allowed = c.env.ALLOWED_ORIGINS || '*'
-      if (allowed === '*') return origin // Allow all for now
-      return allowed.split(',').includes(origin) ? origin : null
+      // Security: In production, strict origin validation is recommended.
+      // For development/prototype, '*' allows flexibility but should be restricted later.
+      if (allowed === '*') return origin 
+      const allowedList = allowed.split(',').map(o => o.trim())
+      return allowedList.includes(origin) ? origin : null
     },
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'X-ACL-AUTH-KEY', 'Accept'],
@@ -63,8 +70,15 @@ app.get('/', (c) => {
 // --- FULL STACK ISSUANCE (USER REQUESTED) ---
 
 app.post('/api/creators/issue-full', async (c) => {
+  console.log('📝 Received /api/creators/issue-full request');
   try {
+    const host = c.req.header('host') || ''
+    const isLocalDev = host.includes('127.0.0.1') || host.includes('localhost') || host.includes(':8787')
+    const effectiveEnvironment = isLocalDev ? 'development' : (c.env.ENVIRONMENT || 'production')
+
     const body = await c.req.json()
+    console.log('   Body parsed:', body.student_name);
+
     const { 
       student_name, 
       course_name, 
@@ -74,17 +88,18 @@ app.post('/api/creators/issue-full', async (c) => {
     } = body
 
     // 1. Initialize Services
-    const redis = new RedisService(c.env)
-    const pinata = new PinataService(c.env.PINATA_JWT || 'placeholder')
+    const redis = new RedisService(isLocalDev ? { ...c.env, UPSTASH_REDIS_REST_URL: 'Mock', UPSTASH_REDIS_REST_TOKEN: 'Mock' } : c.env)
+    const filecoin = new FilecoinService(isLocalDev ? 'placeholder' : (c.env.FILECOIN_API_KEY || 'placeholder'))
     const blockchain = new BlockchainService({
       HEDERA_ACCOUNT_ID: c.env.HEDERA_ACCOUNT_ID,
       HEDERA_PRIVATE_KEY: c.env.HEDERA_PRIVATE_KEY,
+      ENVIRONMENT: effectiveEnvironment,
       XRP_SECRET: c.env.XRP_SECRET,
       ALGORAND_MNEMONIC: c.env.ALGORAND_MNEMONIC
     })
     const mongo = new MongoService({
-      MONGO_DATA_API_KEY: c.env.MONGO_API_KEY,
-      MONGO_APP_ID: c.env.MONGO_APP_ID
+      MONGO_DATA_API_KEY: isLocalDev ? 'placeholder' : c.env.MONGO_API_KEY,
+      MONGO_APP_ID: isLocalDev ? 'placeholder' : c.env.MONGO_APP_ID
     })
 
     // 0. Check Cache (Redis) for Speed & Idempotency
@@ -104,19 +119,19 @@ app.post('/api/creators/issue-full', async (c) => {
       console.warn('Redis Cache Check Failed:', redisErr)
     }
 
-    // 2. Upload to IPFS (Pinata)
+    // 2. Upload to IPFS (Filecoin)
     let ipfsResult
     if (pdf_base64) {
       // Convert base64 to Blob/Buffer equivalent (simulated here or using fetch/FormData in real worker)
       // For simplicity in this demo, we upload the metadata JSON which includes the base64 or a reference
-      ipfsResult = await pinata.uploadJSON({
+      ipfsResult = await filecoin.uploadJSON({
         name: student_name,
         course: course_name,
         date: graduation_date,
         image: pdf_base64 ? 'attached_base64' : 'default_template'
       })
     } else {
-      ipfsResult = await pinata.uploadJSON({
+      ipfsResult = await filecoin.uploadJSON({
         name: student_name,
         course: course_name,
         date: graduation_date,
@@ -186,6 +201,7 @@ app.post('/api/creators/issue-full', async (c) => {
     }
 
     // Save to D1 (Robust Fallback)
+    let d1Id = null
     try {
       // Ensure table exists (simple check for prototype)
       await c.env.DB.prepare(`
@@ -197,11 +213,12 @@ app.post('/api/creators/issue-full', async (c) => {
           ipfs_cid TEXT,
           tx_hash TEXT,
           status TEXT,
-          created_at TEXT
+          created_at TEXT,
+          revocation_reason TEXT
         )
       `).run()
 
-      const d1Id = mongoResult.id || crypto.randomUUID()
+      d1Id = mongoResult.id || crypto.randomUUID()
       await c.env.DB.prepare(
         "INSERT INTO certificates (id, student_name, course_name, graduation_date, ipfs_cid, tx_hash, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       ).bind(
@@ -227,6 +244,12 @@ app.post('/api/creators/issue-full', async (c) => {
       console.warn('Redis Cache Set Failed:', redisErr)
     }
 
+    // Add ID to record for response
+    if (d1Id) {
+        // @ts-ignore
+        record.id = d1Id
+    }
+
     return c.json({
       success: true,
       message: 'Certificate Issued & Registered on Full Stack',
@@ -238,6 +261,158 @@ app.post('/api/creators/issue-full', async (c) => {
 
   } catch (e: any) {
     return c.json({ success: false, error: e.message, stack: e.stack }, 500)
+  }
+})
+
+// --- REVOCATION ---
+app.get('/api/v1/credentials/status/:id/:serial?', async (c) => {
+  const id = c.req.param('id')
+  // const serial = c.req.param('serial') // Unused for now if ID is UUID
+
+  if (!c.env.DB) {
+    return c.json({ success: false, message: 'Database not configured' }, 500)
+  }
+
+  try {
+    const result = await c.env.DB.prepare('SELECT * FROM certificates WHERE id = ?').bind(id).first()
+    
+    if (!result) {
+      return c.json({ success: false, message: 'Credential not found' }, 404)
+    }
+
+    return c.json({
+      success: true,
+      data: {
+        status: result.status,
+        revocationReason: result.revocation_reason || null, // Ensure DB has this column or handle missing
+        studentName: result.student_name
+      }
+    })
+  } catch (e: any) {
+    return c.json({ success: false, error: e.message }, 500)
+  }
+})
+
+app.post('/api/creators/revoke', async (c) => {
+  try {
+    const host = c.req.header('host') || ''
+    const isLocalDev = host.includes('127.0.0.1') || host.includes('localhost') || host.includes(':8787')
+    const effectiveEnvironment = isLocalDev ? 'development' : (c.env.ENVIRONMENT || 'production')
+
+    const body = await c.req.json()
+    let { cid, certificateId, reason, txId, tokenId, studentId } = body
+    txId = txId || tokenId
+
+    if (!cid && !certificateId && !txId && !studentId) {
+      return c.json({ success: false, message: 'Missing identifiers (certificateId, cid, txId/tokenId, or studentId)' }, 400)
+    }
+
+    if (c.env.DB && (!cid || !certificateId || !txId || !studentId)) {
+      try {
+        let result: any = null
+
+        if (certificateId) {
+          result = await c.env.DB.prepare('SELECT * FROM certificates WHERE id = ?').bind(certificateId).first()
+        } else if (txId) {
+          try {
+            result = await c.env.DB.prepare('SELECT * FROM certificates WHERE blockchain_tx = ?').bind(txId).first()
+          } catch (e) {
+            result = await c.env.DB.prepare('SELECT * FROM certificates WHERE tx_hash = ?').bind(txId).first()
+          }
+        } else if (studentId) {
+          result = await c.env.DB.prepare('SELECT * FROM certificates WHERE student_id = ?').bind(studentId).first()
+        }
+
+        if (result) {
+          if (!certificateId && result.id) certificateId = result.id
+          if (!cid && (result.ipfs_cid || result.ipfs_hash)) cid = result.ipfs_cid || result.ipfs_hash
+          if (!txId && (result.blockchain_tx || result.tx_hash)) txId = result.blockchain_tx || result.tx_hash
+          if (!studentId && result.student_id) studentId = result.student_id
+        }
+      } catch (e) {
+        console.warn('Failed to lookup revocation identifiers from D1:', e)
+      }
+    }
+
+    // 1. Initialize Services
+    const filecoin = new FilecoinService(isLocalDev ? 'placeholder' : (c.env.FILECOIN_API_KEY || 'placeholder'))
+    const blockchain = new BlockchainService({
+      HEDERA_ACCOUNT_ID: c.env.HEDERA_ACCOUNT_ID,
+      HEDERA_PRIVATE_KEY: c.env.HEDERA_PRIVATE_KEY,
+      HEDERA_NETWORK: c.env.HEDERA_NETWORK,
+      ENVIRONMENT: effectiveEnvironment
+    })
+
+    // 2. Remove from Filecoin (Right to be Forgotten)
+    let filecoinResult = { success: false, message: 'No CID provided' }
+    if (cid) {
+        // Use deleteFile which calls the revocation endpoint (or unpin)
+        filecoinResult = await filecoin.deleteFile(cid)
+    }
+
+    // 3. Revoke on Hedera
+    const revocationData = {
+        cid: cid,
+        certificateId: certificateId,
+        reason: reason || 'User requested deletion',
+        action: 'REVOKE'
+    }
+    const hederaResult = await blockchain.revokeOnHedera(c.env.HEDERA_TOPIC_ID || '', revocationData)
+
+    // 4. Update local DB (D1)
+    let d1Result = { success: false, message: 'D1 update skipped' }
+    if (c.env.DB) {
+         try {
+             try {
+               await c.env.DB.prepare('ALTER TABLE certificates ADD COLUMN revocation_reason TEXT').run()
+             } catch (e) {
+             }
+
+             // Update status to 'revoked'
+             let query = ''
+             let bindParams: Array<any> = []
+
+             if (certificateId) {
+               query = 'UPDATE certificates SET status = ?, revocation_reason = ? WHERE id = ?'
+               bindParams = ['revoked', reason || 'User requested deletion', certificateId]
+             } else if (cid) {
+               query = 'UPDATE certificates SET status = ?, revocation_reason = ? WHERE ipfs_cid = ?'
+               bindParams = ['revoked', reason || 'User requested deletion', cid]
+             } else if (txId) {
+               query = 'UPDATE certificates SET status = ?, revocation_reason = ? WHERE blockchain_tx = ?'
+               bindParams = ['revoked', reason || 'User requested deletion', txId]
+             } else if (studentId) {
+               query = 'UPDATE certificates SET status = ?, revocation_reason = ? WHERE student_id = ?'
+               bindParams = ['revoked', reason || 'User requested deletion', studentId]
+             } else {
+               query = 'SELECT 1'
+               bindParams = []
+             }
+
+             const info = await c.env.DB.prepare(query)
+                // @ts-ignore
+                .bind(...bindParams)
+                .run();
+            
+             d1Result = { success: true, meta: info.meta }
+         } catch (e) {
+             console.error('Failed to update D1:', e);
+             d1Result = { success: false, error: e.message }
+         }
+    }
+
+    return c.json({
+        success: true,
+        message: 'Revocation processed',
+        data: {
+            filecoin: filecoinResult,
+            hedera: hederaResult,
+            d1: d1Result
+        }
+    });
+
+  } catch (e: any) {
+    return c.json({ success: false, error: e.message }, 500)
   }
 })
 
@@ -561,17 +736,88 @@ app.get('/api/universities/credentials', async (c) => {
 
 app.patch('/api/universities/credential/:id/revoke', async (c) => {
   const id = c.req.param('id')
+  let reason = 'Revoked by Institution Admin'
   
-  // Update DB directly
   try {
-    const { success } = await c.env.DB.prepare("UPDATE certificates SET status = 'revoked' WHERE id = ?").bind(id).run()
+    const body = await c.req.json()
+    if (body.reason) reason = body.reason
+  } catch (e) {
+    // Body might be empty or invalid JSON, proceed with default reason
+  }
+
+  if (!c.env.DB) {
+    return c.json({ success: false, message: 'Database not configured' }, 500)
+  }
+  
+  try {
+    // 1. Get Credential Details (CID, TokenID)
+    const cert = await c.env.DB.prepare('SELECT * FROM certificates WHERE id = ?').bind(id).first()
+    
+    if (!cert) {
+        return c.json({ success: false, message: 'Credential not found' }, 404)
+    }
+
+    const cid = cert.ipfs_cid
+    // Assuming cert.id is the certificateId used for Hedera if token_id is not stored separately or is the same
+    // Adjust if you store hedera_token_id or similar. The current schema has 'id' as primary key.
+    
+    // 2. Initialize Services
+    const filecoin = new FilecoinService(c.env.FILECOIN_API_KEY || 'placeholder')
+    const blockchain = new BlockchainService({
+      HEDERA_ACCOUNT_ID: c.env.HEDERA_ACCOUNT_ID,
+      HEDERA_PRIVATE_KEY: c.env.HEDERA_PRIVATE_KEY,
+      HEDERA_NETWORK: c.env.HEDERA_NETWORK
+    })
+
+    // 3. Remove from Filecoin (Right to be Forgotten)
+    let filecoinResult = { success: false, message: 'No CID found' }
+    if (cid) {
+        try {
+            filecoinResult = await filecoin.deleteFile(cid)
+        } catch (e) {
+            console.warn('Filecoin deletion failed:', e)
+            filecoinResult = { success: false, error: e.message }
+        }
+    }
+
+    // 4. Revoke on Hedera
+    const topicId = c.env.HEDERA_TOPIC_ID
+    let hederaResult = { success: false, error: 'Topic ID not configured' }
+    
+    if (topicId) {
+        try {
+            const revocationData = {
+                cid: cid,
+                certificateId: id,
+                reason: reason,
+                action: 'REVOKE'
+            }
+            hederaResult = await blockchain.revokeOnHedera(topicId, revocationData)
+        } catch (e) {
+             console.warn('Hedera revocation failed:', e)
+             hederaResult = { success: false, error: e.message }
+        }
+    }
+
+    // 5. Update D1 Status
+    const { success } = await c.env.DB.prepare("UPDATE certificates SET status = 'revoked', revocation_reason = ? WHERE id = ?")
+        .bind(reason, id)
+        .run()
+    
     if (success) {
-      return c.json({ success: true, message: 'Credential revoked' })
+      return c.json({ 
+          success: true, 
+          message: 'Credential revoked successfully',
+          data: {
+              filecoin: filecoinResult,
+              hedera: hederaResult
+          }
+      })
     } else {
-      return c.json({ success: false, message: 'Failed to revoke credential' }, 500)
+      return c.json({ success: false, message: 'Failed to update local status' }, 500)
     }
   } catch(e: any) { 
-    console.error('DB Update failed', e)
+    console.error('Revocation process failed', e)
     return c.json({ success: false, error: e.message }, 500)
   }
 })
@@ -673,18 +919,23 @@ app.get('/api/employer/search', async (c) => {
 })
 
 app.post('/api/creators/issue', async (c) => {
+  const host = c.req.header('host') || ''
+  const isLocalDev = host.includes('127.0.0.1') || host.includes('localhost') || host.includes(':8787')
+  const effectiveEnvironment = isLocalDev ? 'development' : (c.env.ENVIRONMENT || 'production')
+
   const body = await c.req.json()
   const studentId = body.studentEmail || `student-${Date.now()}`
   
   // Initialize Services
-  const pinata = new PinataService(c.env.PINATA_JWT)
+  const filecoin = new FilecoinService(isLocalDev ? 'placeholder' : c.env.FILECOIN_API_KEY)
   const blockchain = new BlockchainService({
     HEDERA_ACCOUNT_ID: c.env.HEDERA_ACCOUNT_ID,
-    HEDERA_PRIVATE_KEY: c.env.HEDERA_PRIVATE_KEY
+    HEDERA_PRIVATE_KEY: c.env.HEDERA_PRIVATE_KEY,
+    ENVIRONMENT: effectiveEnvironment
   })
   const mongo = new MongoService({
-    MONGO_DATA_API_KEY: c.env.MONGO_API_KEY,
-    MONGO_APP_ID: c.env.MONGO_APP_ID
+    MONGO_DATA_API_KEY: isLocalDev ? 'placeholder' : c.env.MONGO_API_KEY,
+    MONGO_APP_ID: isLocalDev ? 'placeholder' : c.env.MONGO_APP_ID
   })
 
   // 1. Prepare Data & Hash
@@ -695,15 +946,15 @@ app.post('/api/creators/issue', async (c) => {
   }
   const hash = await SecurityService.generateSHA256(certificateData)
 
-  // 2. Upload to Pinata (IPFS)
-  const ipfsResult = await pinata.uploadJSON({
+  // 2. Upload to Filecoin (IPFS)
+  const ipfsResult = await filecoin.uploadJSON({
     ...certificateData,
     hashProof: hash
   })
   const cid = ipfsResult.cid || 'QmMockCID'
 
   // 3. Mint on Blockchain (Hedera as primary)
-  const mintResult = await blockchain.mintOnHedera('0.0.MockTopicID', JSON.stringify({
+  const mintResult = await blockchain.mintOnHedera(c.env.HEDERA_TOPIC_ID || '0.0.MockTopicID', JSON.stringify({
     cid,
     hash,
     studentId
@@ -723,10 +974,51 @@ app.post('/api/creators/issue', async (c) => {
 
   // 5. Save to D1 (Local Worker DB)
   try {
+      try {
+        await c.env.DB.prepare(`
+          CREATE TABLE IF NOT EXISTS certificates (
+            id TEXT PRIMARY KEY,
+            student_name TEXT,
+            student_id TEXT,
+            degree TEXT,
+            major TEXT,
+            institution_id TEXT,
+            issue_date TEXT,
+            expiration_date TEXT,
+            ipfs_cid TEXT,
+            ipfs_hash TEXT,
+            tx_hash TEXT,
+            blockchain_tx TEXT,
+            status TEXT,
+            network TEXT,
+            created_at TEXT,
+            revocation_reason TEXT
+          )
+        `).run()
+      } catch (e) {}
+
+      try { await c.env.DB.prepare("ALTER TABLE certificates ADD COLUMN student_id TEXT").run() } catch (e) {}
+      try { await c.env.DB.prepare("ALTER TABLE certificates ADD COLUMN degree TEXT").run() } catch (e) {}
+      try { await c.env.DB.prepare("ALTER TABLE certificates ADD COLUMN major TEXT").run() } catch (e) {}
+      try { await c.env.DB.prepare("ALTER TABLE certificates ADD COLUMN institution_id TEXT").run() } catch (e) {}
+      try { await c.env.DB.prepare("ALTER TABLE certificates ADD COLUMN issue_date TEXT").run() } catch (e) {}
+      try { await c.env.DB.prepare("ALTER TABLE certificates ADD COLUMN expiration_date TEXT").run() } catch (e) {}
+      try { await c.env.DB.prepare("ALTER TABLE certificates ADD COLUMN ipfs_cid TEXT").run() } catch (e) {}
+      try { await c.env.DB.prepare("ALTER TABLE certificates ADD COLUMN ipfs_hash TEXT").run() } catch (e) {}
+      try { await c.env.DB.prepare("ALTER TABLE certificates ADD COLUMN tx_hash TEXT").run() } catch (e) {}
+      try { await c.env.DB.prepare("ALTER TABLE certificates ADD COLUMN blockchain_tx TEXT").run() } catch (e) {}
+      try { await c.env.DB.prepare("ALTER TABLE certificates ADD COLUMN status TEXT").run() } catch (e) {}
+      try { await c.env.DB.prepare("ALTER TABLE certificates ADD COLUMN network TEXT").run() } catch (e) {}
+      try { await c.env.DB.prepare("ALTER TABLE certificates ADD COLUMN created_at TEXT").run() } catch (e) {}
+      try { await c.env.DB.prepare("ALTER TABLE certificates ADD COLUMN revocation_reason TEXT").run() } catch (e) {}
+
+      const certId = (mongoResult as any)?.id || crypto.randomUUID()
+
       await c.env.DB.prepare(
-        `INSERT INTO certificates (student_name, student_id, degree, major, institution_id, issue_date, expiration_date, status, network, blockchain_tx) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'issued', 'hedera', ?)`
+        `INSERT INTO certificates (id, student_name, student_id, degree, major, institution_id, issue_date, expiration_date, status, network, blockchain_tx, tx_hash, ipfs_cid, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
+        certId,
         body.studentName, 
         studentId,
         body.credentialType || 'Certification', 
@@ -734,14 +1026,19 @@ app.post('/api/creators/issue', async (c) => {
         'creator-1', 
         new Date().toISOString(), 
         new Date(Date.now() + 31536000000).toISOString(),
-        txId
+        'issued',
+        'hedera',
+        txId,
+        txId,
+        cid
+        , new Date().toISOString()
       ).run()
 
       return c.json({
         success: true,
         message: 'Credential Issued and Registered across Full Stack',
         data: {
-            id: 'cert-' + Date.now(),
+            id: certId,
             txId: txId,
             ipfs: { cid, url: ipfsResult.url },
             blockchain: mintResult,

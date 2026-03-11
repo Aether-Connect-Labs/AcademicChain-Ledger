@@ -152,7 +152,7 @@ const Layout = ({
 
   // Clases dinámicas para el layout
   const getLayoutClasses = () => {
-    const baseClasses = "flex flex-col min-h-screen bg-background text-slate-100 overflow-hidden relative";
+    const baseClasses = "flex flex-col min-h-screen bg-[#050505] text-slate-100 overflow-hidden relative font-sans selection:bg-cyan-500/30";
 
     // Agregar clases específicas basadas en la ruta
     const routeClasses = {
@@ -172,7 +172,7 @@ const Layout = ({
 
       {/* Progress Bar Global */}
       <div className="fixed top-0 left-0 w-full h-1 bg-transparent z-50">
-        <div className="fixed top-0 left-0 w-full h-1 bg-gray-200 z-50">
+        <div className="fixed top-0 left-0 w-full h-1 bg-[#0d0d0d] z-50">
           <motion.div
             className="h-full bg-gradient-to-r from-cyan-500 to-blue-500"
             initial={{ width: 0 }}
@@ -183,12 +183,12 @@ const Layout = ({
       </div>
 
       {(!showNavbar || isSpecialRoute) && user?.role === 'pending_university' && (
-        <div className="w-full bg-yellow-100 border-b border-yellow-200">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-2 text-yellow-900 text-sm flex items-center justify-between">
+        <div className="w-full bg-yellow-900/20 border-b border-yellow-500/20 backdrop-blur-sm relative z-50">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-2 text-yellow-400 text-sm flex items-center justify-between">
             <span className="flex items-center gap-2"><span>⏳</span>Tu institución está en revisión</span>
             <div className="flex items-center gap-2">
-              <Link to="/institution/pending" className="btn-secondary">Ver estado</Link>
-              <a href={`mailto:${import.meta.env.VITE_SUPPORT_EMAIL || 'soporte@tu-institucion.edu'}`} className="btn-ghost text-yellow-900">Soporte</a>
+              <Link to="/institution/pending" className="px-3 py-1 rounded bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-300 transition-colors text-xs font-medium border border-yellow-500/20">Ver estado</Link>
+              <a href={`mailto:${import.meta.env.VITE_SUPPORT_EMAIL || 'soporte@tu-institucion.edu'}`} className="text-yellow-400/80 hover:text-yellow-300 transition-colors text-xs">Soporte</a>
             </div>
           </div>
         </div>
@@ -217,7 +217,7 @@ const Layout = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center"
+            className="fixed inset-0 bg-[#050505]/80 backdrop-blur-xl z-[100] flex items-center justify-center"
           >
             <div className="text-center">
               <LoadingSpinner size="lg" />
@@ -225,7 +225,7 @@ const Layout = ({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="mt-4 text-gray-600 dark:text-gray-400 font-medium"
+                className="mt-4 text-slate-400 font-medium"
               >
                 Cargando AcademicChain...
               </motion.p>
@@ -234,7 +234,7 @@ const Layout = ({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.4 }}
-                  className="mt-2 text-sm text-cyan-600 dark:text-cyan-400"
+                  className="mt-2 text-sm text-cyan-400"
                 >
                   🔗 Conectado a Hedera Network
                 </motion.p>
@@ -306,9 +306,9 @@ const Layout = ({
         <motion.div
           initial={{ x: 100, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          className="fixed bottom-4 left-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-40 flex items-center space-x-2"
+          className="fixed bottom-4 left-4 bg-[#0d0d0d] border border-white/10 text-emerald-400 px-4 py-2 rounded-lg shadow-lg z-40 flex items-center space-x-2 backdrop-blur-md"
         >
-          <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
           <span className="text-sm font-medium">Conectado a Hedera</span>
         </motion.div>
       )}

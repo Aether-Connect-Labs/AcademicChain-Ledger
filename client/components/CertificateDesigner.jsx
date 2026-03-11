@@ -3,6 +3,7 @@ import { Canvas, IText, Rect, Shadow, Circle, Image as FabricImage } from 'fabri
 import { jsPDF } from 'jspdf';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import { sanitizeString } from './utils/security';
 
 import { Trash2, FileText, Upload, LayoutTemplate, Type, FileUp, ChevronUp, ChevronDown, Lock, Unlock, Eye, EyeOff, BringToFront, SendToBack, Image as ImageIcon, MousePointer2, PenTool, Stamp, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowRightFromLine, ArrowDownFromLine, Undo2, Redo2 } from 'lucide-react';
 import apiService from './services/apiService';
@@ -331,7 +332,9 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
   };
 
   const processAICommand = (input) => {
-      const text = input.toLowerCase();
+      // 🔒 Security: Sanitize command input
+      const cleanInput = sanitizeString(input);
+      const text = cleanInput.toLowerCase();
       let response = "He aplicado cambios según tu solicitud.";
       let templateId = null;
       let modifications = [];
@@ -1277,7 +1280,8 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
 
   const addText = (initialText = text) => {
     if (!fabricCanvas) return;
-    const textObj = new IText(initialText, {
+    const cleanText = sanitizeString(initialText);
+    const textObj = new IText(cleanText, {
       left: fabricCanvas.width / 2 - 100,
       top: fabricCanvas.height / 2,
       fill: color,
@@ -1936,56 +1940,62 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center"
+      className="fixed inset-0 z-50 bg-[#050505] backdrop-blur-xl flex items-center justify-center"
     >
       <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, y: 20 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="bg-slate-900 w-full h-full flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden shadow-2xl"
+        className="bg-[#050505] w-full h-full flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden"
       >
 
         {/* Left Sidebar - Controls */}
-        <div className="w-full lg:w-80 h-auto lg:h-full bg-slate-950/90 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto backdrop-blur-md flex-shrink-0 order-2 lg:order-1">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-2xl">🎨</span>
-            <h2 className="text-xl font-display font-bold text-white">Studio <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">Holográfico</span></h2>
+        <div className="w-full lg:w-80 h-auto lg:h-full bg-[#0d0d0d]/40 border-r border-white/5 p-6 flex flex-col gap-6 overflow-y-auto backdrop-blur-xl flex-shrink-0 order-2 lg:order-1">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-3xl">🎨</span>
+            <div>
+                <h2 className="text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-500">
+                    DESIGNER
+                </h2>
+                <p className="text-[10px] font-mono text-slate-500 tracking-widest uppercase">AcademicChain Studio</p>
+            </div>
           </div>
           
           <div className="flex flex-col gap-3">
             <button
                 onClick={handleExport}
-                className="w-full py-4 px-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-400 hover:to-emerald-500 shadow-lg shadow-green-900/20 group"
+                className="w-full py-5 px-6 rounded-xl font-bold text-base tracking-widest uppercase flex items-center justify-center gap-3 transition-all duration-300 bg-gradient-to-r from-emerald-900/20 to-teal-900/20 hover:from-emerald-600 hover:to-teal-600 text-emerald-400 hover:text-white border border-emerald-500/20 hover:border-emerald-400/50 shadow-none hover:shadow-[0_0_30px_rgba(16,185,129,0.2)] group backdrop-blur-md relative overflow-hidden"
             >
-                <Upload size={20} className="group-hover:scale-110 transition-transform" /> 
-                <span>Guardar y Continuar</span>
+                <div className="absolute inset-0 bg-emerald-500/5 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                <Upload size={18} strokeWidth={1} className="group-hover:scale-110 transition-transform relative z-10" /> 
+                <span className="relative z-10">GUARDAR Y CONTINUAR</span>
             </button>
 
             <button
                 onClick={togglePreviewMode}
-                className={`w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all border ${isPreviewMode ? 'bg-green-500/20 border-green-500 text-green-300 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
+                className={`w-full py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all border ${isPreviewMode ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'}`}
             >
-                {isPreviewMode ? <EyeOff size={16} /> : <Eye size={16} />}
+                {isPreviewMode ? <EyeOff size={16} strokeWidth={1} /> : <Eye size={16} strokeWidth={1} />}
                 {isPreviewMode ? 'Volver a Editar' : 'Vista Previa'}
             </button>
           </div>
 
           {!isPreviewMode && (
           <>
-          <div className="bg-slate-900 p-4 rounded-lg border border-slate-800 space-y-4">
+          <div className="bg-white/5 p-4 rounded-xl border border-white/5 space-y-4 backdrop-blur-sm">
              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Configuración de Página</label>
-                <div className="flex gap-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 block">Configuración de Página</label>
+                <div className="flex gap-2 p-1 bg-black/40 rounded-lg border border-white/5">
                     <button 
                         onClick={() => changePageSize('Landscape')}
-                        className={`flex-1 py-2 rounded text-xs font-medium border ${pageSize === 'Landscape' ? 'bg-blue-900/30 border-blue-500 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                        className={`flex-1 py-2 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${pageSize === 'Landscape' ? 'bg-emerald-500/20 text-emerald-400 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         Horizontal
                     </button>
                     <button 
                         onClick={() => changePageSize('Portrait')}
-                        className={`flex-1 py-2 rounded text-xs font-medium border ${pageSize === 'Portrait' ? 'bg-blue-900/30 border-blue-500 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                        className={`flex-1 py-2 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${pageSize === 'Portrait' ? 'bg-emerald-500/20 text-emerald-400 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         Vertical
                     </button>
@@ -2009,13 +2019,13 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
           </div>
           
           <div className="flex gap-2 mb-4">
-            <label className="flex-1 py-4 bg-slate-900/80 hover:bg-slate-800 text-slate-300 font-bold text-base rounded-xl text-center transition-all cursor-pointer border border-slate-700 hover:border-purple-500/50 flex items-center justify-center gap-2 group shadow-sm hover:shadow-purple-500/10">
-                <FileUp size={20} className="text-purple-400 group-hover:text-purple-300 transition-colors" /> 
+            <label className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs uppercase tracking-wider rounded-xl text-center transition-all cursor-pointer border border-white/5 hover:border-purple-500/30 flex items-center justify-center gap-2 group backdrop-blur-sm">
+                <FileUp size={16} strokeWidth={1.5} className="text-purple-400 group-hover:text-purple-300 transition-colors" /> 
                 <span className="group-hover:text-white transition-colors">Subir Fondo</span>
                 <input type="file" accept="image/*" className="hidden" onChange={handleBackgroundUpload} />
             </label>
-            <label className="flex-1 py-4 bg-slate-900/80 hover:bg-slate-800 text-slate-300 font-bold text-base rounded-xl text-center transition-all cursor-pointer border border-slate-700 hover:border-cyan-500/50 flex items-center justify-center gap-2 group shadow-sm hover:shadow-cyan-500/10">
-                <FileText size={20} className="text-cyan-400 group-hover:text-cyan-300 transition-colors" /> 
+            <label className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs uppercase tracking-wider rounded-xl text-center transition-all cursor-pointer border border-white/5 hover:border-cyan-500/30 flex items-center justify-center gap-2 group backdrop-blur-sm">
+                <FileText size={16} strokeWidth={1.5} className="text-cyan-400 group-hover:text-cyan-300 transition-colors" /> 
                 <span className="group-hover:text-white transition-colors">Subir PDF</span>
                 <input type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} />
             </label>
@@ -2034,23 +2044,23 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
 
           <button 
               onClick={() => setShowAIChat(true)}
-              className="w-full mb-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-base rounded-xl text-center transition-all cursor-pointer border border-purple-500/50 flex items-center justify-center gap-2 group shadow-lg shadow-purple-900/20"
+              className="w-full mb-4 py-3 bg-gradient-to-r from-indigo-600/90 to-purple-600/90 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm uppercase tracking-wide rounded-xl text-center transition-all cursor-pointer border border-purple-500/30 flex items-center justify-center gap-2 group shadow-lg shadow-purple-900/20 backdrop-blur-sm"
           >
-              <span className="text-xl">✨</span>
+              <span className="text-lg">✨</span>
               <span className="group-hover:text-white transition-colors">Generar con IA</span>
           </button>
 
-          <hr className="border-slate-800 mb-4" />
+          <hr className="border-white/5 mb-4" />
 
           <div className="relative">
             <input
               type="text"
-              placeholder="Buscar..."
-              className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3 pl-10 text-sm text-white focus:ring-2 focus:ring-purple-500 transition-all placeholder:text-slate-500"
+              placeholder="BUSCAR..."
+              className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 pl-10 text-xs font-mono text-white focus:ring-1 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all placeholder:text-slate-600"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
-            <span className="absolute left-3 top-3 text-slate-500">🔍</span>
+            <span className="absolute left-3 top-3 text-slate-600 text-xs">🔍</span>
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-700">
@@ -2071,10 +2081,10 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
                       <span>Gestor de Firmas ({signatures.length})</span>
                   </label>
                   
-                  <div className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-3">
-                      <label className="flex items-center justify-center w-full py-4 border-2 border-dashed border-slate-700 rounded-lg hover:border-purple-500 hover:bg-slate-800 transition-colors cursor-pointer group">
+                  <div className="bg-[#0d0d0d]/60 backdrop-blur-md p-3 rounded-lg border border-white/5 space-y-3">
+                      <label className="flex items-center justify-center w-full py-4 border-2 border-dashed border-slate-700 rounded-lg hover:border-purple-500 hover:bg-slate-800/50 transition-colors cursor-pointer group">
                           <div className="text-center">
-                              <PenTool className="mx-auto h-6 w-6 text-slate-500 group-hover:text-purple-400" />
+                              <PenTool className="mx-auto h-6 w-6 text-slate-500 group-hover:text-purple-400" strokeWidth={1.5} />
                               <span className="mt-2 block text-xs font-medium text-slate-400 group-hover:text-purple-300">Subir Firma</span>
                           </div>
                           <input type="file" accept="image/*" className="hidden" onChange={handleSignatureUpload} />
@@ -2085,14 +2095,14 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
                           disabled={signatures.length === 0}
                           className="w-full py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold rounded flex items-center justify-center gap-2 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                          <Stamp size={14} /> Estampado Automático
+                          <Stamp size={14} strokeWidth={1.5} /> Estampado Automático
                       </button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                       {signatures.map(sig => (
-                          <div key={sig.id} className="relative group bg-white/5 rounded-lg p-2 border border-slate-700 hover:border-purple-500 transition-colors">
-                              <div className="aspect-[3/2] flex items-center justify-center bg-white/10 rounded mb-2 overflow-hidden">
+                          <div key={sig.id} className="relative group bg-[#0d0d0d]/40 backdrop-blur-sm rounded-lg p-2 border border-white/5 hover:border-purple-500 transition-colors">
+                              <div className="aspect-[3/2] flex items-center justify-center bg-white/5 rounded mb-2 overflow-hidden">
                                   <img src={sig.url} alt="Firma" className="max-w-full max-h-full object-contain" />
                               </div>
                               <div className="flex gap-1">
@@ -2106,7 +2116,7 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
                                       onClick={() => setSignatures(signatures.filter(s => s.id !== sig.id))}
                                       className="py-1 px-2 bg-red-900/50 hover:bg-red-900 text-red-400 rounded"
                                   >
-                                      <Trash2 size={12} />
+                                      <Trash2 size={12} strokeWidth={1.5} />
                                   </button>
                               </div>
                           </div>
@@ -2126,7 +2136,7 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => loadTemplate(t.id)}
-                  className={`aspect-[4/3] rounded-lg border border-slate-700 hover:border-purple-500 transition-all flex flex-col items-center justify-end p-2 overflow-hidden relative group ${t.thumbnail || 'bg-slate-800'}`}
+                  className={`aspect-[4/3] rounded-lg border border-white/5 hover:border-purple-500 transition-all flex flex-col items-center justify-end p-2 overflow-hidden relative group ${t.thumbnail || 'bg-[#0d0d0d]'}`}
                 >
                   <div className={`absolute inset-0 opacity-50 group-hover:opacity-70 transition-opacity ${t.thumbnail}`}></div>
                   <span className="relative z-10 text-[10px] font-bold text-white text-center bg-black/60 px-2 py-1 rounded backdrop-blur-sm w-full truncate">
@@ -2138,7 +2148,7 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
           </div>
           )}
 
-          <hr className="border-slate-800" />
+          <hr className="border-white/5" />
 
           <div className="space-y-3">
             <div className="flex justify-between items-center">
@@ -2166,7 +2176,7 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
             </div>
           </div>
 
-          <hr className="border-slate-800" />
+          <hr className="border-white/5" />
 
 
           </>
@@ -2176,9 +2186,12 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
         </div>
 
         {/* Canvas Workspace */}
-        <div className="flex-1 min-w-0 w-full min-h-[50vh] lg:min-h-0 bg-slate-900 relative flex items-center justify-center p-8 bg-grid-slate-800/[0.2] order-1 lg:order-2" ref={containerRef}>
+        <div className="flex-1 min-w-0 w-full min-h-[50vh] lg:min-h-0 bg-[#050505] relative flex items-center justify-center p-8 order-1 lg:order-2 overflow-hidden" ref={containerRef}>
+          {/* Subtle Grid Background */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+          
           <div 
-             className="shadow-2xl ring-1 ring-slate-700/50 transition-transform duration-300 origin-center"
+             className="shadow-2xl shadow-black/50 ring-1 ring-white/5 transition-transform duration-300 origin-center relative z-10"
              style={{ transform: `scale(${scaleFactor})` }}
           >
             <canvas ref={canvasRef} />
@@ -2186,38 +2199,38 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
 
           {activeTooltip && (
             <div
-              className="absolute pointer-events-none z-50 px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-full shadow-lg flex items-center gap-1 animate-bounce"
+              className="absolute pointer-events-none z-50 px-3 py-1.5 bg-blue-600/90 text-white text-[10px] font-mono font-bold rounded-full shadow-lg flex items-center gap-1 backdrop-blur-sm"
               style={{ top: activeTooltip.y, left: activeTooltip.x }}
             >
-              <span className="text-sm">🔗</span> {activeTooltip.text}
+              <span className="text-xs">🔗</span> {activeTooltip.text}
             </div>
           )}
         </div>
 
         {/* Right Sidebar - Properties & Layers */}
         {!isPreviewMode && (
-        <div className="flex w-full lg:w-auto h-auto lg:h-full backdrop-blur-md bg-slate-950/90 border-l border-slate-800 z-20 flex-shrink-0 order-3 lg:order-3">
-             <div className="w-full lg:w-80 flex flex-col bg-slate-950/50 overflow-hidden">
+        <div className="flex w-full lg:w-auto h-auto lg:h-full backdrop-blur-xl bg-[#0d0d0d]/40 border-l border-white/5 z-20 flex-shrink-0 order-3 lg:order-3">
+             <div className="w-full lg:w-80 flex flex-col bg-transparent overflow-hidden">
             
              {/* Horizontal Quick Tools Strip */}
-            <div className="flex flex-wrap gap-1 p-2 border-b border-slate-800 bg-slate-900/80 items-center">
+            <div className="flex flex-wrap gap-1 p-2 border-b border-white/5 bg-[#0d0d0d]/60 backdrop-blur-md items-center">
                 <div className="flex items-center gap-2 mr-auto">
                     <button onClick={undo} disabled={history.length <= 1} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed border border-transparent hover:border-slate-700" title="Deshacer">
-                        <Undo2 size={18} />
+                        <Undo2 size={18} strokeWidth={1.5} />
                         <span className="absolute top-full mt-1 left-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Deshacer</span>
                     </button>
                     
                     <div className="w-px h-6 bg-slate-700 mx-2"></div>
                     
                     <button onClick={redo} disabled={redoHistory.length === 0} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed border border-transparent hover:border-slate-700" title="Rehacer">
-                        <Redo2 size={18} />
+                        <Redo2 size={18} strokeWidth={1.5} />
                         <span className="absolute top-full mt-1 left-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Rehacer</span>
                     </button>
                 </div>
 
                 <div className="w-px bg-slate-700 mx-2 self-stretch"></div>
                 <button onClick={() => addText()} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center" title="Agregar Texto">
-                    <Type size={18} />
+                    <Type size={18} strokeWidth={1.5} />
                     <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Texto</span>
                 </button>
                 <button onClick={addRect} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center" title="Agregar Rectángulo">
@@ -2225,19 +2238,19 @@ const CertificateDesigner = ({ onClose, onSave, onNavigate, data = {}, initialDe
                     <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Rectángulo</span>
                 </button>
                 <label className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer flex items-center justify-center" title="Subir Imagen">
-                    <ImageIcon size={18} />
+                    <ImageIcon size={18} strokeWidth={1.5} />
                     <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                     <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Imagen</span>
                 </label>
                 <button onClick={() => fabricCanvas?.discardActiveObject().requestRenderAll()} className="group relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center" title="Deseleccionar">
-                    <MousePointer2 size={18} />
+                    <MousePointer2 size={18} strokeWidth={1.5} />
                     <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700">Deseleccionar</span>
                 </button>
                 <button onClick={() => {
                     const activeObj = fabricCanvas?.getActiveObject();
                     if (activeObj) handleLayerAction('delete', activeObj);
                 }} className="group relative p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-900/30 transition-colors flex items-center justify-center" title="Eliminar (Supr)">
-                    <Trash2 size={18} />
+                    <Trash2 size={18} strokeWidth={1.5} />
                     <span className="absolute top-full mt-1 right-0 px-2 py-1 bg-slate-900 text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50 border border-slate-700 text-red-300">Eliminar</span>
                 </button>
             </div>

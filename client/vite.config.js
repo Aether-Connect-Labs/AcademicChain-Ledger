@@ -17,13 +17,18 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    host: true,
+    host: true, // Exposes server to network (use with caution in public networks)
+    fs: {
+      strict: true, // Restrict file serving to workspace root
+    },
     proxy: {
       '/api': {
-        target: 'http://localhost:3000', // Backend Node.js Express
+        target: 'http://127.0.0.1:8787', // Backend Cloudflare Worker Local
         changeOrigin: true,
         secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '/api'), // Explicit rewrite if needed
       },
+      // Socket.io proxy for legacy/local services
       '/socket.io': {
         target: 'http://127.0.0.1:18789',
         ws: true,
@@ -59,7 +64,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: false,
+    sourcemap: false, // Security: Do not expose source maps in production
     chunkSizeWarningLimit: 6000,
     rollupOptions: {
       output: {

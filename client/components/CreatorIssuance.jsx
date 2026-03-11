@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import jsPDF from 'jspdf';
 import { issuanceService } from './services/issuanceService';
 import CertificateDesigner from './CertificateDesigner';
+import { sanitizeString } from './utils/security';
 
 const CreatorIssuance = () => {
   const navigate = useNavigate();
@@ -34,11 +35,11 @@ const CreatorIssuance = () => {
           const lines = text.split(/\r?\n/).filter(line => line.trim());
           if (lines.length < 2) return resolve([]); // Empty or just header
           
-          const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+          const headers = lines[0].split(',').map(h => sanitizeString(h.trim().toLowerCase()));
           const students = [];
           
           for(let i=1; i<lines.length; i++) {
-            const values = lines[i].split(',').map(v => v.trim());
+            const values = lines[i].split(',').map(v => sanitizeString(v.trim()));
             if(values.length < 2) continue;
             
             const nameIdx = headers.findIndex(h => h.includes('nom') || h.includes('name'));
@@ -314,7 +315,7 @@ const CreatorIssuance = () => {
                                 id="studentName"
                                 type="text"
                                 value={studentName}
-                                onChange={(e) => setStudentName(e.target.value)}
+                                onChange={(e) => setStudentName(sanitizeString(e.target.value))}
                                 placeholder="Ej: Ada Lovelace"
                                 className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                             />
@@ -327,7 +328,7 @@ const CreatorIssuance = () => {
                                 id="studentEmail"
                                 type="email"
                                 value={studentEmail}
-                                onChange={(e) => setStudentEmail(e.target.value)}
+                                onChange={(e) => setStudentEmail(sanitizeString(e.target.value))}
                                 placeholder="Ej: ada@example.com"
                                 className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                             />

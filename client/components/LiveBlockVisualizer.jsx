@@ -63,21 +63,29 @@ const LiveBlockVisualizer = ({ pendingTransaction }) => {
         : blocks;
 
     return (
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl shadow-xl p-6 mb-8 relative overflow-hidden">
-            {/* Background Animated Mesh */}
-            <div className="absolute inset-0 opacity-10 pointer-events-none"
-                style={{ backgroundImage: 'linear-gradient(rgba(0, 255, 136, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 136, 0.1) 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+        <div className="bg-[#050505] border border-white/10 rounded-xl shadow-2xl p-6 mb-8 relative overflow-hidden font-mono group">
+            {/* Terminal Scanline Effect */}
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-[1] pointer-events-none bg-[length:100%_4px,6px_100%]"></div>
+            <div className="absolute inset-0 bg-black/40 z-0"></div>
+
+            {/* Background Grid */}
+            <div className="absolute inset-0 opacity-20 pointer-events-none z-0"
+                style={{ backgroundImage: 'linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px)', backgroundSize: '40px 40px' }}>
             </div>
 
-            <div className="flex justify-between items-end mb-4 relative z-10">
+            <div className="flex justify-between items-end mb-6 relative z-10 border-b border-white/10 pb-4">
                 <div>
-                    <h3 className="text-xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-400 flex items-center gap-2">
-                        <span className="animate-pulse text-green-400">●</span> Triple Shield Consensus
+                    <h3 className="text-lg font-bold text-emerald-500 flex items-center gap-3 tracking-wider">
+                        <span className="animate-pulse text-emerald-400 w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]"></span> 
+                        TRIPLE_SHIELD_CONSENSUS_V2
                     </h3>
-                    <p className="text-xs text-slate-400 font-mono mt-1">LIVE NETWORK ACTIVITY • ENCRYPTED STREAM</p>
+                    <p className="text-[10px] text-slate-500 mt-1 tracking-[0.2em] uppercase">
+                        SECURE_CHANNEL_ESTABLISHED :: ENCRYPTED_STREAM_ACTIVE
+                    </p>
                 </div>
-                <div className="text-xs font-mono text-slate-500">
-                    LATENCY: <span className="text-green-400">12ms</span>
+                <div className="text-[10px] text-slate-500 flex flex-col items-end gap-1">
+                    <div>SYS_STATUS: <span className="text-emerald-500">OPTIMAL</span></div>
+                    <div>LATENCY: <span className="text-emerald-400">12ms</span></div>
                 </div>
             </div>
 
@@ -87,24 +95,24 @@ const LiveBlockVisualizer = ({ pendingTransaction }) => {
                         key={block.id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className={`p-3 rounded-lg border bg-black/40 backdrop-blur-sm ${getNetworkColor(block.network)} relative overflow-hidden`}
+                        transition={{ duration: 0.3, delay: i * 0.1 }}
+                        className={`p-3 rounded-none border-l-2 ${getNetworkColor(block.network)} bg-white/5 backdrop-blur-sm relative overflow-hidden group/block hover:bg-white/10 transition-colors`}
                     >
                         {block.preview && user && ['creator', 'institution', 'university', 'admin'].includes(user.role) && (
-                            <img src={URL.createObjectURL(block.preview)} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-20 hover:opacity-40 transition-opacity" />
+                            <img src={URL.createObjectURL(block.preview)} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-10 group-hover/block:opacity-30 transition-opacity grayscale" />
                         )}
-                        <div className="flex justify-between items-center mb-1 relative z-10">
-                            <span className="font-bold text-xs uppercase tracking-wider">{block.network}</span>
-                            <span className="text-[10px] opacity-70">{block.timestamp}</span>
+                        <div className="flex justify-between items-center mb-2 relative z-10">
+                            <span className="font-bold text-[10px] uppercase tracking-wider text-white/70">[{block.network}]</span>
+                            <span className="text-[9px] opacity-50 font-mono">{block.timestamp}</span>
                         </div>
-                        <div className="font-mono text-xs opacity-80 truncate relative z-10">
-                            HASH: {block.hash}
+                        <div className="text-[10px] opacity-60 truncate relative z-10 mb-2 font-mono text-slate-300">
+                            &gt; HASH: {block.hash}
                         </div>
-                        <div className="mt-2 text-[10px] flex justify-between items-center relative z-10">
-                            <span className={`uppercase px-1 rounded ${block.status === 'CONFIRMED' ? 'bg-green-500/20 text-green-300' : (block.status === 'READY_TO_MINT' ? 'bg-purple-500/20 text-purple-300' : 'bg-yellow-500/20 text-yellow-300')}`}>
+                        <div className="mt-2 text-[9px] flex justify-between items-center relative z-10 border-t border-white/5 pt-2">
+                            <span className={`uppercase tracking-wider ${block.status === 'CONFIRMED' ? 'text-emerald-500' : (block.status === 'READY_TO_MINT' ? 'text-purple-400' : 'text-amber-400')}`}>
                                 {block.status}
                             </span>
-                            <span className={`animate-pulse w-2 h-2 rounded-full ${block.status === 'CONFIRMED' ? 'bg-green-400' : (block.status === 'READY_TO_MINT' ? 'bg-purple-400' : 'bg-yellow-400')}`}></span>
+                            <span className={`w-1.5 h-1.5 ${block.status === 'CONFIRMED' ? 'bg-emerald-500' : (block.status === 'READY_TO_MINT' ? 'bg-purple-500' : 'bg-amber-500')} shadow-[0_0_8px_currentColor]`}></span>
                         </div>
                     </motion.div>
                 ))}

@@ -79,7 +79,7 @@ const AdminRevocationPanel = () => {
         <h2 className="text-2xl font-bold text-gray-900 mb-4">🛡️ Gestión de Vigencia</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
           <input
-            placeholder="Token ID (ej. 0.0.123456)"
+            placeholder="Token ID / Tx ID (ej. 0.0.123456)"
             className="input-primary"
             value={search.tokenId}
             onChange={(e) => setSearch(s => ({ ...s, tokenId: e.target.value }))}

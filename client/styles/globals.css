@@ -31,6 +31,8 @@
 
   body {
     font-family: 'Inter', system-ui, sans-serif;
+    background-color: #050505;
+    color: #ffffff;
   }
 
   :root {

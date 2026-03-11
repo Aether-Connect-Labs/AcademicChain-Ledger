@@ -27,13 +27,13 @@ export const institutionService = {
     return handleResponse(res);
   },
   revokeCredential: async (token, id, reason) => {
-    const res = await fetch(`${API_BASE_URL}/api/universities/credential/${id}/revoke`, {
-      method: 'PATCH',
+    const res = await fetch(`${API_BASE_URL}/api/creators/revoke`, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ reason })
+      body: JSON.stringify({ certificateId: id, reason })
     });
     return handleResponse(res);
   }

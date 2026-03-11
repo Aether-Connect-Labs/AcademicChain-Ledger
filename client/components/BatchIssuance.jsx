@@ -11,6 +11,7 @@ import { issuanceService } from './services/issuanceService';
 import { verificationService } from './services/verificationService';
 import { fileParser } from './utils/fileParser';
 import { validationService } from './services/validationService';
+import { sanitizeString } from './utils/security';
 import apiService from './services/apiService';
 import ProgressTracker from './ui/ProgressTracker';
 import CredentialPreview from './CredentialPreview';
@@ -93,9 +94,10 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
 
   useEffect(() => {
     if (institutionName) {
-      setIssuanceConfig(prev => ({ ...prev, institution: institutionName }));
+      setIssuanceConfig(prev => ({ ...prev, institution: sanitizeString(institutionName) }));
     } else if (user?.institutionName || user?.name) {
-      setIssuanceConfig(prev => ({ ...prev, institution: user.institutionName || user.name }));
+      const name = user.institutionName || user.name;
+      setIssuanceConfig(prev => ({ ...prev, institution: sanitizeString(name) }));
     } else if (demo) {
       setIssuanceConfig(prev => ({ ...prev, institution: 'Institución Demo' }));
     }
@@ -727,24 +729,35 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
            // Show Validation Table
            return (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-               <div className="flex items-center justify-between bg-black/40 p-4 rounded-xl border border-gray-700">
-                  <div className="flex items-center gap-4">
-                     <div className="h-12 w-12 rounded-lg bg-green-900/30 flex items-center justify-center border border-green-700/50">
-                        <FileSpreadsheet className="text-green-400" />
+               <div className="flex items-center justify-between bg-slate-900/50 backdrop-blur-md p-6 rounded-xl border border-slate-700/50 shadow-lg">
+                  <div className="flex items-center gap-5">
+                     <div className="h-14 w-14 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shadow-inner">
+                        <FileSpreadsheet className="text-emerald-400" size={28} />
                      </div>
                      <div>
-                        <h3 className="font-bold text-white">{fileData.name}</h3>
-                        <div className="flex gap-4 text-xs mt-1">
-                           <span className="text-gray-400">{fileData.rowCount} Registros</span>
-                           <span className="text-green-400 font-bold">{fileData.validCount} Válidos</span>
-                           {fileData.invalidCount > 0 && <span className="text-red-400 font-bold">{fileData.invalidCount} Errores</span>}
+                        <h3 className="font-bold text-slate-100 text-lg">{fileData.name}</h3>
+                        <div className="flex gap-4 text-xs mt-2 uppercase tracking-wider font-medium">
+                           <span className="text-slate-400 flex items-center gap-1">
+                             <div className="w-2 h-2 rounded-full bg-slate-500"></div>
+                             {fileData.rowCount} Registros
+                           </span>
+                           <span className="text-emerald-400 flex items-center gap-1">
+                             <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                             {fileData.validCount} Válidos
+                           </span>
+                           {fileData.invalidCount > 0 && (
+                             <span className="text-rose-400 flex items-center gap-1">
+                               <div className="w-2 h-2 rounded-full bg-rose-500"></div>
+                               {fileData.invalidCount} Errores
+                             </span>
+                           )}
                         </div>
                      </div>
                   </div>
                   <div className="flex gap-2">
                      <button 
                         onClick={() => { setFileData(null); }}
-                        className="p-2 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-gray-200 transition-colors"
+                        className="p-2.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-cyan-400 transition-all duration-300"
                         title="Subir otro archivo"
                      >
                         <RefreshCw size={20} />
@@ -753,39 +766,42 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                </div>
     
                {/* Validation Table */}
-               <div className="bg-gray-900 border border-gray-700 rounded-xl overflow-hidden max-h-[400px] overflow-y-auto custom-scrollbar shadow-sm">
+               <div className="bg-slate-900/50 backdrop-blur-md border border-slate-700/50 rounded-xl overflow-hidden max-h-[400px] overflow-y-auto custom-scrollbar shadow-inner">
                   <table className="w-full text-sm text-left">
-                     <thead className="bg-gray-800 text-gray-400 sticky top-0 z-10 backdrop-blur-sm">
+                     <thead className="bg-slate-800/80 text-slate-400 sticky top-0 z-10 backdrop-blur-md">
                         <tr>
-                           <th className="px-4 py-3">Estado</th>
-                           <th className="px-4 py-3">Estudiante</th>
-                           <th className="px-4 py-3">ID</th>
-                           <th className="px-4 py-3">Título</th>
-                           <th className="px-4 py-3">Email</th>
-                           <th className="px-4 py-3">Detalles</th>
+                           <th className="px-6 py-4 font-semibold text-xs uppercase tracking-wider">Estado</th>
+                           <th className="px-6 py-4 font-semibold text-xs uppercase tracking-wider">Estudiante</th>
+                           <th className="px-6 py-4 font-semibold text-xs uppercase tracking-wider">ID</th>
+                           <th className="px-6 py-4 font-semibold text-xs uppercase tracking-wider">Título</th>
+                           <th className="px-6 py-4 font-semibold text-xs uppercase tracking-wider">Email</th>
+                           <th className="px-6 py-4 font-semibold text-xs uppercase tracking-wider">Detalles</th>
                         </tr>
                      </thead>
-                     <tbody className="divide-y divide-gray-700">
+                     <tbody className="divide-y divide-slate-700/50">
                         {fileData.parsedData.map((row, idx) => (
-                           <tr key={idx} className={`hover:bg-gray-800 transition-colors ${!row.isValid ? 'bg-red-900/20' : ''}`}>
-                              <td className="px-4 py-3">
+                           <tr key={idx} className={`hover:bg-slate-800/30 transition-colors ${!row.isValid ? 'bg-rose-900/10' : ''}`}>
+                              <td className="px-6 py-4">
                                  {row.isValid ? (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-900/30 text-green-300 border border-green-700/50">
-                                       <Check size={12} className="mr-1" /> Válido
+                                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                       <Check size={12} className="mr-1.5" /> Válido
                                     </span>
                                  ) : (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-900/30 text-red-300 border border-red-700/50">
-                                       <AlertTriangle size={12} className="mr-1" /> Error
+                                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                       <AlertTriangle size={12} className="mr-1.5" /> Error
                                     </span>
                                  )}
                               </td>
-                              <td className="px-4 py-3 font-medium text-gray-200">{row.firstName} {row.lastName}</td>
-                              <td className="px-4 py-3 text-gray-400">{row.studentId}</td>
-                              <td className="px-4 py-3 text-gray-400">{row.degree}</td>
-                              <td className="px-4 py-3 text-gray-400">{row.email}</td>
-                              <td className="px-4 py-3">
+                              <td className="px-6 py-4 font-medium text-slate-200">{row.firstName} {row.lastName}</td>
+                              <td className="px-6 py-4 text-slate-400 font-mono text-xs">{row.studentId}</td>
+                              <td className="px-6 py-4 text-slate-400">{row.degree}</td>
+                              <td className="px-6 py-4 text-slate-400">{row.email}</td>
+                              <td className="px-6 py-4">
                                  {!row.isValid && (
-                                    <span className="text-red-400 text-xs font-medium">{row.errors.join(', ')}</span>
+                                    <span className="text-rose-400 text-xs font-medium flex items-center gap-1">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500"></div>
+                                        {row.errors.join(', ')}
+                                    </span>
                                  )}
                               </td>
                            </tr>
@@ -794,20 +810,20 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                   </table>
                </div>
     
-               <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
+               <div className="flex justify-end gap-4 pt-6 border-t border-slate-700/50">
                   <button 
                      onClick={() => { setFileData(null); }}
-                     className="px-4 py-2 text-gray-400 hover:text-gray-200 transition-colors"
+                     className="px-6 py-2.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-all text-sm font-medium"
                   >
                      Cancelar
                   </button>
                   <button
                      disabled={fileData.invalidCount > 0}
                      onClick={() => setCurrentStep(2)}
-                     className={`px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-all ${
+                     className={`px-8 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-all shadow-lg ${
                         fileData.invalidCount > 0 
-                           ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
-                           : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-purple-500/25'
+                           ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700' 
+                           : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500 shadow-cyan-900/20 hover:shadow-cyan-500/30'
                      }`}
                   >
                      <Eye size={18} />
@@ -819,21 +835,21 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
         }
 
         return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <div className="w-20 h-20 mx-auto mb-4 bg-blue-900/20 rounded-full flex items-center justify-center border border-blue-500/30">
-                <UploadCloud size={40} className="text-blue-400" />
+          <div className="space-y-8">
+            <div className="text-center space-y-3">
+              <div className="w-24 h-24 mx-auto mb-6 bg-slate-900/50 rounded-2xl flex items-center justify-center border border-slate-700/50 shadow-inner backdrop-blur-sm group">
+                <UploadCloud size={48} className="text-cyan-500 group-hover:scale-110 transition-transform duration-500" />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-2">
+              <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-400">
                 Carga Masiva de Credenciales
               </h2>
-              <p className="text-gray-400 max-w-md mx-auto">
-                Sube un archivo CSV o Excel con los datos de los estudiantes.
+              <p className="text-slate-400 max-w-lg mx-auto text-lg leading-relaxed">
+                Sube un archivo CSV o Excel con los datos de los estudiantes para procesar múltiples emisiones.
               </p>
             </div>
 
             <div 
-                className="border-2 border-dashed border-gray-600 rounded-xl p-12 text-center hover:border-blue-500 hover:bg-blue-900/10 transition-all cursor-pointer group relative overflow-hidden"
+                className="border-2 border-dashed border-slate-700 bg-slate-900/30 rounded-2xl p-16 text-center hover:border-cyan-500/50 hover:bg-slate-800/50 transition-all duration-300 cursor-pointer group relative overflow-hidden"
                 onClick={() => fileInputRef.current?.click()}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
@@ -842,6 +858,8 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                   if (file) handleFileUpload({ target: { files: [file] } });
                 }}
             >
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-900/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              
               <input
                 ref={fileInputRef}
                 type="file"
@@ -852,9 +870,12 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
               />
               
               <div className="relative z-10 flex flex-col items-center">
-                  <h3 className="text-xl font-bold text-gray-200 mb-2">Arrastra tu archivo aquí</h3>
-                  <p className="text-gray-400 mb-6">o haz clic para explorar</p>
-                  <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20">
+                  <div className="mb-6 p-4 rounded-full bg-slate-800/50 group-hover:bg-cyan-900/20 transition-colors duration-300">
+                    <FileSpreadsheet size={32} className="text-slate-400 group-hover:text-cyan-400 transition-colors" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-200 mb-2 group-hover:text-white transition-colors">Arrastra tu archivo aquí</h3>
+                  <p className="text-slate-500 mb-8 group-hover:text-slate-400 transition-colors">o haz clic para explorar</p>
+                  <button className="px-8 py-3 bg-slate-800 text-cyan-400 border border-cyan-500/30 rounded-xl hover:bg-cyan-500 hover:text-white transition-all duration-300 font-medium shadow-lg shadow-black/20 group-hover:shadow-cyan-500/20">
                     Seleccionar Archivo
                   </button>
               </div>
@@ -863,9 +884,9 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
             <div className="flex justify-center">
                 <button 
                     onClick={handleDownloadTemplate}
-                    className="flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-900/20"
+                    className="flex items-center gap-2 text-slate-400 hover:text-cyan-400 transition-colors text-sm font-medium px-6 py-3 rounded-xl hover:bg-slate-800/50 border border-transparent hover:border-slate-700"
                 >
-                    <Download size={16} />
+                    <Download size={18} />
                     Descargar Plantilla Excel Estándar
                 </button>
             </div>
@@ -874,231 +895,237 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
 
       case 2:
         return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-white mb-2">
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-400">
                 Configurar Emisión
               </h2>
-              <p className="text-gray-400">
-                Archivo: <strong>{fileData?.name}</strong> ({fileData?.rowCount} registros)
+              <p className="text-slate-400">
+                Archivo: <strong className="text-cyan-400">{fileData?.name}</strong> <span className="text-slate-600">|</span> {fileData?.rowCount} registros
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Plantilla de Diseño
-                  </label>
-                  {availableTemplates.length === 0 ? (
-                    <select
-                      value={issuanceConfig.template || 'default'}
-                      onChange={(e) => setIssuanceConfig(prev => ({
-                        ...prev,
-                        template: e.target.value
-                      }))}
-                      className="input-primary"
-                    >
-                      <option value="default">Por defecto</option>
-                    </select>
-                  ) : (
-                    <select
-                      value={issuanceConfig.template}
-                      onChange={(e) => setIssuanceConfig(prev => ({
-                        ...prev,
-                        template: e.target.value
-                      }))}
-                      className="input-primary"
-                    >
-                      <option value="">Selecciona una plantilla guardada</option>
-                      {availableTemplates.map(t => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Tipo de Credencial
-                  </label>
-                  <select
-                    value={issuanceConfig.credentialType}
-                    onChange={(e) => setIssuanceConfig(prev => ({
-                      ...prev,
-                      credentialType: e.target.value
-                    }))}
-                    className="input-primary"
-                  >
-                    <option value="degree">Título Universitario</option>
-                    <option value="certificate">Certificado</option>
-                    <option value="diploma">Diploma</option>
-                    <option value="badge">Insignia Digital</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Institución
-                  </label>
-                  <input
-                    type="text"
-                    value={issuanceConfig.institution}
-                    onChange={(e) => setIssuanceConfig(prev => ({
-                      ...prev,
-                      institution: e.target.value
-                    }))}
-                    placeholder="Nombre de la institución"
-                    className="input-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Fecha de Expiración (opcional)
-                  </label>
-                  <input
-                type="date"
-                value={issuanceConfig.expirationDate}
-                onChange={(e) => setIssuanceConfig(prev => ({
-                  ...prev,
-                  expirationDate: e.target.value
-                }))}
-                className="input-primary"
-              />
-            </div>
-            
-            <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Mensaje Personalizado (Narrativa del Trayecto)
-                </label>
-                <div className="mb-2">
-                    <select
-                        onChange={(e) => {
-                            const tmpl = preSignTemplates.find(t => t.id === e.target.value);
-                            if (tmpl) {
-                                setIssuanceConfig(prev => ({ ...prev, customMessage: tmpl.content }));
-                            }
-                        }}
-                        className="input-primary text-sm mb-2"
-                        defaultValue=""
-                    >
-                        <option value="" disabled>-- Seleccionar Plantilla de Mensaje --</option>
-                        {preSignTemplates.map(t => (
-                            <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                    </select>
-                </div>
-                <textarea
-                    value={issuanceConfig.customMessage}
-                    onChange={(e) => setIssuanceConfig(prev => ({
-                    ...prev,
-                    customMessage: e.target.value
-                    }))}
-                    placeholder="Escribe tu mensaje personalizado (usa {{student_name}}, {{degree}}, etc.)"
-                    className="input-primary h-32"
-                />
-                <div className="text-sm text-gray-400 mt-1">
-                    Variables disponibles: {'{{student_name}}, {{degree}}, {{institution}}, {{fecha_expedicion}}'}
-                </div>
-                {issuanceConfig.customMessage && (
-                    <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 mt-2">
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Vista Previa del Email (Ejemplo)</label>
-                        <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed font-serif italic">
-                            {(() => {
-                                let text = issuanceConfig.customMessage;
-                                const sample = fileData?.parsedData?.[0] || { 
-                                    firstName: 'Juan', 
-                                    lastName: 'Pérez', 
-                                    degree: 'Ingeniería',
-                                    institution: issuanceConfig.institution || 'Universidad'
-                                };
-                                const vars = {
-                                    student_name: `${sample.firstName} ${sample.lastName}`,
-                                    degree: sample.degree,
-                                    institution: issuanceConfig.institution,
-                                    fecha_expedicion: new Date().toLocaleDateString()
-                                };
-                                Object.entries(vars).forEach(([key, val]) => {
-                                    text = text.replace(new RegExp(`{{${key}}}`, 'g'), val || `[${key}]`);
-                                });
-                                return text;
-                            })()}
-                        </p>
+            <div className="bg-slate-900/50 backdrop-blur-md border border-slate-700/50 rounded-2xl p-8 shadow-xl">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                        Plantilla de Diseño
+                      </label>
+                      {availableTemplates.length === 0 ? (
+                        <select
+                          value={issuanceConfig.template || 'default'}
+                          onChange={(e) => setIssuanceConfig(prev => ({
+                            ...prev,
+                            template: e.target.value
+                          }))}
+                          className="w-full bg-slate-950/50 border border-slate-700 rounded-lg px-4 py-3 text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all appearance-none"
+                        >
+                          <option value="default">Por defecto</option>
+                        </select>
+                      ) : (
+                        <select
+                          value={issuanceConfig.template}
+                          onChange={(e) => setIssuanceConfig(prev => ({
+                            ...prev,
+                            template: e.target.value
+                          }))}
+                          className="w-full bg-slate-950/50 border border-slate-700 rounded-lg px-4 py-3 text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all appearance-none"
+                        >
+                          <option value="">Selecciona una plantilla guardada</option>
+                          {availableTemplates.map(t => (
+                              <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
+                      )}
                     </div>
-                )}
-            </div>
-          </div>
-          <div className="space-y-4">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="addToHedera"
-                    checked={issuanceConfig.addToHedera}
-                    onChange={(e) => setIssuanceConfig(prev => ({
-                      ...prev,
-                      addToHedera: e.target.checked
-                    }))}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-600 rounded focus-visible bg-gray-800"
-                  />
-                  <label htmlFor="addToHedera" className="ml-2 block text-sm text-gray-300">
-                    Registrar en Hedera Blockchain
-                  </label>
-                </div>
 
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="preSignPayments"
-                    checked={preSignPayments}
-                    onChange={(e) => setPreSignPayments(e.target.checked)}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-600 rounded focus-visible bg-gray-800"
-                  />
-                  <label htmlFor="preSignPayments" className="ml-2 block text-sm text-gray-300">
-                    Pre-firmar pagos (si aplica)
-                  </label>
-                </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                        Tipo de Credencial
+                      </label>
+                      <select
+                        value={issuanceConfig.credentialType}
+                        onChange={(e) => setIssuanceConfig(prev => ({
+                          ...prev,
+                          credentialType: e.target.value
+                        }))}
+                        className="w-full bg-slate-950/50 border border-slate-700 rounded-lg px-4 py-3 text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all appearance-none"
+                      >
+                        <option value="degree">Título Universitario</option>
+                        <option value="certificate">Certificado</option>
+                        <option value="diploma">Diploma</option>
+                        <option value="badge">Insignia Digital</option>
+                      </select>
+                    </div>
 
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                        Institución
+                      </label>
+                      <input
+                        type="text"
+                        value={issuanceConfig.institution}
+                        onChange={(e) => setIssuanceConfig(prev => ({
+                          ...prev,
+                          institution: e.target.value
+                        }))}
+                        placeholder="Nombre de la institución"
+                        className="w-full bg-slate-950/50 border border-slate-700 rounded-lg px-4 py-3 text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 placeholder-slate-600 transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                        Fecha de Expiración (opcional)
+                      </label>
+                      <input
+                        type="date"
+                        value={issuanceConfig.expirationDate}
+                        onChange={(e) => setIssuanceConfig(prev => ({
+                          ...prev,
+                          expirationDate: e.target.value
+                        }))}
+                        className="w-full bg-slate-950/50 border border-slate-700 rounded-lg px-4 py-3 text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all"
+                      />
+                    </div>
+                  </div>
                 
-
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="generateQR"
-                    checked={issuanceConfig.generateQR}
-                    onChange={(e) => setIssuanceConfig(prev => ({
-                      ...prev,
-                      generateQR: e.target.checked
-                    }))}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-600 rounded focus-visible bg-gray-800"
-                  />
-                  <label htmlFor="generateQR" className="ml-2 block text-sm text-gray-300">
-                    Generar códigos QR para verificación
-                  </label>
+                  <div className="space-y-6">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                            Mensaje Personalizado (Narrativa del Trayecto)
+                        </label>
+                        <div className="mb-3">
+                            <select
+                                onChange={(e) => {
+                                    const tmpl = preSignTemplates.find(t => t.id === e.target.value);
+                                    if (tmpl) {
+                                        setIssuanceConfig(prev => ({ ...prev, customMessage: tmpl.content }));
+                                    }
+                                }}
+                                className="w-full bg-slate-950/50 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-300 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all appearance-none"
+                                defaultValue=""
+                            >
+                                <option value="" disabled>-- Seleccionar Plantilla de Mensaje --</option>
+                                {preSignTemplates.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <textarea
+                            value={issuanceConfig.customMessage}
+                            onChange={(e) => setIssuanceConfig(prev => ({
+                            ...prev,
+                            customMessage: e.target.value
+                            }))}
+                            placeholder="Escribe tu mensaje personalizado (usa {{student_name}}, {{degree}}, etc.)"
+                            className="w-full bg-slate-950/50 border border-slate-700 rounded-lg px-4 py-3 text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 placeholder-slate-600 transition-all h-32 resize-none"
+                        />
+                        <div className="text-xs text-slate-500 mt-2 flex gap-2">
+                            <span className="font-bold">Variables:</span> 
+                            <code className="bg-slate-800 px-1 rounded text-cyan-400">{'{{student_name}}'}</code>
+                            <code className="bg-slate-800 px-1 rounded text-cyan-400">{'{{degree}}'}</code>
+                            <code className="bg-slate-800 px-1 rounded text-cyan-400">{'{{institution}}'}</code>
+                        </div>
+                        {issuanceConfig.customMessage && (
+                            <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700/50 mt-4">
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Vista Previa del Email (Ejemplo)</label>
+                                <p className="text-slate-300 text-sm whitespace-pre-wrap leading-relaxed font-serif italic border-l-2 border-cyan-500/50 pl-4">
+                                    {(() => {
+                                        let text = issuanceConfig.customMessage;
+                                        const sample = fileData?.parsedData?.[0] || { 
+                                            firstName: 'Juan', 
+                                            lastName: 'Pérez', 
+                                            degree: 'Ingeniería',
+                                            institution: issuanceConfig.institution || 'Universidad'
+                                        };
+                                        const vars = {
+                                            student_name: `${sample.firstName} ${sample.lastName}`,
+                                            degree: sample.degree,
+                                            institution: issuanceConfig.institution,
+                                            fecha_expedicion: new Date().toLocaleDateString()
+                                        };
+                                        Object.entries(vars).forEach(([key, val]) => {
+                                            text = text.replace(new RegExp(`{{${key}}}`, 'g'), val || `[${key}]`);
+                                        });
+                                        return text;
+                                    })()}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="sendEmail"
-                    checked={issuanceConfig.sendEmail}
-                    onChange={(e) => setIssuanceConfig(prev => ({
-                      ...prev,
-                      sendEmail: e.target.checked
-                    }))}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-600 rounded focus-visible bg-gray-800"
-                  />
-                  <label htmlFor="sendEmail" className="ml-2 block text-sm text-gray-300">
-                    Enviar notificación por email
-                  </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-700/50 pt-6">
+                    <div className="flex items-center p-3 rounded-lg hover:bg-slate-800/30 transition-colors cursor-pointer" onClick={() => setIssuanceConfig(prev => ({ ...prev, addToHedera: !prev.addToHedera }))}>
+                      <input
+                        type="checkbox"
+                        id="addToHedera"
+                        checked={issuanceConfig.addToHedera}
+                        onChange={(e) => setIssuanceConfig(prev => ({
+                          ...prev,
+                          addToHedera: e.target.checked
+                        }))}
+                        className="h-5 w-5 text-cyan-500 focus:ring-cyan-500 border-slate-600 rounded bg-slate-800 cursor-pointer"
+                      />
+                      <label htmlFor="addToHedera" className="ml-3 block text-sm font-medium text-slate-300 cursor-pointer">
+                        Registrar en Hedera Blockchain
+                      </label>
+                    </div>
+
+                    <div className="flex items-center p-3 rounded-lg hover:bg-slate-800/30 transition-colors cursor-pointer" onClick={() => setPreSignPayments(!preSignPayments)}>
+                      <input
+                        type="checkbox"
+                        id="preSignPayments"
+                        checked={preSignPayments}
+                        onChange={(e) => setPreSignPayments(e.target.checked)}
+                        className="h-5 w-5 text-cyan-500 focus:ring-cyan-500 border-slate-600 rounded bg-slate-800 cursor-pointer"
+                      />
+                      <label htmlFor="preSignPayments" className="ml-3 block text-sm font-medium text-slate-300 cursor-pointer">
+                        Pre-firmar pagos (si aplica)
+                      </label>
+                    </div>
+
+                    <div className="flex items-center p-3 rounded-lg hover:bg-slate-800/30 transition-colors cursor-pointer" onClick={() => setIssuanceConfig(prev => ({ ...prev, generateQR: !prev.generateQR }))}>
+                      <input
+                        type="checkbox"
+                        id="generateQR"
+                        checked={issuanceConfig.generateQR}
+                        onChange={(e) => setIssuanceConfig(prev => ({
+                          ...prev,
+                          generateQR: e.target.checked
+                        }))}
+                        className="h-5 w-5 text-cyan-500 focus:ring-cyan-500 border-slate-600 rounded bg-slate-800 cursor-pointer"
+                      />
+                      <label htmlFor="generateQR" className="ml-3 block text-sm font-medium text-slate-300 cursor-pointer">
+                        Generar códigos QR para verificación
+                      </label>
+                    </div>
+
+                    <div className="flex items-center p-3 rounded-lg hover:bg-slate-800/30 transition-colors cursor-pointer" onClick={() => setIssuanceConfig(prev => ({ ...prev, sendEmail: !prev.sendEmail }))}>
+                      <input
+                        type="checkbox"
+                        id="sendEmail"
+                        checked={issuanceConfig.sendEmail}
+                        onChange={(e) => setIssuanceConfig(prev => ({
+                          ...prev,
+                          sendEmail: e.target.checked
+                        }))}
+                        className="h-5 w-5 text-cyan-500 focus:ring-cyan-500 border-slate-600 rounded bg-slate-800 cursor-pointer"
+                      />
+                      <label htmlFor="sendEmail" className="ml-3 block text-sm font-medium text-slate-300 cursor-pointer">
+                        Enviar notificación por email
+                      </label>
+                    </div>
                 </div>
-              </div>
             </div>
 
             <div className="flex justify-between pt-6">
               <button
                 onClick={() => setCurrentStep(1)}
-                className="btn-secondary"
+                className="px-6 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 transition-all font-medium"
               >
                 ← Volver
               </button>
@@ -1112,7 +1139,7 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                   (availableTemplates.length > 0 && !issuanceConfig.template) ||
                   isProcessing
                 }
-                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-8 py-2.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold shadow-lg shadow-cyan-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {isProcessing ? 'Generando...' : 'Generar Vista Previa →'}
               </button>
@@ -1122,40 +1149,46 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
 
       case 3:
         return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-white mb-2">
+          <div className="space-y-8">
+            <div className="text-center relative">
+              <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
+                <div className="w-64 h-64 bg-cyan-500/30 rounded-full blur-3xl"></div>
+              </div>
+              <h2 className="relative text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-3">
                 Vista Previa de Emisión
               </h2>
-              <p className="text-gray-400">
-                Revisa las {credentials.length} credenciales antes de emitirlas en Hedera
+              <p className="relative text-slate-400 max-w-2xl mx-auto text-lg">
+                Revisa las <span className="text-cyan-400 font-semibold">{credentials.length}</span> credenciales antes de emitirlas en Hedera
               </p>
             </div>
 
             <AiInsightsPanel analysis={aiAnalysis} onFixRequest={handleAiFix} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-h-96 overflow-y-auto p-2">
-              {credentials.slice(0, 6).map((credential, index) => (
-                <div key={credential.id} className="space-y-2">
-                  <CredentialPreview
-                    credential={credential.credential}
-                    index={index}
-                  />
-                  
+            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 shadow-xl">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                {credentials.slice(0, 6).map((credential, index) => (
+                  <div key={credential.id} className="transform transition-all duration-300 hover:scale-[1.01]">
+                    <CredentialPreview
+                      credential={credential.credential}
+                      index={index}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {credentials.length > 6 && (
+                <div className="text-center mt-6 pt-6 border-t border-slate-800">
+                  <span className="inline-flex items-center px-4 py-2 rounded-full bg-slate-800/50 text-slate-400 text-sm border border-slate-700">
+                    Y {credentials.length - 6} credenciales más...
+                  </span>
                 </div>
-              ))}
+              )}
             </div>
 
-            {credentials.length > 6 && (
-              <div className="text-center text-gray-500">
-                Y {credentials.length - 6} credenciales más...
-              </div>
-            )}
-
-            <div className="flex justify-between pt-6">
+            <div className="flex justify-between items-center pt-6 border-t border-slate-800/50">
               <button
                 onClick={() => setCurrentStep(2)}
-                className="btn-secondary hover-lift"
+                className="px-6 py-2.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 hover:text-white hover:border-slate-600 transition-all font-medium flex items-center gap-2"
               >
                 ← Atrás
               </button>
@@ -1163,16 +1196,16 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
               <button
                 onClick={handleBatchIssuance}
                 disabled={!credentials.length || isProcessing}
-                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 hover-lift"
+                className="px-8 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold shadow-lg shadow-cyan-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-3 transform hover:-translate-y-0.5"
               >
                 {isProcessing ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Procesando...</span>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span>Procesando Emisión...</span>
                   </>
                 ) : (
                   <>
-                    <span>🚀</span>
+                    <span className="text-xl">🚀</span>
                     <span>
                       {(!demo && issuanceConfig.addToHedera && !account) 
                         ? `Emitir Gestionado (${credentials.length})` 
@@ -1187,160 +1220,219 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
 
       case 4:
         return (
-          <div className="space-y-6">
-          <IssuanceSummary 
-            summary={processResult?.summary || {}}
-            onExport={handleExportCsv}
-          />
-
-          <div className="flex items-center gap-2">
-            <button className="btn-secondary" onClick={() => {
-              setFileData(null);
-              setCredentials([]);
-              setProcessResult(null);
-              setCurrentStep(1);
-              try { if (fileInputRef.current) fileInputRef.current.value = ''; } catch {}
-            }}>Nuevo Lote</button>
-          </div>
+          <div className="space-y-8">
+            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 shadow-xl">
+              <IssuanceSummary 
+                summary={processResult?.summary || {}}
+                onExport={handleExportCsv}
+              />
+              
+              <div className="mt-8 flex justify-center">
+                <button 
+                  className="px-8 py-3 rounded-xl bg-slate-800 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500 hover:text-white transition-all duration-300 font-medium shadow-lg shadow-black/20 hover:shadow-cyan-500/20 flex items-center gap-2" 
+                  onClick={() => {
+                    setFileData(null);
+                    setCredentials([]);
+                    setProcessResult(null);
+                    setCurrentStep(1);
+                    try { if (fileInputRef.current) fileInputRef.current.value = ''; } catch {}
+                  }}
+                >
+                  <RefreshCw size={20} />
+                  Iniciar Nuevo Lote
+                </button>
+              </div>
+            </div>
 
             {processResult?.summary?.status === 'completed' && (() => {
               // const API_BASE_URL = ... (removed in favor of frontend route)
               const items = getResultItems();
               if (!items.length) return null;
               return (
-                <div className="mt-6 overflow-x-auto bg-gray-900 rounded-lg border border-gray-700">
-                  <table className="min-w-full">
-                    <thead>
-                      <tr className="bg-gray-800 text-gray-300 text-sm">
-                        <th className="px-4 py-2 text-left">Token</th>
-                        <th className="px-4 py-2 text-left">Serial</th>
-                        <th className="px-4 py-2 text-left">Acciones</th>
-                        <th className="px-4 py-2 text-left">XRP Tx</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-gray-300">
-                      {items.map((it, idx) => {
-                        // Point to frontend verification page instead of backend API
-                        const verifyUrl = `/verify/${it.tokenId}/${it.serialNumber}`;
-                        return (
-                          <tr key={`${it.tokenId}-${it.serialNumber}-${idx}`} className="border-t border-gray-700 text-sm">
-                            <td className="px-4 py-2">{it.tokenId}</td>
-                            <td className="px-4 py-2">{it.serialNumber}</td>
-                            <td className="px-4 py-2 space-x-2">
-                              <a className="btn-primary btn-sm" href={verifyUrl} target="_blank" rel="noreferrer">Dual (Hedera+XRP)</a>
-                            </td>
-                            <td className="px-4 py-2">
-                              <XrpAnchorCell tokenId={it.tokenId} serialNumber={it.serialNumber} />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                <div className="mt-8 overflow-hidden bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-800 shadow-xl">
+                  <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-slate-200">Credenciales Emitidas</h3>
+                    <span className="text-xs font-mono text-cyan-500 bg-cyan-950/30 px-2 py-1 rounded border border-cyan-900/50">
+                      {items.length} items
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full">
+                      <thead>
+                        <tr className="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-wider">
+                          <th className="px-6 py-4 text-left font-semibold">Token ID</th>
+                          <th className="px-6 py-4 text-left font-semibold">Serial</th>
+                          <th className="px-6 py-4 text-left font-semibold">Acciones</th>
+                          <th className="px-6 py-4 text-left font-semibold">Estado XRP</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/50">
+                        {items.map((it, idx) => {
+                          // Point to frontend verification page instead of backend API
+                          const verifyUrl = `/verify/${it.tokenId}/${it.serialNumber}`;
+                          return (
+                            <tr key={`${it.tokenId}-${it.serialNumber}-${idx}`} className="hover:bg-slate-800/30 transition-colors">
+                              <td className="px-6 py-4 text-slate-300 font-mono text-sm">{it.tokenId}</td>
+                              <td className="px-6 py-4 text-slate-300 font-mono text-sm">#{it.serialNumber}</td>
+                              <td className="px-6 py-4 space-x-2">
+                                <a 
+                                  className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 transition-colors" 
+                                  href={verifyUrl} 
+                                  target="_blank" 
+                                  rel="noreferrer"
+                                >
+                                  <Eye size={14} className="mr-1.5" />
+                                  Ver Credencial
+                                </a>
+                              </td>
+                              <td className="px-6 py-4">
+                                <XrpAnchorCell tokenId={it.tokenId} serialNumber={it.serialNumber} />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               );
             })()}
 
             {processResult?.summary?.status === 'queued' && isSocketConnected && (
-              <div className="text-center p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-                <p className="text-blue-400">Esperando inicio del proceso... Conectado al servidor de notificaciones.</p>
-                <div className="mt-2 text-xs text-gray-400">{isPolling ? 'Monitoreando por API...' : 'Iniciando monitoreo...'}</div>
-                {pollError && (
-                  <div className="mt-2 text-xs text-red-400">{pollError}</div>
-                )}
-                <button className="btn-secondary btn-sm mt-3" onClick={async () => {
-                  try {
-                    const masterJobId = processResult?.data?.masterJobId;
-                    if (!masterJobId) return;
-                    const res = await issuanceService.getBatchStatus(masterJobId);
-                    const data = res.data || res;
-                    const st = data?.state;
-                    const prog = data?.progress ?? 0;
-                    const result = data?.result;
-                    setProcessResult(prev => ({
-                      ...prev,
-                      summary: {
-                        ...prev.summary,
-                        status: st === 'completed' ? 'completed' : (st === 'failed' ? 'failed' : 'processing'),
-                        progress: typeof prog === 'number' ? prog : prev.summary?.progress || 0,
-                        successful: Array.isArray(result?.data?.successful) ? result.data.successful.length : (prev.summary?.successful || 0),
-                        failed: Array.isArray(result?.data?.failed) ? result.data.failed.length : (prev.summary?.failed || 0),
-                      },
-                      data: result?.data ? { ...prev.data, ...result.data } : prev.data,
-                    }));
-                  } catch (e) {
-                    setPollError(e.message);
-                  }
-                }}>Actualizar ahora</button>
+              <div className="text-center p-8 bg-slate-900/80 backdrop-blur-xl border border-cyan-500/30 rounded-2xl shadow-lg shadow-cyan-900/10 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-blue-500/5 animate-pulse"></div>
+                <div className="relative z-10">
+                  <div className="inline-flex p-3 rounded-full bg-cyan-950/50 border border-cyan-500/30 mb-4">
+                    <RefreshCw className="animate-spin text-cyan-400" size={24} />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2">Procesando Lote</h3>
+                  <p className="text-slate-400 mb-4">Conectado al servidor de notificaciones. Tu lote está en la cola de procesamiento.</p>
+                  
+                  <div className="inline-block px-4 py-1.5 rounded-full bg-slate-800 text-xs font-mono text-slate-500 border border-slate-700">
+                    {isPolling ? 'Monitoreando vía API...' : 'Esperando actualizaciones...'}
+                  </div>
+                  
+                  {pollError && (
+                    <div className="mt-4 p-3 bg-rose-950/30 border border-rose-500/30 rounded-lg text-sm text-rose-400 flex items-center justify-center gap-2">
+                      <AlertTriangle size={16} />
+                      {pollError}
+                    </div>
+                  )}
+                  
+                  <div className="mt-6">
+                    <button 
+                      className="text-xs text-slate-500 hover:text-cyan-400 underline decoration-slate-700 hover:decoration-cyan-400 transition-all" 
+                      onClick={async () => {
+                        try {
+                          const masterJobId = processResult?.data?.masterJobId;
+                          if (!masterJobId) return;
+                          const res = await issuanceService.getBatchStatus(masterJobId);
+                          const data = res.data || res;
+                          const st = data?.state;
+                          const prog = data?.progress ?? 0;
+                          const result = data?.result;
+                          setProcessResult(prev => ({
+                            ...prev,
+                            summary: {
+                              ...prev.summary,
+                              status: st === 'completed' ? 'completed' : (st === 'failed' ? 'failed' : 'processing'),
+                              progress: typeof prog === 'number' ? prog : prev.summary?.progress || 0,
+                              successful: Array.isArray(result?.data?.successful) ? result.data.successful.length : (prev.summary?.successful || 0),
+                              failed: Array.isArray(result?.data?.failed) ? result.data.failed.length : (prev.summary?.failed || 0),
+                            },
+                            data: result?.data ? { ...prev.data, ...result.data } : prev.data,
+                          }));
+                        } catch (e) {
+                          setPollError(e.message);
+                        }
+                      }}
+                    >
+                      Forzar actualización de estado
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
             {processResult?.summary?.status === 'awaiting_xrp' && (
-              <div className="p-4 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
-                <p className="text-yellow-300 font-semibold">Pagos XRP requeridos para completar la emisión</p>
-                <div className="mt-3 overflow-x-auto bg-gray-900 rounded border border-gray-700">
-                  <table className="min-w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-800 text-gray-300">
-                        <th className="px-3 py-2 text-left">TxID</th>
-                        <th className="px-3 py-2 text-left">Destino</th>
-                        <th className="px-3 py-2 text-left">Drops</th>
-                        <th className="px-3 py-2 text-left">Memo Hex</th>
-                        <th className="px-3 py-2 text-left">XRPL Tx Hash</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-gray-300">
-                      {xrpBatchIntents.map((it, idx) => (
-                        <tr key={`${it.transactionId}-${idx}`} className="border-t border-gray-700">
-                          <td className="px-3 py-2 font-mono">{it.transactionId}</td>
-                          <td className="px-3 py-2 font-mono break-all">{it.xrpPaymentIntent.destination}</td>
-                          <td className="px-3 py-2">{it.xrpPaymentIntent.amountDrops}</td>
-                          <td className="px-3 py-2 font-mono break-all">{it.xrpPaymentIntent.memoHex}</td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              className="input-primary w-full"
-                              placeholder="Introduce hash de XRPL"
-                              value={xrpBatchHashes[it.transactionId] || ''}
-                              onChange={(e) => setXrpBatchHashes(prev => ({ ...prev, [it.transactionId]: e.target.value }))}
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <button
-                  className="btn-primary mt-3"
-                  onClick={async () => {
-                    try {
-                      const results = [];
-                      const invalids = [];
-                      for (const it of xrpBatchIntents) {
-                        const h = xrpBatchHashes[it.transactionId];
-                        if (!h) continue;
-                        if (!/^[A-Fa-f0-9]{64}$/.test(h)) {
-                          invalids.push(it.transactionId);
-                          continue;
+              <div className="p-6 bg-amber-950/20 border border-amber-500/30 rounded-2xl shadow-lg relative overflow-hidden">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-full bg-amber-900/30 border border-amber-500/30 text-amber-500">
+                    <AlertTriangle size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-amber-400 mb-2">Acción Requerida: Pagos XRP</h3>
+                    <p className="text-slate-400 mb-6">Se requieren pagos en la red XRP para completar la emisión de las credenciales. Por favor procesa las siguientes transacciones.</p>
+                    
+                    <div className="overflow-x-auto bg-slate-900/50 rounded-xl border border-slate-800 mb-6">
+                      <table className="min-w-full text-sm">
+                        <thead>
+                          <tr className="bg-slate-800/50 text-slate-400">
+                            <th className="px-4 py-3 text-left font-semibold">TxID</th>
+                            <th className="px-4 py-3 text-left font-semibold">Destino</th>
+                            <th className="px-4 py-3 text-left font-semibold">Drops</th>
+                            <th className="px-4 py-3 text-left font-semibold">Memo Hex</th>
+                            <th className="px-4 py-3 text-left font-semibold">XRPL Tx Hash</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/30 text-slate-300">
+                          {xrpBatchIntents.map((it, idx) => (
+                            <tr key={`${it.transactionId}-${idx}`} className="hover:bg-slate-800/20">
+                              <td className="px-4 py-3 font-mono text-xs">{it.transactionId}</td>
+                              <td className="px-4 py-3 font-mono text-xs break-all max-w-[150px]">{it.xrpPaymentIntent.destination}</td>
+                              <td className="px-4 py-3 font-mono text-xs text-amber-400">{it.xrpPaymentIntent.amountDrops}</td>
+                              <td className="px-4 py-3 font-mono text-xs break-all max-w-[150px] text-slate-500">{it.xrpPaymentIntent.memoHex}</td>
+                              <td className="px-4 py-3">
+                                <input
+                                  type="text"
+                                  className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all"
+                                  placeholder="Pegar Hash de Transacción..."
+                                  value={xrpBatchHashes[it.transactionId] || ''}
+                                  onChange={(e) => setXrpBatchHashes(prev => ({ ...prev, [it.transactionId]: e.target.value }))}
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    <button
+                      className="px-6 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold rounded-xl shadow-lg shadow-amber-900/20 transition-all flex items-center gap-2"
+                      onClick={async () => {
+                        try {
+                          const results = [];
+                          const invalids = [];
+                          for (const it of xrpBatchIntents) {
+                            const h = xrpBatchHashes[it.transactionId];
+                            if (!h) continue;
+                            if (!/^[A-Fa-f0-9]{64}$/.test(h)) {
+                              invalids.push(it.transactionId);
+                              continue;
+                            }
+                            const execRes = await issuanceService.executeIssuance({ transactionId: it.transactionId, xrpTxHash: h });
+                            results.push(execRes.data || execRes);
+                          }
+                          if (invalids.length) {
+                            setPollError(`Hash XRPL inválido para ${invalids.length} transacción(es): ${invalids.join(', ')}`);
+                          }
+                          setProcessResult(prev => ({
+                            ...prev,
+                            data: { ...prev.data, prepared: results },
+                            summary: { ...prev.summary, status: 'completed', successful: results.length, failed: 0, successRate: 100 }
+                          }));
+                          setXrpBatchIntents([]);
+                          setXrpBatchHashes({});
+                        } catch (e) {
+                          setPollError(e.message);
                         }
-                        const execRes = await issuanceService.executeIssuance({ transactionId: it.transactionId, xrpTxHash: h });
-                        results.push(execRes.data || execRes);
-                      }
-                      if (invalids.length) {
-                        setPollError(`Hash XRPL inválido para ${invalids.length} transacción(es): ${invalids.join(', ')}`);
-                      }
-                      setProcessResult(prev => ({
-                        ...prev,
-                        data: { ...prev.data, prepared: results },
-                        summary: { ...prev.summary, status: 'completed', successful: results.length, failed: 0, successRate: 100 }
-                      }));
-                      setXrpBatchIntents([]);
-                      setXrpBatchHashes({});
-                    } catch (e) {
-                      setPollError(e.message);
-                    }
-                  }}
-                >Finalizar lote con XRP</button>
+                      }}
+                    >
+                      <Check size={18} />
+                      Finalizar Lote con XRP
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
             
@@ -1353,8 +1445,16 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                 }}
               />
             )}
-            <div className="mt-4 flex items-center gap-3">
-              <button className="btn-secondary" onClick={handleAuditBatch}>📊 Auditar Lote en Blockchain</button>
+            
+            <div className="mt-8 flex items-center justify-center gap-4">
+              <button 
+                className="px-6 py-2.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 hover:text-white transition-all font-medium flex items-center gap-2"
+                onClick={handleAuditBatch}
+              >
+                <FileText size={18} />
+                Auditar Lote en Blockchain
+              </button>
+              
               {(() => {
                 const prepared = Array.isArray(processResult?.data?.prepared) ? processResult.data.prepared : [];
                 const last = prepared[prepared.length - 1] || null;
@@ -1365,7 +1465,15 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
                 params.set('tokenId', tokenId);
                 params.set('serialNumber', String(serial));
                 return (
-                  <a className="btn-ghost" href={`/#/verificar?${params.toString()}`} target="_blank" rel="noreferrer">🔍 Verificar último emitido</a>
+                  <a 
+                    className="px-6 py-2.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 hover:text-white transition-all font-medium flex items-center gap-2" 
+                    href={`/#/verificar?${params.toString()}`} 
+                    target="_blank" 
+                    rel="noreferrer"
+                  >
+                    <Eye size={18} />
+                    Verificar Último Emitido
+                  </a>
                 );
               })()}
             </div>
@@ -1378,47 +1486,75 @@ const BatchIssuance = ({ demo = false, plan, emissionsUsed = 0, onEmissionComple
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-gray-900 border border-gray-800 rounded-xl shadow-lg">
+    <div className="max-w-6xl mx-auto p-8 bg-slate-950/50 backdrop-blur-2xl border border-slate-800 rounded-3xl shadow-2xl relative overflow-hidden">
+      {/* Background Gradients */}
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 opacity-50"></div>
+      <div className="absolute -top-24 -right-24 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
       {returnUrl && (
           <button 
             onClick={() => navigate(returnUrl)}
-            className="mb-6 flex items-center gap-2 text-slate-400 hover:text-white transition-colors font-medium bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700 hover:bg-slate-800"
+            className="mb-8 flex items-center gap-2 text-slate-400 hover:text-white transition-colors font-medium bg-slate-900/50 px-4 py-2 rounded-xl border border-slate-700 hover:bg-slate-800 hover:border-slate-600 group"
           >
-            ← Volver al Dashboard
+            <span className="transform group-hover:-translate-x-1 transition-transform">←</span> Volver al Dashboard
           </button>
       )}
-      <Toaster position="top-right" toastOptions={{ style: { borderRadius: '8px', padding: '8px 12px', background: '#1f2937', color: '#fff' } }} />
+      
+      <div className="text-center mb-10 relative z-10">
+        <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-slate-200 mb-3 tracking-tight">
+          Emisión Masiva de Credenciales
+        </h1>
+        <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+          Gestiona, valida y emite múltiples certificados académicos en la blockchain de Hedera y XRP de forma segura y eficiente.
+        </p>
+      </div>
+
+      <Toaster position="top-right" toastOptions={{ 
+        style: { 
+          borderRadius: '16px', 
+          padding: '16px 24px', 
+          background: 'rgba(15, 23, 42, 0.9)', 
+          color: '#fff',
+          border: '1px solid rgba(148, 163, 184, 0.1)',
+          backdropFilter: 'blur(10px)',
+          boxShadow: '0 10px 30px -10px rgba(0, 0, 0, 0.5)'
+        } 
+      }} />
+      
       {/* Progress Tracker */}
-      <ProgressTracker
-        currentStep={currentStep}
-        steps={[
-          { number: 1, title: 'Cargar Archivo' },
-          { number: 2, title: 'Configurar' },
-          { number: 3, title: 'Revisar' },
-          { number: 4, title: 'Resultados' }
-        ]}
-      />
+      <div className="mb-12">
+        <ProgressTracker
+          currentStep={currentStep}
+          steps={[
+            { number: 1, title: 'Cargar Archivo' },
+            { number: 2, title: 'Configurar' },
+            { number: 3, title: 'Revisar' },
+            { number: 4, title: 'Resultados' }
+          ]}
+        />
+      </div>
 
       {/* Contenido del paso actual */}
-      <div className="mt-8">
+      <div className="relative z-10 min-h-[400px]">
         {renderStep()}
       </div>
 
       {/* Estado de conexión */}
       {currentStep >= 3 && (
-        <div className={`mt-6 p-4 rounded-lg border ${
+        <div className={`mt-8 p-4 rounded-xl border backdrop-blur-md transition-all duration-300 ${
           isConnected 
-            ? 'bg-green-900/20 border-green-700/50 text-green-300' 
-            : 'bg-yellow-900/20 border-yellow-700/50 text-yellow-300'
+            ? 'bg-emerald-950/20 border-emerald-500/20 text-emerald-300 shadow-lg shadow-emerald-900/10' 
+            : 'bg-amber-950/20 border-amber-500/20 text-amber-300 shadow-lg shadow-amber-900/10'
         }`}>
-          <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${
-              isConnected ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'
+          <div className="flex items-center justify-center space-x-3">
+            <div className={`w-2.5 h-2.5 rounded-full ${
+              isConnected ? 'bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
             }`}></div>
-            <span className="font-medium">
+            <span className="font-medium font-mono text-sm tracking-wide">
               {isConnected 
-                ? `Conectado a Hedera (${account?.accountId})` 
-                : 'Wallet no conectado. Conecta tu wallet para emitir credenciales.'
+                ? `CONECTADO A HEDERA (${account?.accountId})` 
+                : 'WALLET DESCONECTADA - CONECTA TU WALLET PARA EMITIR'
               }
             </span>
           </div>

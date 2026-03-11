@@ -8,6 +8,20 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import axios from 'axios';
 import { theme } from '../themeConfig';
+import { 
+  Scan, 
+  Search, 
+  CheckCircle, 
+  XCircle, 
+  FileText, 
+  Download, 
+  ExternalLink, 
+  ShieldCheck, 
+  Database, 
+  Link as LinkIcon,
+  RotateCcw,
+  AlertTriangle
+} from 'lucide-react';
 
 const CredentialVerifier = () => {
   const [state, setState] = useState({ status: 'idle', mode: 'credential' });
@@ -81,7 +95,7 @@ const CredentialVerifier = () => {
     const cid = uri.startsWith('ipfs://') ? uri.replace('ipfs://','') : uri;
     const primary = (import.meta.env.VITE_IPFS_GATEWAY || 'https://ipfs.io/ipfs/').replace(/\/$/, '');
     const list = [
-      'https://gateway.pinata.cloud/ipfs',
+      'https://gateway.lighthouse.storage/ipfs',
       'https://ipfs.io/ipfs',
       'https://dweb.link/ipfs',
       'https://cloudflare-ipfs.com/ipfs',
@@ -283,8 +297,6 @@ const CredentialVerifier = () => {
         }
         
         // If not a mock hash, try service or fail
-        // Note: verificationService might not have getByHash yet, so we might need to rely on tokenId
-        // For this task, we assume the user might input Token ID + Serial if Hash fails, or we show error.
         setState({ status: 'error', error: 'No se encontró ninguna credencial con ese Hash SHA-256.' });
         return;
       }
@@ -316,14 +328,14 @@ const CredentialVerifier = () => {
         const calcHex = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
         const stored = String(props?.file?.hash || '').trim().toLowerCase();
         if (stored && calcHex !== stored) {
-          setState({ status: 'error', error: 'CONTENIDO ALTERADO: Los datos no coinciden con el hash de la Blockchain.' });
+          setState({ status: 'error', mode: 'credential', error: 'CONTENIDO ALTERADO: Los datos no coinciden con el hash de la Blockchain.' });
           return;
         }
-        setState({
-            status: 'success',
-            data: cred,
-            xrpAnchor: payload.data.xrpAnchor || null,
-            algorandAnchor: payload.data.algorandAnchor || null
+        setState({ 
+          status: 'success', 
+          data: cred, 
+          xrpAnchor: payload.data.xrpAnchor || null,
+          algorandAnchor: payload.data.algorandAnchor || null 
         });
       } else {
         throw new Error('Credencial inválida');
@@ -493,22 +505,22 @@ const CredentialVerifier = () => {
       case 'idle':
         return (
           <div className="text-center">
-            <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
-              <span className="text-2xl">📄</span>
+            <div className="w-16 h-16 mx-auto mb-4 bg-cyan-500/10 rounded-full flex items-center justify-center border border-cyan-500/20">
+              <Scan className="w-8 h-8 text-cyan-400" strokeWidth={1.5} />
             </div>
-            <p className="text-gray-600 mb-4">
+            <p className="text-slate-400 mb-6">
               Escanea el código QR de una credencial académica para verificar su autenticidad en Hedera
             </p>
-            <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50 mt-6 text-left">
+            <div className="bg-[#050505]/50 p-6 rounded-xl border border-white/5 mt-6 text-left">
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <span className="text-cyan-400">⌨️</span> Verificación Manual
+                <Search className="w-5 h-5 text-cyan-400" /> Verificación Manual
               </h3>
               <form onSubmit={handleSubmitManual} className="space-y-4">
                 <div>
                   <label className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1 block">Hash del Documento (SHA-256)</label>
                   <input
                     type="text"
-                    className="input-primary w-full font-mono text-sm"
+                    className="w-full bg-[#0d0d0d] border border-white/10 rounded-lg px-4 py-2 text-slate-200 font-mono text-sm focus:outline-none focus:border-cyan-500/50 transition-colors"
                     placeholder="e.g. a1b2c3d4..."
                     value={hashInput}
                     onChange={(e) => setHashInput(e.target.value)}
@@ -519,9 +531,9 @@ const CredentialVerifier = () => {
                 </div>
                 
                 <div className="relative flex py-2 items-center">
-                    <div className="flex-grow border-t border-slate-700"></div>
+                    <div className="flex-grow border-t border-white/5"></div>
                     <span className="flex-shrink-0 mx-4 text-slate-500 text-xs">O busca por ID</span>
-                    <div className="flex-grow border-t border-slate-700"></div>
+                    <div className="flex-grow border-t border-white/5"></div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -529,7 +541,7 @@ const CredentialVerifier = () => {
                     <label className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1 block">Token ID</label>
                     <input
                       type="text"
-                      className="input-primary w-full font-mono"
+                      className="w-full bg-[#0d0d0d] border border-white/10 rounded-lg px-4 py-2 text-slate-200 font-mono text-sm focus:outline-none focus:border-cyan-500/50 transition-colors"
                       placeholder="0.0.123456"
                       value={tokenIdInput}
                       onChange={(e) => setTokenIdInput(e.target.value)}
@@ -539,7 +551,7 @@ const CredentialVerifier = () => {
                     <label className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1 block">Serial</label>
                     <input
                       type="text"
-                      className="input-primary w-full font-mono"
+                      className="w-full bg-[#0d0d0d] border border-white/10 rounded-lg px-4 py-2 text-slate-200 font-mono text-sm focus:outline-none focus:border-cyan-500/50 transition-colors"
                       placeholder="1"
                       value={serialInput}
                       onChange={(e) => setSerialInput(e.target.value)}
@@ -549,7 +561,7 @@ const CredentialVerifier = () => {
                 <button
                   type="submit"
                   disabled={state.status === 'verifying' || (!hashInput && (!tokenIdInput || !serialInput))}
-                  className="btn-primary w-full py-3 flex items-center justify-center gap-2 mt-2"
+                  className="w-full py-3 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2 mt-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   {state.status === 'verifying' ? (
                     <>
@@ -567,17 +579,17 @@ const CredentialVerifier = () => {
 
       case 'verifying':
         return (
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <div className="text-center py-12">
+            <div className="w-12 h-12 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mx-auto mb-4"></div>
             {state.mode === 'merkle' ? (
               <>
-                <p className="text-blue-600 font-medium">Verificando prueba de Merkle en tu dispositivo...</p>
-                <p className="text-sm text-gray-500 mt-2">Descargando raíz desde Hedera</p>
+                <p className="text-cyan-400 font-medium">Verificando prueba de Merkle en tu dispositivo...</p>
+                <p className="text-sm text-slate-500 mt-2">Descargando raíz desde Hedera</p>
               </>
             ) : (
               <>
-                <p className="text-blue-600 font-medium">Verificando en Hedera Network...</p>
-                <p className="text-sm text-gray-500 mt-2">Consultando el consenso distribuido</p>
+                <p className="text-cyan-400 font-medium">Verificando en Hedera Network...</p>
+                <p className="text-sm text-slate-500 mt-2">Consultando el consenso distribuido</p>
               </>
             )}
           </div>
@@ -655,7 +667,10 @@ const CredentialVerifier = () => {
                   </div>
                   <div className="rounded-lg border p-4">
                     <div className="text-sm font-semibold mb-2">Acciones</div>
-                    <button onClick={handleDownloadMerklePDF} className="btn-primary btn-sm">Descargar Certificado de Autenticidad (PDF)</button>
+                    <button onClick={handleDownloadMerklePDF} className="btn-primary btn-sm flex items-center gap-2">
+                      <Download className="w-4 h-4" />
+                      Descargar PDF
+                    </button>
                     <button onClick={() => {
                       const params = new URLSearchParams();
                       if (merkle.hash) params.set('hash', merkle.hash);
@@ -670,7 +685,7 @@ const CredentialVerifier = () => {
                       if (merkle.algorand?.txId) params.set('algoTx', merkle.algorand.txId);
                       const url = `${window.location.origin}/#/verificar?${params.toString()}`;
                       navigator.clipboard.writeText(url);
-                    }} className="btn-secondary btn-sm ml-2">Copiar Link de Verificación</button>
+                    }} className="btn-secondary btn-sm ml-2">Copiar Link</button>
                   </div>
                 </div>
                 <div className="mt-6">
@@ -679,13 +694,16 @@ const CredentialVerifier = () => {
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleReset} className="btn-primary">Verificar otra credencial</button>
+              <button onClick={handleReset} className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium flex items-center gap-2">
+                <RotateCcw className="w-4 h-4" />
+                Verificar otra
+              </button>
             </div>
           </div>
         ) : (
           <div className="space-y-6">
-            <div ref={diplomaRef} className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-              <div className="px-8 pt-8 text-center">
+            <div ref={diplomaRef} className="bg-white rounded-2xl border shadow-sm overflow-hidden relative">
+              <div className="px-8 pt-8 text-center relative z-10">
                 <div className="text-xs uppercase tracking-widest text-blue-600">Certificado Académico</div>
                 {(() => {
                   const logoAttr = (state.data?.metadata?.attributes || []).find(a => a.trait_type === 'Institution Logo')?.value || '';
@@ -715,60 +733,63 @@ const CredentialVerifier = () => {
                   {(state.data?.metadata?.attributes || []).find(a => a.trait_type === 'University')?.value}
                 </h3>
               </div>
-              <div className="px-10 py-8">
+              <div className="px-10 py-8 relative z-10">
                 <div className="mb-6 rounded-lg border p-4 bg-green-50 border-green-200">
-                  <div className="text-sm font-semibold">Hedera (Triple Blindaje)</div>
-                  <div className="mt-1 text-xs">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-green-600" />
+                    Hedera (Triple Blindaje)
+                  </div>
+                  <div className="mt-1 text-xs text-green-700">
                     Estado: Válido
                   </div>
-                  <div className="mt-2 space-y-1 text-xs">
+                  <div className="mt-2 space-y-1 text-xs text-gray-600">
                     {state.data?.tokenId && (
-                      <div>
-                        NFT:{" "}
+                      <div className="flex items-center gap-1">
+                        <span>NFT:</span>
                         <a
-                          className="text-blue-600 underline"
+                          className="text-blue-600 underline flex items-center gap-1"
                           href={`https://hashscan.io/${import.meta.env.VITE_HEDERA_NETWORK || (import.meta.env.PROD ? 'mainnet' : 'testnet')}/token/${state.data.tokenId}`}
                           target="_blank"
                           rel="noreferrer"
                         >
-                          {state.data.tokenId}
+                          {state.data.tokenId} <ExternalLink className="w-3 h-3" />
                         </a>
                       </div>
                     )}
                     {state.xrpAnchor?.xrpTxHash && (
-                      <div>
-                        XRP:{" "}
+                      <div className="flex items-center gap-1">
+                        <span>XRP:</span>
                         <a
-                          className="text-blue-600 underline"
+                          className="text-blue-600 underline flex items-center gap-1"
                           href={`https://${(import.meta.env.VITE_XRPL_NETWORK || 'testnet').includes('main') ? 'livenet' : 'testnet'}.xrpl.org/transactions/${state.xrpAnchor.xrpTxHash}`}
                           target="_blank"
                           rel="noreferrer"
                         >
-                          {state.xrpAnchor.xrpTxHash.slice(0, 10)}...
+                          {state.xrpAnchor.xrpTxHash.slice(0, 10)}... <ExternalLink className="w-3 h-3" />
                         </a>
                       </div>
                     )}
                     {state.algorandAnchor?.algoTxId && (
-                      <div>
-                        Algorand:{" "}
+                      <div className="flex items-center gap-1">
+                        <span>Algorand:</span>
                         <a
-                          className="text-blue-600 underline"
+                          className="text-blue-600 underline flex items-center gap-1"
                           href={`https://${(import.meta.env.VITE_ALGORAND_NETWORK || 'testnet') === 'mainnet' ? 'algoexplorer.io' : 'testnet.algoexplorer.io'}/tx/${state.algorandAnchor.algoTxId}`}
                           target="_blank"
                           rel="noreferrer"
                         >
-                          {state.algorandAnchor.algoTxId.slice(0, 10)}...
+                          {state.algorandAnchor.algoTxId.slice(0, 10)}... <ExternalLink className="w-3 h-3" />
                         </a>
                       </div>
                     )}
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-gray-600">Otorgado a</div>
-                  <div className="text-4xl font-bold text-gray-900">
+                  <div className="text-gray-600 uppercase tracking-wider text-xs font-semibold mb-2">Otorgado a</div>
+                  <div className="text-4xl font-bold text-gray-900 font-serif">
                     {(state.data?.metadata?.attributes || []).find(a => a.trait_type === 'Student')?.value || 'Estudiante'}
                   </div>
-                  <div className="mt-3 text-gray-700">Por completar</div>
+                  <div className="mt-6 text-gray-700 uppercase tracking-wider text-xs font-semibold mb-2">Por completar</div>
                   <div className="text-2xl font-semibold text-gray-900">
                     {(state.data?.metadata?.attributes || []).find(a => a.trait_type === 'Degree')?.value}
                   </div>
@@ -780,7 +801,7 @@ const CredentialVerifier = () => {
                     const exp = props?.credential_info?.expiry_date || null;
                     if (!exp) return null;
                     return (
-                      <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full bg-yellow-50 border border-yellow-200 text-yellow-700 text-xs">
+                      <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full bg-yellow-50 border border-yellow-200 text-yellow-700 text-xs font-medium">
                         Expira: {exp}
                       </div>
                     );
@@ -788,16 +809,16 @@ const CredentialVerifier = () => {
                 </div>
                 <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="rounded-lg border bg-gray-50 p-4">
-                    <div className="text-xs text-gray-500">Token</div>
+                    <div className="text-xs text-gray-500 uppercase font-semibold">Token</div>
                     <div className="font-mono text-sm text-gray-900">{state.data?.tokenId}</div>
                   </div>
                   <div className="rounded-lg border bg-gray-50 p-4">
-                    <div className="text-xs text-gray-500">Serial</div>
+                    <div className="text-xs text-gray-500 uppercase font-semibold">Serial</div>
                     <div className="font-mono text-sm text-gray-900">{state.data?.serialNumber}</div>
                   </div>
                   <div className="rounded-lg border bg-gray-50 p-4">
-                    <div className="text-xs text-gray-500">Transacción Hedera</div>
-                    <div className="font-mono text-xs text-blue-600">{(state.data?.transactionId || '').slice(0, 18)}...</div>
+                    <div className="text-xs text-gray-500 uppercase font-semibold">Tx Hedera</div>
+                    <div className="font-mono text-xs text-blue-600 truncate">{(state.data?.transactionId || '').slice(0, 18)}...</div>
                   </div>
                 </div>
                 {(() => {
@@ -809,21 +830,25 @@ const CredentialVerifier = () => {
                   const algoUrl = external?.algorand?.explorer_url || (algoId ? `https://testnet.explorer.perawallet.app/tx/${encodeURIComponent(algoId)}/` : '');
                   return (
                     <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="rounded-lg border p-4">
-                        <div className="text-xs text-gray-500 mb-1">XRP tx hash</div>
+                      <div className="rounded-lg border p-4 bg-gray-50">
+                        <div className="text-xs text-gray-500 mb-1 uppercase font-semibold">XRP tx hash</div>
                         <div className="flex items-center justify-between">
-                          <div className="font-mono text-sm break-all">{xrpHash || 'N/A'}</div>
+                          <div className="font-mono text-sm break-all text-gray-700">{xrpHash ? xrpHash.slice(0, 20) + '...' : 'N/A'}</div>
                           {xrpUrl && (
-                            <a className="ml-3 text-blue-600 hover:underline text-sm" href={xrpUrl} target="_blank" rel="noreferrer">Ver</a>
+                            <a className="ml-3 text-blue-600 hover:text-blue-800" href={xrpUrl} target="_blank" rel="noreferrer">
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
                           )}
                         </div>
                       </div>
-                      <div className="rounded-lg border p-4">
-                        <div className="text-xs text-gray-500 mb-1">Algorand tx id</div>
+                      <div className="rounded-lg border p-4 bg-gray-50">
+                        <div className="text-xs text-gray-500 mb-1 uppercase font-semibold">Algorand tx id</div>
                         <div className="flex items-center justify-between">
-                          <div className="font-mono text-sm break-all">{algoId || 'N/A'}</div>
+                          <div className="font-mono text-sm break-all text-gray-700">{algoId ? algoId.slice(0, 20) + '...' : 'N/A'}</div>
                           {algoUrl && (
-                            <a className="ml-3 text-blue-600 hover:underline text-sm" href={algoUrl} target="_blank" rel="noreferrer">Ver</a>
+                            <a className="ml-3 text-blue-600 hover:text-blue-800" href={algoUrl} target="_blank" rel="noreferrer">
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
                           )}
                         </div>
                       </div>
@@ -831,7 +856,7 @@ const CredentialVerifier = () => {
                   );
                 })()}
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="rounded-lg border p-4 flex items-center justify-center bg-gray-50">
+                  <div className="rounded-lg border p-4 flex items-center justify-center bg-white shadow-inner">
                     {(() => {
                       const tokenId = state.data?.tokenId;
                       const serialNumber = state.data?.serialNumber;
@@ -839,44 +864,43 @@ const CredentialVerifier = () => {
                       return <QRCode value={link} size={128} />;
                     })()}
                   </div>
-                  <div className="rounded-lg border p-4">
-                    <div className="text-xs text-gray-500 mb-1">Institución</div>
-                    <div className="font-medium">
+                  <div className="rounded-lg border p-4 bg-gray-50">
+                    <div className="text-xs text-gray-500 mb-1 uppercase font-semibold">Institución</div>
+                    <div className="font-medium text-gray-900">
                       {(state.data?.metadata?.attributes || []).find(a => a.trait_type === 'University')?.value}
                     </div>
-                    <div className="mt-2 text-xs text-gray-500 mb-1">Firma</div>
-                    <div className="text-sm break-all">
+                    <div className="mt-2 text-xs text-gray-500 mb-1 uppercase font-semibold">Firma</div>
+                    <div className="text-xs font-mono break-all text-gray-600">
                       {(state.data?.metadata?.attributes || []).find(a => a.trait_type === 'Signature')?.value || 'N/A'}
                     </div>
-                    {(() => {
-                      const props = state.data?.metadata?.properties || {};
-                      const creator = props?.creator || null;
-                      if (!creator) return null;
-                      return (
-                        <div className="mt-2 text-xs text-gray-500">
-                          Creador: <span className="text-gray-700">{String(creator)}</span>
-                        </div>
-                      );
-                    })()}
                   </div>
                 </div>
-                <div className="mt-6 flex items-center justify-center gap-2">
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
                   {(state.data?.ipfsURI || '').startsWith('ipfs://') ? (
-                    <span className="badge badge-success">IPFS</span>
+                    <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200 flex items-center gap-1">
+                      <Database className="w-3 h-3" /> IPFS
+                    </span>
                   ) : (
-                    <span className="badge badge-info">Documento</span>
+                    <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold border border-gray-200">
+                      Documento
+                    </span>
                   )}
-                  <button onClick={() => setDocOpen(true)} className="btn-secondary btn-sm" disabled={!toGateway(state.data?.ipfsURI)}>
+                  <button onClick={() => setDocOpen(true)} className="btn-secondary btn-sm flex items-center gap-2" disabled={!toGateway(state.data?.ipfsURI)}>
+                    <FileText className="w-4 h-4" />
                     Ver documento
                   </button>
-                  <button onClick={handleDownloadPDF} className="btn-primary btn-sm">
+                  <button onClick={handleDownloadPDF} className="btn-primary btn-sm flex items-center gap-2">
+                    <Download className="w-4 h-4" />
                     Descargar diploma
                   </button>
                 </div>
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleReset} className="btn-primary">Verificar otra credencial</button>
+              <button onClick={handleReset} className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium flex items-center gap-2">
+                <RotateCcw className="w-4 h-4" />
+                Verificar otra
+              </button>
             </div>
           </div>
         );
@@ -884,45 +908,65 @@ const CredentialVerifier = () => {
       case 'error':
         return (
           <div className="space-y-4">
-            <div className="card bg-red-50 border-red-200">
-              <div className="flex items-center mb-4">
-                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
-                  <span className="text-red-600 text-xl">✗</span>
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <XCircle className="w-6 h-6 text-red-500" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-red-800 text-lg">{state.mode === 'merkle' ? 'Error en Verificación Merkle' : 'Error en Verificación'}</h3>
-                  <p className="text-red-600 text-sm">{state.mode === 'merkle' ? 'No se pudo validar la prueba' : 'No se pudo validar la credencial'}</p>
+                  <h3 className="font-bold text-red-400 text-lg">{state.mode === 'merkle' ? 'Error en Verificación Merkle' : 'Error en Verificación'}</h3>
+                  <p className="text-red-300/80 text-sm mt-1">{state.mode === 'merkle' ? 'No se pudo validar la prueba' : 'No se pudo validar la credencial'}</p>
                 </div>
               </div>
-              <p className="text-gray-700">{state.error || 'Intenta nuevamente.'}</p>
-              <div className="mt-4 flex space-x-2">
-                <button onClick={handleRetry} className="btn-primary btn-sm">Reintentar</button>
-                <button onClick={handleReset} className="btn-secondary btn-sm">Cancelar</button>
+              <p className="text-slate-300 text-sm bg-[#050505]/50 p-4 rounded-lg border border-red-500/10">{state.error || 'Intenta nuevamente.'}</p>
+              <div className="mt-6 flex gap-3">
+                <button 
+                  onClick={handleRetry} 
+                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors"
+                >
+                  Reintentar
+                </button>
+                <button 
+                  onClick={handleReset} 
+                  className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-sm font-medium transition-colors"
+                >
+                  Cancelar
+                </button>
               </div>
             </div>
 
             {state.mode !== 'merkle' && (
-              <div className="card">
-              <h3 className="font-semibold mb-2">Verificación Manual</h3>
-              <form onSubmit={handleSubmitManual} className="grid grid-cols-1 gap-3 max-w-md mx-auto">
-                <input
-                  type="text"
-                  value={tokenIdInput}
-                  onChange={(e) => setTokenIdInput(e.target.value)}
-                  placeholder="Token ID (ej. 0.0.123456)"
-                  className="input-primary"
-                />
-                <input
-                  type="text"
-                  value={serialInput}
-                  onChange={(e) => setSerialInput(e.target.value)}
-                  placeholder="Serial Number (ej. 1)"
-                  className="input-primary"
-                />
-                <button type="submit" className="btn-primary btn-lg">Abrir Verificación</button>
-              </form>
-              <p className="text-xs text-gray-500 mt-2">Se abrirá una página con el estado en Hedera y el anclaje XRP.</p>
-            </div>
+              <div className="bg-[#050505]/50 p-6 rounded-xl border border-white/5">
+                <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+                  <Search className="w-4 h-4 text-cyan-400" /> Verificación Manual
+                </h3>
+                <form onSubmit={handleSubmitManual} className="space-y-4">
+                  <input
+                    type="text"
+                    value={tokenIdInput}
+                    onChange={(e) => setTokenIdInput(e.target.value)}
+                    placeholder="Token ID (ej. 0.0.123456)"
+                    className="w-full bg-[#0d0d0d] border border-white/10 rounded-lg px-4 py-2 text-slate-200 font-mono text-sm focus:outline-none focus:border-cyan-500/50 transition-colors"
+                  />
+                  <input
+                    type="text"
+                    value={serialInput}
+                    onChange={(e) => setSerialInput(e.target.value)}
+                    placeholder="Serial Number (ej. 1)"
+                    className="w-full bg-[#0d0d0d] border border-white/10 rounded-lg px-4 py-2 text-slate-200 font-mono text-sm focus:outline-none focus:border-cyan-500/50 transition-colors"
+                  />
+                  <button 
+                    type="submit" 
+                    className="w-full py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium transition-colors"
+                  >
+                    Abrir Verificación
+                  </button>
+                </form>
+                <p className="text-xs text-slate-500 mt-3 flex items-center gap-2">
+                  <AlertTriangle className="w-3 h-3" />
+                  Se abrirá una página con el estado en Hedera y el anclaje XRP.
+                </p>
+              </div>
             )}
           </div>
         );
@@ -933,15 +977,14 @@ const CredentialVerifier = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto" style={{ paddingLeft: theme.spacing.sectionPx, paddingRight: theme.spacing.sectionPx, paddingBottom: theme.spacing.sectionPb }}>
-      <h2 className="text-2xl font-bold mb-4 gradient-text">Verificador de Credenciales</h2>
-      <div className="card">
-        <div className="max-w-full overflow-hidden">
+    <div className="max-w-2xl mx-auto w-full">
+      <div className="relative">
+        <div className="max-w-full overflow-hidden rounded-xl border-2 border-dashed border-white/10 bg-[#050505]/50 p-2">
           <QRScanner onScan={handleScan} onError={(msg) => setState({ status: 'error', error: msg })} />
         </div>
-        <div className="mt-6">{renderContent()}</div>
+        <div className="mt-8">{renderContent()}</div>
       </div>
-      <p className="text-xs text-gray-400 mt-4">Escaneos realizados: {scanCount}</p>
+      <p className="text-xs text-slate-500 mt-6 text-center">Escaneos realizados: {scanCount}</p>
       <DocumentViewer open={docOpen} src={toGateway(state.data?.ipfsURI)} title="Documento" onClose={() => setDocOpen(false)} />
     </div>
   );

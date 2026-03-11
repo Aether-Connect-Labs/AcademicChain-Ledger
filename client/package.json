@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "vite --force",
     "build": "vite build",
-    "deploy": "npm run build && npx wrangler pages deploy dist",
-    "deploy:only": "npx wrangler pages deploy dist",
+    "deploy": "npm run build && node deploy.js",
+    "deploy:only": "node deploy.js",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0 || echo lint skipped",
     "test": "jest --passWithNoTests"

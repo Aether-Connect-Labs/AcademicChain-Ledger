@@ -22,7 +22,7 @@ const logToFile = (message) => {
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || "http://localhost:5678/webhook-test/generate-pdf-ipfs";
 const HCS_TOPIC_ID = process.env.HCS_TOPIC_ID || "0.0.4576394";
 
-// 1. Endpoint de Solicitud (Frontend -> Backend -> MultiChain -> Hedera -> n8n/PDF -> Pinata -> DB)
+// 1. Endpoint de Solicitud (Frontend -> Backend -> MultiChain -> Hedera -> n8n/PDF -> Filecoin -> DB)
 exports.certifyStudent = async (req, res) => {
     logToFile("certifyStudent called - PROFESSIONAL FLOW");
     console.log("DEBUG: certifyStudent V3 called");
@@ -87,12 +87,12 @@ exports.certifyStudent = async (req, res) => {
 
         // --- STEP 3 & 4: PDF Generation & IPFS Upload (Delegated to n8n or simulated) ---
         // "dentro del pdf hay un apartado hay va el hash de hedera"
-        // "despues de eso se sube a pinata y se copia el CID"
+        // "despues de eso se sube a filecoin y se copia el CID"
         
         // We need to send the Hedera ID to the PDF generator so it can be embedded in the QR.
         // For this professional implementation, we will assume n8n does the heavy PDF/IPFS lifting
         // and returns the CID via webhook or we await it here if using a sync service.
-        // HOWEVER, user flow says "despues de eso se sube a pinata".
+        // HOWEVER, user flow says "despues de eso se sube a filecoin".
         // Let's call the n8n webhook with the HCS ID.
         
         let ipfsCid = "QmSimulatedCID123456789"; 

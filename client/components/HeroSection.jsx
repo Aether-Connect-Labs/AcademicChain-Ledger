@@ -1,18 +1,84 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowRight, ShieldCheck } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import { motion, useSpring, useScroll, useTransform } from 'framer-motion';
+import { ArrowRight, ShieldCheck, Zap, Activity, Globe, Cpu, Network } from 'lucide-react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import ConnectionService from './services/connectionService';
-import { theme } from './themeConfig';
 
-// Variantes de animación
+// --- Futuristic DNA Animation Component ---
+const DNAStrand = () => {
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
+      <div className="absolute top-[-10%] right-[-10%] w-[70rem] h-[70rem] opacity-20 animate-spin-slow origin-center mix-blend-screen">
+        {[...Array(24)].map((_, i) => (
+          <div
+            key={`strand-1-${i}`}
+            className="absolute top-1/2 left-1/2 w-full h-[1px] bg-gradient-to-r from-cyan-500/0 via-cyan-500/50 to-purple-600/0 transform -translate-x-1/2 -translate-y-1/2"
+            style={{
+              transform: `translate(-50%, -50%) rotate(${i * 7.5}deg) translateY(${Math.sin(i * 0.5) * 120}px)`,
+              opacity: 0.3 + Math.sin(i) * 0.3,
+            }}
+          />
+        ))}
+      </div>
+      <div className="absolute bottom-[-20%] left-[-10%] w-[60rem] h-[60rem] opacity-15 animate-spin-reverse-slow origin-center mix-blend-screen">
+        {[...Array(20)].map((_, i) => (
+          <div
+            key={`strand-2-${i}`}
+            className="absolute top-1/2 left-1/2 w-full h-[1px] bg-gradient-to-r from-emerald-500/0 via-emerald-400/50 to-blue-600/0 transform -translate-x-1/2 -translate-y-1/2"
+            style={{
+              transform: `translate(-50%, -50%) rotate(${i * 9}deg) translateY(${Math.cos(i * 0.5) * 100}px)`,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// --- Cyber Particle System ---
+const ParticleSystem = () => {
+  return (
+    <div className="absolute inset-0 z-0">
+      {[...Array(40)].map((_, i) => (
+        <motion.div
+          key={`particle-${i}`}
+          className="absolute bg-white rounded-full"
+          initial={{
+            x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1000),
+            y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 1000),
+            opacity: 0,
+            scale: 0
+          }}
+          animate={{
+            y: [null, Math.random() * -100],
+            opacity: [0, 0.3, 0],
+            scale: [0, Math.random() * 1.5, 0]
+          }}
+          transition={{
+            duration: Math.random() * 5 + 4,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: Math.random() * 5
+          }}
+          style={{
+            width: Math.random() * 2 + 'px',
+            height: Math.random() * 2 + 'px',
+            boxShadow: '0 0 10px rgba(255, 255, 255, 0.5)'
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+// Animation Variants
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: theme.animations.stagger,
-      delayChildren: theme.animations.stagger,
+      staggerChildren: 0.1,
+      delayChildren: 0.2,
     },
   },
 };
@@ -21,49 +87,60 @@ const itemVariants = {
   hidden: { 
     y: 30, 
     opacity: 0,
-    scale: 0.95
+    filter: "blur(8px)"
   },
   visible: {
     y: 0,
     opacity: 1,
-    scale: 1,
+    filter: "blur(0px)",
     transition: {
       type: "spring",
-      damping: 15,
+      damping: 25,
       stiffness: 100,
-      duration: 0.8
     },
   },
 };
 
-const floatingVariants = {
-  floating: {
-    y: [-10, 10, -10],
-    transition: {
-      duration: 4,
-      repeat: Infinity,
-      ease: "easeInOut"
-    }
-  }
-};
-
 export const HeroSection = () => {
-  // Placeholder para la traducción, se puede reemplazar con un hook de i18next para React
-  const t = (key, defaultValue) => defaultValue;
   const [health, setHealth] = useState(null);
   const [latencyMs, setLatencyMs] = useState(null);
- 
+  const containerRef = useRef(null);
+  
+  // Interactive Title State
+  const mouseX = useSpring(0, { stiffness: 40, damping: 30 });
+  const mouseY = useSpring(0, { stiffness: 40, damping: 30 });
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const { clientX, clientY } = e;
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      mouseX.set((clientX - centerX) / 50);
+      mouseY.set((clientY - centerY) / 50);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [mouseX, mouseY]);
 
   useEffect(() => {
     let mounted = true;
     const fetchHealth = async () => {
       const t0 = Date.now();
-      const { data } = await ConnectionService.fetchWithFallback('/health', { status: 'DEMO', timestamp: new Date().toISOString(), uptime: 0, environment: 'development', memory: { used: 0, total: 0 }, xrpl: { enabled: false }, algorand: { enabled: false }, ipfs: { enabled: false } });
+      const { data } = await ConnectionService.fetchWithFallback('/health', { 
+        status: 'DEMO', 
+        timestamp: new Date().toISOString(), 
+        uptime: 0, 
+        environment: 'development', 
+        memory: { used: 0, total: 0 }, 
+        xrpl: { enabled: false }, 
+        algorand: { enabled: false }, 
+        ipfs: { enabled: false } 
+      });
       const t1 = Date.now();
       if (!mounted) return;
       setLatencyMs(Math.max(0, t1 - t0));
       setHealth(data);
-      
     };
     fetchHealth();
     const id = setInterval(fetchHealth, 10000);
@@ -74,153 +151,150 @@ export const HeroSection = () => {
     const uptimeSec = Number(health?.uptime || 0);
     const uptimeH = Math.floor(uptimeSec / 3600);
     const enabledServices = ['xrpl','algorand','ipfs'].reduce((acc, k) => acc + (health?.[k]?.enabled ? 1 : 0), 0) + 1;
-    const memUsed = health?.memory?.used ? `${health.memory.used} MB` : '--';
     const avgLatency = latencyMs != null ? `${latencyMs} ms` : '--';
+    
     return [
-      { number: `${enabledServices}`, label: 'Servicios activos' },
-      { number: `${uptimeH}h`, label: 'Uptime continuo' },
-      { number: avgLatency, label: 'Respuesta API' },
-      { number: memUsed, label: 'Memoria usada' },
+      { 
+        number: `${enabledServices}`, 
+        label: 'NODES ACTIVE', 
+        icon: <Network size={16} strokeWidth={1} className="text-emerald-400"/>,
+        status: 'online'
+      },
+      { 
+        number: `${uptimeH}h`, 
+        label: 'SYSTEM UPTIME', 
+        icon: <Cpu size={16} strokeWidth={1} className="text-cyan-400"/>,
+        status: 'stable'
+      },
+      { 
+        number: avgLatency, 
+        label: 'GLOBAL LATENCY', 
+        icon: <Activity size={16} strokeWidth={1} className="text-purple-400"/>,
+        status: 'optimized'
+      },
     ];
   }, [health, latencyMs]);
   
   return (
-    <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#020617] via-[#0b1224] to-[#0a0f1f] px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-      {/* Efectos de fondo mejorados */}
-      <div className="absolute inset-0">
-        <div className="absolute top-0 left-0 w-72 h-72 bg-[#0066FF]/12 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute top-1/4 right-0 w-96 h-96 bg-[#0066FF]/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-[#0066FF]/10 rounded-full blur-3xl animate-pulse delay-500"></div>
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_50%,black,transparent)]"></div>
-        <div className="absolute inset-0 opacity-10">
-          <div className="w-full h-1/2 bg-[linear-gradient(90deg,#0066FF_0%,transparent_40%,transparent_60%,#0066FF_100%)] bg-[length:200%_100%] animate-background-shine"></div>
-        </div>
-      </div>
+    <section ref={containerRef} className="relative min-h-screen overflow-hidden bg-[#050505] text-white selection:bg-emerald-500/30">
+      
+      {/* --- Ambient Background --- */}
+      <DNAStrand />
+      <ParticleSystem />
+      
+      {/* Cinematic Glows */}
+      <div className="absolute top-[-20%] left-[-10%] w-[800px] h-[800px] bg-purple-900/10 rounded-full blur-[150px] mix-blend-screen pointer-events-none"></div>
+      <div className="absolute bottom-[-20%] right-[-10%] w-[800px] h-[800px] bg-emerald-900/10 rounded-full blur-[150px] mix-blend-screen pointer-events-none"></div>
+      
+      {/* Cyber Grid Overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:50px_50px] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,black,transparent)] pointer-events-none"></div>
 
-      <div className="relative z-10 max-w-7xl mx-auto pt-20 md:pt-32" style={{ paddingBottom: theme.spacing.sectionPb }}>
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16 flex flex-col justify-center min-h-screen">
         <motion.div 
           variants={containerVariants} 
           initial="hidden" 
           animate="visible"
-          className="text-center"
+          className="text-center max-w-6xl mx-auto"
         >
-          {/* Badge Ecosistema ACL */}
-          <motion.div variants={itemVariants} className="flex justify-center mb-6">
-            <Link to="/status" className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 transition-all duration-300 backdrop-blur-sm group">
-              <ShieldCheck className="text-cyan-400 w-5 h-5" />
-              <span className="text-sm font-medium text-cyan-100 group-hover:text-white transition-colors">Ecosistema ACL</span>
-              <ArrowRight className="text-cyan-400 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          {/* Status Badge */}
+          <motion.div variants={itemVariants} className="flex justify-center mb-10">
+            <Link to="/status" className="group relative inline-flex items-center gap-3 px-5 py-2 rounded-full bg-[#0d0d0d]/40 backdrop-blur-xl border border-white/5 hover:border-emerald-500/30 transition-all duration-300">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+              <span className="text-xs font-mono tracking-[0.2em] text-emerald-100/70 group-hover:text-emerald-100 transition-colors">SYSTEM_OPERATIONAL_V2.4</span>
+              <ShieldCheck size={14} strokeWidth={1} className="text-emerald-500/70 group-hover:text-emerald-500 transition-colors" />
             </Link>
           </motion.div>
 
-          {/* Título principal con efectos mejorados */}
-          <motion.div variants={itemVariants} className="mb-8">
-            <h1 className="text-4xl leading-tight sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight">
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-gray-400 block">
-                {t('hero.title.line1', 'Ecosistema ACL:')}
+          {/* Interactive Hero Title */}
+          <motion.div 
+            variants={itemVariants} 
+            className="mb-10 relative z-20"
+            style={{ x: mouseX, y: mouseY }}
+          >
+            <h1 className="text-6xl sm:text-8xl md:text-9xl font-black tracking-tighter leading-[0.9] select-none">
+              <span className="block text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-slate-500 drop-shadow-2xl">
+                ACADEMIC
               </span>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 block mt-2">
-                {t('hero.title.line2', 'Infraestructura Híbrida de Certificación')}
+              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-cyan-500 to-purple-600 pb-2">
+                CHAIN LEDGER
               </span>
             </h1>
-          </motion.div>
-
-          {/* Subtítulo mejorado */}
-          <motion.div variants={itemVariants} className="mb-10">
-            <p className="text-lg sm:text-xl lg:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed font-light">
-              {t('hero.subtitle', 'Infraestructura con Tecnología Blockchain para la Fe Pública Digital. AcademicChain Ledger es una infraestructura híbrida diseñada para otorgar validez inmutable a las credenciales académicas. No reemplazamos los sistemas institucionales; los potenciamos con una capa de Verdad Criptográfica que garantiza la autenticidad perpetua de cada documento.')}
+            <p className="absolute -bottom-6 left-0 right-0 text-center text-xs font-mono text-white/20 tracking-[1.5em] uppercase hidden sm:block">
+              Immutable • Decentralized • Perpetual
             </p>
-            <motion.div 
-              variants={itemVariants}
-              className="mt-6 text-sm sm:text-base text-cyan-200/90 max-w-3xl mx-auto space-y-4 text-left bg-white/5 p-6 rounded-xl border border-white/10 backdrop-blur-sm"
-            >
-              <p>
-                <strong className="text-cyan-400">Arquitectura Híbrida Operativa:</strong> {t('hero.desc.p1', 'El ACL Engine actúa como un puente técnico, permitiendo que las universidades mantengan la privacidad de sus bases de datos mientras anclan la evidencia de los títulos en redes descentralizadas.')}
-              </p>
-              <p>
-                <strong className="text-cyan-400">Certificación Multichain:</strong> {t('hero.desc.p2', 'Utilizamos un protocolo de consenso distribuido que integra Hedera Hashgraph y XRPL, asegurando que la validación sea redundante, inalterable y de bajo costo.')}
-              </p>
-            </motion.div>
           </motion.div>
 
-          {/* Botones CTA mejorados */}
-          <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-16">
-            <Link to="/verify">
-              <motion.div
-                className="group inline-flex items-center btn-primary px-8 py-4 rounded-2xl text-lg shadow-soft hover-lift"
-              >
-                <span className="relative z-10 flex items-center">
-                  🔍 {t('hero.cta_verify', 'Verificar Título')}
+          {/* Value Proposition */}
+          <motion.div variants={itemVariants} className="mb-16 max-w-3xl mx-auto">
+            <p className="text-xl sm:text-2xl text-slate-400 leading-relaxed font-light">
+              The cryptographic truth layer for global education. 
+              <br className="hidden md:block"/>
+              We empower institutions with <span className="text-emerald-400 font-medium">unbreakable verification</span> infrastructure.
+            </p>
+          </motion.div>
+
+          {/* Action Modules */}
+          <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-center items-center gap-6 mb-24">
+            <Link to="/verify" className="relative group w-full sm:w-auto">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-cyan-600 rounded-xl blur opacity-20 group-hover:opacity-60 transition duration-500"></div>
+              <button className="relative w-full sm:w-auto px-10 py-5 bg-[#0a0a0a] rounded-xl flex items-center justify-between sm:justify-center gap-6 border border-white/10 group-hover:border-white/20 transition-all">
+                <span className="flex items-center gap-3 text-emerald-100 group-hover:text-white transition-colors">
+                  <ShieldCheck size={24} strokeWidth={1} className="text-emerald-500" />
+                  <span className="text-lg font-bold tracking-wide">VERIFY CREDENTIAL</span>
                 </span>
-              </motion.div>
+                <span className="text-emerald-500/50 group-hover:text-emerald-400 transition-colors font-mono text-sm">
+                   // EXECUTE
+                </span>
+              </button>
             </Link>
             
-            <a href="https://calendly.com/academicchain/demo" target="_blank" rel="noreferrer">
-              <motion.div className="group inline-flex items-center justify-center btn-secondary px-8 py-4 rounded-2xl text-lg shadow-soft hover-lift">
-                <span className="flex items-center">
-                  📅 {t('hero.cta_secondary', 'Agendar Demo')}
-                  <ArrowRight className="w-4 h-4 ml-2 transform group-hover:translate-x-1 transition-transform" />
-                </span>
-              </motion.div>
+            <a href="https://calendly.com/academicchain/demo" target="_blank" rel="noreferrer" className="w-full sm:w-auto">
+               <button className="w-full sm:w-auto px-10 py-5 rounded-xl border border-white/5 bg-[#0d0d0d]/40 backdrop-blur-md hover:bg-white/5 transition-all flex items-center justify-center gap-3 text-slate-300 hover:text-white group">
+                  <span className="text-lg font-medium">Book Demo</span>
+                  <ArrowRight size={20} strokeWidth={1} className="group-hover:translate-x-1 transition-transform text-purple-400" />
+               </button>
             </a>
           </motion.div>
 
-          {/* Estadísticas en tiempo real */}
-          <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto mb-16">
-            {liveStats.slice(0,3).map((stat, index) => (
+          {/* Live Stats Grid */}
+          <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+            {liveStats.map((stat, index) => (
               <motion.div
                 key={`${stat.label}-${index}`}
-                variants={floatingVariants}
-                animate="floating"
-                className="text-center p-6 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 hover:border-cyan-500/30 transition-all duration-300 hover-lift"
-                whileHover={{ 
-                  scale: 1.05,
-                  backgroundColor: "rgba(6, 182, 212, 0.1)"
-                }}
-                style={{ animationDelay: `${index * 0.5}s` }}
+                whileHover={{ y: -5 }}
+                className="relative group bg-[#0d0d0d]/40 backdrop-blur-xl border border-white/5 p-6 rounded-2xl overflow-hidden"
               >
-                <div className="text-3xl font-bold text-white mb-1">{stat.number}</div>
-                <div className="text-gray-400 text-sm font-medium">{stat.label}</div>
+                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="relative z-10 flex flex-col items-center gap-3">
+                  <div className="p-3 rounded-full bg-white/5 border border-white/5 group-hover:scale-110 transition-transform duration-500">
+                    {stat.icon}
+                  </div>
+                  <div>
+                    <div className="text-2xl font-mono font-bold text-white tracking-tighter">{stat.number}</div>
+                    <div className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-1">{stat.label}</div>
+                  </div>
+                </div>
               </motion.div>
             ))}
-          </motion.div>
-
-          {/* Trust indicators */}
-          <motion.div variants={itemVariants} className="text-center">
-            <p className="text-gray-500 text-sm uppercase tracking-wider mb-6">
-              {t('hero.trusted_by', 'CON LA CONFIANZA DE INSTITUCIONES LÍDERES')}
-            </p>
-            <div className="flex flex-wrap justify-center items-center gap-8 opacity-60 hover:opacity-100 transition-opacity duration-300">
-              {/* Logos de instituciones - puedes reemplazar con imágenes reales */}
-              {['Universidad', 'Tecnológico', 'Colegio', 'Instituto', 'Academia'].map((institution, index) => (
-                <motion.div
-                  key={institution}
-                  className="text-gray-400 font-semibold text-lg"
-                  whileHover={{ scale: 1.1, color: "#06b6d4" }}
-                >
-                  {institution}
-                </motion.div>
-              ))}
-            </div>
           </motion.div>
         </motion.div>
       </div>
 
-      {/* Scroll indicator */}
+      {/* Scroll Indicator */}
       <motion.div
-        className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
+        className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-3 opacity-30 mix-blend-screen pointer-events-none"
         animate={{
           y: [0, 10, 0],
+          opacity: [0.3, 0.6, 0.3]
         }}
         transition={{
-          duration: 2,
+          duration: 3,
           repeat: Infinity,
           ease: "easeInOut"
         }}
       >
-        <div className="w-6 h-10 border-2 border-cyan-400 rounded-full flex justify-center">
-          <div className="w-1 h-3 bg-cyan-400 rounded-full mt-2"></div>
-        </div>
+        <span className="text-[10px] font-mono tracking-[0.3em] text-white uppercase">Initialize</span>
+        <div className="w-[1px] h-12 bg-gradient-to-b from-white/0 via-white to-white/0"></div>
       </motion.div>
     </section>
   );

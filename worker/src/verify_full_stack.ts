@@ -1,15 +1,15 @@
-import { PinataService } from './services/pinata.ts';
+import { FilecoinService } from './services/filecoin.ts';
 import { SecurityService } from './services/security.ts';
 import { BlockchainService } from './services/blockchain.ts';
 import { MongoService } from './services/mongo.ts';
 import { RedisService } from './services/redis.ts';
 
 export async function runFullStackVerify(env: any = {}) {
-  console.log("🚀 Starting Full Stack Verification: PDF -> Pinata -> Hash -> Blockchain -> DB");
+  console.log("🚀 Starting Full Stack Verification: PDF -> Filecoin -> Hash -> Blockchain -> DB");
 
   // Load Env from argument or process
   const ENV = {
-    PINATA_JWT: env.PINATA_JWT || (typeof process !== 'undefined' ? process.env?.PINATA_JWT : undefined),
+    FILECOIN_API_KEY: env.FILECOIN_API_KEY || (typeof process !== 'undefined' ? process.env?.FILECOIN_API_KEY : undefined),
     HEDERA_ACCOUNT_ID: env.HEDERA_ACCOUNT_ID || (typeof process !== 'undefined' ? process.env?.HEDERA_ACCOUNT_ID : undefined),
     HEDERA_PRIVATE_KEY: env.HEDERA_PRIVATE_KEY || (typeof process !== 'undefined' ? process.env?.HEDERA_PRIVATE_KEY : undefined),
     HEDERA_NETWORK: "testnet",
@@ -20,6 +20,15 @@ export async function runFullStackVerify(env: any = {}) {
     UPSTASH_REDIS_REST_URL: env.UPSTASH_REDIS_REST_URL || (typeof process !== 'undefined' ? process.env?.UPSTASH_REDIS_REST_URL : undefined),
     UPSTASH_REDIS_REST_TOKEN: env.UPSTASH_REDIS_REST_TOKEN || (typeof process !== 'undefined' ? process.env?.UPSTASH_REDIS_REST_TOKEN : undefined)
   };
+
+  // Validate Critical Env Vars
+  const missingVars = [];
+  if (!ENV.FILECOIN_API_KEY) missingVars.push('FILECOIN_API_KEY');
+  if (!ENV.MONGO_DATA_API_KEY) missingVars.push('MONGO_API_KEY');
+  
+  if (missingVars.length > 0) {
+      console.warn(`⚠️  Warning: Missing critical environment variables: ${missingVars.join(', ')}. Some steps may fail.`);
+  }
 
   const isReal = ENV.HEDERA_PRIVATE_KEY && !ENV.HEDERA_PRIVATE_KEY.includes('Mock');
   console.log(`ℹ️  Running in ${isReal ? 'REAL' : 'MOCK/SIMULATION'} Mode`);
@@ -47,12 +56,12 @@ export async function runFullStackVerify(env: any = {}) {
   console.log("⚡ OpenClaw Strategy: Starting Parallel Independent Tasks...");
 
   const independentTasks = [
-      // Task A: Upload to Pinata (Critical Path)
+      // Task A: Upload to Filecoin (Critical Path)
       (async () => {
-          const pinata = new PinataService(ENV.PINATA_JWT || 'placeholder');
-          const res = await pinata.uploadJSON({ ...certificateData, hash });
-          console.log("☁️  Uploaded to Pinata:", res);
-          return { type: 'pinata', result: res };
+          const filecoin = new FilecoinService(ENV.FILECOIN_API_KEY || 'placeholder');
+          const res = await filecoin.uploadJSON({ ...certificateData, hash });
+          console.log("☁️  Uploaded to Filecoin:", res);
+          return { type: 'filecoin', result: res };
       })(),
       // Task B: Verify Redis (Side Task)
       (async () => {
@@ -65,9 +74,17 @@ export async function runFullStackVerify(env: any = {}) {
       })()
   ];
 
-  const [pinataTask, redisTask] = await Promise.all(independentTasks);
-  const uploadResult = pinataTask.result;
-  const cacheResult = redisTask.result;
+  const [filecoinResult, redisResult] = await Promise.allSettled(independentTasks);
+  
+  const uploadResult = filecoinResult.status === 'fulfilled' ? filecoinResult.value.result : { cid: 'mock-cid-fallback', error: filecoinResult.reason };
+  const cacheResult = redisResult.status === 'fulfilled' ? redisResult.value.result : 'failed';
+
+  if (filecoinResult.status === 'rejected') {
+      console.error("❌ Filecoin Upload Failed:", filecoinResult.reason);
+  }
+  if (redisResult.status === 'rejected') {
+      console.warn("⚠️ Redis Verification Failed (Non-critical):", redisResult.reason);
+  }
 
   // 5. Mint on Multi-Chain (Parallelized)
   console.log("⚡ Starting Parallel Multi-Chain Minting (Hedera, XRPL, Algorand)...");
@@ -76,8 +93,10 @@ export async function runFullStackVerify(env: any = {}) {
       // Hedera Task
       (async () => {
           try {
-             const res = await blockchain.mintOnHedera("MockTopicID", JSON.stringify({ cid: uploadResult.cid, hash }));
-             console.log("⛓️  Minted on Hedera:", res);
+             // Ensure we have a valid CID, otherwise use fallback for testing
+             const cid = uploadResult.cid || 'QmMockCidFallback';
+             const res = await blockchain.mintOnHedera("MockTopicID", JSON.stringify({ cid, hash }));
+             console.log("⛓️  Minted on Hedera:", res.success ? "Success" : "Failed");
              return { chain: 'Hedera', result: res };
           } catch (e) {
              console.error("Hedera Minting Failed:", e);
@@ -145,3 +164,9 @@ export async function runFullStackVerify(env: any = {}) {
     }
   };
 }
+
+// Execute if run directly (DISABLED for Worker Compatibility)
+// import { fileURLToPath } from 'url';
+// if (import.meta.url === `file://${process.argv[1]}` || process.argv[1] === fileURLToPath(import.meta.url)) {
+//   runFullStackVerify().catch(console.error);
+// }

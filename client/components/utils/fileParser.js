@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { sanitizeString } from './security';
 
 export const fileParser = {
   parseFile: async (file) => {
@@ -26,7 +27,7 @@ export const fileParser = {
           }
 
           // Extract headers (first row)
-          const headers = jsonData[0].map(h => String(h).trim());
+          const headers = jsonData[0].map(h => sanitizeString(String(h).trim()));
           
           // Map data to objects
           const result = jsonData.slice(1).map(row => {
@@ -35,7 +36,7 @@ export const fileParser = {
               // Handle potential undefined values in row
               let val = row[index];
               if (val === undefined || val === null) val = '';
-              obj[header] = String(val).trim();
+              obj[header] = sanitizeString(String(val).trim());
             });
             return obj;
           });

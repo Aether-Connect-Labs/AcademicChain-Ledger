@@ -36,9 +36,8 @@ if (mode === 'login') {
 
 // Resolve wrangler path from root node_modules
 const wranglerPath = path.resolve(__dirname, '../node_modules/wrangler/bin/wrangler.js');
-const cmd = `"${process.execPath}"`; 
+const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 args.unshift(wranglerPath);
-args = args.map(arg => arg.includes(' ') ? `"${arg}"` : arg);
 
 const isInteractive = mode === 'login' || mode === 'whoami';
 
@@ -57,8 +56,8 @@ console.log(`Qw Executing: ${cmd} ${args.join(' ')}`);
 
 const child = spawn(cmd, args, {
   env: env,
-  stdio: 'pipe', // Change to pipe to capture output
-  shell: true,
+  stdio: 'pipe',
+  shell: false,
   cwd: __dirname
 });
 

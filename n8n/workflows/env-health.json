@@ -42,7 +42,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const has = (v) => typeof v === 'string' && v.trim().length > 0; const payload = { hedera: has($env.HEDERA_OPERATOR_KEY) || has($env.HEDERA_ACCOUNT_PRIVATE_KEY) || false, xrp: has($env.XRP_SEED) || has($env.XRPL_SECRET) || false, algorand: has($env.ALGORAND_MNEMONIC) || has($env.ALGORAND_PRIVATE_KEY) || false, pinata: has($env.PINATA_JWT) || false, acl: has($env.ACL_AUTH_KEY) || false, timestamp: new Date().toISOString() }; return { json: payload };"
+        "jsCode": "const has = (v) => typeof v === 'string' && v.trim().length > 0; const payload = { hedera: has($env.HEDERA_OPERATOR_KEY) || has($env.HEDERA_ACCOUNT_PRIVATE_KEY) || false, xrp: has($env.XRP_SEED) || has($env.XRPL_SECRET) || false, algorand: has($env.ALGORAND_MNEMONIC) || has($env.ALGORAND_PRIVATE_KEY) || false, filecoin: has($env.FILECOIN_API_KEY) || false, acl: has($env.ACL_AUTH_KEY) || false, timestamp: new Date().toISOString() }; return { json: payload };"
       },
       "name": "Compute Env Status",
       "type": "n8n-nodes-base.code",

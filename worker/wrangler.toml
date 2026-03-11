@@ -1,6 +1,6 @@
-name = "academicchain-worker"
+name = "trabajador-de-la-cadena-academica"
 main = "src/index.ts"
-compatibility_date = "2024-04-05"
+compatibility_date = "2024-09-23"
 compatibility_flags = [ "nodejs_compat" ]
 
 # D1 Database Binding
@@ -17,17 +17,20 @@ database_id = "581c6b39-478f-4b86-80da-0c548187b89f"
 
 [vars]
 ENVIRONMENT = "production"
-JWT_SECRET = "acl-secret-key-change-me"
 ACL_AUTH_KEY = "demo-key"
 ALLOWED_ORIGINS = "*"
-# AI Keys
-AI_API_KEY = "AIzaSyA_gZVtl7hXtvMAj8lIbZfGtU5SMY0MtR8"
-
-# Blockchain & Storage Keys (From .dev.vars for prototype deployment)
-PINATA_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiI2YWEzNzc5OC1mZDAyLTQzMTktYWE3NC00Y2I2MWZhZDhjZmMiLCJlbWFpbCI6Indvb29zZWN1cmVAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsInBpbl9wb2xpY3kiOnsicmVnaW9ucyI6W3siZGVzaXJlZFJlcGxpY2F0aW9uQ291bnQiOjEsImlkIjoiRlJBMSJ9LHsiZGVzaXJlZFJlcGxpY2F0aW9uQ291bnQiOjEsImlkIjoiTllDMSJ9XSwidmVyc2lvbiI6MX0sIm1mYV9lbmFibGVkIjpmYWxzZSwic3RhdHVzIjoiQUNUSVZFIn0sImF1dGhlbnRpY2F0aW9uVHlwZSI6InNjb3BlZEtleSIsInNjb3BlZEtleUtleSI6IjcwN2YyZmNkMzhmOGM3ZmNiYmU2Iiwic2NvcGVkS2V5U2VjcmV0IjoiMWVkM2E2MDE4ODM2M2QzMWI4ZmFlNDQzYmU4OTExMTc5NGUyMjBiMDkwNjZmNzY5NWFmMDM1ZDg4ZTg2NGFlNyIsImV4cCI6MTc5NDg1ODA1M30.Wv6cpDcAFU1okBmZoXc7eBXEcOR1MlwLbEvZRodnP7c"
 HEDERA_ACCOUNT_ID = "0.0.7174400"
-HEDERA_PRIVATE_KEY = "0x4673c75820049d694ef09d40d832a4a6598ec3fd58995ed0a76d855221dc0d57"
-XRP_SECRET = "sEd7Aqv6rBSBkJwwCQzkK1o3SyVnJE5"
-ALGORAND_MNEMONIC = "window resemble group drop cruise distance peasant soccer music chimney feature script tongue hammer payment ecology fun vocal gain frown pattern noble lava absorb marble"
-MONGO_API_KEY = "aa6aa5ca-ccf3-4d2f-b7ee-b4dd052cf6b6"
-MONGO_APP_ID = "69057f7544d8e15fcd310b79"
+HEDERA_TOPIC_ID = "0.0.4576384"
+
+# SECRETS NOTE:
+# The following secrets must be set via `wrangler secret put <KEY>` for production:
+# - JWT_SECRET
+# - AI_API_KEY
+# - FILECOIN_API_KEY
+# - HEDERA_PRIVATE_KEY
+# - XRP_SECRET
+# - ALGORAND_MNEMONIC
+# - MONGO_API_KEY
+# - MONGO_APP_ID
+#
+# For local development, these are loaded from .dev.vars (which is git-ignored).

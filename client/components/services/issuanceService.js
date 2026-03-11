@@ -181,30 +181,22 @@ export const issuanceService = {
   },
 
   uploadToIPFS: async (file) => {
-    // 1. Client-side Pinata/IPFS
-    const pinataJwt = import.meta.env.VITE_PINATA_JWT || '';
-    const pinataApiKey = import.meta.env.VITE_PINATA_API_KEY || '';
-    const pinataSecretKey = import.meta.env.VITE_PINATA_SECRET_KEY || '';
+    // 1. Client-side Filecoin (Lighthouse)
+    const filecoinApiKey = import.meta.env.VITE_FILECOIN_API_KEY || '';
 
-    if (pinataJwt || (pinataApiKey && pinataSecretKey)) {
+    if (filecoinApiKey) {
       const fd = new FormData();
       fd.append('file', file);
-      fd.append('pinataMetadata', JSON.stringify({ name: file.name }));
-      fd.append('pinataOptions', JSON.stringify({ cidVersion: 1 }));
-
-      const headers = pinataJwt
-        ? { Authorization: `Bearer ${pinataJwt}` }
-        : { pinata_api_key: pinataApiKey, pinata_secret_api_key: pinataSecretKey };
-
-      const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+      
+      const res = await fetch('https://node.lighthouse.storage/api/v0/add', {
         method: 'POST',
-        headers,
+        headers: { Authorization: `Bearer ${filecoinApiKey}` },
         body: fd
       });
 
-      if (!res.ok) throw new Error('Pinata upload failed');
+      if (!res.ok) throw new Error('Filecoin upload failed');
       const data = await res.json();
-      return `ipfs://${data.IpfsHash}`;
+      return `ipfs://${data.Hash}`;
     } else {
       // Fallback to ipfs-http-client
       const endpoint = import.meta.env.VITE_IPFS_ENDPOINT || 'https://ipfs.infura.io:5001/api/v0';

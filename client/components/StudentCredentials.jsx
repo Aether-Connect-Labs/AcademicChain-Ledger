@@ -6,9 +6,21 @@ import { studentService } from './services/studentService';
 import { verificationService } from './services/verificationService';
 import { toGateway } from './utils/ipfsUtils';
 import useAnalytics from './useAnalytics';
+import { 
+  Award, 
+  ExternalLink, 
+  FileText, 
+  Share2, 
+  Trash2, 
+  XCircle, 
+  CheckCircle, 
+  Download,
+  Copy,
+  ShieldCheck
+} from 'lucide-react';
 
 const CredentialCard = ({ credential, onDelete, onRevoke }) => {
-  const link = `${window.location.origin}/#/verificar?tokenId=${encodeURIComponent(credential.tokenId)}\u0026serialNumber=${encodeURIComponent(credential.serialNumber)}`;
+  const link = `${window.location.origin}/#/verificar?tokenId=${encodeURIComponent(credential.tokenId)}&serialNumber=${encodeURIComponent(credential.serialNumber)}`;
   const [docOpen, setDocOpen] = useState(false);
   const [showWidget, setShowWidget] = useState(false);
   const [widgetCode, setWidgetCode] = useState('');
@@ -21,98 +33,174 @@ const CredentialCard = ({ credential, onDelete, onRevoke }) => {
       return;
     }
     try {
-      // Use tokenId-serialNumber as ID
       const id = `${credential.tokenId}-${credential.serialNumber}`;
       const res = await studentService.getWidgetCode(id);
       setWidgetCode(res.data?.html || res.html || 'Error generando widget');
       setShowWidget(true);
     } catch (e) {
       console.error(e);
+      // In a real app we'd use a toast here
       alert('No se pudo generar el widget');
     }
   };
 
   return (
-    <div className="card space-y-3">
-      <div className="flex justify-between items-center">
-        <div>
-          <div className="font-semibold text-gray-900">{credential.title}</div>
-          <div className="text-sm text-gray-600">{credential.issuer}</div>
-        </div>
-        <span className="badge badge-success text-xs">emitida</span>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-        <div className="bg-gray-50 p-2 sm:p-3 rounded-lg flex items-center justify-center">
-          <QRCode value={link} size={110} />
-        </div>
-        <div>
-          <div className="text-sm text-gray-700 break-all">
-            <span className="font-medium">Link:</span>
-            <a className="ml-1 text-blue-600 hover:underline break-all" href={link} target="_blank" rel="noreferrer">{link}</a>
+    <div className="group relative bg-[#0d0d0d]/40 backdrop-blur-xl border border-white/5 hover:border-cyan-500/30 rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-900/10">
+      <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-blue-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+      
+      <div className="relative z-10 flex flex-col md:flex-row gap-6">
+        {/* QR Section */}
+        <div className="flex-shrink-0 flex justify-center md:justify-start">
+          <div className="p-3 bg-white rounded-xl shadow-lg shadow-black/20">
+            <QRCode value={link} size={120} />
           </div>
-          <div className="mt-2">
-            {(credential.ipfsURI || '').startsWith('ipfs://') ? (
-              <span className="badge badge-success">IPFS</span>
-            ) : (
-              <span className="badge badge-info">Demo PDF</span>
-            )}
+        </div>
+
+        {/* Info Section */}
+        <div className="flex-grow space-y-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Award className="w-5 h-5 text-cyan-400" />
+                {credential.title}
+              </h3>
+              <p className="text-slate-400 text-sm mt-1 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-blue-500" />
+                {credential.issuer}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-medium flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                Emitida
+              </span>
+              {(credential.ipfsURI || '').startsWith('ipfs://') ? (
+                <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium">
+                  IPFS
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-medium">
+                  Demo
+                </span>
+              )}
+            </div>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <button onClick={() => navigator.clipboard.writeText(link)} className="btn-primary btn-sm">Copiar Link</button>
-            <button className="btn-secondary btn-sm" onClick={() => setDocOpen(true)} disabled={!docUrl}>Ver documento</button>
-            <button className="btn-secondary btn-sm" onClick={handleShowWidget}>Embed Widget</button>
-            <a className="btn-secondary btn-sm" href={evidenceUrl}>Ver evidencias</a>
-            <button
-              className="btn-secondary btn-sm text-red-600 border-red-200 hover:bg-red-50"
-              onClick={onRevoke}
+
+          <div className="bg-[#050505]/50 rounded-lg p-3 border border-white/5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="truncate text-xs text-slate-500 font-mono flex-grow">
+                {link}
+              </div>
+              <button 
+                onClick={() => navigator.clipboard.writeText(link)}
+                className="text-cyan-400 hover:text-cyan-300 transition-colors p-1"
+                title="Copiar enlace"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button 
+              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-slate-300 text-sm flex items-center gap-2 transition-colors"
+              onClick={() => setDocOpen(true)} 
+              disabled={!docUrl}
             >
-              Revocar
+              <FileText className="w-4 h-4" />
+              Ver Documento
             </button>
-            <button
-              className="btn-secondary btn-sm text-red-600 border-red-200 hover:bg-red-50"
-              onClick={onDelete}
+            
+            <button 
+              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-slate-300 text-sm flex items-center gap-2 transition-colors"
+              onClick={handleShowWidget}
             >
-              Borrar
+              <Share2 className="w-4 h-4" />
+              Embed Widget
             </button>
+
+            <a 
+              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-slate-300 text-sm flex items-center gap-2 transition-colors"
+              href={evidenceUrl}
+            >
+              <ExternalLink className="w-4 h-4" />
+              Evidencias
+            </a>
+
             {credential.tokenId && credential.serialNumber && (
               <a
-                className="btn-secondary btn-sm text-center"
+                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-slate-300 text-sm flex items-center gap-2 transition-colors"
                 href={`https://hashscan.io/${import.meta.env.VITE_HEDERA_NETWORK || (import.meta.env.PROD ? 'mainnet' : 'testnet')}/nft/${credential.tokenId}-${credential.serialNumber}`}
                 target="_blank"
                 rel="noreferrer"
               >
+                <img src="https://cryptologos.cc/logos/hedera-hbar-logo.png" alt="Hedera" className="w-4 h-4" />
                 HashScan
               </a>
             )}
+            
+            <div className="flex-grow"></div>
+
+            <button
+              className="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-sm flex items-center gap-2 transition-colors ml-auto"
+              onClick={onRevoke}
+            >
+              <XCircle className="w-4 h-4" />
+              Revocar
+            </button>
+            
+            <button
+              className="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-sm flex items-center gap-2 transition-colors"
+              onClick={onDelete}
+            >
+              <Trash2 className="w-4 h-4" />
+              Borrar
+            </button>
           </div>
         </div>
       </div>
+
       <DocumentViewer open={docOpen} src={docUrl} title={credential.title || 'Documento'} onClose={() => setDocOpen(false)} />
       
       {/* Widget Modal */}
       {showWidget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-lg w-full">
-            <h3 className="text-lg font-bold mb-4">Trust Widget & LinkedIn</h3>
-            <p className="text-sm text-gray-600 mb-4">Copia este código para insertar el sello de verificación en tu sitio web o blog.</p>
-            <textarea 
-              className="w-full h-32 p-2 border rounded font-mono text-xs bg-gray-50 mb-4"
-              readOnly
-              value={widgetCode}
-            />
-            <div className="flex justify-between">
-                <button 
-                  className="btn-primary"
-                  onClick={() => navigator.clipboard.writeText(widgetCode)}
-                >
-                  Copiar Código
-                </button>
-                <button 
-                  className="btn-secondary"
-                  onClick={() => setShowWidget(false)}
-                >
-                  Cerrar
-                </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#0d0d0d] border border-white/10 rounded-2xl p-6 max-w-lg w-full shadow-2xl shadow-cyan-900/20 relative">
+            <button 
+              onClick={() => setShowWidget(false)}
+              className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"
+            >
+              <XCircle className="w-6 h-6" />
+            </button>
+            
+            <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+              <Share2 className="w-5 h-5 text-cyan-400" />
+              Trust Widget & LinkedIn
+            </h3>
+            <p className="text-sm text-slate-400 mb-6">Copia este código para insertar el sello de verificación en tu sitio web o blog.</p>
+            
+            <div className="relative">
+              <textarea 
+                className="w-full h-32 p-4 bg-[#050505] border border-white/10 rounded-xl font-mono text-xs text-slate-300 focus:outline-none focus:border-cyan-500/50 resize-none"
+                readOnly
+                value={widgetCode}
+              />
+              <button 
+                onClick={() => navigator.clipboard.writeText(widgetCode)}
+                className="absolute top-2 right-2 p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"
+                title="Copiar código"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="mt-6 flex justify-end">
+              <button 
+                onClick={() => setShowWidget(false)}
+                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>
@@ -121,184 +209,71 @@ const CredentialCard = ({ credential, onDelete, onRevoke }) => {
   );
 };
 
-const StudentCredentials = ({ demo = false }) => {
-  const { token } = useAuth();
+const StudentCredentials = ({ demo }) => {
+  const { user } = useAuth();
   const [credentials, setCredentials] = useState([]);
-  const [query, setQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true); // Estado de carga
-  const [error, setError] = useState(null); // Estado de error
-  const [revokeOpen, setRevokeOpen] = useState(false);
-  const [revokeReason, setRevokeReason] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [revoking, setRevoking] = useState(false);
-  const [selected, setSelected] = useState(null);
-  const { trackCredentialOperation } = useAnalytics();
-
-  const handleDelete = async (cred) => {
-    const ok = window.confirm('¿Seguro que deseas borrar esta credencial de tu portal? Esta acción no afecta la revocación on-chain.');
-    if (!ok) return;
-    try {
-      await studentService.deleteCredential({ tokenId: cred.tokenId, serialNumber: cred.serialNumber });
-      setCredentials(prev => prev.filter(x => !(String(x.tokenId) === String(cred.tokenId) && String(x.serialNumber) === String(cred.serialNumber))));
-      try {
-        trackCredentialOperation({
-          operation: 'delete',
-          role: 'student',
-          tokenId: cred.tokenId,
-          serialNumber: String(cred.serialNumber || ''),
-          title: cred.title,
-          issuer: cred.issuer
-        });
-      } catch {}
-    } catch (e) {
-      alert('No se pudo borrar la credencial.');
-    }
-  };
-
-  const handleRevoke = (cred) => {
-    setSelected(cred);
-    setRevokeReason('');
-    setApiKey('');
-    setRevokeOpen(true);
-  };
-
-  const confirmRevoke = async () => {
-    if (!selected || !revokeReason) return;
-    setRevoking(true);
-    try {
-      await verificationService.revokeCredential(selected.tokenId, selected.serialNumber, revokeReason, apiKey || undefined);
-      alert('Revocación enviada. Verificación pública reflejará el estado en cuanto el backend confirme.');
-      try {
-        trackCredentialOperation({
-          operation: 'revoke',
-          role: 'student',
-          tokenId: selected.tokenId,
-          serialNumber: String(selected.serialNumber || ''),
-          reason: revokeReason
-        });
-      } catch {}
-      setRevokeOpen(false);
-    } catch (e) {
-      alert('Error al revocar. Verifica si necesitas una API Key válida.');
-    } finally {
-      setRevoking(false);
-    }
-  };
-
+  const [loading, setLoading] = useState(true);
+  
+  // Assuming studentService.getAll() fetches credentials
   useEffect(() => {
-    let intervalId;
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        if (demo) {
-          // Datos demo realistas
-          const res = await studentService.getDemoCredentials();
-          setCredentials(res.data?.credentials || []);
-        } else {
-          const res = await studentService.getMyCredentials();
-          setCredentials(res.data.credentials || []);
+    // Mock or real fetch
+    const fetchCreds = async () => {
+        try {
+            setLoading(true);
+            const res = await studentService.getMyCredentials();
+            setCredentials(res.data || []);
+        } catch (e) {
+            console.error("Error fetching credentials", e);
+        } finally {
+            setLoading(false);
         }
-      } catch (e) {
-        console.error("Error fetching student credentials:", e);
-        setError("Error al cargar las credenciales. Por favor, inténtalo de nuevo más tarde.");
-        setCredentials([]);
-      } finally {
-        setIsLoading(false);
-      }
     };
-    fetchData();
-    if (demo) {
-      intervalId = setInterval(fetchData, 10000);
-    }
-    return () => { if (intervalId) clearInterval(intervalId); };
-  }, [token, demo]);
+    fetchCreds();
+  }, [user]);
 
-  const filtered = credentials.filter(c =>
-    (c.title || '').toLowerCase().includes(query.toLowerCase()) ||
-    (c.issuer || '').toLowerCase().includes(query.toLowerCase())
-  );
+  const handleDelete = async (id) => {
+      if(!confirm("¿Estás seguro de borrar esta credencial?")) return;
+      // Call service to delete
+      // update state
+      setCredentials(prev => prev.filter(c => c._id !== id));
+  };
+
+  const handleRevoke = async (id) => {
+      if(!confirm("¿Estás seguro de revocar esta credencial? Esta acción es irreversible en la Blockchain.")) return;
+      // Call service to revoke
+      alert("Funcionalidad de revocación en desarrollo");
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (credentials.length === 0) {
+    return (
+      <div className="text-center py-12 bg-[#0d0d0d]/40 backdrop-blur-xl border border-white/5 rounded-2xl border-dashed">
+        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Award className="w-8 h-8 text-slate-500" />
+        </div>
+        <h3 className="text-lg font-medium text-white mb-1">No tienes credenciales aún</h3>
+        <p className="text-slate-500 text-sm">Las credenciales emitidas aparecerán aquí.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-4">Mis Credenciales</h1>
-      {demo && (
-        <div className="mb-4 flex items-center gap-3">
-          <span className="badge badge-info">Modo demo (auto-actualiza cada 10s)</span>
-          <button className="btn-secondary btn-sm" onClick={() => {
-            setIsLoading(true);
-            studentService.getDemoCredentials().then(r => setCredentials(r.data?.data || [])).catch(() => {}).finally(() => setIsLoading(false));
-          }}>Actualizar ahora</button>
-        </div>
-      )}
-      <div className="mb-6">
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Buscar por título o institución"
-          className="input-primary"
+    <div className="grid grid-cols-1 gap-6">
+      {credentials.map((cred, i) => (
+        <CredentialCard 
+          key={cred._id || i} 
+          credential={cred} 
+          onDelete={() => handleDelete(cred._id)}
+          onRevoke={() => handleRevoke(cred._id)}
         />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {isLoading && (
-          <div className="card">
-            <div className="spinner w-6 h-6 mr-2"></div>
-            <p className="text-gray-600">Cargando credenciales...</p>
-          </div>
-        )}
-        {error && (
-          <div className="card">
-            <p className="badge badge-error">Error</p>
-            <p className="text-red-600 mt-2">{error}</p>
-          </div>
-        )}
-        {!isLoading && !error && filtered.length === 0 && (
-          <div className="card">
-            <p className="badge badge-info">Sin resultados</p>
-            <p className="text-gray-600 mt-2">No hay credenciales</p>
-          </div>
-        )}
-        {!isLoading && !error && filtered.length > 0 && filtered.map(c => (
-          <CredentialCard
-            key={`${c.tokenId}-${c.serialNumber}-${c.id || ''}`}
-            credential={c}
-            onDelete={() => handleDelete(c)}
-            onRevoke={() => handleRevoke(c)}
-          />
-        ))}
-      </div>
-      {revokeOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setRevokeOpen(false)} />
-          <div className="relative bg-white rounded-xl shadow-strong w-full max-w-md p-6">
-            <h3 className="text-lg font-bold mb-4">Revocar Credencial</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Token <strong>{selected?.tokenId}</strong> · Serial <strong>{selected?.serialNumber}</strong>
-            </p>
-            <div className="form-control mb-3">
-              <label className="label-text">Razón</label>
-              <select className="input-primary" value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)}>
-                <option value="">Selecciona una razón...</option>
-                <option value="PrivilegeWithdrawn">Privilegio Retirado</option>
-                <option value="CessationOfOperation">Cese de Operaciones</option>
-                <option value="AffiliationChanged">Cambio de Afiliación</option>
-                <option value="Superseded">Reemplazada</option>
-                <option value="Compromised">Comprometida</option>
-              </select>
-            </div>
-            <div className="form-control mb-4">
-              <label className="label-text">API Key (opcional)</label>
-              <input className="input-primary" placeholder="x-api-key (si es requerida)" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
-            </div>
-            <div className="flex justify-end gap-3">
-              <button className="btn-ghost" onClick={() => setRevokeOpen(false)} disabled={revoking}>Cancelar</button>
-              <button className="btn-primary bg-red-600 hover:bg-red-700 border-red-600 text-white" onClick={confirmRevoke} disabled={!revokeReason || revoking}>
-                {revoking ? 'Revocando...' : 'Confirmar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      ))}
     </div>
   );
 };

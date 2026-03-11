@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scan, Upload, Search, FileText, CheckCircle, XCircle, Camera, Shield, Lock, MapPin } from 'lucide-react';
+import { Scan, Upload, Search, FileText, CheckCircle, XCircle, Camera, Shield, Lock, MapPin, Briefcase, UserCheck, Award, Zap, ChevronRight, Download, Filter } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import apiService from './services/apiService';
 import { toast, Toaster } from 'react-hot-toast';
@@ -43,12 +43,12 @@ const EmployerDashboard = () => {
 
   // Quick filters for Smart Matching
   const smartFilters = [
-      { id: 'solidity', label: 'Solidity', icon: '⚡' },
-      { id: 'security', label: 'Ciberseguridad', icon: '🔒' },
-      { id: 'defi', label: 'DeFi', icon: '💸' },
-      { id: 'react', label: 'React / Frontend', icon: '🎨' },
-      { id: 'verified', label: 'Verificación de Identidad', icon: '✅' },
-      { id: 'smart-match', label: 'IA Smart Match', icon: '🧠', special: true }
+      { id: 'solidity', label: 'Solidity', icon: <Zap size={14} strokeWidth={1} /> },
+      { id: 'security', label: 'Ciberseguridad', icon: <Lock size={14} strokeWidth={1} /> },
+      { id: 'defi', label: 'DeFi', icon: <Award size={14} strokeWidth={1} /> },
+      { id: 'react', label: 'React / Frontend', icon: <Briefcase size={14} strokeWidth={1} /> },
+      { id: 'verified', label: 'Verificación de Identidad', icon: <UserCheck size={14} strokeWidth={1} /> },
+      { id: 'smart-match', label: 'IA Smart Match', icon: <Zap size={14} strokeWidth={1} />, special: true }
   ];
 
   const handleJobDescriptionUpload = (e) => {
@@ -153,8 +153,9 @@ const EmployerDashboard = () => {
           icon: '💎',
           style: {
               borderRadius: '10px',
-              background: '#333',
+              background: '#0d0d0d',
               color: '#fff',
+              border: '1px solid rgba(255,255,255,0.1)',
           },
       });
       setTimeout(() => navigate('/precios?tab=employers'), 1500);
@@ -168,18 +169,18 @@ const EmployerDashboard = () => {
         
         // Success Toast with Sound Effect Visuals
         toast.custom((t) => (
-            <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-slate-900 shadow-2xl rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 border border-green-500`}>
+            <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-[#0d0d0d]/90 backdrop-blur-xl shadow-2xl rounded-lg pointer-events-auto flex ring-1 ring-white/10 border border-emerald-500/50`}>
                 <div className="flex-1 w-0 p-4">
                     <div className="flex items-start">
                         <div className="flex-shrink-0 pt-0.5">
-                            <CheckCircle className="h-10 w-10 text-green-500" />
+                            <CheckCircle className="h-10 w-10 text-emerald-500" strokeWidth={1} />
                         </div>
                         <div className="ml-3 flex-1">
                             <p className="text-sm font-medium text-white">
                                 ¡Contratación Exitosa!
                             </p>
                             <p className="mt-1 text-sm text-slate-400">
-                                Has validado y contratado a <span className="text-blue-400 font-bold">{talent.name}</span>.
+                                Has validado y contratado a <span className="text-emerald-400 font-bold">{talent.name}</span>.
                             </p>
                             <p className="mt-1 text-xs text-slate-500">
                                 Notificación enviada a la institución emisora.
@@ -510,15 +511,22 @@ const EmployerDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-white pt-24 pb-12 px-4">
-      <Toaster position="top-center" />
+    <div className="min-h-screen bg-[#050505] text-slate-100 font-sans selection:bg-emerald-500/30 pt-24 pb-12 px-4">
+      <Toaster position="top-center" toastOptions={{
+          style: {
+            background: 'rgba(13, 13, 13, 0.8)',
+            color: '#fff',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+          },
+        }} />
       
       {/* Top Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0F172A]/90 backdrop-blur-md border-b border-slate-800 h-16 px-6 flex items-center justify-between shadow-lg">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0d0d0d]/80 backdrop-blur-xl border-b border-white/5 h-16 px-6 flex items-center justify-between shadow-2xl">
           <div className="flex items-center gap-4">
               {/* Logo Upload */}
               <div className="relative group w-10 h-10">
-                  <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-600 overflow-hidden flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center">
                       <img src={employerLogo} alt="Employer logo" className="w-full h-full object-cover" />
                   </div>
                   <label className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
@@ -535,7 +543,7 @@ const EmployerDashboard = () => {
                       onChange={(e) => setEmployerName(e.target.value)}
                       onBlur={() => setIsEditingName(false)}
                       onKeyDown={(e) => e.key === 'Enter' && setIsEditingName(false)}
-                      className="bg-slate-800 border border-slate-600 text-white rounded px-2 py-1 text-sm font-bold focus:border-blue-500 outline-none"
+                      className="bg-white/5 border border-white/10 text-white rounded px-2 py-1 text-sm font-bold focus:border-emerald-500 outline-none"
                       autoFocus
                   />
               ) : (
@@ -543,19 +551,19 @@ const EmployerDashboard = () => {
                       className="group flex items-center gap-2 cursor-pointer"
                       onClick={() => setIsEditingName(true)}
                   >
-                      <h1 className="text-lg font-bold font-display text-white group-hover:text-blue-400 transition-colors">{employerName}</h1>
+                      <h1 className="text-lg font-bold font-display text-white group-hover:text-emerald-400 transition-colors">{employerName}</h1>
                       <span className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">✏️</span>
                   </div>
               )}
           </div>
 
           <div className="flex items-center gap-4">
-               <span className="hidden md:flex items-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700">
-                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+               <span className="hidden md:flex items-center gap-2 text-xs font-medium text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/10">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                     Vista Empleador
                </span>
-               <button onClick={() => navigate('/precios?tab=employers')} className="hidden md:flex items-center gap-2 btn-primary text-xs px-3 py-1.5">
-                    <Shield size={14} />
+               <button onClick={() => navigate('/precios?tab=employers')} className="hidden md:flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg border border-emerald-500/20 transition-all text-xs font-bold">
+                    <Shield size={14} strokeWidth={1} />
                     <span>Mejorar Plan</span>
                </button>
                <Link to="/" className="text-xs font-bold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 px-3 py-1.5 rounded-lg transition-all">
@@ -566,16 +574,13 @@ const EmployerDashboard = () => {
 
       <div className="max-w-6xl mx-auto">
         
-        {/* Simulation Banner - Removed as it's now in top bar / redundant */}
-
         {/* Simplified Header */}
         <header className="mb-10 flex flex-col md:flex-row items-center justify-between gap-6 max-w-6xl mx-auto px-4">
             <div className="flex items-center gap-4">
-                {/* Branding moved to Top Bar, keeping simplified welcome or stats here if needed, or removing */}
                 <div>
-                    <h2 className="text-2xl font-bold font-display mb-1">Bienvenido, {employerName}</h2>
+                    <h2 className="text-2xl font-bold font-display mb-1 text-white">Bienvenido, {employerName}</h2>
                     <div className="flex items-center gap-2 text-slate-400 text-sm">
-                        <span className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded text-xs font-bold border border-blue-500/20">EMPRESA VERIFICADA</span>
+                        <span className="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded text-xs font-bold border border-emerald-500/20">EMPRESA VERIFICADA</span>
                         <span>•</span>
                         <span>Portal de Gestión de Talento</span>
                     </div>
@@ -588,30 +593,30 @@ const EmployerDashboard = () => {
             <div className="md:col-span-1 space-y-2">
                 <button 
                     onClick={() => { setActiveTab('scan'); reset(); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'scan' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800'}`}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${activeTab === 'scan' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-[#0d0d0d]/40 text-slate-400 border-white/5 hover:bg-white/5 hover:text-white'}`}
                 >
-                    <Scan size={20} />
+                    <Scan size={20} strokeWidth={1} />
                     <span className="font-medium">Escanear QR</span>
                 </button>
                 <button 
                     onClick={() => { setActiveTab('search'); reset(); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'search' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800'}`}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${activeTab === 'search' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-[#0d0d0d]/40 text-slate-400 border-white/5 hover:bg-white/5 hover:text-white'}`}
                 >
-                    <Search size={20} />
+                    <Search size={20} strokeWidth={1} />
                     <span className="font-medium">Buscar Talento</span>
                 </button>
                 <button 
                     onClick={() => { setActiveTab('cv-validation'); reset(); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'cv-validation' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800'}`}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${activeTab === 'cv-validation' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-[#0d0d0d]/40 text-slate-400 border-white/5 hover:bg-white/5 hover:text-white'}`}
                 >
-                    <FileText size={20} />
+                    <FileText size={20} strokeWidth={1} />
                     <span className="font-medium">Validar CV Externo</span>
                 </button>
             </div>
 
             {/* Main Content */}
             <div className="md:col-span-3">
-                <div className="glass-panel p-8 min-h-[500px] relative overflow-hidden">
+                <div className="bg-[#0d0d0d]/40 backdrop-blur-xl border border-white/5 rounded-2xl p-8 min-h-[500px] relative overflow-hidden">
                     <AnimatePresence mode="wait">
                         {activeTab === 'scan' && (
                             <motion.div 
@@ -621,22 +626,25 @@ const EmployerDashboard = () => {
                                 exit={{ opacity: 0, y: -10 }}
                                 className="h-full flex flex-col items-center"
                             >
-                                <h2 className="text-xl font-bold mb-6">Escáner de Credenciales</h2>
+                                <h2 className="text-xl font-bold mb-6 text-white flex items-center gap-2">
+                                    <Scan size={24} className="text-emerald-500" strokeWidth={1} />
+                                    Escáner de Credenciales
+                                </h2>
                                 {!scanResult && bulkResults.length === 0 ? (
-                                    <div className="w-full max-w-md bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-700 relative group">
-                                        <div id="reader" className="w-full h-[300px] bg-slate-900 flex items-center justify-center">
+                                    <div className="w-full max-w-md bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 relative group">
+                                        <div id="reader" className="w-full h-[300px] bg-[#050505] flex items-center justify-center">
                                             {!isScanning && (
-                                                <div className="text-slate-500 flex flex-col items-center gap-4">
-                                                    <Camera size={48} className="opacity-50" />
+                                                <div className="text-slate-600 flex flex-col items-center gap-4">
+                                                    <Camera size={48} className="opacity-50" strokeWidth={1} />
                                                     <p>Cámara inactiva</p>
                                                 </div>
                                             )}
                                         </div>
                                         
                                         {/* Scanner Overlay */}
-                                        <div className="absolute inset-0 pointer-events-none border-[20px] border-slate-900/50 rounded-2xl z-10">
-                                            <div className="w-full h-full border-2 border-blue-500/50 rounded-lg relative overflow-hidden">
-                                                <div className="absolute top-0 left-0 w-full h-1 bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,1)] animate-scan-line"></div>
+                                        <div className="absolute inset-0 pointer-events-none border-[20px] border-[#050505]/80 rounded-2xl z-10">
+                                            <div className="w-full h-full border-2 border-emerald-500/50 rounded-lg relative overflow-hidden">
+                                                <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,1)] animate-scan-line"></div>
                                             </div>
                                         </div>
 
@@ -644,13 +652,13 @@ const EmployerDashboard = () => {
                                         <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-4 z-20 px-4">
                                             <button 
                                                 onClick={startScanner}
-                                                className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-blue-900/50 flex items-center gap-2 transition-all"
+                                                className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-emerald-900/50 flex items-center gap-2 transition-all"
                                             >
-                                                <Camera size={18} />
+                                                <Camera size={18} strokeWidth={1} />
                                                 <span>Iniciar Cámara</span>
                                             </button>
-                                            <label className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-bold shadow-lg border border-slate-600 cursor-pointer flex items-center gap-2 transition-all">
-                                                <Upload size={18} />
+                                            <label className="bg-[#1a1a1a] hover:bg-[#252525] text-white px-4 py-2 rounded-lg font-bold shadow-lg border border-white/10 cursor-pointer flex items-center gap-2 transition-all">
+                                                <Upload size={18} strokeWidth={1} />
                                                 <span>Subir (Masivo)</span>
                                                 <input 
                                                     type="file" 
@@ -665,21 +673,21 @@ const EmployerDashboard = () => {
                                 ) : bulkResults.length > 0 ? (
                                     <div className="w-full max-w-4xl">
                                         <div className="flex justify-between items-center mb-6">
-                                            <h3 className="text-xl font-bold">Resultados del Escaneo Masivo</h3>
-                                            <button onClick={reset} className="btn-secondary text-sm">
+                                            <h3 className="text-xl font-bold text-white">Resultados del Escaneo Masivo</h3>
+                                            <button onClick={reset} className="text-sm px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors border border-white/10">
                                                 Escanear otros
                                             </button>
                                         </div>
                                         <div className="grid md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                                             {bulkResults.map((res) => (
-                                                <div key={res.id} className={`p-4 rounded-xl border ${res.status === 'success' ? 'bg-slate-900/50 border-slate-700' : 'bg-red-900/10 border-red-900/30'}`}>
+                                                <div key={res.id} className={`p-4 rounded-xl border ${res.status === 'success' ? 'bg-[#0d0d0d]/60 border-emerald-500/30' : 'bg-red-900/10 border-red-500/30'}`}>
                                                     <div className="flex justify-between items-start mb-2">
                                                         <div className="flex items-center gap-2">
-                                                            <FileText size={16} className="text-slate-400" />
+                                                            <FileText size={16} className="text-slate-400" strokeWidth={1} />
                                                             <span className="text-sm font-medium text-slate-300 truncate max-w-[150px]" title={res.fileName}>{res.fileName}</span>
                                                         </div>
                                                         {res.status === 'success' ? (
-                                                            <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20">Detectado</span>
+                                                            <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">Detectado</span>
                                                         ) : (
                                                             <span className="text-xs bg-red-500/10 text-red-400 px-2 py-0.5 rounded border border-red-500/20">Error</span>
                                                         )}
@@ -688,14 +696,14 @@ const EmployerDashboard = () => {
                                                     {res.status === 'success' && res.verification ? (
                                                         <div className="space-y-2">
                                                             <div className="flex items-center gap-2">
-                                                                <div className={`w-2 h-2 rounded-full ${res.verification.valid ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                                                                <div className={`w-2 h-2 rounded-full ${res.verification.valid ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
                                                                 <span className="font-bold text-white">{res.verification.data.title}</span>
                                                             </div>
-                                                            <div className="text-xs text-slate-400 bg-black/30 p-2 rounded">
+                                                            <div className="text-xs text-slate-400 bg-black/30 p-2 rounded border border-white/5">
                                                                 <p><span className="text-slate-500">Estudiante:</span> {res.verification.data.student}</p>
                                                                 <p><span className="text-slate-500">Emisor:</span> {res.verification.data.issuer}</p>
                                                                 {res.verification.data.tokenId && (
-                                                                    <p className="mt-1 font-mono text-blue-400 truncate">ID: {res.verification.data.tokenId}</p>
+                                                                    <p className="mt-1 font-mono text-emerald-400 truncate">ID: {res.verification.data.tokenId}</p>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -707,18 +715,18 @@ const EmployerDashboard = () => {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="text-center bg-slate-900/50 p-8 rounded-2xl border border-slate-700 max-w-md w-full">
-                                        <CheckCircle size={64} className="text-green-500 mx-auto mb-6" />
+                                    <div className="text-center bg-[#0d0d0d]/60 p-8 rounded-2xl border border-white/10 max-w-md w-full">
+                                        <CheckCircle size={64} className="text-emerald-500 mx-auto mb-6" strokeWidth={1} />
                                         <h3 className="text-2xl font-bold text-white mb-2">Código Detectado</h3>
-                                        <div className="bg-black/30 p-4 rounded-xl border border-slate-800 mb-6 break-all font-mono text-sm text-blue-400">
+                                        <div className="bg-black/30 p-4 rounded-xl border border-white/10 mb-6 break-all font-mono text-sm text-emerald-400">
                                             {scanResult}
                                         </div>
                                         <div className="flex gap-3 justify-center">
-                                            <button onClick={reset} className="btn-secondary">
+                                            <button onClick={reset} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors border border-white/10">
                                                 Escanear otro
                                             </button>
                                             {verificationResult?.valid && (
-                                                 <button onClick={() => setVerificationResult(verificationResult)} className="btn-primary">
+                                                 <button onClick={() => setVerificationResult(verificationResult)} className="px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 transition-colors border border-emerald-500/30 font-bold">
                                                     Ver Detalles
                                                  </button>
                                             )}
@@ -740,18 +748,18 @@ const EmployerDashboard = () => {
                                 className="h-full flex flex-col"
                             >
                                 <div className="text-center mb-8">
-                                    <h2 className="text-2xl font-bold mb-2">Buscador de Talento Verificado</h2>
+                                    <h2 className="text-2xl font-bold mb-2 text-white">Buscador de Talento Verificado</h2>
                                     <p className="text-slate-400">Accede a una base de datos global de profesionales certificados.</p>
                                 </div>
 
                                 <div className="w-full max-w-2xl mx-auto mb-4 relative">
-                                    <Search className="absolute left-4 top-3.5 text-slate-500" size={20} />
+                                    <Search className="absolute left-4 top-3.5 text-slate-500" size={20} strokeWidth={1} />
                                     <input 
                                         type="text" 
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         placeholder="Ej: Desarrollador Solidity, Arquitecto Hedera..." 
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-12 pr-4 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-lg"
+                                        className="w-full bg-[#050505] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:border-emerald-500 outline-none transition-all shadow-lg"
                                     />
                                 </div>
 
@@ -763,8 +771,8 @@ const EmployerDashboard = () => {
                                             onClick={() => setActiveFilter(activeFilter === filter.id ? null : filter.id)}
                                             className={`text-xs px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 relative ${
                                                 activeFilter === filter.id 
-                                                ? (filter.special ? 'bg-purple-500/20 border-purple-500 text-purple-300' : 'bg-blue-500/20 border-blue-500 text-blue-300')
-                                                : (filter.special ? 'bg-purple-900/20 border-purple-800 text-purple-400 hover:border-purple-500' : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-500')
+                                                ? (filter.special ? 'bg-purple-500/20 border-purple-500 text-purple-300' : 'bg-emerald-500/20 border-emerald-500 text-emerald-300')
+                                                : (filter.special ? 'bg-purple-900/10 border-purple-800/50 text-purple-400 hover:border-purple-500' : 'bg-white/5 border-white/10 text-slate-400 hover:border-emerald-500/50 hover:text-white')
                                             }`}
                                         >
                                             <span>{filter.icon}</span>
@@ -779,8 +787,8 @@ const EmployerDashboard = () => {
                                     ))}
                                     
                                     {/* Upload Job Description Button */}
-                                    <label className="text-xs px-3 py-1.5 rounded-full border border-dashed border-slate-600 bg-slate-900/30 text-slate-400 hover:border-slate-400 hover:text-white cursor-pointer transition-all flex items-center gap-1.5">
-                                        <Upload size={12} />
+                                    <label className="text-xs px-3 py-1.5 rounded-full border border-dashed border-slate-600 bg-white/5 text-slate-400 hover:border-emerald-400 hover:text-emerald-400 cursor-pointer transition-all flex items-center gap-1.5">
+                                        <Upload size={12} strokeWidth={1} />
                                         <span>Subir Cargo (PDF)</span>
                                         <input type="file" accept=".pdf" className="hidden" onChange={handleJobDescriptionUpload} />
                                     </label>
@@ -808,7 +816,7 @@ const EmployerDashboard = () => {
                                         
                                         return matchesSearch;
                                     }).map(talent => (
-                                        <div key={talent.id} className="bg-slate-950/50 border border-slate-800 rounded-xl p-5 hover:border-blue-500/30 transition-all group relative overflow-hidden">
+                                        <div key={talent.id} className="bg-[#0d0d0d]/60 border border-white/5 rounded-xl p-5 hover:border-emerald-500/30 transition-all group relative overflow-hidden">
                                             {/* Network Badge Background */}
                                             <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none">
                                                  <img src="https://cryptologos.cc/logos/hedera-hashgraph-hbar-logo.png?v=026" className="w-24 h-24 grayscale" />
@@ -816,12 +824,12 @@ const EmployerDashboard = () => {
 
                                             <div className="flex justify-between items-start mb-3 relative z-10">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center font-bold text-slate-400 border border-slate-600 relative group/avatar cursor-help">
+                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-800 to-black flex items-center justify-center font-bold text-slate-400 border border-white/10 relative group/avatar cursor-help">
                                                         {talent.name.charAt(0)}
                                                         
                                                         {/* Hover Trajectory Popup */}
-                                                        <div className="absolute left-12 top-0 bg-slate-900 border border-slate-700 rounded-lg p-3 w-64 shadow-xl opacity-0 group-hover/avatar:opacity-100 transition-opacity pointer-events-none z-50">
-                                                            <h4 className="text-xs font-bold text-slate-300 mb-2 border-b border-slate-800 pb-1">Trayectoria Verificada</h4>
+                                                        <div className="absolute left-12 top-0 bg-[#0d0d0d] border border-white/10 rounded-lg p-3 w-64 shadow-xl opacity-0 group-hover/avatar:opacity-100 transition-opacity pointer-events-none z-50 backdrop-blur-xl">
+                                                            <h4 className="text-xs font-bold text-slate-300 mb-2 border-b border-white/10 pb-1">Trayectoria Verificada</h4>
                                                             <div className="space-y-2">
                                                                 <div className="flex items-center justify-between text-[10px]">
                                                                     <span className="text-white">Master en Blockchain</span>
@@ -839,24 +847,24 @@ const EmployerDashboard = () => {
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <h3 className="font-bold text-white group-hover:text-blue-400 transition-colors flex items-center gap-2">
+                                                        <h3 className="font-bold text-white group-hover:text-emerald-400 transition-colors flex items-center gap-2">
                                                             {talent.name}
                                                             {talent.verified && (
-                                                                <div className="flex items-center gap-1 bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded text-[10px] border border-green-500/20" title="Identidad Verificada">
-                                                                    <Shield size={10} />
+                                                                <div className="flex items-center gap-1 bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded text-[10px] border border-emerald-500/20" title="Identidad Verificada">
+                                                                    <Shield size={10} strokeWidth={1} />
                                                                     <span className="font-bold">VERIFICADO</span>
                                                                 </div>
                                                             )}
                                                         </h3>
                                                         <p className="text-xs text-slate-400 flex items-center gap-1">
-                                                            <MapPin size={10} /> {talent.location}
+                                                            <MapPin size={10} strokeWidth={1} /> {talent.location}
                                                         </p>
                                                     </div>
                                                 </div>
                                                 
                                                 {/* Blockchain Network Badge */}
                                                 <div className="flex flex-col items-end gap-1">
-                                                    <div className="bg-slate-900 border border-slate-700 px-2 py-1 rounded text-[10px] flex items-center gap-1.5 text-slate-300">
+                                                    <div className="bg-black/40 border border-white/10 px-2 py-1 rounded text-[10px] flex items-center gap-1.5 text-slate-300">
                                                         {talent.network === 'Hedera' && <img alt="Hedera" src="https://cryptologos.cc/logos/hedera-hashgraph-hbar-logo.png?v=026" className="w-3 h-3" />}
                                                         {talent.network === 'Ethereum' && <img alt="Ethereum" src="https://cryptologos.cc/logos/ethereum-eth-logo.png?v=026" className="w-3 h-3" />}
                                                         {talent.network === 'Algorand' && <img alt="Algorand" src="https://cryptologos.cc/logos/algorand-algo-logo.png?v=026" className="w-3 h-3" />}
@@ -869,19 +877,19 @@ const EmployerDashboard = () => {
                                                 <p className="text-sm text-slate-300 font-medium mb-2">{talent.role}</p>
                                                 <div className="flex flex-wrap gap-2">
                                                     {talent.skills.map(skill => (
-                                                        <span key={skill} className="text-[10px] bg-slate-900 text-slate-400 border border-slate-800 px-2 py-1 rounded-full">
+                                                        <span key={skill} className="text-[10px] bg-white/5 text-slate-300 border border-white/10 px-2 py-1 rounded-full">
                                                             {skill}
                                                         </span>
                                                     ))}
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800 relative z-10">
+                                            <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5 relative z-10">
                                                 <button 
                                                     onClick={() => handleHire(talent)}
-                                                    className="text-xs font-bold text-slate-900 bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-300 hover:to-cyan-300 px-3 py-1.5 rounded-lg shadow-lg shadow-blue-500/20 transition-all flex items-center gap-1.5 group/hire"
+                                                    className="text-xs font-bold text-[#050505] bg-emerald-400 hover:bg-emerald-300 px-3 py-1.5 rounded-lg shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5 group/hire"
                                                 >
-                                                    <CheckCircle size={14} className="group-hover/hire:scale-110 transition-transform" />
+                                                    <CheckCircle size={14} className="group-hover/hire:scale-110 transition-transform" strokeWidth={1} />
                                                     Validar y Contratar
                                                 </button>
                                                 
@@ -891,15 +899,15 @@ const EmployerDashboard = () => {
                                                          href={talent.txLink}
                                                          target="_blank"
                                                          rel="noopener noreferrer"
-                                                         className="text-[10px] flex items-center gap-1 text-slate-500 hover:text-blue-400 transition-colors"
+                                                         className="text-[10px] flex items-center gap-1 text-slate-500 hover:text-emerald-400 transition-colors"
                                                          title="Ver prueba matemática en Blockchain"
                                                      >
-                                                         <Lock size={10} />
+                                                         <Lock size={10} strokeWidth={1} />
                                                          <span>Verificar en Ledger</span>
                                                      </a>
 
-                                                    <button onClick={handleContact} className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/30">
-                                                        <Search size={14} className="text-white" />
+                                                    <button onClick={handleContact} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
+                                                        <Search size={14} className="text-white" strokeWidth={1} />
                                                     </button>
                                                 </div>
                                             </div>
@@ -918,18 +926,18 @@ const EmployerDashboard = () => {
                                 className="h-full flex flex-col items-center"
                             >
                                 <div className="flex justify-between items-center w-full max-w-5xl mb-6">
-                                    <h2 className="text-xl font-bold">Validación Masiva de CVs</h2>
+                                    <h2 className="text-xl font-bold text-white">Validación Masiva de CVs</h2>
                                     {cvValidationResults.length > 0 && (
                                         <div className="flex gap-3">
                                             <button 
                                                 onClick={handleDownloadReport} 
                                                 disabled={generatingReport || cvValidationResults.some(r => r.status === 'processing')}
-                                                className="btn-primary flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                             >
-                                                <FileText size={16} />
+                                                <FileText size={16} strokeWidth={1} />
                                                 {generatingReport ? 'Generando PDF...' : 'Descargar Reporte'}
                                             </button>
-                                            <button onClick={() => {setCvFiles([]); setCvValidationResults([]);}} className="btn-secondary text-sm">
+                                            <button onClick={() => {setCvFiles([]); setCvValidationResults([]);}} className="bg-white/5 hover:bg-white/10 text-white py-2 px-4 rounded-lg border border-white/10 text-sm transition-colors">
                                                 Validar nuevo lote
                                             </button>
                                         </div>
@@ -937,15 +945,15 @@ const EmployerDashboard = () => {
                                 </div>
                                 
                                 {cvValidationResults.length === 0 ? (
-                                    <div className="w-full max-w-xl bg-slate-900/50 border border-dashed border-slate-700 rounded-2xl p-10 flex flex-col items-center justify-center gap-4 text-center hover:border-blue-500/50 transition-colors">
-                                        <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center text-blue-400">
-                                            <Upload size={32} />
+                                    <div className="w-full max-w-xl bg-white/5 border border-dashed border-white/10 rounded-2xl p-10 flex flex-col items-center justify-center gap-4 text-center hover:border-emerald-500/50 transition-colors">
+                                        <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-400">
+                                            <Upload size={32} strokeWidth={1} />
                                         </div>
                                         <div>
-                                            <h3 className="font-bold text-lg mb-1">Carga Masiva de CVs</h3>
+                                            <h3 className="font-bold text-lg mb-1 text-white">Carga Masiva de CVs</h3>
                                             <p className="text-slate-400 text-sm">Arrastra múltiples archivos PDF. <br/>El sistema analizará identidad y certificaciones en lote.</p>
                                         </div>
-                                        <label className="btn-primary cursor-pointer flex items-center gap-2 mt-2">
+                                        <label className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-2 px-6 rounded-lg cursor-pointer flex items-center gap-2 mt-2 transition-colors">
                                             <span>Seleccionar Archivos</span>
                                             <input type="file" accept=".pdf" multiple className="hidden" onChange={handleCvValidation} />
                                         </label>
@@ -957,20 +965,20 @@ const EmployerDashboard = () => {
                                                 key={result.id}
                                                 initial={{ opacity: 0, scale: 0.95 }}
                                                 animate={{ opacity: 1, scale: 1 }}
-                                                className={`bg-slate-950 border rounded-xl p-5 relative overflow-hidden transition-all ${
-                                                    result.status === 'processing' ? 'border-blue-500/30' : 'border-green-500/30'
+                                                className={`bg-[#0d0d0d]/60 border rounded-xl p-5 relative overflow-hidden transition-all ${
+                                                    result.status === 'processing' ? 'border-emerald-500/30' : 'border-emerald-500/30'
                                                 }`}
                                             >
                                                 {/* Status Badge */}
                                                 <div className="absolute top-4 right-4">
                                                     {result.status === 'processing' ? (
-                                                        <span className="flex items-center gap-1.5 text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-1 rounded-full border border-blue-500/20">
-                                                            <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></div>
+                                                        <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
+                                                            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
                                                             ANALIZANDO
                                                         </span>
                                                     ) : (
-                                                        <span className="flex items-center gap-1.5 text-xs font-bold text-green-400 bg-green-500/10 px-2 py-1 rounded-full border border-green-500/20">
-                                                            <CheckCircle size={12} />
+                                                        <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
+                                                            <CheckCircle size={12} strokeWidth={1} />
                                                             VERIFICADO
                                                         </span>
                                                     )}
@@ -979,9 +987,9 @@ const EmployerDashboard = () => {
                                                 {/* Header */}
                                                 <div className="flex items-center gap-3 mb-4">
                                                     <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                                                        result.status === 'processing' ? 'bg-slate-900 text-slate-500' : 'bg-gradient-to-br from-green-500/20 to-emerald-900/20 text-green-400'
+                                                        result.status === 'processing' ? 'bg-white/5 text-slate-500' : 'bg-emerald-500/10 text-emerald-400'
                                                     }`}>
-                                                        <FileText size={24} />
+                                                        <FileText size={24} strokeWidth={1} />
                                                     </div>
                                                     <div>
                                                         <h4 className="font-bold text-sm text-slate-200 truncate max-w-[200px]">{result.fileName}</h4>
@@ -992,36 +1000,36 @@ const EmployerDashboard = () => {
                                                 {/* Content */}
                                                 {result.status === 'valid' && (
                                                     <div className="space-y-4">
-                                                        <div className="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                                                        <div className="flex items-center justify-between bg-black/40 p-3 rounded-lg border border-white/5">
                                                             <div>
                                                                 <p className="text-xs text-slate-500 uppercase font-bold">Candidato</p>
                                                                 <p className="font-bold text-white">{result.candidateName}</p>
                                                             </div>
                                                             <div className="text-right">
                                                                 <p className="text-xs text-slate-500 uppercase font-bold">Match</p>
-                                                                <p className="font-bold text-green-400 text-lg">{result.matchScore}%</p>
+                                                                <p className="font-bold text-emerald-400 text-lg">{result.matchScore}%</p>
                                                             </div>
                                                         </div>
                                                         
                                                         <div>
                                                             <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
-                                                                <Shield size={10} /> Skills Certificadas
+                                                                <Shield size={10} strokeWidth={1} /> Skills Certificadas
                                                             </p>
                                                             <div className="flex flex-wrap gap-1.5">
                                                                 {result.verifiedSkills.map(skill => (
-                                                                    <span key={skill} className="bg-slate-800 text-slate-300 text-[10px] px-2 py-1 rounded border border-slate-700">
+                                                                    <span key={skill} className="bg-white/5 text-slate-300 text-[10px] px-2 py-1 rounded border border-white/10">
                                                                         {skill}
                                                                     </span>
                                                                 ))}
                                                             </div>
                                                         </div>
 
-                                                        <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                                                        <div className="pt-3 border-t border-white/5 flex items-center justify-between">
                                                             <div className="flex items-center gap-1 text-[10px] text-slate-500">
-                                                                <Lock size={10} />
+                                                                <Lock size={10} strokeWidth={1} />
                                                                 <span className="font-mono">{result.blockchainProof.substr(0, 12)}...</span>
                                                             </div>
-                                                            <button className="text-xs text-blue-400 hover:text-blue-300 font-bold transition-colors">
+                                                            <button className="text-xs text-emerald-400 hover:text-emerald-300 font-bold transition-colors">
                                                                 Ver Detalles
                                                             </button>
                                                         </div>
@@ -1030,8 +1038,8 @@ const EmployerDashboard = () => {
                                                 
                                                 {result.status === 'processing' && (
                                                     <div className="space-y-3 py-4">
-                                                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                                                            <div className="h-full bg-blue-500 w-2/3 animate-[shimmer_1s_infinite]"></div>
+                                                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                                                            <div className="h-full bg-emerald-500 w-2/3 animate-[shimmer_1s_infinite]"></div>
                                                         </div>
                                                         <p className="text-xs text-center text-slate-500 animate-pulse">Buscando identidad en blockchain...</p>
                                                     </div>
@@ -1043,79 +1051,6 @@ const EmployerDashboard = () => {
                             </motion.div>
                         )}
                     </AnimatePresence>
-
-                    {/* Result Card (Shared) */}
-                    {verificationResult && (
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className={`absolute inset-0 bg-slate-900/95 z-10 flex items-center justify-center p-6 backdrop-blur-sm`}
-                        >
-                            <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className="flex items-center gap-3">
-                                        {verificationResult.valid ? (
-                                            <div className="bg-green-500/20 p-2 rounded-full">
-                                                <Shield size={24} className="text-green-500" />
-                                            </div>
-                                        ) : (
-                                            <div className="bg-red-500/20 p-2 rounded-full">
-                                                <XCircle size={24} className="text-red-500" />
-                                            </div>
-                                        )}
-                                        <div>
-                                            <h3 className="text-xl font-bold text-white">
-                                                {verificationResult.valid ? 'Verificado Exitosamente' : 'Verificación Fallida'}
-                                            </h3>
-                                            <p className="text-sm text-slate-400">Resultados del análisis Triple Shield</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={reset} className="text-slate-400 hover:text-white">✕</button>
-                                </div>
-
-                                {verificationResult.valid ? (
-                                    <div className="space-y-4">
-                                        <div className="bg-slate-950 rounded-xl p-4 border border-slate-800">
-                                            <div className="text-sm text-slate-500 mb-1">Nombre</div>
-                                            <div className="font-medium text-lg text-white">{verificationResult.name || verificationResult.data?.student}</div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="bg-slate-950 rounded-xl p-4 border border-slate-800">
-                                                <div className="text-sm text-slate-500 mb-1">Confianza IA</div>
-                                                <div className="font-mono text-green-400">{verificationResult.confidence || '100%'}</div>
-                                            </div>
-                                            <div className="bg-slate-950 rounded-xl p-4 border border-slate-800">
-                                                <div className="text-sm text-slate-500 mb-1">Estado</div>
-                                                <div className="text-blue-400 flex items-center gap-1">
-                                                    <CheckCircle size={14} /> {verificationResult.status || 'Confirmado'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {verificationResult.credentials && (
-                                            <div>
-                                                <div className="text-sm text-slate-500 mb-2">Credenciales Encontradas</div>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {verificationResult.credentials.map((cred, i) => (
-                                                        <span key={i} className="px-3 py-1 rounded-full bg-blue-900/30 text-blue-300 text-xs border border-blue-500/30">
-                                                            {cred}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="bg-red-900/10 border border-red-900/30 rounded-xl p-4 text-red-200">
-                                        {verificationResult.message}
-                                    </div>
-                                )}
-                                
-                                <button onClick={reset} className="w-full mt-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-medium transition-colors">
-                                    Nueva Verificación
-                                </button>
-                            </div>
-                        </motion.div>
-                    )}
                 </div>
             </div>
         </div>
@@ -1125,4 +1060,3 @@ const EmployerDashboard = () => {
 };
 
 export default EmployerDashboard;
-

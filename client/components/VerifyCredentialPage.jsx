@@ -1,9 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useParams } from 'react-router-dom';
 import { toGateway } from './utils/ipfsUtils';
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { API_BASE_URL } from "./services/config";
 import { useAuth } from './useAuth';
+import { 
+  sanitizeString, 
+  isValidHederaTokenId, 
+  isValidSerialNumber, 
+  isValidSHA256 
+} from './utils/security';
+import { 
+  Shield, 
+  Search, 
+  FileCheck, 
+  Download, 
+  ExternalLink, 
+  Hash, 
+  CheckCircle, 
+  AlertTriangle, 
+  XCircle, 
+  Globe, 
+  Cpu, 
+  Activity, 
+  Lock,
+  Eye,
+  EyeOff,
+  Share2,
+  Database,
+  Box,
+  Layers
+} from 'lucide-react';
 
 // --- OpenClaw Defense System Configuration ---
 const OPENCLAW_CONFIG = {
@@ -18,17 +45,17 @@ const BlockchainBadge = ({ network, id, color, icon, link }) => (
     href={link} 
     target="_blank" 
     rel="noreferrer"
-    className="flex items-center p-3 rounded-lg border border-gray-200 bg-white hover:shadow-md transition-shadow cursor-pointer gap-3 w-full"
+    className="flex items-center p-4 rounded-xl border border-white/5 bg-[#0d0d0d]/40 backdrop-blur-md hover:border-purple-500/30 hover:bg-white/5 transition-all cursor-pointer gap-4 w-full group"
   >
-    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${color}`}>
+    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold ${color} shadow-lg shadow-${color}/20 group-hover:scale-110 transition-transform`}>
       {icon}
     </div>
     <div className="flex-1 overflow-hidden">
-      <div className="text-xs text-gray-500 uppercase font-semibold">{network}</div>
-      <div className="text-sm font-mono truncate text-gray-800" title={id}>{id || 'Verificando...'}</div>
+      <div className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-0.5">{network}</div>
+      <div className="text-sm font-mono truncate text-slate-200 group-hover:text-purple-400 transition-colors" title={id}>{id || 'Verificando...'}</div>
     </div>
-    <div className="text-gray-400">
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+    <div className="text-slate-500 group-hover:text-purple-400 transition-colors">
+        <ExternalLink className="w-4 h-4" strokeWidth={1.5} />
     </div>
   </a>
 );
@@ -131,9 +158,30 @@ const VerifyCredentialPage = () => {
 
   const loadCredential = async (tid, sn, hash) => {
       if ((!tid || !sn) && !hash) return;
+      
       setLoading(true);
       setError('');
       setOpenClawReport(null);
+
+      // 🔒 Input Validation
+      if (tid && !isValidHederaTokenId(tid)) {
+          setError('Formato de Token ID inválido. Debe ser 0.0.xxxxx');
+          setLoading(false);
+          return;
+      }
+      if (sn && !isValidSerialNumber(sn)) {
+          setError('Número de serie inválido.');
+          setLoading(false);
+          return;
+      }
+      if (hash && !isValidSHA256(hash)) {
+          // Allow demo hash
+          if (hash !== 'demo') {
+            setError('Hash inválido. Debe ser SHA-256 (64 caracteres hex).');
+            setLoading(false);
+            return;
+          }
+      }
       
       try {
           // Attempt to fetch from backend first
@@ -289,9 +337,9 @@ const VerifyCredentialPage = () => {
   const attrs = meta.attributes || [];
   const getAttr = (type) => attrs.find(a => a.trait_type === type)?.value || 'N/A';
   
-  const studentName = getAttr('Student Name');
-  const degree = getAttr('Degree');
-  const university = getAttr('University');
+  const studentName = sanitizeString(getAttr('Student Name'));
+  const degree = sanitizeString(getAttr('Degree'));
+  const university = sanitizeString(getAttr('University'));
   
   const hederaLink = `https://hashscan.io/${(import.meta.env.VITE_HEDERA_NETWORK || 'testnet')}/nft/${tokenId}-${serialNumber}`;
   const xrpLink = credential?.externalProofs?.xrpTxHash ? `https://testnet.xrpl.org/transactions/${credential.externalProofs.xrpTxHash}` : '#';
@@ -303,128 +351,177 @@ const VerifyCredentialPage = () => {
   const filecoinLink = `https://gateway.lighthouse.storage/ipfs/${cid}`;
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20 pb-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-[#050505] text-slate-100 font-sans selection:bg-purple-500/30 overflow-hidden relative">
+      
+      {/* Background Effects */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-cyan-600/10 rounded-full blur-[120px]"></div>
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+      </div>
+
+      <div className="relative z-10 pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         
         {/* Header Section */}
-        <div className="text-center mb-12">
-          <div className="flex justify-center mb-4">
-            <div className="bg-gray-900 text-cyan-400 px-4 py-1 rounded-full text-xs font-mono border border-cyan-500/30 shadow-lg shadow-cyan-500/20 flex items-center gap-2">
+        <div className="text-center mb-16">
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex justify-center mb-6"
+          >
+            <div className="bg-[#0d0d0d]/60 backdrop-blur-xl text-cyan-400 px-6 py-2 rounded-full text-xs font-mono border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.15)] flex items-center gap-3">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
                 </span>
                 OPENCLAW DEFENSE SYSTEM ACTIVE
             </div>
-          </div>
-          <h1 className="text-4xl font-extrabold text-gray-900 mb-4">
+          </motion.div>
+          <motion.h1 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-4xl md:text-5xl font-black text-white mb-6 tracking-tight"
+          >
             Portal de Verificación Pública
-          </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          </motion.h1>
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="text-lg text-slate-400 max-w-2xl mx-auto"
+          >
             Verifique la autenticidad de credenciales académicas en tiempo real utilizando tecnología Blockchain de triple anclaje.
-          </p>
+          </motion.p>
         </div>
 
         {/* Search Box (only if not loaded via URL) */}
+        <AnimatePresence>
         {(!urlTokenId || !urlSerialNumber) && !credential && (
-             <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-gray-100">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Ingresar Datos Manualmente</h3>
+             <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="max-w-2xl mx-auto bg-[#0d0d0d]/40 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/5 relative overflow-hidden"
+             >
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-cyan-500 to-purple-500 opacity-50"></div>
                 
                 {/* Option 1: Token ID + Serial */}
-                <div className="mb-6 pb-6 border-b border-gray-100">
-                    <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Opción A: Por ID de Credencial</h4>
+                <div className="mb-8 pb-8 border-b border-white/5">
+                    <div className="flex items-center gap-2 mb-4">
+                        <Hash className="w-5 h-5 text-purple-400" strokeWidth={1.5} />
+                        <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Por ID de Credencial</h4>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <input 
-                            className="input-primary" 
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all placeholder:text-slate-600"
                             placeholder="Token ID (ej. 0.0.12345)" 
                             value={tokenId} 
                             onChange={(e) => setTokenId(e.target.value)} 
                         />
                         <input 
-                            className="input-primary" 
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all placeholder:text-slate-600"
                             placeholder="Número de Serie (ej. 1)" 
                             value={serialNumber} 
                             onChange={(e) => setSerialNumber(e.target.value)} 
                         />
                     </div>
                     <button 
-                        className="btn-primary w-full py-2"
+                        className="w-full py-3 bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-500 hover:to-purple-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-900/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={() => loadCredential(tokenId, serialNumber)}
                         disabled={loading || !tokenId || !serialNumber}
                     >
+                        {loading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <Search className="w-5 h-5" />}
                         Verificar por ID
                     </button>
                 </div>
 
                 {/* Option 2: Hash SHA-256 */}
                 <div>
-                    <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Opción B: Por Hash del Documento</h4>
+                    <div className="flex items-center gap-2 mb-4">
+                        <FileCheck className="w-5 h-5 text-cyan-400" strokeWidth={1.5} />
+                        <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Por Hash del Documento</h4>
+                    </div>
                     <div className="flex gap-2 mb-4">
                         <input 
-                            className="input-primary flex-1" 
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all placeholder:text-slate-600"
                             placeholder="Hash SHA-256 del documento (64 caracteres)" 
                             value={searchHash} 
                             onChange={(e) => setSearchHash(e.target.value)} 
                         />
                     </div>
                     <button 
-                        className="btn-secondary w-full py-2"
+                        className="w-full py-3 bg-[#1a1a1a] hover:bg-[#252525] border border-white/10 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={() => loadCredential(null, null, searchHash)}
                         disabled={loading || !searchHash || searchHash.length < 10}
                     >
+                         {loading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <Database className="w-5 h-5 text-cyan-400" />}
                         Verificar por Hash
                     </button>
                 </div>
-             </div>
+             </motion.div>
         )}
+        </AnimatePresence>
 
         {/* Loading State */}
         {loading && (
             <div className="flex flex-col items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mb-4"></div>
-                <p className="text-gray-500 font-medium">Consultando Hedera Hashgraph, XRP Ledger y Algorand...</p>
+                <div className="relative w-24 h-24 mb-6">
+                    <div className="absolute inset-0 border-t-4 border-purple-500 rounded-full animate-spin"></div>
+                    <div className="absolute inset-4 border-t-4 border-cyan-500 rounded-full animate-spin reverse"></div>
+                </div>
+                <p className="text-slate-400 font-medium animate-pulse">Consultando Hedera Hashgraph, XRP Ledger y Algorand...</p>
             </div>
         )}
 
         {/* Error State */}
         {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-r-lg mb-8 shadow-sm">
-                <div className="flex items-center">
-                    <div className="flex-shrink-0 text-red-500">❌</div>
-                    <div className="ml-3">
-                        <p className="text-red-700 font-medium">{error}</p>
+            <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-red-900/20 border border-red-500/30 p-6 rounded-2xl mb-8 shadow-lg max-w-4xl mx-auto"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center text-red-400">
+                        <AlertTriangle className="w-6 h-6" strokeWidth={1.5} />
+                    </div>
+                    <div>
+                        <h3 className="text-red-400 font-bold text-lg mb-1">Error de Verificación</h3>
+                        <p className="text-red-200/80">{error}</p>
                     </div>
                 </div>
-            </div>
+            </motion.div>
         )}
 
         {/* Success / Credential View */}
         {credential && !loading && (
             <motion.div 
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="grid grid-cols-1 lg:grid-cols-3 gap-8"
             >
                 {/* Left Column: Visual & Status */}
                 <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
-                        <div className="bg-indigo-900 px-6 py-4 flex justify-between items-center">
-                            <span className="text-white font-bold tracking-wider uppercase text-sm">Vista Previa</span>
+                        <div className="bg-[#0d0d0d]/40 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/5">
+                        <div className="bg-gradient-to-r from-[#1a1a1a] to-[#0a0a0a] px-6 py-4 flex justify-between items-center border-b border-white/5">
+                            <span className="text-slate-300 font-bold tracking-wider uppercase text-sm flex items-center gap-2">
+                                <Eye className="w-4 h-4 text-purple-400" /> Vista Previa
+                            </span>
                             <div className="flex gap-2">
                                 {openClawReport && openClawReport.valid && (
-                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-900/50 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
-                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 flex items-center gap-1.5 shadow-[0_0_10px_rgba(6,182,212,0.2)]">
+                                        <Shield className="w-3 h-3" strokeWidth={3} />
                                         OPENCLAW VERIFIED
                                     </span>
                                 )}
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${status === 'ACTIVE' ? 'bg-green-400 text-green-900' : 'bg-red-400 text-red-900'}`}>
-                                    {status === 'ACTIVE' ? '✓ VÁLIDO' : '⚠ REVOCADO'}
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border ${status === 'ACTIVE' ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
+                                    {status === 'ACTIVE' ? <CheckCircle className="w-3 h-3" strokeWidth={3} /> : <XCircle className="w-3 h-3" strokeWidth={3} />}
+                                    {status === 'ACTIVE' ? 'VÁLIDO' : 'REVOCADO'}
                                 </span>
                             </div>
                         </div>
                         
                         {canViewDocument ? (
-                            <div className="relative bg-gray-100 aspect-[1.414/1] w-full group overflow-hidden">
+                            <div className="relative bg-[#050505] aspect-[1.414/1] w-full group overflow-hidden">
                                 {credential?.ipfsURI ? (
                                     <iframe 
                                         src={toGateway(credential.ipfsURI)} 
@@ -432,81 +529,84 @@ const VerifyCredentialPage = () => {
                                         title="Certificado Original"
                                     />
                                 ) : (
-                                    <div className="flex items-center justify-center h-full text-gray-400">
+                                    <div className="flex items-center justify-center h-full text-slate-500">
                                         Documento no disponible
                                     </div>
                                 )}
                                 
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-3 text-xs flex justify-between items-center backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <div className="font-mono">CID: {credential?.ipfsCid || credential?.ipfsURI?.replace('ipfs://', '')}</div>
+                                <div className="absolute bottom-0 left-0 right-0 bg-[#000000]/80 text-white p-4 text-xs flex justify-between items-center backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-full group-hover:translate-y-0">
+                                    <div className="font-mono text-slate-300 truncate max-w-[60%]">CID: {credential?.ipfsCid || credential?.ipfsURI?.replace('ipfs://', '')}</div>
                                     <a 
                                         href={toGateway(credential?.ipfsURI)} 
                                         target="_blank" 
                                         rel="noreferrer"
-                                        className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1"
+                                        className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1.5 transition-colors"
                                     >
-                                        Abrir en IPFS <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                        Abrir en IPFS <ExternalLink className="w-3 h-3" strokeWidth={2} />
                                     </a>
                                 </div>
                             </div>
                         ) : (
-                            <div className="aspect-[1.414/1] bg-gray-100 relative group flex items-center justify-center flex-col p-8 text-center border-b border-gray-200">
-                                <div className="mb-4">
-                                    <svg className="w-16 h-16 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                    </svg>
+                            <div className="aspect-[1.414/1] bg-[#0a0a0a] relative group flex items-center justify-center flex-col p-8 text-center border-b border-white/5">
+                                <div className="mb-6 relative">
+                                    <div className="absolute inset-0 bg-purple-500/20 blur-xl rounded-full"></div>
+                                    <Lock className="w-16 h-16 text-slate-500 relative z-10" strokeWidth={1} />
                                 </div>
-                                <h3 className="text-lg font-semibold text-gray-700 mb-2">Documento Protegido</h3>
-                                <p className="text-sm text-gray-500 max-w-xs">
+                                <h3 className="text-xl font-bold text-slate-200 mb-2">Documento Protegido</h3>
+                                <p className="text-sm text-slate-500 max-w-xs leading-relaxed">
                                     La vista previa del documento original está restringida a la institución emisora y el titular.
                                 </p>
-                                <div className="mt-6 bg-gray-50 p-3 rounded-lg border border-gray-200 w-full max-w-sm">
-                                    <div className="text-xs text-gray-400 uppercase font-bold mb-1">Hash SHA-256 del Documento</div>
-                                    <div className="font-mono text-xs text-gray-600 break-all select-all">
+                                <div className="mt-8 bg-[#111] p-4 rounded-xl border border-white/5 w-full max-w-sm">
+                                    <div className="text-[10px] text-slate-500 uppercase font-bold mb-2 flex items-center gap-1.5">
+                                        <Hash className="w-3 h-3" /> Hash SHA-256 del Documento
+                                    </div>
+                                    <div className="font-mono text-xs text-purple-400 break-all select-all">
                                         {credential?.ipfsHash256 || credential?.sha256 || credential?.metadata?.ipfsHash256 || 'Hash no disponible'}
                                     </div>
                                 </div>
                                 
                                 {/* Verification Badge */}
-                                <div className="mt-4 flex flex-col items-center">
-                                    <div className="flex items-center gap-2 px-3 py-1 bg-green-100 rounded-full border border-green-200">
-                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                                        <span className="text-xs font-bold text-green-700">Integridad Verificada</span>
+                                <div className="mt-6 flex flex-col items-center">
+                                    <div className="flex items-center gap-2 px-4 py-1.5 bg-green-500/10 rounded-full border border-green-500/20">
+                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
+                                        <span className="text-xs font-bold text-green-400">Integridad Verificada</span>
                                     </div>
-                                    <p className="text-[10px] text-gray-400 mt-1">El hash coincide con el registro en Blockchain</p>
+                                    <p className="text-[10px] text-slate-600 mt-2">El hash coincide con el registro en Blockchain</p>
                                 </div>
                             </div>
                         )}
                     </div>
-
-                    <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-                         <h3 className="text-lg font-bold text-gray-800 mb-4">Detalles del Titular</h3>
+                    
+                    <div className="bg-[#0d0d0d]/40 backdrop-blur-xl rounded-3xl shadow-xl p-8 border border-white/5">
+                         <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                             <Activity className="w-5 h-5 text-purple-400" /> Detalles del Titular
+                         </h3>
                          {(() => {
                            const logoRaw = meta.image || (attrs.find(a => a.trait_type === 'Institution Logo')?.value || '');
                            if (!logoRaw) return null;
                            const logoUrl = toGateway(logoRaw);
                            return (
-                             <div className="w-full flex justify-center mb-4">
+                             <div className="w-full flex justify-center mb-8">
                                <img
                                  src={logoUrl}
                                  alt="Institución"
-                                 className="h-16 object-contain"
+                                 className="h-20 object-contain drop-shadow-lg"
                                />
                              </div>
                            );
                          })()}
-                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                              <div>
-                                 <div className="text-xs text-gray-500 uppercase font-semibold">Nombre del Estudiante</div>
-                                 <div className="text-xl font-medium text-gray-900">{studentName}</div>
+                                 <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Nombre del Estudiante</div>
+                                 <div className="text-xl font-medium text-white">{studentName}</div>
                              </div>
                              <div>
-                                 <div className="text-xs text-gray-500 uppercase font-semibold">Institución Emisora</div>
-                                 <div className="text-xl font-medium text-gray-900">{university}</div>
+                                 <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Institución Emisora</div>
+                                 <div className="text-xl font-medium text-white">{university}</div>
                              </div>
-                             <div className="sm:col-span-2">
-                                 <div className="text-xs text-gray-500 uppercase font-semibold">Título / Grado</div>
-                                 <div className="text-2xl font-bold text-indigo-700">{degree}</div>
+                             <div className="sm:col-span-2 p-6 bg-purple-500/5 rounded-2xl border border-purple-500/10">
+                                 <div className="text-xs text-purple-400 uppercase font-bold tracking-wider mb-2">Título / Grado</div>
+                                 <div className="text-2xl font-bold text-white leading-tight">{degree}</div>
                              </div>
                          </div>
                     </div>
@@ -514,15 +614,17 @@ const VerifyCredentialPage = () => {
 
                 {/* Right Column: Triple Proof */}
                 <div className="space-y-6">
-                    <div className="bg-white rounded-2xl shadow-lg p-6 border-t-4 border-green-500">
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">Prueba de Vida Triple</h3>
-                        <p className="text-sm text-gray-600 mb-6">Este documento ha sido autenticado criptográficamente en tres redes públicas independientes.</p>
+                    <div className="bg-[#0d0d0d]/40 backdrop-blur-xl rounded-3xl shadow-xl p-6 border-t-4 border-t-green-500 border-x border-b border-white/5">
+                        <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                            <Layers className="w-6 h-6 text-green-400" /> Prueba de Vida Triple
+                        </h3>
+                        <p className="text-sm text-slate-400 mb-6 leading-relaxed">Este documento ha sido autenticado criptográficamente en tres redes públicas independientes.</p>
                         
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             <BlockchainBadge 
                                 network="Hedera Hashgraph" 
                                 id={tokenId ? `${tokenId} #${serialNumber}` : 'Pendiente...'}
-                                color="bg-black"
+                                color="bg-black border border-white/20"
                                 icon="Ħ"
                                 link={hederaLink}
                             />
@@ -532,18 +634,18 @@ const VerifyCredentialPage = () => {
                                 <BlockchainBadge 
                                     network="XRP Ledger" 
                                     id={credential.externalProofs.xrpTxHash}
-                                    color="bg-blue-600"
+                                    color="bg-[#23292f] text-white"
                                     icon="✕"
                                     link={`https://testnet.xrpl.org/transactions/${credential.externalProofs.xrpTxHash}`}
                                 />
                             )}
-
+                            
                             {/* Algorand Badge (if present) */}
                             {credential?.externalProofs?.algoTxId && (
                                 <BlockchainBadge 
                                     network="Algorand" 
                                     id={credential.externalProofs.algoTxId}
-                                    color="bg-black"
+                                    color="bg-black border border-white/20"
                                     icon="A"
                                     link={`https://testnet.algoexplorer.io/tx/${credential.externalProofs.algoTxId}`}
                                 />
@@ -551,57 +653,64 @@ const VerifyCredentialPage = () => {
                         </div>
                         
                         {/* Sello de Veracidad */}
-                        <div className="mt-6 flex items-center gap-4 bg-green-50 p-4 rounded-xl border border-green-200">
-                            <div className="w-16 h-16 flex-shrink-0 bg-green-600 rounded-full flex items-center justify-center border-4 border-green-100 shadow-sm">
-                                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
+                        <div className="mt-8 flex items-center gap-4 bg-green-500/5 p-4 rounded-2xl border border-green-500/20">
+                            <div className="w-14 h-14 flex-shrink-0 bg-green-500/10 rounded-full flex items-center justify-center border-2 border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.2)]">
+                                <CheckCircle className="w-7 h-7 text-green-400" strokeWidth={2} />
                             </div>
                             <div>
-                                <h4 className="text-green-800 font-bold text-sm uppercase tracking-wide">Sello de Veracidad Digital</h4>
-                                <p className="text-xs text-green-700 mt-1">
-                                    Documento inmutable alojado en IPFS/Filecoin y registrado en Hedera & XRP.
+                                <h4 className="text-green-400 font-bold text-sm uppercase tracking-wide">Sello de Veracidad</h4>
+                                <p className="text-xs text-green-200/70 mt-1 leading-relaxed">
+                                    Inmutable en IPFS/Filecoin y registrado en Hedera & XRP.
                                 </p>
                             </div>
                         </div>
                     </div>
 
                     {/* Status List Verification */}
-                    <div className="bg-white rounded-2xl shadow-lg p-6 border-t-4 border-blue-500 mt-6">
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">Verificación de Estado en Cadena</h3>
-                        <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg">
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${status === 'ACTIVE' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    {status === 'ACTIVE' 
-                                        ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    }
-                                </svg>
+                    <div className="bg-[#0d0d0d]/40 backdrop-blur-xl rounded-3xl shadow-xl p-6 border-t-4 border-t-cyan-500 border-x border-b border-white/5 mt-6">
+                        <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                            <Activity className="w-6 h-6 text-cyan-400" /> Estado en Cadena
+                        </h3>
+                        <div className="flex items-center gap-4 bg-[#111] p-4 rounded-xl border border-white/5 mt-4">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${status === 'ACTIVE' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                                {status === 'ACTIVE' 
+                                    ? <CheckCircle className="w-6 h-6" />
+                                    : <XCircle className="w-6 h-6" />
+                                }
                             </div>
                             <div>
-                                <div className="font-semibold text-gray-800">
+                                <div className={`font-bold ${status === 'ACTIVE' ? 'text-green-400' : 'text-red-400'}`}>
                                     {status === 'ACTIVE' ? 'Credencial Válida' : 'Credencial Revocada'}
                                 </div>
-                                <div className="text-sm text-gray-500">
-                                    Verificado contra Bitstring Status List (W3C Standard).
-                                    <br/>
-                                    <span className="text-xs font-mono text-gray-400">Index: {serialNumber} | Issuer: did:web:localhost:3001</span>
+                                <div className="text-xs text-slate-500 mt-1">
+                                    Bitstring Status List (W3C Standard)
+                                    <div className="text-[10px] font-mono text-slate-600 mt-0.5">Index: {serialNumber}</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Wallet Portability */}
-                    <div className="bg-white rounded-2xl shadow-lg p-6 border-t-4 border-purple-500 mt-6">
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">Portabilidad (W3C VC)</h3>
-                        <p className="text-sm text-gray-600 mb-4">Descarga tu credencial verificable para usarla en wallets compatibles (eIDAS, Dock, Veres One).</p>
+                    <div className="bg-[#0d0d0d]/40 backdrop-blur-xl rounded-3xl shadow-xl p-6 border-t-4 border-t-purple-500 border-x border-b border-white/5 mt-6">
+                        <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                            <Globe className="w-6 h-6 text-purple-400" /> Portabilidad
+                        </h3>
+                        <p className="text-sm text-slate-400 mb-6">Descarga tu credencial para wallets compatibles (W3C VC).</p>
                         
                         <button
                           onClick={() => {
                             if (!credential?.verifiableCredential) return;
-                            const content = typeof credential.verifiableCredential === 'string' 
-                              ? credential.verifiableCredential 
-                              : JSON.stringify(credential.verifiableCredential, null, 2);
+                            
+                            let content = '';
+                            try {
+                                const raw = credential.verifiableCredential;
+                                const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                                content = JSON.stringify(obj, null, 2);
+                            } catch (e) {
+                                console.error('Invalid VC format', e);
+                                alert('Error al generar el archivo: Formato inválido');
+                                return;
+                            }
                             
                             const blob = new Blob([content], { type: 'application/json' });
                             const url = URL.createObjectURL(blob);
@@ -614,25 +723,23 @@ const VerifyCredentialPage = () => {
                             URL.revokeObjectURL(url);
                           }}
                           disabled={!credential?.verifiableCredential}
-                          className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-900/20"
                         >
-                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                           </svg>
-                           Descargar VC
+                           <Download className="w-5 h-5" />
+                           Descargar JSON-LD
                         </button>
                     </div>
 
                     {canViewDocument && (
-                        <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
-                            <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
-                                <span>🧊</span> Almacenamiento Eterno
+                        <div className="bg-blue-500/5 rounded-3xl p-6 border border-blue-500/10">
+                            <h4 className="font-bold text-blue-400 mb-2 flex items-center gap-2">
+                                <Box className="w-5 h-5" /> Almacenamiento Eterno
                             </h4>
-                            <p className="text-xs text-blue-800 mb-3">
-                                Respaldado en la red Filecoin para garantizar la disponibilidad permanente de los datos, independiente de servidores centrales.
+                            <p className="text-xs text-blue-200/70 mb-3 leading-relaxed">
+                                Respaldado en la red Filecoin para garantizar la disponibilidad permanente.
                             </p>
-                            <a href={filecoinLink} target="_blank" rel="noreferrer" className="text-xs font-mono text-blue-600 break-all hover:underline">
-                                CID: {cid}
+                            <a href={filecoinLink} target="_blank" rel="noreferrer" className="text-xs font-mono text-blue-400 break-all hover:underline flex items-center gap-1">
+                                CID: {cid} <ExternalLink className="w-3 h-3" />
                             </a>
                         </div>
                     )}

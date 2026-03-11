@@ -22,15 +22,24 @@ export class DiplomaRegistrationWorkflow extends WorkflowEntrypoint<Env, Diploma
     const { payload } = event
     const { candidates, degree, major, institutionId, issueDate, expirationDate } = payload
 
+    // Step 0: Input Validation & Sanitization
+    // Prevent XSS/Injection by ensuring data is clean before processing
+    const cleanCandidates = candidates.map(c => ({
+      name: c.name.replace(/[<>]/g, '').trim(), // Basic sanitization
+      studentId: c.studentId.replace(/[<>]/g, '').trim()
+    }))
+    const cleanDegree = degree.replace(/[<>]/g, '').trim()
+    const cleanMajor = major.replace(/[<>]/g, '').trim()
+
     // Step 1: Validate and Persist 'Pending' Record
     const pendingResult = await step.do('persist-pending-record', async () => {
       const results = []
-      for (const cand of candidates) {
+      for (const cand of cleanCandidates) {
         try {
           // Check for existing record to avoid duplicates (idempotency)
           const existing = await this.env.DB.prepare(
             "SELECT id FROM certificates WHERE student_id = ? AND degree = ? AND status = 'issued'"
-          ).bind(cand.studentId, degree).first()
+          ).bind(cand.studentId, cleanDegree).first()
 
           if (existing) {
             results.push({ studentId: cand.studentId, status: 'skipped_duplicate' })
@@ -41,7 +50,7 @@ export class DiplomaRegistrationWorkflow extends WorkflowEntrypoint<Env, Diploma
             `INSERT INTO certificates (student_name, student_id, degree, major, institution_id, issue_date, expiration_date, status, network) 
              VALUES (?, ?, ?, ?, ?, ?, ?, 'pending_chain', 'hedera')`
           ).bind(
-            cand.name, cand.studentId, degree, major, institutionId, 
+            cand.name, cand.studentId, cleanDegree, cleanMajor, institutionId, 
             issueDate, expirationDate
           ).run()
           results.push({ studentId: cand.studentId, status: 'persisted' })

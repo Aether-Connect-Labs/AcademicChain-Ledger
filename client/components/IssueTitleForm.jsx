@@ -8,6 +8,8 @@ import CertificateDesigner from './CertificateDesigner';
 import { PDFDocument } from 'pdf-lib';
 import QRCode from 'qrcode';
 import CryptoJS from 'crypto-js';
+import { sanitizeString } from './utils/security';
+import { Check, Rocket, Upload, FileText, User, Calendar, Award, Shield, ChevronRight, ChevronLeft, LayoutTemplate, CheckCircle, ExternalLink, RefreshCw, Terminal, Activity, Lock, Server } from 'lucide-react';
 
 const IssueTitleForm = ({ 
   variant = 'degree', 
@@ -24,11 +26,9 @@ const IssueTitleForm = ({
   formData: propFormData,
   onFormDataChange
 }) => {
-  // Styles based on variant
+  // Styles based on variant - Agency Dark Mode
   const getGradient = () => {
-    if (variant === 'diploma') return 'from-purple-600 to-blue-600';
-    if (variant === 'certificate') return 'from-blue-600 to-cyan-500';
-    return 'from-primary-600 to-secondary-600';
+    return 'from-white/10 to-transparent'; // Minimalist separator
   }
 
   const [localFormData, setLocalFormData] = useState({
@@ -56,8 +56,8 @@ const IssueTitleForm = ({
   const [processStatus, setProcessStatus] = useState({ step: 0, total: 7, message: '' }); // Estado de progreso paso a paso
 
   const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+    hidden: { opacity: 0, y: 40 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] } }
   };
 
   const refreshSavedTemplates = () => {
@@ -80,7 +80,7 @@ const IssueTitleForm = ({
 
   useEffect(() => {
     if (institutionName) {
-      setUniversityName(institutionName === '444' ? 'AcademicChain Ledger' : institutionName);
+      setUniversityName(institutionName === '444' ? 'AcademicChain Ledger' : sanitizeString(institutionName));
     }
   }, [institutionName]);
 
@@ -117,51 +117,46 @@ const IssueTitleForm = ({
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    // 🔒 Security: Sanitize input immediately
+    const sanitizedValue = sanitizeString(value);
+    
     if (onFormDataChange) {
-      onFormDataChange(prevState => ({ ...prevState, [name]: value }));
+      onFormDataChange(prevState => ({ ...prevState, [name]: sanitizedValue }));
     } else {
-      setLocalFormData(prevState => ({ ...prevState, [name]: value }));
+      setLocalFormData(prevState => ({ ...prevState, [name]: sanitizedValue }));
     }
   };
 
-  const computePlanFromNetworks = () => {
-    if (plan && plan.id) {
-      const id = String(plan.id).toLowerCase();
-      if (id === 'enterprise') return 'triple';
-      if (id === 'professional') return 'dual';
-      return 'base';
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+        if (selectedFile.type !== 'application/pdf') {
+            toast.error('Solo se permiten archivos PDF');
+            return;
+        }
+        // 🔒 Security: Check file size (max 10MB)
+        if (selectedFile.size > 10 * 1024 * 1024) {
+            toast.error('El archivo es demasiado grande (máx 10MB)');
+            return;
+        }
+        setFile(selectedFile);
+        if (onFileChange) onFileChange(selectedFile);
     }
-    const nets = Array.isArray(networks) ? networks.map(n => String(n).toLowerCase()) : [];
-    const hasHedera = nets.includes('hedera');
-    const hasXrp = nets.includes('xrp') || nets.includes('xrpl');
-    const hasAlgo = nets.includes('algorand') || nets.includes('algo');
-    if (hasHedera && hasXrp && hasAlgo) return 'triple';
-    if (hasHedera && hasXrp) return 'dual';
-    if (hasHedera) return 'base';
-    return 'base';
   };
 
   const validateStepOne = () => {
-    // Strict validation: Must have a design loaded (file or structure) to proceed
-    // This ensures the user has either created a design or loaded a template via the designer
-    if (!file && !designStructure) {
-      setError('Por favor, utiliza el Diseñador Holográfico para crear o cargar una plantilla antes de continuar.');
+    if (!file) {
+      toast.error('Por favor diseña o sube un certificado primero');
       return false;
     }
-    setError('');
     return true;
   };
 
   const validateStepTwo = () => {
-    if (!universityName) {
-      setError('La institución es obligatoria. Verifica que tu perfil institucional esté configurado.');
-      return false;
-    }
     if (!formData.studentName || !formData.courseName || !formData.issueDate) {
-      setError('Completa institución, nombre del estudiante, título/curso y fecha de emisión.');
+      toast.error('Por favor completa todos los campos requeridos');
       return false;
     }
-    setError('');
     return true;
   };
 
@@ -183,18 +178,6 @@ const IssueTitleForm = ({
     }
   };
 
-  const computeSha256 = async (blob) => {
-    try {
-      if (!blob || !crypto || !crypto.subtle) return null;
-      const buffer = await blob.arrayBuffer();
-      const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    } catch {
-      return null;
-    }
-  };
-
   const readFileAsBase64 = () => {
     return new Promise((resolve) => {
       if (!file) {
@@ -213,275 +196,138 @@ const IssueTitleForm = ({
     });
   };
 
-  const pushToTalentPool = (payload) => {
-    try {
-      const raw = localStorage.getItem('acl:talent-pool');
-      const current = raw ? JSON.parse(raw) : [];
-      const role = payload.courseName || payload.credentialType || 'Credencial Académica';
-      const skills = [
-        'Título Verificado',
-        payload.credentialType,
-        payload.courseName
-      ].filter(Boolean);
-      const networkLabel = Array.isArray(networks) && networks.includes('hedera') ? 'Hedera' : 'Blockchain';
-      const next = [
-        {
-          id: payload.id || `talent-${Date.now()}`,
-          name: payload.studentName,
-          role,
-          skills,
-          location: payload.location || 'Remoto',
-          verified: true,
-          network: networkLabel,
-          txLink: payload.txId ? `https://hashscan.io/testnet/transaction/${payload.txId}` : '',
-          institution: payload.institution || universityName || ''
-        },
-        ...current
-      ].slice(0, 50);
-      localStorage.setItem('acl:talent-pool', JSON.stringify(next));
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('acl:talent-updated'));
-      }
-    } catch {}
-  };
-
-  const generateMockHash = () => {
-    const chars = '0123456789ABCDEF';
-    let result = '';
-    for (let i = 0; i < 64; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
+  const computePlanFromNetworks = () => {
+    if (networks.includes('hedera') && networks.includes('xrpl')) return 'Híbrido (Hedera + XRPL)';
+    if (networks.includes('hedera')) return 'Estándar (Hedera)';
+    if (networks.includes('xrpl')) return 'Rápido (XRPL)';
+    return 'Básico';
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (currentStep !== 3) {
-      handleNextStep();
-      return;
-    }
-    setIsLoading(true);
     setError('');
     setMessage('');
+    setIsLoading(true);
     setResultData(null);
-    setProcessStatus({ step: 1, total: 7, message: 'Iniciando motor de emisión...' });
+    
+    // Reset process status
+    setProcessStatus({ step: 1, total: 7, message: 'Iniciando proceso de emisión...' });
 
     try {
-      const limit = plan && plan.limit !== Infinity ? plan.limit : null;
-      if (limit !== null && emissionsUsed >= limit) {
-        setError(`Límite mensual alcanzado (${plan.limit}). Mejora tu plan para continuar.`);
-        setIsLoading(false);
-        return;
-      }
+      // 1. Generate QR
+      setProcessStatus({ step: 2, total: 7, message: 'Generando Código QR de verificación...' });
+      const qrData = JSON.stringify({
+        student: formData.studentName,
+        course: formData.courseName,
+        date: formData.issueDate,
+        issuer: universityName
+      });
+      const qrCodeDataUrl = await QRCode.toDataURL(qrData);
 
-      // 1. Generate Deterministic Hedera Transaction ID (Simulated for Demo)
-      // Format: 0.0.AccountID@Seconds.Nanoseconds
-      // This ID will be used in the QR code inside the PDF.
-      setProcessStatus({ step: 2, total: 7, message: 'Generando ID de Transacción en Hedera Hashgraph...' });
-      await new Promise(r => setTimeout(r, 600)); // Pequeña pausa para que se vea el paso
+      // 2. Embed QR into PDF
+      setProcessStatus({ step: 3, total: 7, message: 'Incrustando QR en el documento...' });
+      const existingPdfBytes = await file.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(existingPdfBytes);
+      const qrImage = await pdfDoc.embedPng(qrCodeDataUrl);
+      const pages = pdfDoc.getPages();
+      const firstPage = pages[0];
+      const { width } = firstPage.getSize();
       
-      const timestamp = Date.now();
-      const seconds = Math.floor(timestamp / 1000);
-      const nanos = (timestamp % 1000) * 1000000;
-      const accountId = issuerId || '0.0.12345'; // Use issuer ID or mock
-      const hederaTxId = `${accountId}@${seconds}.${nanos}`;
-      
-      // 2. Multi-Chain Hash Generation (Pre-calculation)
-      setProcessStatus({ step: 3, total: 7, message: 'Calculando hashes Multi-Chain (XRP / Algorand)...' });
-      await new Promise(r => setTimeout(r, 600));
+      // Calculate QR position based on layout
+      // Default to bottom center if no specific layout found
+      let qrX = width / 2 - 25;
+      let qrY = 50;
 
-      const effectivePlan = computePlanFromNetworks();
-      let xrpHash = null;
-      let algorandHash = null;
-      let hederaMemo = `TX:${hederaTxId}`; // Start memo with TxID
-
-      if (effectivePlan === 'dual' || effectivePlan === 'triple') {
-        const xrpTx = `XRP${generateMockHash().substring(0, 20)}`;
-        xrpHash = xrpTx;
-        hederaMemo += `|XRP:${xrpTx}`;
+      // If we have design structure, try to find a better spot or use configured position
+      if (designStructure?.layout === 'landscape') {
+          // Center bottom for landscape
+           qrX = width / 2 - 25;
+           qrY = 40;
       }
 
-      if (effectivePlan === 'triple') {
-        const algoTx = `ALGO${generateMockHash().substring(0, 20)}`;
-        algorandHash = algoTx;
-        hederaMemo += `|ALGO:${algoTx}`;
+      firstPage.drawImage(qrImage, {
+        x: qrX,
+        y: qrY,
+        width: 50,
+        height: 50,
+      });
+
+      const pdfBytes = await pdfDoc.save();
+      const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const pdfFileWithQr = new File([pdfBlob], "certificate_with_qr.pdf", { type: 'application/pdf' });
+
+      // 3. Upload to IPFS
+      setProcessStatus({ step: 4, total: 7, message: 'Subiendo documento a IPFS...' });
+      setIsUploading(true);
+      const ipfsResult = await issuanceService.uploadToIPFS(pdfFileWithQr);
+      setIsUploading(false);
+
+      if (!ipfsResult.success) {
+        throw new Error('Error al subir a IPFS: ' + ipfsResult.error);
       }
+      const ipfsHash = ipfsResult.ipfsHash;
 
-      // 3. Update PDF with QR Code containing Hedera Tx ID
-      setProcessStatus({ step: 4, total: 7, message: 'Incrustando QR y sellando PDF...' });
-      
-      let pdfBytes = null;
-      let finalFile = file;
+      // 4. Generate Hash (SHA-256)
+      setProcessStatus({ step: 5, total: 7, message: 'Generando Hash criptográfico...' });
+      const fileReader = new FileReader();
+      const base64Promise = new Promise((resolve) => {
+        fileReader.onload = (e) => resolve(e.target.result);
+        fileReader.readAsDataURL(pdfFileWithQr);
+      });
+      const base64File = await base64Promise;
+      const wordArray = CryptoJS.lib.WordArray.create(pdfBytes);
+      const hash = CryptoJS.SHA256(wordArray).toString();
 
-      if (file) {
-        try {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(arrayBuffer);
-            
-            // Generate QR Code
-            const qrDataUrl = await QRCode.toDataURL(hederaTxId, { margin: 0 });
-            const qrImage = await pdfDoc.embedPng(qrDataUrl);
-            
-            // Draw QR Code on the first page
-            const pages = pdfDoc.getPages();
-            const firstPage = pages[0];
-            const { width, height } = firstPage.getSize();
-            
-            // Position: Bottom Right (adjust as needed)
-            const qrSize = 50;
-            const margin = 20;
-            
-            // Check orientation
-            // Usually bottom right corner
-            firstPage.drawImage(qrImage, {
-                x: width - qrSize - margin,
-                y: margin,
-                width: qrSize,
-                height: qrSize,
-            });
-
-            // Save modified PDF
-            pdfBytes = await pdfDoc.save();
-            finalFile = new File([pdfBytes], file.name, { type: 'application/pdf' });
-            
-        } catch (pdfErr) {
-            console.error("Error modifying PDF with QR:", pdfErr);
-            // Fallback to original file if modification fails
-            finalFile = file;
-        }
-      }
-
-      // 4. Calculate SHA-256 of the FINAL PDF
-      const sha256 = finalFile ? await computeSha256(finalFile) : `hash-${Date.now()}`;
-      const baseHash = sha256;
-      hederaMemo += `|SHA256:${baseHash}`; // Add SHA256 to memo
-
-      // 5. Upload to IPFS
-      setProcessStatus({ step: 5, total: 7, message: 'Subiendo documento a IPFS (Red Descentralizada)...' });
-      
-      let ipfsURI = null;
-      let ipfsCid = null;
-      let encryptedCid = null;
-
-      if (finalFile) {
-        try {
-          ipfsURI = await issuanceService.uploadToIPFS(finalFile);
-          if (ipfsURI) {
-              ipfsCid = ipfsURI.replace('ipfs://', '');
-              
-              // 6. Encrypt CID with SHA-256 Hash
-              // "el cid eso se cifra con un hash 256"
-              setProcessStatus({ step: 6, total: 7, message: 'Cifrando CID de IPFS con llave SHA-256...' });
-              await new Promise(r => setTimeout(r, 400));
-              
-              encryptedCid = CryptoJS.AES.encrypt(ipfsCid, baseHash).toString();
-          }
-        } catch (e) {
-          console.warn('Fallo al subir PDF a IPFS, continuando sin CID dedicado', e);
-          // Fallback silencioso pero funcional
-          ipfsCid = `QmSimulated${generateMockHash().substring(0, 30)}`;
-          encryptedCid = CryptoJS.AES.encrypt(ipfsCid, baseHash).toString();
-        }
-      }
-
-      // Create the credential object
-      const credentialId = `0.0.${Math.floor(Math.random() * 1000000)}`; // Token ID
-      const serialNumber = Math.floor(Math.random() * 1000) + 1;
-
-      const newCredential = {
-        id: credentialId,
-        tokenId: credentialId,
-        serialNumber: serialNumber,
+      // 5. Blockchain Emission
+      setProcessStatus({ step: 6, total: 7, message: 'Registrando en Blockchain...' });
+      const payload = {
         studentName: formData.studentName,
-        title: formData.courseName,
-        institutionName: universityName,
+        courseName: formData.courseName,
         issueDate: formData.issueDate,
-        createdAt: new Date().toISOString(),
-        status: 'verified',
-        type: variant === 'degree' ? 'Título' : 'Certificado',
-        
-        // Hashes & IDs
-        ipfsURI: ipfsURI || `ipfs://${ipfsCid}`,
-        ipfsCid: ipfsCid,
-        encryptedCid: encryptedCid, // Store encrypted CID
-        ipfsHash256: baseHash,
-        hederaTxId: hederaTxId, // Store Hedera Tx ID
-        
-        // Multi-chain Proofs
-        xrpHash: xrpHash,
-        algorandHash: algorandHash,
-        networkType: effectivePlan,
-        
-        externalProofs: {
-          hederaTx: hederaTxId,
-          xrpTxHash: xrpHash,
-          algoTxId: algorandHash
-        },
-        
-        metadata: {
-          attributes: [
-             { trait_type: "Student Name", value: formData.studentName },
-             { trait_type: "Degree", value: formData.courseName },
-             { trait_type: "Institution", value: universityName },
-             { trait_type: "Date", value: formData.issueDate },
-             { trait_type: "SHA-256", value: baseHash },
-             { trait_type: "Hedera Tx ID", value: hederaTxId }
-          ]
-        }
+        grade: formData.grade,
+        ipfsHash: ipfsHash,
+        fileHash: hash,
+        networks: networks,
+        recipientAccountId: formData.recipientAccountId,
+        institutionName: universityName
       };
 
-      // Save to local storage (Mock Database) & Submit to Backend
-      try {
-        setProcessStatus({ step: 7, total: 7, message: 'Sincronizando "Con Todo" al Backend...' });
-        
-        const raw = localStorage.getItem('acl:credentials');
-        const current = raw ? JSON.parse(raw) : [];
-        const updated = [newCredential, ...current];
-        localStorage.setItem('acl:credentials', JSON.stringify(updated));
-        
-        // Update talent pool
-        pushToTalentPool({
-           id: newCredential.id,
-           studentName: newCredential.studentName,
-           courseName: newCredential.title,
-           credentialType: newCredential.type,
-           txId: newCredential.externalProofs.hederaTx,
-           institution: universityName
+      const response = await apiService.submitMultiChainCredential(payload);
+
+      if (response.success) {
+        setProcessStatus({ step: 7, total: 7, message: '¡Emisión completada con éxito!' });
+        setMessage('Título emitido correctamente en la blockchain.');
+        setResultData({
+            txId: response.txId || response.transactionId,
+            ipfsHash: ipfsHash,
+            explorerUrl: response.explorerUrl
         });
-
-        // --- SUBMIT TO BACKEND (Multi-Chain "Con Todo") ---
-        try {
-            await apiService.submitMultiChainCredential(newCredential);
-            toast.success('¡Sincronizado con Backend!');
-        } catch (backendErr) {
-            console.warn('Backend sync failed, but local saved:', backendErr);
-            toast.error('Error de conexión al backend, pero se guardó localmente.');
-        }
-
-        if (onEmissionComplete) {
-          onEmissionComplete(1);
-        }
-        
-        setResultData(newCredential);
-        setCurrentStep(4); // Success Step
-        toast.success('¡Credencial emitida y registrada en Blockchain!');
-      } catch (e) {
-        console.error(e);
-        setError('Error al guardar la credencial');
-      } finally {
-        setIsLoading(false);
-        setProcessStatus({ step: 0, total: 7, message: '' });
+        toast.success('Título emitido exitosamente');
+        if (onEmissionComplete) onEmissionComplete(response);
+      } else {
+        throw new Error(response.message || 'Error en la emisión');
       }
+
     } catch (err) {
       console.error(err);
-      setError('Error en el proceso de emisión: ' + err.message);
+      setError(err.message || 'Error desconocido');
+      toast.error(err.message || 'Error en la emisión');
+      setProcessStatus({ step: 0, total: 7, message: 'Error: ' + (err.message || 'Desconocido') });
+    } finally {
       setIsLoading(false);
+      setIsUploading(false);
     }
   };
 
   return (
     <div className="max-w-xl mx-auto">
-      <Toaster position="top-right" />
+      <Toaster position="top-right" toastOptions={{
+        style: {
+          background: '#0d0d0d',
+          color: '#fff',
+          border: '1px solid rgba(255,255,255,0.1)',
+        },
+      }} />
 
       {/* Designer Modal */}
       <AnimatePresence>
@@ -512,131 +358,92 @@ const IssueTitleForm = ({
       </AnimatePresence>
 
       <motion.div
-        className="glass-panel p-8 relative overflow-hidden"
+        className="bg-[#050505] backdrop-blur-xl border border-white/5 rounded-2xl p-8 relative overflow-hidden shadow-2xl"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${getGradient()}`} />
+        {/* Minimalist Top Gradient Line */}
+        <div className={`absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent`} />
 
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold font-display text-white">
-            {variant === 'certificate' ? 'Emitir Certificado' : 'Emitir Título'}
-            <span className="ml-3 text-xs bg-secondary text-white px-2 py-1 rounded-full align-middle">Impulsado por AcademicChain AI</span>
-          </h2>
+        <div className="flex justify-between items-center mb-10">
+          <div>
+            <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-500 tracking-tighter flex items-center gap-4">
+              {variant === 'certificate' ? <Award className="text-white" size={48} strokeWidth={1} /> : <Shield className="text-white" size={48} strokeWidth={1} />}
+              {variant === 'certificate' ? 'EMITIR CERTIFICADO' : 'EMITIR TÍTULO'}
+            </h2>
+            <p className="text-slate-500 text-xs mt-2 font-medium tracking-widest uppercase">
+              AcademicChain AI <span className="text-slate-700">|</span> Sistema de Emisión Descentralizada
+            </p>
+          </div>
+          <div className="px-3 py-1 rounded-full bg-[#0d0d0d] border border-white/10 text-slate-400 text-[10px] font-mono uppercase tracking-wider">
+            v2.0.0
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-start w-full relative">
-              
-              <div className={`flex flex-col items-center gap-2 px-2 z-10 ${currentStep >= 1 ? 'text-primary' : 'text-slate-500'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${currentStep >= 1 ? 'bg-primary text-white shadow-[0_0_10px_rgba(124,58,237,0.5)]' : 'bg-slate-800 text-slate-500'}`}>
-                  {currentStep > 1 ? '✓' : '1'}
+        {!resultData && (
+          <>
+            <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Progress Steps */}
+          <div className="flex items-center justify-between mb-10 relative px-4">
+            <div className="absolute left-0 top-1/2 w-full h-[1px] bg-slate-800/50 -z-10 transform -translate-y-1/2"></div>
+            <div className={`absolute left-0 top-1/2 h-[1px] bg-white/20 -z-10 transform -translate-y-1/2 transition-all duration-700 ease-out`} style={{ width: `${((currentStep - 1) / 2) * 100}%` }}></div>
+            
+            {[
+              { num: 1, label: 'DISEÑO', icon: LayoutTemplate },
+              { num: 2, label: 'DATOS', icon: User },
+              { num: 3, label: 'EMISIÓN', icon: Rocket }
+            ].map((step) => (
+              <div key={step.num} className="flex flex-col items-center gap-3 bg-[#050505] px-4 py-2 z-10">
+                <div 
+                  className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all duration-500 ${
+                    currentStep >= step.num 
+                      ? 'bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.2)] scale-110' 
+                      : 'bg-[#0d0d0d] text-slate-600 border-slate-800'
+                  }`}
+                >
+                  <step.icon size={16} strokeWidth={currentStep >= step.num ? 1.5 : 1} />
                 </div>
-                <span className="text-[10px] uppercase tracking-wider font-bold">Diseño</span>
+                <span className={`text-[10px] uppercase tracking-widest font-bold transition-colors duration-500 ${
+                  currentStep >= step.num ? 'text-white' : 'text-slate-700'
+                }`}>
+                  {step.label}
+                </span>
               </div>
-              
-              <div className="flex-1 h-0.5 bg-slate-800 mt-[16px] -mx-2">
-                <div className={`h-full bg-primary transition-all duration-500 ${currentStep >= 2 ? 'w-full' : 'w-0'}`}></div>
-              </div>
-
-              <div className={`flex flex-col items-center gap-2 px-2 z-10 ${currentStep >= 2 ? 'text-primary' : 'text-slate-500'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${currentStep >= 2 ? 'bg-primary text-white shadow-[0_0_10px_rgba(124,58,237,0.5)]' : 'bg-slate-800 text-slate-500'}`}>
-                  {currentStep > 2 ? '✓' : '2'}
-                </div>
-                <span className="text-[10px] uppercase tracking-wider font-bold">Datos</span>
-              </div>
-
-              <div className="flex-1 h-0.5 bg-slate-800 mt-[16px] -mx-2">
-                <div className={`h-full bg-primary transition-all duration-500 ${currentStep >= 3 ? 'w-full' : 'w-0'}`}></div>
-              </div>
-
-              <div className={`flex flex-col items-center gap-2 px-2 z-10 ${currentStep >= 3 ? 'text-primary' : 'text-slate-500'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${currentStep >= 3 ? 'bg-primary text-white shadow-[0_0_10px_rgba(124,58,237,0.5)]' : 'bg-slate-800 text-slate-500'}`}>
-                  3
-                </div>
-                <span className="text-[10px] uppercase tracking-wider font-bold">Emisión</span>
-              </div>
-            </div>
+            ))}
           </div>
 
-          {currentStep === 1 && (
-            <div className="space-y-4">
-              <div className="text-sm text-slate-300">
-                Usa el editor visual para diseñar un certificado o diploma auténtico.
-              </div>
-
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-                onClick={() => {
-                  if (typeof onOpenDesigner === 'function') {
-                    onOpenDesigner();
-                  } else {
-                    setShowDesigner(true);
-                  }
-                }}
-                className="w-full py-3 border border-purple-500/50 text-purple-300 rounded-xl hover:bg-purple-900/20 text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-900/10"
-              >
-                <span>🎨</span> Diseñar Certificado (Editor Visual)
-              </motion.button>
-
-              {savedTemplates.length > 0 && (
-                <div className="mt-2 border border-slate-700 rounded-lg bg-black/30 p-3">
-                  <div className="text-xs font-semibold text-slate-400 mb-2">
-                    Diseños guardados en Diseñador Holográfico
-                  </div>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {savedTemplates.map(t => (
-                      <div key={t.id} className="flex items-center justify-between text-xs text-slate-200">
-                        <div>
-                          <div className="font-semibold">{t.name || 'Diseño sin nombre'}</div>
-                          <div className="text-[10px] text-slate-500">
-                            {t.docType || t.category || 'Certificado'}
-                          </div>
-                        </div>
+          <div className="min-h-[300px]">
+            {currentStep === 1 && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex flex-col items-center justify-center border border-dashed border-white/10 hover:border-white/30 rounded-xl p-10 transition-all group bg-[#0d0d0d]/40 backdrop-blur-sm">
+                    <LayoutTemplate size={48} strokeWidth={1} className="text-slate-600 group-hover:text-white mb-6 transition-colors duration-500" />
+                    <h3 className="text-white font-bold tracking-tight mb-2 text-lg">Diseño del Documento</h3>
+                    <p className="text-slate-500 text-xs text-center max-w-xs mb-8 leading-relaxed">
+                        Selecciona una plantilla predefinida o crea un diseño personalizado para tu credencial académica.
+                    </p>
+                    
+                    <div className="flex gap-3 w-full max-w-sm">
                         <button
-                          type="button"
-                          className="px-2 py-1 rounded bg-slate-800 border border-slate-600 hover:border-cyan-500 text-[10px]"
-                          onClick={() => {
-                            try {
-                              localStorage.setItem('activeTemplateId', t.id);
-                            } catch {}
-                            if (typeof onOpenDesigner === 'function') {
-                              onOpenDesigner();
-                            } else {
-                              setShowDesigner(true);
-                            }
-                          }}
+                            type="button"
+                            onClick={() => document.getElementById('file-upload').click()}
+                            className="flex-1 px-4 py-3 rounded-lg border border-white/10 text-slate-400 hover:border-white/30 hover:text-white text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-2 bg-transparent hover:bg-white/5"
                         >
-                          Abrir
+                            <Upload size={14} strokeWidth={1} /> SUBIR PDF
                         </button>
-                      </div>
-                    ))}
-                  </div>
+                        <input
+                            id="file-upload"
+                            type="file"
+                            accept="application/pdf"
+                            onChange={handleFileChange}
+                            className="hidden"
+                        />
+                    </div>
                 </div>
-              )}
-            </div>
-          )}
 
-          {currentStep === 2 && (
-            <>
-              {file && (
-                <div className="mb-6 p-4 rounded-xl bg-slate-900/50 border border-slate-700/50 flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-lg bg-slate-800 border border-slate-600 overflow-hidden flex-shrink-0">
-                    <img 
-                      src={URL.createObjectURL(file)} 
-                      alt="Diseño seleccionado" 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-bold text-white truncate">Diseño Seleccionado</h4>
-                    <p className="text-xs text-slate-400 truncate">{file.name}</p>
-                  </div>
-                  <button
+                <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
                     type="button"
                     onClick={() => {
                         if (typeof onOpenDesigner === 'function') {
@@ -645,198 +452,423 @@ const IssueTitleForm = ({
                             setShowDesigner(true);
                         }
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-medium text-slate-300 transition-colors"
-                  >
-                    Editar
-                  </button>
-                </div>
-              )}
-
-              <div className="mb-4">
-                <label className="label-text">Institución</label>
-                <input type="text" value={universityName} readOnly className="input-primary opacity-50 cursor-not-allowed" placeholder="Detectando..." />
-              </div>
-
-              <div>
-                <label className="label-text">Estudiante</label>
-                <input type="text" name="studentName" value={formData.studentName} onChange={handleChange} className="input-primary" placeholder="Nombre completo" required />
-              </div>
-
-              <div>
-                <label className="label-text">Título / Curso</label>
-                <input type="text" name="courseName" value={formData.courseName} onChange={handleChange} className="input-primary" placeholder="Ej. Ingeniería de Software" required />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label-text">Fecha Emisión</label>
-                  <input type="date" name="issueDate" value={formData.issueDate} onChange={handleChange} className="input-primary" required />
-                </div>
-                <div>
-                  <label className="label-text">Nota (0-100)</label>
-                  <input type="text" name="grade" value={formData.grade} onChange={handleChange} className="input-primary" placeholder="95" />
-                </div>
-              </div>
-
-              <div>
-                <label className="label-text">Cuenta Hedera (Opcional)</label>
-                <input type="text" name="recipientAccountId" value={formData.recipientAccountId} onChange={handleChange} className="input-primary" placeholder="0.0.xxxxx" />
-              </div>
-            </>
-          )}
-
-          {currentStep === 3 && (
-            <div className="space-y-6">
-              <div className="text-sm text-slate-300 border-l-2 border-primary pl-3">
-                Confirma los detalles finales. Esta acción registrará la credencial permanentemente en la red distribuida.
-              </div>
-
-              {file && (
-                 <div className="w-full h-48 bg-slate-900/50 rounded-xl border border-slate-700/50 flex items-center justify-center overflow-hidden relative group shadow-inner">
-                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
-                    <img 
-                      src={URL.createObjectURL(file)} 
-                      alt="Vista previa del título" 
-                      className="h-full object-contain shadow-2xl transform group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute bottom-2 right-2">
-                        <span className="text-[10px] text-white/80 font-mono bg-black/60 px-2 py-1 rounded border border-white/10 backdrop-blur-sm">Vista Previa</span>
-                    </div>
-                 </div>
-              )}
-
-              <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/30 space-y-4">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Resumen de Datos</h4>
-                  <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm">
-                    <div>
-                      <div className="text-slate-500 text-xs">Estudiante</div>
-                      <div className="font-semibold text-white">{formData.studentName || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-slate-500 text-xs">Título / Curso</div>
-                      <div className="font-semibold text-white">{formData.courseName || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-slate-500 text-xs">Fecha Emisión</div>
-                      <div className="font-semibold text-white">{formData.issueDate || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-slate-500 text-xs">Plan de Emisión</div>
-                      <div className="font-semibold text-primary-300 capitalize">{computePlanFromNetworks()}</div>
-                    </div>
-                  </div>
-              </div>
-
-              {resultData && (
-                <div className="mt-2 p-3 rounded-lg bg-green-900/20 border border-green-500/30 text-xs text-green-300 animate-in fade-in slide-in-from-bottom-2">
-                  <div className="font-bold mb-2 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                    Emisión Exitosa
-                  </div>
-                  {resultData.sha256 && (
-                    <div className="font-mono opacity-80 mb-1">SHA-256: {resultData.sha256.substring(0, 20)}...</div>
-                  )}
-                  {resultData.ipfsURI && (
-                    <div className="font-mono opacity-80">IPFS: {resultData.ipfsURI.substring(0, 20)}...</div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex justify-between pt-6 border-t border-slate-800/50 mt-4">
-            <button
-              type="button"
-              onClick={handlePreviousStep}
-              disabled={currentStep === 1 || isLoading}
-              className="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-sm font-medium disabled:opacity-50"
-            >
-              Atrás
-            </button>
-            {currentStep < 3 && (
-              <button
-                type="button"
-                onClick={handleNextStep}
-                disabled={isLoading}
-                className="px-6 py-2 rounded-lg bg-primary hover:bg-primary-600 text-white shadow-lg shadow-primary/20 transition-all text-sm font-bold"
-              >
-                Siguiente
-              </button>
-            )}
-            {currentStep === 3 && (
-              <div className="flex flex-col gap-4 mt-6">
-                {/* Detailed Progress Indicator */}
-                {isLoading && processStatus.step > 0 && (
-                    <div className="w-full bg-slate-900/80 rounded-xl p-5 border border-primary/30 shadow-[0_0_15px_rgba(124,58,237,0.1)] backdrop-blur-md">
-                        <div className="flex justify-between text-xs text-primary-300 mb-2 font-mono uppercase tracking-wider">
-                            <span>Fase {processStatus.step} de {processStatus.total}</span>
-                            <span>{Math.round((processStatus.step / processStatus.total) * 100)}%</span>
-                        </div>
-                        <div className="w-full bg-slate-800 rounded-full h-2.5 mb-4 overflow-hidden border border-slate-700">
-                            <motion.div 
-                                className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 h-full rounded-full relative"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${(processStatus.step / processStatus.total) * 100}%` }}
-                                transition={{ type: "spring", stiffness: 50, damping: 15 }}
-                            >
-                                <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/diagonal-stripes.png')] opacity-30 animate-[slide_1s_linear_infinite]"></div>
-                            </motion.div>
-                        </div>
-                        <div className="flex items-center gap-3 text-sm text-white font-medium">
-                            {processStatus.step < processStatus.total ? (
-                                <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin shrink-0"></div>
-                            ) : (
-                                <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shrink-0">
-                                    <span className="text-white text-xs font-bold">✓</span>
-                                </div>
-                            )}
-                            <span className="animate-pulse">{processStatus.message}</span>
-                        </div>
-                    </div>
-                )}
-
-                <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    type="submit"
-                    disabled={isLoading || isUploading}
-                    className={`w-full px-8 py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-3 shadow-lg transition-all
-                        ${isLoading 
-                            ? 'bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-700' 
-                            : 'bg-gradient-to-r from-primary to-purple-600 hover:from-primary-500 hover:to-purple-500 text-white shadow-purple-900/40 border border-purple-500/30'
-                        }`}
+                    className="w-full px-6 py-5 rounded-xl bg-gradient-to-r from-[#0d0d0d] to-[#151515] border border-white/5 hover:border-white/20 text-white font-medium text-sm flex items-center justify-between group transition-all shadow-lg hover:shadow-xl"
                 >
-                    {isLoading ? (
-                        <>
-                            <span>Procesando Emisión...</span>
-                        </>
-                    ) : (
-                        <>
-                            <span className="text-lg">🚀</span> 
-                            <span>Firmar y Emitir Credencial ("Con Todo")</span>
-                        </>
-                    )}
+                    <div className="flex items-center gap-4">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_10px_#10b981] animate-pulse"></div>
+                        <span className="tracking-wide">Abrir Editor Holográfico</span>
+                    </div>
+                    <ChevronRight size={16} strokeWidth={1} className="text-slate-500 group-hover:text-white transition-colors" />
+                </motion.button>
+
+                {savedTemplates.length > 0 && (
+                  <div className="mt-6 border border-white/5 rounded-xl bg-[#0d0d0d]/40 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <FileText size={12} strokeWidth={1} /> Diseños Guardados
+                      </div>
+                      <span className="text-[10px] bg-white/5 text-slate-400 px-2 py-0.5 rounded-full font-mono">{savedTemplates.length}</span>
+                    </div>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                      {savedTemplates.map(t => (
+                        <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-black/20 hover:bg-black/40 border border-transparent hover:border-white/5 transition-all group">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded bg-white/5 flex items-center justify-center text-slate-500 group-hover:text-white transition-colors">
+                              <LayoutTemplate size={14} strokeWidth={1} />
+                            </div>
+                            <div>
+                              <div className="font-medium text-slate-200 text-xs">{t.name || 'Diseño sin nombre'}</div>
+                              <div className="text-[10px] text-slate-500 flex items-center gap-1 uppercase tracking-wider">
+                                  {t.docType || t.category || 'Certificado'}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-[10px] font-bold tracking-wide transition-all"
+                            onClick={() => {
+                              try {
+                                localStorage.setItem('activeTemplateId', t.id);
+                              } catch {}
+                              if (typeof onOpenDesigner === 'function') {
+                                onOpenDesigner();
+                              } else {
+                                setShowDesigner(true);
+                              }
+                            }}
+                          >
+                            CARGAR
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {file && (
+                  <div className="flex items-center justify-between p-4 bg-emerald-900/10 border border-emerald-500/10 rounded-xl animate-in fade-in zoom-in duration-300">
+                      <div className="flex items-center gap-4 overflow-hidden">
+                          <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                              <Check size={18} strokeWidth={1} />
+                          </div>
+                          <div className="overflow-hidden">
+                              <p className="text-xs text-emerald-200 font-bold uppercase tracking-wider">Archivo Seleccionado</p>
+                              <p className="text-xs text-emerald-500/70 truncate font-mono mt-0.5">{file.name}</p>
+                          </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                            if (typeof onOpenDesigner === 'function') {
+                                onOpenDesigner();
+                            } else {
+                                setShowDesigner(true);
+                            }
+                        }}
+                        className="relative z-10 px-4 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wider text-emerald-400 transition-colors"
+                      >
+                        Editar
+                      </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {currentStep === 2 && (
+              <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="group">
+                    <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 flex items-center gap-2 group-focus-within:text-white transition-colors">
+                        <User size={12} strokeWidth={1} /> Estudiante
+                    </label>
+                    <div className="relative">
+                        <input 
+                            type="text" 
+                            name="studentName" 
+                            value={formData.studentName} 
+                            onChange={handleChange} 
+                            className="w-full bg-[#0d0d0d]/60 border border-white/5 rounded-xl px-4 py-4 pl-11 text-white text-sm focus:outline-none focus:border-white/20 focus:bg-black transition-all placeholder-slate-700 shadow-inner backdrop-blur-sm" 
+                            placeholder="Nombre completo del estudiante" 
+                            required 
+                        />
+                         <div className="absolute left-4 top-4 text-slate-600 group-focus-within:text-white transition-colors">
+                            <User size={16} strokeWidth={1} />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="group">
+                    <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 flex items-center gap-2 group-focus-within:text-white transition-colors">
+                        <Award size={12} strokeWidth={1} /> Título / Curso
+                    </label>
+                    <div className="relative">
+                        <input 
+                            type="text" 
+                            name="courseName" 
+                            value={formData.courseName} 
+                            onChange={handleChange} 
+                            className="w-full bg-[#0d0d0d]/60 border border-white/5 rounded-xl px-4 py-4 pl-11 text-white text-sm focus:outline-none focus:border-white/20 focus:bg-black transition-all placeholder-slate-700 shadow-inner backdrop-blur-sm" 
+                            placeholder="Ej. Ingeniería de Software" 
+                            required 
+                        />
+                        <div className="absolute left-4 top-4 text-slate-600 group-focus-within:text-white transition-colors">
+                            <Award size={16} strokeWidth={1} />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-5">
+                    <div className="group">
+                        <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 flex items-center gap-2 group-focus-within:text-white transition-colors">
+                            <Calendar size={12} strokeWidth={1} /> Fecha Emisión
+                        </label>
+                        <div className="relative">
+                            <input 
+                                type="date" 
+                                name="issueDate" 
+                                value={formData.issueDate} 
+                                onChange={handleChange} 
+                                className="w-full bg-[#0d0d0d]/60 border border-white/5 rounded-xl px-4 py-4 pl-11 text-white text-sm focus:outline-none focus:border-white/20 focus:bg-black transition-all placeholder-slate-700 shadow-inner backdrop-blur-sm" 
+                                required 
+                            />
+                            <div className="absolute left-4 top-4 text-slate-600 group-focus-within:text-white transition-colors">
+                                <Calendar size={16} strokeWidth={1} />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="group">
+                        <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 flex items-center gap-2 group-focus-within:text-white transition-colors">
+                            <Award size={12} strokeWidth={1} /> Nota (0-100)
+                        </label>
+                        <div className="relative">
+                            <input 
+                                type="text" 
+                                name="grade" 
+                                value={formData.grade} 
+                                onChange={handleChange} 
+                                className="w-full bg-[#0d0d0d]/60 border border-white/5 rounded-xl px-4 py-4 pl-11 text-white text-sm focus:outline-none focus:border-white/20 focus:bg-black transition-all placeholder-slate-700 shadow-inner backdrop-blur-sm" 
+                                placeholder="Opcional" 
+                            />
+                            <div className="absolute left-4 top-4 text-slate-600 group-focus-within:text-white transition-colors">
+                                <Award size={16} strokeWidth={1} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="group">
+                    <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 flex items-center gap-2 group-focus-within:text-white transition-colors">
+                        <User size={12} strokeWidth={1} /> Cuenta Receptora (Opcional)
+                    </label>
+                    <div className="relative">
+                        <input 
+                            type="text" 
+                            name="recipientAccountId" 
+                            value={formData.recipientAccountId} 
+                            onChange={handleChange} 
+                            className="w-full bg-[#0d0d0d]/60 border border-white/5 rounded-xl px-4 py-4 pl-11 text-white text-sm focus:outline-none focus:border-white/20 focus:bg-black transition-all placeholder-slate-700 shadow-inner font-mono backdrop-blur-sm" 
+                            placeholder="0.0.XXXXX" 
+                        />
+                        <div className="absolute left-4 top-4 text-slate-600 group-focus-within:text-white transition-colors">
+                            <User size={16} strokeWidth={1} />
+                        </div>
+                    </div>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 3 && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex items-center gap-4 p-5 rounded-xl bg-blue-900/10 border border-blue-500/10 text-blue-200 text-xs font-light tracking-wide leading-relaxed">
+                   <Shield size={18} strokeWidth={1} className="text-blue-400 shrink-0" />
+                   <p>Confirma los detalles finales. Esta acción registrará la credencial permanentemente en la red distribuida a través del Triple Shield Consensus.</p>
+                </div>
+  
+                {file && (
+                   <div className="w-full h-56 bg-[#0d0d0d]/40 rounded-xl border border-white/5 flex items-center justify-center overflow-hidden relative group shadow-inner">
+                      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03]"></div>
+                      <img 
+                        src={URL.createObjectURL(file)} 
+                        alt="Vista previa del título" 
+                        className="h-full object-contain shadow-2xl transform group-hover:scale-105 transition-transform duration-700 relative z-10"
+                      />
+                      <div className="absolute bottom-4 right-4 z-20">
+                          <span className="text-[10px] text-white font-mono bg-black/80 px-3 py-1.5 rounded-lg border border-white/10 backdrop-blur-md shadow-lg flex items-center gap-2 uppercase tracking-widest">
+                              <Rocket size={10} className="text-emerald-500" /> Vista Previa
+                          </span>
+                      </div>
+                   </div>
+                )}
+  
+                <div className="bg-[#0d0d0d]/40 rounded-xl p-6 border border-white/5 space-y-5 backdrop-blur-sm">
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <FileText size={12} strokeWidth={1} /> Resumen de Datos
+                    </h4>
+                    <div className="grid grid-cols-2 gap-y-6 gap-x-4 text-sm">
+                      <div>
+                        <div className="text-slate-600 text-[10px] uppercase tracking-widest mb-1.5 font-bold">Estudiante</div>
+                        <div className="font-medium text-slate-200">{formData.studentName || '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-600 text-[10px] uppercase tracking-widest mb-1.5 font-bold">Título / Curso</div>
+                        <div className="font-medium text-slate-200">{formData.courseName || '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-600 text-[10px] uppercase tracking-widest mb-1.5 font-bold">Fecha Emisión</div>
+                        <div className="font-medium text-slate-200 font-mono">{formData.issueDate || '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-600 text-[10px] uppercase tracking-widest mb-1.5 font-bold">Plan de Emisión</div>
+                        <div className="font-bold text-emerald-400 capitalize flex items-center gap-2">
+                            <Rocket size={12} strokeWidth={2} /> {computePlanFromNetworks()}
+                        </div>
+                      </div>
+                    </div>
+                </div>
+  
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  type="submit"
+                  disabled={isLoading || isUploading}
+                  className={`w-full px-8 py-5 rounded-xl font-bold text-sm flex items-center justify-center gap-3 shadow-xl transition-all relative overflow-hidden group border
+                      ${isLoading 
+                          ? 'bg-[#1a1a1a] text-slate-600 cursor-not-allowed border-white/5' 
+                          : 'bg-gradient-to-r from-emerald-600/90 to-teal-700/90 hover:from-emerald-500 hover:to-teal-600 text-white border-emerald-500/20 shadow-lg shadow-emerald-900/20'
+                      }`}
+                >
+                  {isLoading ? (
+                      <>
+                          <span>Procesando Emisión...</span>
+                      </>
+                  ) : (
+                      <>
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                          <Rocket size={18} strokeWidth={1} className="group-hover:animate-bounce" />
+                          <span className="text-sm tracking-widest uppercase">CONFIRMAR Y EMITIR</span>
+                      </>
+                  )}
                 </motion.button>
               </div>
             )}
           </div>
+
+          <div className="flex justify-between pt-8 border-t border-white/5">
+             {currentStep > 1 && (
+                <button
+                    type="button"
+                    onClick={handlePreviousStep}
+                    disabled={isLoading}
+                    className="px-5 py-2.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-2"
+                >
+                    <ChevronLeft size={14} strokeWidth={1} /> Atrás
+                </button>
+             )}
+             {currentStep < 3 && (
+                <button
+                    type="button"
+                    onClick={handleNextStep}
+                    className="ml-auto px-6 py-3 rounded-lg bg-white text-black hover:bg-slate-200 text-[10px] font-bold uppercase tracking-widest transition-all shadow-lg hover:shadow-white/10 flex items-center gap-2"
+                >
+                    Siguiente <ChevronRight size={14} strokeWidth={1} />
+                </button>
+             )}
+          </div>
         </form>
 
-        {message && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 p-3 bg-green-900/40 border border-green-500/30 rounded text-green-300 text-sm text-center">
-            {message}
-          </motion.div>
+        {/* Process Status Overlay - Terminal Style */}
+        {isLoading && (
+          <div className="absolute inset-0 bg-[#050505]/95 backdrop-blur-xl flex flex-col items-center justify-center z-50 p-10 font-mono">
+             <div className="relative w-24 h-24 mb-8">
+                <div className="absolute inset-0 border-2 border-slate-800 rounded-full"></div>
+                <div className="absolute inset-0 border-2 border-t-emerald-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <Terminal size={32} strokeWidth={1} className="text-emerald-500 animate-pulse" />
+                </div>
+             </div>
+             <h3 className="text-2xl font-bold text-white mb-2 tracking-tighter uppercase">TRIPLE SHIELD CONSENSUS</h3>
+             <p className="text-emerald-500 text-xs mb-8 text-center max-w-xs animate-pulse">
+               {'>'} {processStatus.message}_
+             </p>
+             
+             <div className="w-full max-w-sm bg-slate-900/50 rounded-none h-1 overflow-hidden border border-slate-800">
+                <div 
+                    className="h-full bg-emerald-500 shadow-[0_0_10px_#10b981] transition-all duration-300"
+                    style={{ width: `${(processStatus.step / processStatus.total) * 100}%` }}
+                ></div>
+             </div>
+             <div className="flex justify-between w-full max-w-sm mt-3 text-[10px] text-slate-600 uppercase tracking-widest font-bold">
+                <span>Init_Sequence</span>
+                <span>Finalize</span>
+             </div>
+             
+             {/* Triple Shield Consensus Terminal */}
+             <div className="mt-12 w-full max-w-lg bg-black/40 border border-white/10 rounded-lg p-4 font-mono text-[10px] relative overflow-hidden group">
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] pointer-events-none bg-[length:100%_4px,6px_100%] z-0"></div>
+                
+                <div className="flex justify-between items-center mb-3 relative z-10 border-b border-white/5 pb-2">
+                    <span className="text-emerald-500 font-bold tracking-widest">TRIPLE_SHIELD_CONSENSUS</span>
+                    <span className="text-slate-500">STATUS: <span className="text-emerald-400 animate-pulse">LIVE</span></span>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-px bg-white/5 border border-white/5 relative z-10">
+                    <div className="bg-black/40 p-2 text-center group/node hover:bg-emerald-900/10 transition-colors">
+                        <div className="text-slate-600 mb-1">NODE_01 [HEDERA]</div>
+                        <div className="text-emerald-400 font-bold tracking-wider">ACTIVE</div>
+                        <div className="text-[8px] text-slate-700 mt-1">LATENCY: 12ms</div>
+                    </div>
+                    <div className="bg-black/40 p-2 text-center group/node hover:bg-blue-900/10 transition-colors">
+                        <div className="text-slate-600 mb-1">NODE_02 [XRPL]</div>
+                        <div className="text-blue-400 font-bold tracking-wider">SYNCING</div>
+                        <div className="text-[8px] text-slate-700 mt-1">LATENCY: 45ms</div>
+                    </div>
+                    <div className="bg-black/40 p-2 text-center group/node hover:bg-cyan-900/10 transition-colors">
+                        <div className="text-slate-600 mb-1">NODE_03 [ALGO]</div>
+                        <div className="text-cyan-400 font-bold tracking-wider">READY</div>
+                        <div className="text-[8px] text-slate-700 mt-1">LATENCY: 28ms</div>
+                    </div>
+                </div>
+                
+                <div className="mt-2 text-slate-600 text-[9px] flex justify-between relative z-10">
+                    <span>HASH_RATE: 450 TH/s</span>
+                    <span>ENCRYPTION: AES-256-GCM</span>
+                </div>
+             </div>
+          </div>
+        )}
+          </>
         )}
 
-        {error && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 p-3 bg-red-900/40 border border-red-500/30 rounded text-red-300 text-sm text-center">
-            {error}
-          </motion.div>
+        {resultData && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, ease: "circOut" }}
+              className="bg-[#0d0d0d]/60 backdrop-blur-xl rounded-xl p-8 border border-emerald-500/20 shadow-2xl shadow-emerald-900/10 text-center relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent" />
+              <div className="absolute -top-20 -right-20 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl" />
+              
+              <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.1)]">
+                <CheckCircle size={40} strokeWidth={1} className="text-emerald-400" />
+              </div>
+              
+              <h3 className="text-3xl font-black text-white mb-2 tracking-tighter">EMISIÓN COMPLETADA</h3>
+              <p className="text-slate-400 text-sm mb-8 max-w-sm mx-auto font-light leading-relaxed">
+                La credencial ha sido registrada inmutablemente en la red distribuida.
+              </p>
+
+              <div className="bg-black/40 rounded-lg p-5 border border-white/5 text-left space-y-4 mb-8 relative z-10 font-mono text-xs">
+                <div className="flex justify-between items-center pb-3 border-b border-white/5">
+                  <span className="text-slate-500 uppercase tracking-wider">Transacción ID</span>
+                  <div className="flex items-center gap-2">
+                     <span className="text-emerald-400 truncate max-w-[120px]" title={resultData.txId}>{resultData.txId}</span>
+                     <Activity size={12} strokeWidth={1} className="text-emerald-500/50" />
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 uppercase tracking-wider">IPFS Hash</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-blue-400 truncate max-w-[120px]" title={resultData.ipfsHash}>{resultData.ipfsHash}</span>
+                    <Server size={12} strokeWidth={1} className="text-blue-500/50" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 relative z-10">
+                <a 
+                  href={resultData.explorerUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 px-4 py-4 bg-[#151515] hover:bg-[#1a1a1a] border border-white/5 hover:border-white/10 rounded-xl text-slate-300 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all group"
+                >
+                  <ExternalLink size={14} strokeWidth={1} className="group-hover:text-emerald-400 transition-colors" />
+                  <span>Explorador</span>
+                </a>
+                <button 
+                  onClick={() => {
+                    setResultData(null);
+                    setCurrentStep(1);
+                    setFile(null);
+                    setLocalFormData({
+                      studentName: '',
+                      courseName: '',
+                      issueDate: '',
+                      grade: '',
+                      recipientAccountId: '',
+                    });
+                  }}
+                  className="flex items-center justify-center gap-2 px-4 py-4 bg-white hover:bg-slate-200 text-black rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-white/5 transition-all"
+                >
+                  <RefreshCw size={14} strokeWidth={1} />
+                  <span>Nueva Emisión</span>
+                </button>
+              </div>
+            </motion.div>
         )}
+
       </motion.div>
     </div>
   );
 };
 
 export default IssueTitleForm;
-

@@ -180,30 +180,29 @@
     },
     {
       "parameters": {
-        "url": "https://api.pinata.cloud/pinning/pinFileToIPFS",
+        "url": "https://node.lighthouse.storage/api/v0/add",
         "method": "POST",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "={{'Bearer ' + $env.PINATA_JWT}}" }
+            { "name": "Authorization", "value": "={{'Bearer ' + $env.FILECOIN_API_KEY}}" }
           ]
         },
         "sendFormData": true,
         "formDataParametersUi": {
           "parameter": [
-            { "name": "file", "value": "={{$binary.file}}", "type": "formBinary" },
-            { "name": "pinataMetadata", "value": "={{JSON.stringify({ name: 'AcademicChain-Credential', keyvalues: { uniqueHash: $json.uniqueHash, studentName: $json.studentName, hederaTx: $json.hash_hedera || null, xrpTxHash: $json.hash_xrp || null, algoTxId: $json.hash_algo || null } })}}", "type": "formText" }
+            { "name": "file", "value": "={{$binary.file}}", "type": "formBinary" }
           ]
         }
       },
-      "name": "Pin File (Pinata)",
+      "name": "Upload File (Filecoin)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [1600, -120]
     },
     {
       "parameters": {
-        "jsCode": "const doc = { tokenId: $json.tokenId, serialNumber: $json.serialNumber || '1', universityId: $json.universityId || null, studentAccountId: $json.studentAccountId || null, uniqueHash: $json.uniqueHash, studentName: $json.studentName || null, externalProofs: $json.externalProofs || {}, createdAt: $json.createdAt || new Date().toISOString(), updatedAt: $json.updatedAt || new Date().toISOString() }; return { json: doc };"
+        "jsCode": "const doc = { tokenId: $json.tokenId, serialNumber: $json.serialNumber || '1', universityId: $json.universityId || null, studentAccountId: $json.studentAccountId || null, uniqueHash: $json.uniqueHash, studentName: $json.studentName || null, externalProofs: $json.externalProofs || {}, createdAt: $json.createdAt || new Date().toISOString(), updatedAt: $json.updatedAt || new Date().toISOString() }; const jsonString = JSON.stringify(doc); const buf = Buffer.from(jsonString); return { json: doc, binary: { file: { data: buf.toString('base64'), mimeType: 'application/json', fileName: 'metadata.json' } } };"
       },
       "name": "Build Doc JSON",
       "type": "n8n-nodes-base.code",
@@ -212,21 +211,22 @@
     },
     {
       "parameters": {
-        "url": "https://api.pinata.cloud/pinning/pinJSONToIPFS",
+        "url": "https://node.lighthouse.storage/api/v0/add",
         "method": "POST",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "={{'Bearer ' + $env.PINATA_JWT}}" },
-            { "name": "Content-Type", "value": "application/json" }
+            { "name": "Authorization", "value": "={{'Bearer ' + $env.FILECOIN_API_KEY}}" }
           ]
         },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{$json}}",
-        "options": {}
+        "sendFormData": true,
+        "formDataParametersUi": {
+          "parameter": [
+            { "name": "file", "value": "={{$binary.file}}", "type": "formBinary" }
+          ]
+        }
       },
-      "name": "Pin JSON (Pinata)",
+      "name": "Upload JSON (Filecoin)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [1500, 0]
@@ -358,11 +358,11 @@
       ]
     },
     "Fetch PDF": { "main": [[{ "node": "Prepare Binary", "type": "main", "index": 0 }]] },
-    "Prepare Binary": { "main": [[{ "node": "Pin File (Pinata)", "type": "main", "index": 0 }]] },
-    "Create Binary (Base64)": { "main": [[{ "node": "Pin File (Pinata)", "type": "main", "index": 0 }]] },
-    "Pin File (Pinata)": { "main": [[{ "node": "Compute SHA256 Link", "type": "main", "index": 0 }]] },
-    "Build Doc JSON": { "main": [[{ "node": "Pin JSON (Pinata)", "type": "main", "index": 0 }]] },
-    "Pin JSON (Pinata)": { "main": [[{ "node": "Compute SHA256 Link", "type": "main", "index": 0 }]] },
+    "Prepare Binary": { "main": [[{ "node": "Upload File (Filecoin)", "type": "main", "index": 0 }]] },
+    "Create Binary (Base64)": { "main": [[{ "node": "Upload File (Filecoin)", "type": "main", "index": 0 }]] },
+    "Upload File (Filecoin)": { "main": [[{ "node": "Compute SHA256 Link", "type": "main", "index": 0 }]] },
+    "Build Doc JSON": { "main": [[{ "node": "Upload JSON (Filecoin)", "type": "main", "index": 0 }]] },
+    "Upload JSON (Filecoin)": { "main": [[{ "node": "Compute SHA256 Link", "type": "main", "index": 0 }]] },
     "Compute SHA256 Link": {
       "main": [
         [

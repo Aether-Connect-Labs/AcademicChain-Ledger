@@ -4,13 +4,40 @@ import ConnectionService from './services/connectionService';
 import IssueTitleForm from './IssueTitleForm';
 import BatchIssuance from './BatchIssuance';
 import demoService from './services/demoService';
-import useHedera from './useHedera';
+import { useHedera } from './useHedera';
 import { useAuth } from './useAuth';
 import { issuanceService } from './services/issuanceService';
-import { institutionService } from './services/institutionService';
 import { toGateway, getGateways } from './utils/ipfsUtils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Hexagon } from 'lucide-react';
+import { 
+  Hexagon, 
+  LayoutDashboard, 
+  PenTool, 
+  Zap, 
+  Layers, 
+  History, 
+  BarChart3, 
+  CreditCard, 
+  Globe, 
+  Shield, 
+  LogOut, 
+  Menu, 
+  Search, 
+  FileText, 
+  Trash2, 
+  XCircle, 
+  CheckCircle, 
+  Clock, 
+  AlertTriangle,
+  Download,
+  Eye,
+  X,
+  Settings,
+  ChevronRight,
+  Upload,
+  User,
+  MoreVertical
+} from 'lucide-react';
 import { theme } from './themeConfig';
 import jsPDF from 'jspdf';
 import CreditRecharge from './CreditRecharge';
@@ -18,7 +45,6 @@ import CertificateDesigner from './CertificateDesigner';
 import CertificationStepper from './CertificationStepper';
 import NarrativeTemplateManager from './NarrativeTemplateManager';
 import { Toaster, toast } from 'react-hot-toast';
-import CyberBackground from './CyberBackground';
 import InstitutionAnalytics from './InstitutionAnalytics';
 import InstitutionSubscriptionModal from './InstitutionSubscriptionModal';
 import apiService from './services/apiService';
@@ -58,7 +84,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('emitir'); 
-  const [isEditingDesign, setIsEditingDesign] = useState(true); // Default to Designer as per user request
+  const [isEditingDesign, setIsEditingDesign] = useState(true);
   const [currentStep, setCurrentStep] = useState(() => {
     const saved = localStorage.getItem('institution:step');
     return saved ? parseInt(saved) : 1;
@@ -80,7 +106,6 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   
   // Branding State
   const [institutionName, setInstitutionName] = useState(() => {
-    // Try to load from localStorage immediately to avoid flicker
     if (typeof window !== 'undefined') {
         const saved = localStorage.getItem('acl:brand:name');
         if (saved && saved !== 'Academic Chain Institute') return saved;
@@ -90,13 +115,6 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   const [institutionLogo, setInstitutionLogo] = useState('');
   const [isEditingName, setIsEditingName] = useState(false);
   const [savedDesign, setSavedDesign] = useState(null);
-  const [issueFormData, setIssueFormData] = useState({
-    studentName: '',
-    courseName: '',
-    issueDate: '',
-    grade: '',
-    recipientAccountId: '',
-  });
   const [activeDesignFile, setActiveDesignFile] = useState(null);
 
   useEffect(() => {
@@ -106,15 +124,12 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   }, [savedDesign]);
 
   useEffect(() => {
-    // Sync with User Profile (Institution ID 444)
+    // Sync with User Profile
     if (user?.name || user?.institutionName) {
-        // Enforce the name from the authenticated user
-        // If user is the specific "444" institution or name is numeric/generic, FORCE the name
         if (user.id === '444' || user.institutionName === 'AcademicChain Ledger' || user.name === '444') {
              setInstitutionName('AcademicChain Ledger');
              localStorage.setItem('acl:brand:name', 'AcademicChain Ledger');
         } else {
-             // For other users, respect localStorage if set, else user name
              const savedName = localStorage.getItem('acl:brand:name');
              if (savedName && savedName !== 'Academic Chain Institute') {
                  setInstitutionName(savedName);
@@ -123,7 +138,6 @@ function EnhancedInstitutionDashboard({ demo = false }) {
              }
         }
     } else {
-        // Fallback for demo/no-user
         const savedName = localStorage.getItem('acl:brand:name');
         const savedLogo = localStorage.getItem('acl:brand:logo');
         if (savedName) setInstitutionName(savedName);
@@ -150,9 +164,8 @@ function EnhancedInstitutionDashboard({ demo = false }) {
     toast.success('Nombre actualizado');
   };
 
-  
   // Plan State
-  const [currentPlan, setCurrentPlan] = useState(PLANS.esencial); // Default to Esencial as per user request
+  const [currentPlan, setCurrentPlan] = useState(PLANS.esencial);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [emissionsUsed, setEmissionsUsed] = useState(0);
   const [selectedNetworks, setSelectedNetworks] = useState(PLANS.professional.networks);
@@ -162,8 +175,6 @@ function EnhancedInstitutionDashboard({ demo = false }) {
         setSelectedNetworks(currentPlan.networks);
     }
   }, [currentPlan]);
-
-
 
   const [stats, setStats] = useState({
     totalCredentials: 0,
@@ -186,21 +197,22 @@ function EnhancedInstitutionDashboard({ demo = false }) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch Plan Details
         const planData = await apiService.getInstitutionPlan(String(user?.id || user?.universityId || 'inst-123'));
-        setCurrentPlan(planData.details);
-        setEmissionsUsed(planData.emissionsUsed);
-        setSelectedNetworks(planData.details.networks);
+        if (planData?.details) {
+            setCurrentPlan(planData.details);
+            setSelectedNetworks(planData.details.networks || ['hedera']);
+        }
+        if (planData?.emissionsUsed !== undefined) {
+            setEmissionsUsed(planData.emissionsUsed);
+        }
 
-        // Intentar cargar datos reales si hay token
         if (token && !demo) {
              try {
-                const creds = await institutionService.getIssuedCredentials(token);
-                 // Merge with local credentials from 'con todo' issuance
+                const issuerId = String(user?.id || user?.universityId || 'inst-123');
+                const creds = await apiService.getInstitutionCredentials(issuerId);
                  const localCredsRaw = localStorage.getItem('acl:credentials');
                  const localCreds = localCredsRaw ? JSON.parse(localCredsRaw) : [];
                  
-                 // Combine API credentials with Local credentials (deduplicating by ID)
                  const allCreds = [...(Array.isArray(creds) ? creds : []), ...localCreds];
                  const uniqueCreds = Array.from(new Map(allCreds.map(item => [item.id || item.tokenId, item])).values());
 
@@ -208,11 +220,10 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                    ...c,
                    title: c.title || c.degree || c.courseName || c.metadata?.degree || 'Título',
                    type: c.type || c.credentialType || 'titulo',
-                   // Ensure we pull from metadata if not at top level
                    ipfsHash256: c.ipfsHash256 || c.metadata?.ipfsHash256 || c.metadata?.sha256,
                    ipfsCid: c.ipfsCid || c.metadata?.ipfsCid,
-                   encryptedCid: c.encryptedCid || c.metadata?.encryptedCid, // Ensure encryptedCid is pulled
-                   hederaTxId: c.hederaTxId || c.metadata?.hederaTxId || c.externalProofs?.hederaTx, // Ensure hederaTxId is pulled
+                   encryptedCid: c.encryptedCid || c.metadata?.encryptedCid,
+                   hederaTxId: c.hederaTxId || c.metadata?.hederaTxId || c.externalProofs?.hederaTx,
                    xrpHash: c.xrpHash || c.metadata?.xrpHash || c.externalProofs?.xrpTxHash,
                    algorandHash: c.algorandHash || c.metadata?.algorandHash || c.externalProofs?.algoTxId,
                    id: c.hederaId || c.metadata?.hederaId || c.id || c.tokenId
@@ -230,19 +241,14 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                  });
              } catch (err) {
                  console.warn("Could not fetch real data, using fallback", err);
-                 // Fallback mock data to prevent empty dashboard
                  setCredentials([
                     { studentName: 'Estudiante Demo', title: 'Título de Prueba', id: '0.0.12345', status: 'confirmed', type: 'titulo' }
                  ]);
              }
         } else {
-            // Mock data for demo mode
-            await new Promise(r => setTimeout(r, 800)); // Simulate network
-            
-            // Load local credentials even in demo mode
+            await new Promise(r => setTimeout(r, 800));
             const localCredsRaw = localStorage.getItem('acl:credentials');
             const localCreds = localCredsRaw ? JSON.parse(localCredsRaw) : [];
-            
             const demoCredentials = [
                 { 
                   studentName: 'Ana García', 
@@ -252,13 +258,13 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                   type: 'titulo', 
                   createdAt: new Date().toISOString(),
                   ipfsCid: 'QmXyZ12345abcde67890fghij12345klmno67890pqrs',
-                  encryptedCid: 'U2FsdGVkX1+...', // Mock Encrypted CID
+                  encryptedCid: 'U2FsdGVkX1+...', 
                   ipfsHash256: 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2',
                   hederaTxId: '0.0.123456@1709876543.123456',
                   xrpHash: null,
                   algorandHash: null,
                   ipfsURI: 'ipfs://QmXyZ12345abcde67890fghij12345klmno67890pqrs',
-                  networkType: 'single' // Hedera Only
+                  networkType: 'single'
                 },
                 { 
                   studentName: 'Carlos López', 
@@ -268,13 +274,13 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                   type: 'titulo', 
                   createdAt: new Date(Date.now() - 86400000).toISOString(),
                   ipfsCid: 'QmAbCdEfGhIjKlMnOpQrStUvWxYz1234567890AbCdEf',
-                  encryptedCid: 'U2FsdGVkX1/abcdef...', // Mock Encrypted CID
+                  encryptedCid: 'U2FsdGVkX1/abcdef...',
                   ipfsHash256: 'f1e2d3c4b5a697887766554433221100f1e2d3c4b5a697887766554433221100',
                   hederaTxId: '0.0.789012@1709790143.654321',
                   xrpHash: 'X0Y1Z2A3B4C5D6E7F8G9H0I1J2K3L4M5N6O7P8Q9R0S1T2U3V4W5X6Y7Z8A9B0C1',
                   algorandHash: null,
                   ipfsURI: 'ipfs://QmAbCdEfGhIjKlMnOpQrStUvWxYz1234567890AbCdEf',
-                  networkType: 'dual' // Hedera + XRP
+                  networkType: 'dual'
                 },
                 { 
                   studentName: 'Maria Rodriguez', 
@@ -284,20 +290,17 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                   type: 'titulo', 
                   createdAt: new Date(Date.now() - 2*86400000).toISOString(),
                   ipfsCid: 'Qm1234567890abcdef1234567890abcdef1234567890',
-                  encryptedCid: 'U2FsdGVkX1+987654...', // Mock Encrypted CID
+                  encryptedCid: 'U2FsdGVkX1+987654...',
                   ipfsHash256: '9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba',
                   hederaTxId: '0.0.456789@1709703743.987654',
                   xrpHash: 'R9S0T1U2V3W4X5Y6Z7A8B9C0D1E2F3G4H5I6J7K8L9M0N1O2P3Q4R5S6T7U8V9W0',
                   algorandHash: 'G3H4I5J6K7L8M9N0O1P2Q3R4S5T6U7V8W9X0Y1Z2A3B4C5D6E7F8G9H0I1J2K3L4',
                   ipfsURI: 'ipfs://Qm1234567890abcdef1234567890abcdef1234567890',
-                  networkType: 'triple' // Hedera + XRP + Algorand
+                  networkType: 'triple'
                 }
             ];
-            
-            // Combine Demo + Local
             const combined = [...localCreds, ...demoCredentials];
             const uniqueCombined = Array.from(new Map(combined.map(item => [item.id || item.tokenId, item])).values());
-            
             setStats({ totalCredentials: 1240 + localCreds.length, totalTokens: 3 + localCreds.length, totalRecipients: 850 + localCreds.length });
             setCredentials(uniqueCombined);
         }
@@ -334,7 +337,6 @@ function EnhancedInstitutionDashboard({ demo = false }) {
   };
 
   useEffect(() => {
-    // Simulate High Demand Notification
     if (!demo && !loading) {
         const timer = setTimeout(() => {
             toast((t) => (
@@ -361,34 +363,17 @@ function EnhancedInstitutionDashboard({ demo = false }) {
     }
   }, [loading, demo]);
 
-  const renderConnectionStatus = () => (
-    <div className="flex items-center gap-2 mt-1">
-      <div className={`h-2 w-2 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`}></div>
-      <span className="text-xs text-slate-400 font-mono tracking-wider uppercase">{connectionStatus}</span>
-    </div>
-  );
-
   const handleExportCSV = () => {
-    // Export all credentials currently loaded
     const dataToExport = credentials;
-
     if (!dataToExport || dataToExport.length === 0) {
       toast.error("No hay datos para exportar");
       return;
     }
 
     const headers = [
-      "Estudiante",
-      "Título",
-      "Fecha Emisión",
-      "Hedera Creation ID (TxID)",
-      "Token ID",
-      "CID (IPFS)",
-      "CID Cifrado (AES)",
-      "Hash Documento (SHA-256)",
-      "XRP Ledger Hash",
-      "Algorand Hash",
-      "Estado"
+      "Estudiante", "Título", "Fecha Emisión", "Hedera Creation ID (TxID)", 
+      "Token ID", "CID (IPFS)", "CID Cifrado (AES)", "Hash Documento (SHA-256)", 
+      "XRP Ledger Hash", "Algorand Hash", "Estado"
     ];
 
     const rows = dataToExport.map(cred => [
@@ -427,7 +412,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
         <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-4 mb-6 flex items-center justify-between animate-pulse">
           <div className="flex items-center gap-3">
              <div className="p-2 bg-red-500/20 rounded-full text-red-400">
-                <span className="text-xl">🛑</span>
+                <AlertTriangle size={24} strokeWidth={1} />
              </div>
              <div>
                 <h4 className="text-white font-bold">Límite de Emisiones Alcanzado</h4>
@@ -450,11 +435,12 @@ function EnhancedInstitutionDashboard({ demo = false }) {
     switch (activeTab) {
       case 'masiva':
         return (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-panel p-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-[#0d0d0d]/40 backdrop-blur-xl border border-white/5 rounded-2xl p-8">
             {renderLimitBanner()}
-            <h2 className="text-2xl font-bold mb-6 text-white flex items-center gap-2">
-              <span className="text-cyan-400">📚</span> Emisión Masiva
-              <span className={`text-xs px-2 py-1 rounded-full border ${currentPlan?.limit === Infinity ? 'border-pink-500 text-pink-400' : 'border-slate-500 text-slate-400'}`}>
+            <h2 className="text-5xl font-black tracking-tighter mb-8 flex items-center gap-4 text-white">
+              <Layers size={48} className="text-emerald-500" strokeWidth={1} /> 
+              <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-500">Emisión Masiva</span>
+              <span className={`text-base font-normal px-3 py-1 rounded-full border ml-4 ${currentPlan?.limit === Infinity ? 'border-pink-500 text-pink-400' : 'border-slate-500 text-slate-400'}`}>
                 {currentPlan?.limit === Infinity ? 'Ilimitado' : `${emissionsUsed} / ${currentPlan?.limit} Títulos`}
               </span>
             </h2>
@@ -500,75 +486,75 @@ function EnhancedInstitutionDashboard({ demo = false }) {
             String(x.externalProofs?.xrpTxHash || '').toLowerCase(),
             String(x.externalProofs?.algoTxId || '').toLowerCase()
           ];
-          const match = fields.some(v => v.includes(q));
-          if (!match) return false;
+          return fields.some(v => v.includes(q));
+        }) : credentials).filter(x => {
           const st = String(x.status || '').toLowerCase();
           const tp = String(x.type || x.credentialType || '').toLowerCase();
-          if (statusFilter === 'all') return true;
-          if (statusFilter === 'verified') return st === 'verified';
-          if (statusFilter === 'pending') return st === 'pending';
-          if (statusFilter === 'revoked') return st === 'revoked';
-          if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
-          if (typeFilter === 'all') return true;
-          if (typeFilter === 'titulo') return tp === 'titulo' || tp === 'degree';
-          if (typeFilter === 'certificado') return tp.includes('cert');
-          if (typeFilter === 'otro') return tp && tp !== 'titulo' && !tp.includes('cert');
-          return false;
-        }) : credentials.filter(x => {
-          const st = String(x.status || '').toLowerCase();
-          const tp = String(x.type || x.credentialType || '').toLowerCase();
-          if (statusFilter === 'all') return true;
-          if (statusFilter === 'verified') return st === 'verified';
-          if (statusFilter === 'pending') return st === 'pending';
-          if (statusFilter === 'revoked') return st === 'revoked';
-          if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
-          if (typeFilter === 'all') return true;
-          if (typeFilter === 'titulo') return tp === 'titulo' || tp === 'degree';
-          if (typeFilter === 'certificado') return tp.includes('cert');
-          if (typeFilter === 'otro') return tp && tp !== 'titulo' && !tp.includes('cert');
-          return false;
-        }));
+          if (statusFilter !== 'all') {
+            if (statusFilter === 'verified' && st !== 'verified') return false;
+            if (statusFilter === 'pending' && st !== 'pending') return false;
+            if (statusFilter === 'revoked' && st !== 'revoked') return false;
+            if (statusFilter === 'confirmed' && (st === 'verified' || st === 'pending' || st === 'revoked')) return false;
+          }
+          if (typeFilter !== 'all') {
+            if (typeFilter === 'titulo' && tp !== 'titulo' && tp !== 'degree') return false;
+            if (typeFilter === 'certificado' && !tp.includes('cert')) return false;
+            if (typeFilter === 'otro' && (tp === 'titulo' || tp.includes('cert'))) return false;
+          }
+          return true;
+        });
+
         const orderedCredentials = [...filteredCredentials].sort((a, b) => {
           const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
           const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
           return db - da;
         });
+        
         return (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-panel overflow-hidden">
-            <div className="p-6 border-b border-slate-700/50 flex justify-between items-center">
-              <h3 className="font-bold text-xl text-white">Historial Completo de Emisiones</h3>
-              <div className="flex gap-2">
-                <button className="btn-ghost text-xs" onClick={handleExportCSV}>Exportar CSV</button>
-                <button className="btn-primary text-xs" onClick={() => setActiveTab('emitir')}>Nueva Emisión</button>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-[#0d0d0d]/40 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden">
+            <div className="p-8 border-b border-white/5 flex justify-between items-center">
+              <h3 className="text-3xl font-black tracking-tighter text-white">Historial Completo</h3>
+              <div className="flex gap-3">
+                <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-slate-300 transition-colors" onClick={handleExportCSV}>
+                    <Download size={16} strokeWidth={1} /> Exportar CSV
+                </button>
+                <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-sm font-medium transition-colors border border-emerald-500/20" onClick={() => setActiveTab('emitir')}>
+                    <Zap size={16} strokeWidth={1} /> Nueva Emisión
+                </button>
               </div>
             </div>
-            <div className="px-6 py-3 flex flex-wrap items-center gap-3 border-b border-slate-800/60">
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/30" title="Totales (global)">
-                Revocadas (Total): <strong>{globalStats.revoked}</strong>
+            <div className="px-8 py-4 flex flex-wrap items-center gap-4 border-b border-white/5 bg-black/20">
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-medium" title="Totales (global)">
+                Revocadas: <strong>{globalStats.revoked}</strong>
               </span>
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-purple-500/10 text-purple-300 border border-purple-500/30" title="Totales (global)">
-                Eliminadas (Total): <strong>{globalStats.deleted}</strong>
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20 text-xs font-medium" title="Totales (global)">
+                Eliminadas: <strong>{globalStats.deleted}</strong>
               </span>
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 text-green-400 border border-green-500/30" title="Totales (global)">
-                Verificadas (Total): <strong>{globalStats.verified}</strong>
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium" title="Totales (global)">
+                Verificadas: <strong>{globalStats.verified}</strong>
               </span>
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/30" title="Totales (global)">
-                Pendientes (Total): <strong>{globalStats.pending}</strong>
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-medium" title="Totales (global)">
+                Pendientes: <strong>{globalStats.pending}</strong>
               </span>
-              <input
-                className="input-primary w-full md:w-72 md:ml-auto"
-                placeholder="Buscar por nombre, hash, tokenId, serial o id"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <select className="input-primary w-full md:w-40" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} strokeWidth={1} />
+                    <input
+                        className="w-full bg-black/40 border border-white/10 rounded-lg py-2 pl-10 pr-4 text-sm text-slate-300 focus:outline-none focus:border-white/20 transition-colors"
+                        placeholder="Buscar por nombre, hash, ID..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+              </div>
+              <select className="bg-black/40 border border-white/10 rounded-lg py-2 px-3 text-sm text-slate-300 focus:outline-none focus:border-white/20" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="all">Estado: Todas</option>
                 <option value="verified">Solo verificadas</option>
                 <option value="pending">Solo pendientes</option>
                 <option value="revoked">Solo revocadas</option>
                 <option value="confirmed">Solo confirmadas</option>
               </select>
-              <select className="input-primary w-full md:w-40" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+              <select className="bg-black/40 border border-white/10 rounded-lg py-2 px-3 text-sm text-slate-300 focus:outline-none focus:border-white/20" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                 <option value="all">Tipo: Todos</option>
                 <option value="titulo">Solo títulos</option>
                 <option value="certificado">Solo certificados</option>
@@ -577,7 +563,7 @@ function EnhancedInstitutionDashboard({ demo = false }) {
             </div>
             <div className="overflow-x-auto hidden md:block">
               <table className="w-full text-sm text-left">
-                <thead className="bg-white/5 text-slate-400">
+                <thead className="bg-white/5 text-slate-400 font-medium">
                   <tr>
                     <th className="px-6 py-4">Estudiante</th>
                     <th className="px-6 py-4">Título</th>
@@ -588,40 +574,34 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                     <th className="px-6 py-4">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800">
+                <tbody className="divide-y divide-white/5">
                   {orderedCredentials.map((cred, idx) => (
-                    <tr key={idx} className="hover:bg-white/5 transition-colors">
+                    <tr key={idx} className="hover:bg-white/5 transition-colors group">
                       <td className="px-6 py-4 font-medium text-white">{cred.studentName || 'Anon'}</td>
                       <td className="px-6 py-4 text-slate-300">{cred.title}</td>
-                      <td className="px-6 py-4 font-mono text-xs text-slate-500 hidden md:table-cell">{cred.id || 'N/A'}</td>
+                      <td className="px-6 py-4 font-mono text-xs text-slate-500 hidden md:table-cell group-hover:text-slate-400 transition-colors">{cred.id || 'N/A'}</td>
                       <td className="px-6 py-4 hidden md:table-cell">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] border border-slate-600 text-slate-200">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-medium border border-white/10 text-slate-300 bg-white/5">
                           {String(cred.type || 'titulo').toLowerCase().includes('cert') ? 'Certificado' : 'Título'}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-slate-400">{cred.createdAt ? new Date(cred.createdAt).toLocaleDateString() : 'Hoy'}</td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-medium border ${
                           String(cred.status || '').toLowerCase() === 'revoked'
-                            ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                            ? 'bg-red-500/10 text-red-400 border-red-500/20'
                             : String(cred.status || '') === 'pending'
-                              ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-                              : 'bg-green-500/20 text-green-400 border-green-500/30'
+                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                         }`}>
                           {String(cred.status || '').toLowerCase() === 'revoked' ? 'Revocada' : (cred.status === 'verified' ? 'Verificado' : (cred.status === 'pending' ? 'Pendiente' : 'Confirmado'))}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex gap-2">
-                          {cred.status !== 'verified' && (
-                            <button
-                              className="hidden"
-                              onClick={() => {}}
-                            >
-                            </button>
-                          )}
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
-                            className="btn-secondary btn-sm border-slate-500/40 text-slate-200 hover:bg-slate-500/10"
+                            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors"
+                            title="Ver documento"
                             onClick={() => {
                               const url = toGateway(cred.ipfsURI);
                               if (!url) {
@@ -633,29 +613,24 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                               setDocOpen(true);
                             }}
                           >
-                            Ver documento
+                            <Eye size={16} strokeWidth={1} />
                           </button>
                           <button
-                            className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10"
+                            className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
+                            title="Revocar"
                             onClick={() => { setSelectedCred(cred); setRevokeReason(''); setRevokeOpen(true); }}
                           >
-                            Revocar
+                            <XCircle size={16} strokeWidth={1} />
                           </button>
                           <button
-                            className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10"
+                            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                            title="Borrar"
                             onClick={async () => {
                               await apiService.deleteCredential({ tokenId: cred.tokenId || cred.id, serialNumber: String(cred.serialNumber || 1) });
                               setCredentials(prev => prev.filter(c => c !== cred));
-                              try { 
-                                let issuerId = ''; 
-                                try { issuerId = String(user?.id || user?.universityId || ''); } catch {} 
-                                await apiService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
-                                  if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) }); 
-                                }); 
-                              } catch {}
                             }}
                           >
-                            Borrar
+                            <Trash2 size={16} strokeWidth={1} />
                           </button>
                         </div>
                       </td>
@@ -663,53 +638,52 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                   ))}
                   {filteredCredentials.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
-                        No hay credenciales emitidas aún.
+                      <td colSpan="7" className="px-6 py-20 text-center text-slate-500">
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-slate-600">
+                                <Search size={32} strokeWidth={1} />
+                            </div>
+                            <p>No hay credenciales emitidas aún.</p>
+                        </div>
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
-              <div className="md:hidden px-4 py-4 space-y-4">
+            {/* Mobile List View */}
+            <div className="md:hidden px-4 py-4 space-y-4">
               {orderedCredentials.map((cred, idx) => (
-                <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-2">
-                  <div className="flex justify-between items-start gap-2">
+                <div key={idx} className="bg-white/5 border border-white/5 rounded-xl p-5 shadow-lg space-y-4">
+                  <div className="flex justify-between items-start gap-4">
                     <div>
-                      <div className="font-semibold text-white">{cred.studentName || 'Anon'}</div>
-                      <div className="text-sm text-slate-300">{cred.title}</div>
-                      <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] border border-slate-600 text-slate-300">
+                      <div className="font-bold text-white text-lg">{cred.studentName || 'Anon'}</div>
+                      <div className="text-sm text-slate-400">{cred.title}</div>
+                      <div className="mt-2 inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium border border-white/10 text-slate-300 bg-white/5">
                         {String(cred.type || 'titulo').toLowerCase().includes('cert') ? 'Certificado' : 'Título'}
                       </div>
                     </div>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] border ${
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium border ${
                       String(cred.status || '').toLowerCase() === 'revoked'
-                        ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                        ? 'bg-red-500/10 text-red-400 border-red-500/20'
                         : String(cred.status || '') === 'pending'
-                          ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-                          : 'bg-green-500/20 text-green-400 border-green-500/30'
+                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                     }`}>
                       {String(cred.status || '').toLowerCase() === 'revoked' ? 'Revocada' : (cred.status === 'verified' ? 'Verificado' : (cred.status === 'pending' ? 'Pendiente' : 'Confirmado'))}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-500 flex flex-col gap-1">
-                    <span>Fecha: {cred.createdAt ? new Date(cred.createdAt).toLocaleDateString() : 'Hoy'}</span>
-                    {(
-                      (cred.tokenId && cred.serialNumber) ||
-                      cred.tokenId ||
-                      cred.id
-                    ) && (
-                      <span className="font-mono truncate">
-                        Hedera ID: {cred.tokenId && cred.serialNumber
-                          ? `${cred.tokenId}-${cred.serialNumber}`
-                          : (cred.tokenId || cred.id)}
+                  <div className="text-xs text-slate-500 flex flex-col gap-1 font-mono">
+                    <span>{cred.createdAt ? new Date(cred.createdAt).toLocaleDateString() : 'Hoy'}</span>
+                    {(cred.tokenId || cred.id) && (
+                      <span className="truncate">
+                        ID: {cred.tokenId || cred.id}
                       </span>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-2 pt-2">
-
+                  <div className="flex gap-2 pt-2 border-t border-white/5">
                     <button
-                      className="btn-secondary btn-sm border-slate-500/40 text-slate-200 hover:bg-slate-500/10 flex-1 min-w-[100px]"
+                      className="flex-1 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium transition-colors flex items-center justify-center gap-2"
                       onClick={() => {
                         const url = toGateway(cred.ipfsURI);
                         if (!url) {
@@ -720,76 +694,58 @@ function EnhancedInstitutionDashboard({ demo = false }) {
                         setDocOpen(true);
                       }}
                     >
-                      Ver documento
+                      <Eye size={14} strokeWidth={1} /> Ver
                     </button>
                     <button
-                      className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10 flex-1 min-w-[100px]"
+                      className="flex-1 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium transition-colors flex items-center justify-center gap-2"
                       onClick={() => { setSelectedCred(cred); setRevokeReason(''); setRevokeOpen(true); }}
                     >
-                      Revocar
-                    </button>
-                    <button
-                      className="btn-secondary btn-sm text-red-400 border-red-400/40 hover:bg-red-500/10 flex-1 min-w-[100px]"
-                      onClick={async () => {
-                        await apiService.deleteCredential({ tokenId: cred.tokenId || cred.id, serialNumber: String(cred.serialNumber || 1) });
-                        setCredentials(prev => prev.filter(c => c !== cred));
-                        try { 
-                          let issuerId = ''; 
-                          try { issuerId = String(user?.id || user?.universityId || ''); } catch {} 
-                          await apiService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
-                            if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) }); 
-                          }); 
-                        } catch {}
-                      }}
-                    >
-                      Borrar
+                      <XCircle size={14} strokeWidth={1} /> Revocar
                     </button>
                   </div>
                 </div>
               ))}
-              {filteredCredentials.length === 0 && (
-                <div className="text-slate-500 text-center py-8 text-sm">
-                  No hay credenciales emitidas aún.
-                </div>
-              )}
             </div>
             {revokeOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div className="absolute inset-0 bg-black/40" onClick={() => setRevokeOpen(false)} />
-                <div className="relative bg-slate-900 rounded-xl border border-slate-700 w-full max-w-md p-6">
-                  <h3 className="text-lg font-bold text-white mb-4">Revocar Credencial</h3>
-                  <p className="text-sm text-slate-300 mb-4">
-                    ID <span className="font-mono">{selectedCred?.id || selectedCred?.tokenId}</span>
-                  </p>
-                  <div className="form-control mb-3">
-                    <label className="label-text">Razón</label>
-                    <select className="input-primary" value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)}>
-                      <option value="">Selecciona una razón...</option>
-                      <option value="PrivilegeWithdrawn">Privilegio Retirado</option>
-                      <option value="CessationOfOperation">Cese de Operaciones</option>
-                      <option value="AffiliationChanged">Cambio de Afiliación</option>
-                      <option value="Superseded">Reemplazada</option>
-                      <option value="Compromised">Comprometida</option>
-                    </select>
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                <div className="absolute inset-0 bg-black/60" onClick={() => setRevokeOpen(false)} />
+                <div className="relative bg-[#0a0a0a] rounded-2xl border border-white/10 w-full max-w-md p-8 shadow-2xl">
+                  <h3 className="text-2xl font-black text-white mb-6">Revocar Credencial</h3>
+                  <div className="p-4 rounded-xl bg-white/5 mb-6 border border-white/5">
+                      <p className="text-sm text-slate-400 mb-1">Identificador del Título</p>
+                      <span className="font-mono text-emerald-400 text-lg">{selectedCred?.id || selectedCred?.tokenId}</span>
                   </div>
-                  <div className="flex justify-end gap-2">
-                    <button className="btn-ghost" onClick={() => setRevokeOpen(false)}>Cancelar</button>
-                    <button
-                      className="btn-primary bg-red-600 hover:bg-red-700 border-red-600 text-white"
-                      disabled={!revokeReason}
+                  <div className="form-control mb-6">
+                    <label className="label text-slate-300 text-sm mb-2 block">Razón de la revocación</label>
+                    <textarea 
+                      className="w-full h-24 bg-black/40 border border-white/10 rounded-lg p-3 text-slate-200 focus:outline-none focus:border-red-500/50 transition-colors resize-none" 
+                      placeholder="Ej: Error administrativo, plagio detectado..."
+                      value={revokeReason}
+                      onChange={(e) => setRevokeReason(e.target.value)}
+                    ></textarea>
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <button className="px-4 py-2 rounded-lg text-slate-300 hover:bg-white/5 transition-colors" onClick={() => setRevokeOpen(false)}>Cancelar</button>
+                    <button 
+                      className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-bold shadow-lg shadow-red-500/20 transition-all"
                       onClick={async () => {
-                        await apiService.revokeCredential({ tokenId: selectedCred?.tokenId || selectedCred?.id, serialNumber: String(selectedCred?.serialNumber || 1), reason: revokeReason });
-                        setRevokeOpen(false);
-                          try { 
-                            let issuerId = ''; 
-                            try { issuerId = String(user?.id || user?.universityId || ''); } catch {} 
-                            await apiService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' }).then(s => { 
-                              if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) }); 
-                            }); 
-                          } catch {}
+                        toast.loading("Revocando en Blockchain...");
+                        try {
+                           await apiService.revokeCredential({ 
+                               tokenId: selectedCred.id || selectedCred.tokenId, 
+                               reason: revokeReason 
+                           });
+                           toast.dismiss();
+                           toast.success("Credencial revocada correctamente");
+                           setRevokeOpen(false);
+                           setCredentials(prev => prev.map(c => c.id === selectedCred.id ? { ...c, status: 'revoked' } : c));
+                        } catch (e) {
+                           toast.dismiss();
+                           toast.error("Error al revocar");
+                        }
                       }}
                     >
-                      Confirmar
+                      Confirmar Revocación
                     </button>
                   </div>
                 </div>
@@ -801,453 +757,326 @@ function EnhancedInstitutionDashboard({ demo = false }) {
       case 'emitir':
       default:
         return (
-          <div className="space-y-6">
-            {/* 
-                REGLA DE ORO: El Stepper SIEMPRE se mantiene visible 
-                independientemente de si estamos editando o no.
-            */}
-            <CertificationStepper currentStep={currentStep} />
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+             {renderLimitBanner()}
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-8">
+                   {/* Main Action Card */}
+                   <div className="bg-[#0d0d0d]/40 backdrop-blur-xl border border-white/5 rounded-2xl p-8 relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 p-32 bg-emerald-500/10 rounded-full blur-[100px] group-hover:bg-emerald-500/20 transition-all duration-700"></div>
+                      <div className="relative z-10">
+                          <h2 className="text-4xl font-black tracking-tighter text-white mb-2">
+                             Emisión <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500">Certificada</span>
+                          </h2>
+                          <p className="text-slate-400 mb-8 max-w-xl leading-relaxed">
+                             Genera credenciales académicas inmutables registradas en Hedera Hashgraph. 
+                             Garantiza la autenticidad perpetua para tus estudiantes.
+                          </p>
 
-            <AnimatePresence mode="wait">
-              {isEditingDesign ? (
-                <motion.div 
-                  key="designer"
-                  initial={{ opacity: 0, y: 20 }} 
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="w-full"
-                >
-                   <CertificateDesigner 
-                      initialDesign={savedDesign}
-                      institutionName={institutionName}
-                      onClose={() => setIsEditingDesign(false)} 
-                      onSave={(file, structure) => { 
-                        setSavedDesign({ file, structure });
-                        toast.success('Diseño guardado'); 
-                        setIsEditingDesign(false);
-                        setCurrentStep(2);
-                      }} 
-                      onNavigate={(tab) => {
-                        // Handle internal navigation if needed, or close
-                        if (tab === 'emitir') setIsEditingDesign(false);
-                      }}
-                   />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="form"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  {renderLimitBanner()}
-                  <div className="flex justify-between items-center mb-4">
-                    <div className="inline-flex items-center bg-slate-900 rounded-full p-1 border border-slate-700 shadow-inner">
-                      <button
-                        className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all ${
-                          issuanceMode === 'individual'
-                            ? 'bg-cyan-500 text-black shadow-md'
-                            : 'text-slate-300 hover:text-white'
-                        }`}
-                        onClick={() => setIssuanceMode('individual')}
-                      >
-                        Emitir 1 Credencial
-                      </button>
-                      <button
-                        className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all ${
-                          issuanceMode === 'mass'
-                            ? 'bg-purple-500 text-white shadow-md'
-                            : 'text-slate-300 hover:text-white'
-                        }`}
-                        onClick={() => setIssuanceMode('mass')}
-                      >
-                        Emisión Masiva (Excel)
-                      </button>
-                    </div>
-                    <div className="hidden md:flex items-center gap-2 text-xs text-slate-400">
-                      <span className="uppercase tracking-widest text-slate-500">Modo</span>
-                      <span className="px-2 py-1 rounded-full bg-slate-900 border border-slate-700 text-primary-300 font-mono">
-                        {issuanceMode === 'individual' ? 'INDIVIDUAL' : 'MASIVO'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {issuanceMode === 'individual' ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      <div>
-                        <div className="glass-panel p-1 rounded-xl">
-                          <IssueTitleForm 
-                            demo={demo || connectionStatus === 'demo'} 
-                            networks={selectedNetworks} 
-                            plan={currentPlan}
-                            emissionsUsed={emissionsUsed}
-                            institutionName={institutionName || user?.universityName || user?.institutionName || user?.name || ''}
-                            issuerId={String(user?.id || user?.universityId || '')}
-                            initialDesign={savedDesign}
-                            onFileChange={setActiveDesignFile}
-                            formData={issueFormData}
-                            onFormDataChange={setIssueFormData}
-                            onOpenDesigner={() => setIsEditingDesign(true)}
-                            onEmissionComplete={(count) => {
-                              setEmissionsUsed(prev => prev + count);
-                              setSavedDesign(null);
-                              setActiveDesignFile(null);
-                              setCurrentStep(3);
-                              setIssueFormData({
-                                studentName: '',
-                                courseName: '',
-                                issueDate: '',
-                                grade: '',
-                                recipientAccountId: '',
-                              });
-                              (async () => {
-                                try {
-                                  const issuerId = String(user?.id || user?.universityId || '');
-                                  const s = await apiService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
-                                  if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
-                                } catch {}
-                              })();
-                            }}
-              />
-                        </div>
-                      </div>
-
-                      <div className="space-y-6">
-                        <AnimatePresence>
-                          {activeDesignFile && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              exit={{ opacity: 0, height: 0 }}
-                              className="glass-panel overflow-hidden"
-                            >
-                              <LiveBlockVisualizer pendingTransaction={{ preview: activeDesignFile }} />
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-
-                        <div 
-                          className="glass-card p-6 relative overflow-hidden group cursor-pointer"
-                          onClick={() => setIssuanceMode('mass')}
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                          <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl opacity-20 group-hover:opacity-40 blur transition duration-500"></div>
-
-                          <div className="relative z-10">
-                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-white">
-                              <span className="text-cyan-400 text-xl animate-pulse">📚</span>
-                              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">Emisión Masiva con Excel</span>
-                            </h3>
-                            <p className="text-slate-300 text-sm mb-4">
-                              Si tienes muchos estudiantes, prepara un archivo Excel/CSV y emite todas las credenciales en un solo flujo guiado.
-                            </p>
-                            <ul className="text-xs text-slate-400 space-y-1">
-                              <li>• Ideal para graduaciones o cohortes completas</li>
-                              <li>• Validación previa con IA y vista previa</li>
-                              <li>• Opcional: envío por email y QR para cada alumno</li>
-                            </ul>
+                          <div className="bg-black/20 rounded-xl border border-white/5 p-1">
+                             <div className="flex p-1 gap-1">
+                                <button 
+                                   onClick={() => setIssuanceMode('individual')}
+                                   className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${issuanceMode === 'individual' ? 'bg-white/10 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                   <User size={16} strokeWidth={1} /> Individual
+                                </button>
+                                <button 
+                                   onClick={() => setIssuanceMode('mass')}
+                                   className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${issuanceMode === 'mass' ? 'bg-white/10 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                   <Layers size={16} strokeWidth={1} /> Lote CSV
+                                </button>
+                             </div>
                           </div>
-                        </div>
-
-                        <div className="glass-card p-6">
-                          <h3 className="text-lg font-bold mb-4 text-white">Acciones Rápidas</h3>
-                          <div className="flex flex-wrap gap-2">
-                            <button className="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-slate-200 border border-slate-600 transition-colors" onClick={() => setIsEditingDesign(true)}>Diseñar Nuevo Título</button>
-                            <button className="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-slate-200 border border-slate-600 transition-colors" onClick={() => setActiveTab('recargar')}>Recargar Saldo</button>
+                          
+                          <div className="mt-8">
+                             {issuanceMode === 'individual' ? (
+                                <CertificationStepper 
+                                  currentStep={currentStep} 
+                                  setCurrentStep={setCurrentStep}
+                                  isEditingDesign={isEditingDesign}
+                                  setIsEditingDesign={setIsEditingDesign}
+                                  issueFormData={issueFormData}
+                                  setIssueFormData={setIssueFormData}
+                                  savedDesign={savedDesign}
+                                  setSavedDesign={setSavedDesign}
+                                  institutionName={institutionName}
+                                  institutionLogo={institutionLogo}
+                                  plan={currentPlan}
+                                  emissionsUsed={emissionsUsed}
+                                  setEmissionsUsed={setEmissionsUsed}
+                                />
+                             ) : (
+                                <BatchIssuance 
+                                  demo={demo} 
+                                  plan={currentPlan} 
+                                  emissionsUsed={emissionsUsed}
+                                  onEmissionComplete={(count) => setEmissionsUsed(prev => prev + count)}
+                                  institutionName={institutionName}
+                                />
+                             )}
                           </div>
-                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="glass-panel p-6">
-                      <h2 className="text-2xl font-bold mb-4 text-white flex items-center gap-2">
-                        <span className="text-purple-400 text-xl">📚</span>
-                        Emisión Masiva de Credenciales
-                      </h2>
-                      <p className="text-slate-300 text-sm mb-4">
-                        Sube un archivo Excel o CSV con una fila por estudiante. El sistema te guiará paso a paso: carga, configuración, vista previa y emisión en lote.
-                      </p>
-                      <div className="mb-6 p-4 rounded-lg bg-slate-900/60 border border-slate-700">
-                        <h3 className="text-xs font-bold text-slate-200 mb-2 uppercase tracking-widest">
-                          ¿Qué debe contener tu Excel?
-                        </h3>
-                        <p className="text-xs text-slate-300 mb-2">
-                          Orden recomendado de columnas:
-                        </p>
-                        <ul className="text-xs text-slate-400 list-disc list-inside space-y-1">
-                          <li><strong>firstName</strong> – Nombre del estudiante</li>
-                          <li><strong>lastName</strong> – Apellidos</li>
-                          <li><strong>studentId</strong> – Matrícula o identificador interno</li>
-                          <li><strong>degree</strong> – Nombre del título o programa</li>
-                          <li><strong>major</strong> – Especialidad (opcional)</li>
-                          <li><strong>gpa</strong> – Nota final o promedio (opcional)</li>
-                          <li><strong>graduationDate</strong> – Fecha de graduación (YYYY-MM-DD)</li>
-                          <li><strong>email</strong> – Email del alumno para notificaciones</li>
-                          <li><strong>honors</strong> – Menciones especiales (opcional)</li>
-                        </ul>
+                   </div>
+                </div>
+
+                <div className="space-y-6">
+                   {/* Institution Profile Card */}
+                   <div className="bg-[#0d0d0d]/40 backdrop-blur-xl border border-white/5 rounded-2xl p-6">
+                      <div className="flex items-center justify-between mb-6">
+                         <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                            <Shield size={18} className="text-emerald-500" strokeWidth={1} /> Perfil Institucional
+                         </h3>
+                         <button onClick={() => setIsEditingName(!isEditingName)} className="p-2 hover:bg-white/5 rounded-lg text-slate-400 transition-colors">
+                            <Settings size={16} strokeWidth={1} />
+                         </button>
                       </div>
-                      <BatchIssuance 
-                        demo={demo} 
-                        institutionName={institutionName}
-                        plan={currentPlan}
-                        emissionsUsed={emissionsUsed}
-                        onEmissionComplete={(count) => {
-                          setEmissionsUsed(prev => prev + count);
-                          setCurrentStep(3);
-                          toast.success(`Se han emitido ${count} credenciales exitosamente`);
-                          (async () => {
-                            try {
-                              const issuerId = String(user?.id || user?.universityId || '');
-                              const s = await apiService.getCredentialStats({ scope: 'institution', issuerId, role: 'institution' });
-                              if (s && s.success) setGlobalStats({ revoked: Number(s.revoked || 0), deleted: Number(s.deleted || 0), verified: Number(s.verified || 0), pending: Number(s.pending || 0) });
-                            } catch {}
-                          })();
-                        }}
-                      />
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                      
+                      <div className="flex flex-col items-center mb-6">
+                         <div className="relative group cursor-pointer w-24 h-24 mb-4">
+                            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-slate-800 to-black border border-white/10 flex items-center justify-center overflow-hidden shadow-2xl group-hover:border-emerald-500/50 transition-colors">
+                               {institutionLogo ? (
+                                  <img src={institutionLogo} alt="Logo" className="w-full h-full object-cover" />
+                               ) : (
+                                  <span className="text-3xl font-bold text-slate-700">LOGO</span>
+                               )}
+                            </div>
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
+                               <Upload size={20} className="text-white" strokeWidth={1} />
+                            </div>
+                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} />
+                         </div>
+                         
+                         {isEditingName ? (
+                            <div className="flex gap-2 w-full">
+                               <input 
+                                  value={institutionName} 
+                                  onChange={(e) => setInstitutionName(e.target.value)}
+                                  className="bg-black/40 border border-white/10 rounded-lg px-3 py-1 text-white text-center w-full focus:outline-none focus:border-emerald-500/50"
+                                  autoFocus
+                               />
+                               <button onClick={handleNameSave} className="bg-emerald-500/20 text-emerald-400 p-2 rounded-lg hover:bg-emerald-500/30">
+                                  <CheckCircle size={16} strokeWidth={1} />
+                               </button>
+                            </div>
+                         ) : (
+                            <h4 className="text-xl font-bold text-white text-center">{institutionName}</h4>
+                         )}
+                         <p className="text-slate-500 text-xs mt-1 font-mono uppercase tracking-widest">ID: {user?.id || 'INST-8842'}</p>
+                      </div>
+
+                      <div className="space-y-3">
+                         <div className="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/5">
+                            <span className="text-sm text-slate-400">Plan Actual</span>
+                            <span className="text-sm font-bold text-white bg-purple-500/20 px-2 py-0.5 rounded text-purple-300 border border-purple-500/20">{currentPlan.name}</span>
+                         </div>
+                         <div className="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/5">
+                            <span className="text-sm text-slate-400">Emisiones</span>
+                            <div className="text-right">
+                               <span className="text-sm font-bold text-white block">{emissionsUsed} / {currentPlan.limit === Infinity ? '∞' : currentPlan.limit}</span>
+                               <div className="w-24 h-1 bg-slate-800 rounded-full mt-1 overflow-hidden">
+                                  <div 
+                                    className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500" 
+                                    style={{ width: `${Math.min((emissionsUsed / (currentPlan.limit || 100)) * 100, 100)}%` }}
+                                  ></div>
+                               </div>
+                            </div>
+                         </div>
+                         <button 
+                            onClick={() => setShowPlanModal(true)}
+                            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-500/30 hover:border-purple-500/60 text-purple-200 text-sm font-medium transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.2)]"
+                         >
+                            Mejorar Plan
+                         </button>
+                      </div>
+                   </div>
+
+                   {/* Network Status */}
+                   <div className="bg-[#0d0d0d]/40 backdrop-blur-xl border border-white/5 rounded-2xl p-6">
+                      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Estado de Red</h3>
+                      <div className="space-y-4">
+                         <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                               <div className="p-2 rounded-lg bg-slate-800/50">
+                                  <Hexagon size={18} className="text-slate-400" strokeWidth={1} />
+                               </div>
+                               <div>
+                                  <div className="text-white text-sm font-medium">Hedera Hashgraph</div>
+                                  <div className="text-emerald-500 text-[10px] font-mono">OPERATIONAL</div>
+                               </div>
+                            </div>
+                            <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"></div>
+                         </div>
+                         {selectedNetworks.includes('xrp') && (
+                            <div className="flex items-center justify-between">
+                               <div className="flex items-center gap-3">
+                                  <div className="p-2 rounded-lg bg-slate-800/50">
+                                     <Globe size={18} className="text-slate-400" strokeWidth={1} />
+                                  </div>
+                                  <div>
+                                     <div className="text-white text-sm font-medium">XRP Ledger</div>
+                                     <div className="text-emerald-500 text-[10px] font-mono">OPERATIONAL</div>
+                                  </div>
+                               </div>
+                               <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"></div>
+                            </div>
+                         )}
+                         <div className="pt-4 border-t border-white/5">
+                            <LiveBlockVisualizer />
+                         </div>
+                      </div>
+                   </div>
+                </div>
+             </div>
+          </motion.div>
         );
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#030014]"><div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-cyan-500 shadow-neon-blue"></div></div>;
+  if (loading) return (
+    <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+            <div className="w-16 h-16 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div>
+            <p className="text-emerald-500 font-mono text-sm tracking-widest animate-pulse">INITIALIZING SYSTEM...</p>
+        </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen text-slate-100 flex flex-col md:flex-row overflow-hidden md:overflow-hidden relative font-sans selection:bg-cyan-500/30">
-      <CyberBackground />
-      <Toaster position="bottom-right" toastOptions={{ style: { background: 'rgba(15, 23, 42, 0.9)', color: '#fff', border: '1px solid rgba(51, 65, 85, 0.5)', backdropFilter: 'blur(10px)' } }} />
+    <div className="min-h-screen bg-[#050505] text-slate-100 font-sans selection:bg-emerald-500/30 flex overflow-hidden">
+      <Toaster position="top-right" toastOptions={{
+        style: {
+          background: 'rgba(13, 13, 13, 0.8)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          color: '#fff',
+        },
+      }} />
 
-
-      {/* Sidebar */}
-      <motion.div
-        initial={{ x: -100, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        className={`fixed md:static top-0 left-0 h-full w-64 z-50 glass-panel border-r border-slate-700/50 flex flex-col flex-shrink-0 overflow-y-auto ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} transition-transform duration-300`}
+      {/* Sidebar Navigation */}
+      <motion.aside 
+        initial={false}
+        animate={{ width: sidebarOpen ? 280 : 80 }}
+        className="fixed left-0 top-0 bottom-0 z-50 bg-[#0d0d0d]/80 backdrop-blur-xl border-r border-white/5 flex flex-col transition-all duration-300"
       >
-        {/* Institution Branding Header */}
-        <div className="py-4 px-6 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
-           <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full shadow-sm bg-indigo-600 flex items-center justify-center text-white font-bold">
-                  {institutionName.substring(0, 2).toUpperCase()}
-              </div>
-              <div className="flex flex-col">
-                 <h3 className="text-sm font-bold text-slate-900 leading-none tracking-tight">{institutionName}</h3>
-                 <p className="text-[10px] text-slate-500 font-medium mt-0.5">Panel de Gestión</p>
-              </div>
-           </div>
-        </div>
-
-        <div className="p-6 border-b border-slate-700/50">
-          {/* Institution Branding */}
-          <div className="flex flex-col items-center mb-6">
-            <div className="relative group w-24 h-24 mb-3">
-              <div className="w-24 h-24 rounded-full bg-slate-800 border-2 border-slate-600 flex items-center justify-center overflow-hidden shadow-lg shadow-cyan-500/10">
-                {institutionLogo ? (
-                  <img src={institutionLogo} alt="Logo" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-4xl">🏛️</span>
-                )}
-              </div>
-              <label className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                <span className="text-xs font-bold text-white">Cambiar</span>
-                <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
-              </label>
+        <div className="h-20 flex items-center justify-center border-b border-white/5 relative">
+            <div className={`flex items-center gap-3 transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 absolute'}`}>
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-black font-bold text-xl">A</div>
+                <span className="font-bold text-xl tracking-tight text-white">Academic<span className="text-emerald-400">Chain</span></span>
             </div>
-            
-            {isEditingName ? (
-              <input
-                type="text"
-                value={institutionName}
-                onChange={(e) => setInstitutionName(e.target.value)}
-                onBlur={handleNameSave}
-                onKeyDown={(e) => e.key === 'Enter' && handleNameSave()}
-                className="bg-slate-800 border border-slate-600 text-white text-center rounded px-2 py-1 w-full text-sm font-bold focus:border-cyan-500 outline-none"
-                autoFocus
-              />
-            ) : (
-              <div 
-                className="group flex items-center gap-2 cursor-pointer"
-                onClick={() => setIsEditingName(true)}
-              >
-                <h2 className="text-lg font-bold text-white group-hover:text-cyan-400 transition-colors">{institutionName}</h2>
-                <span className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">✏️</span>
-              </div>
+            {!sidebarOpen && (
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-black font-bold text-xl">A</div>
             )}
-            <p className="text-xs text-slate-400 mt-1">Institución Verificada</p>
-          </div>
-
-          {/* Plan Info */}
-          <div className="flex items-center justify-between bg-slate-900/50 p-2 rounded-lg border border-slate-800/50 cursor-pointer hover:border-slate-700 transition-colors" onClick={() => setShowPlanModal(true)}>
-             <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${currentPlan?.id === 'enterprise' ? 'bg-pink-500 animate-pulse' : 'bg-blue-500'}`}></span>
-                <p className="text-xs text-slate-300 font-bold uppercase">{currentPlan?.name || 'Cargando...'}</p>
-             </div>
-             <span className="text-[10px] text-cyan-400 hover:underline">Gestionar</span>
-          </div>
+            <button 
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-white hover:bg-emerald-500 hover:border-emerald-500 transition-colors shadow-lg z-50"
+            >
+                <ChevronRight size={14} className={`transition-transform duration-300 ${sidebarOpen ? 'rotate-180' : ''}`} strokeWidth={1.5} />
+            </button>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
-          {[
-            { id: 'designer', label: 'Diseñador Holográfico', icon: '🎨', color: 'text-purple-400' },
-            { id: 'emitir', label: 'Emitir Credencial', icon: '⚡' },
-            { id: 'masiva', label: 'Emisión Masiva', icon: '📚' },
-            { id: 'credenciales', label: 'Historial', icon: '🕰️' },
-            { id: 'analiticas', label: 'Mercado & Impacto', icon: '📈', color: 'text-pink-400' },
-            { id: 'recargar', label: 'Recargar Gas', icon: '⛽', color: 'text-green-400' }
-          ].map(item => (
-            <button
-              key={item.id}
-              onClick={() => {
-                if (item.id === 'designer') {
-                  setActiveTab('emitir');
-                  setIsEditingDesign(true);
-                  setIssuanceMode('individual');
-                } else if (item.id === 'masiva') {
-                  setActiveTab('emitir');
-                  setIssuanceMode('mass');
-                  setIsEditingDesign(false);
-                } else if (item.id === 'emitir') {
-                  setActiveTab('emitir');
-                  setIssuanceMode('individual');
-                  setIsEditingDesign(false);
-                } else {
-                  setActiveTab(item.id);
-                  setIsEditingDesign(false);
-                }
-                setSidebarOpen(false);
-              }}
-              className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 transition-colors ${
-                (item.id === 'masiva' && activeTab === 'emitir' && issuanceMode === 'mass') ||
-                (item.id === 'emitir' && activeTab === 'emitir' && issuanceMode === 'individual') ||
-                (activeTab === item.id && item.id !== 'masiva' && item.id !== 'emitir')
-                  ? 'bg-white/10 border border-white/10 shadow-neon-blue'
-                  : ''
-              } ${item.color || 'text-slate-300'}`}
-            >
-              <span>{item.icon}</span>
-              <span className="font-medium">{item.label}</span>
-            </button>
-          ))}
+        <nav className="flex-1 py-8 px-2 space-y-2 overflow-y-auto custom-scrollbar">
+            {[
+                { id: 'emitir', icon: Zap, label: 'Emitir Credencial' },
+                { id: 'masiva', icon: Layers, label: 'Emisión Masiva' },
+                { id: 'narrativas', icon: PenTool, label: 'Diseñador' },
+                { id: 'credenciales', icon: History, label: 'Historial' },
+                { id: 'analiticas', icon: BarChart3, label: 'Analíticas' },
+                { id: 'recargar', icon: CreditCard, label: 'Recargar Créditos' },
+            ].map((item) => (
+                <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group ${
+                        activeTab === item.id 
+                        ? 'bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20 text-emerald-400' 
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                    <div className={`p-2 rounded-lg transition-colors ${activeTab === item.id ? 'bg-emerald-500/20 text-emerald-400' : 'bg-transparent text-slate-500 group-hover:text-white'}`}>
+                        <item.icon size={20} strokeWidth={1} />
+                    </div>
+                    {sidebarOpen && (
+                        <span className="font-medium whitespace-nowrap">{item.label}</span>
+                    )}
+                    {activeTab === item.id && sidebarOpen && (
+                        <motion.div layoutId="activeTabIndicator" className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                    )}
+                </button>
+            ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-700/50 bg-black/20">
-          <div className="text-xs font-mono text-slate-500 mb-2">NETWORK STATUS</div>
-          <div className="space-y-2">
-            {selectedNetworks.map(net => (
-              <div key={net} className="flex justify-between items-center text-xs">
-                <span className="uppercase">{net}</span>
-                <span className="text-green-400">● LIVE</span>
-              </div>
-            ))}
-          </div>
+        <div className="p-4 border-t border-white/5">
+            <button className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors ${!sidebarOpen && 'justify-center'}`}>
+                <LogOut size={20} strokeWidth={1} />
+                {sidebarOpen && <span>Cerrar Sesión</span>}
+            </button>
         </div>
-      </motion.div>
+      </motion.aside>
 
-      {/* Main Content */}
-      <div className="flex-1 relative overflow-y-auto h-full">
-        {/* Header */}
-        <div className="sticky top-0 z-40 flex flex-col backdrop-blur-md bg-background/80 border-b border-slate-800">
-            <header className="p-4 flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <button className="md:hidden text-slate-300" onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
-                <div>
-                  <h1 className="text-xl font-bold text-white">Dashboard Institucional</h1>
-                  {renderConnectionStatus()}
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                {demo && (
-                  <Link to="/" className="px-3 py-1 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg text-xs font-bold hover:bg-red-500/30 transition-colors">
-                    Salir de la Demo
-                  </Link>
-                )}
-                <div className="hidden md:flex flex-col items-end">
-                  <span className="text-sm font-medium text-slate-200">Balance ACL</span>
-                  <span className="text-xs font-mono text-primary-400">{aclBalance} CREDITS</span>
-                </div>
-                <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-primary to-secondary p-[2px]">
-                  <div className="h-full w-full rounded-full bg-black flex items-center justify-center font-bold text-white text-xs">
-                    INS
+      {/* Main Content Area */}
+      <main 
+        className={`flex-1 transition-all duration-300 relative ${sidebarOpen ? 'ml-[280px]' : 'ml-[80px]'}`}
+      >
+         {/* Top Bar */}
+         <header className="sticky top-0 z-40 bg-[#0d0d0d]/80 backdrop-blur-xl border-b border-white/5 h-20 px-8 flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-white tracking-tight">
+               {activeTab === 'emitir' && 'Panel de Emisión'}
+               {activeTab === 'masiva' && 'Emisión por Lotes'}
+               {activeTab === 'narrativas' && 'Diseñador de Plantillas'}
+               {activeTab === 'credenciales' && 'Registro Histórico'}
+               {activeTab === 'analiticas' && 'Inteligencia de Datos'}
+               {activeTab === 'recargar' && 'Gestión de Créditos'}
+            </h1>
+
+            <div className="flex items-center gap-6">
+               <div className="hidden md:flex items-center gap-4 px-4 py-2 rounded-full bg-black/20 border border-white/5">
+                  <div className="flex items-center gap-2">
+                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                     <span className="text-xs font-mono text-emerald-500">MAINNET ACTIVE</span>
                   </div>
-                </div>
-              </div>
-            </header>
-            
-            {/* Stats Bar (Compact) */}
-            <div className="bg-slate-900/50 border-t border-slate-800 px-6 py-2 flex items-center gap-6 overflow-x-auto text-xs">
-                <div className="flex items-center gap-2">
-                    <span className="text-slate-400">Credenciales Emitidas:</span>
-                    <span className="text-cyan-400 font-mono font-bold">{stats?.totalCredentials || 1240}</span>
-                </div>
-                <div className="w-px h-4 bg-slate-700"></div>
-                <div className="flex items-center gap-2">
-                    <span className="text-slate-400">Tokens Activos:</span>
-                    <span className="text-purple-400 font-mono font-bold">{stats?.totalTokens || 3}</span>
-                </div>
-                <div className="w-px h-4 bg-slate-700"></div>
-                <div className="flex items-center gap-2">
-                    <span className="text-slate-400">Destinatarios:</span>
-                    <span className="text-emerald-400 font-mono font-bold">{stats?.totalRecipients || 850}</span>
-                </div>
-                <div className="w-px h-4 bg-slate-700"></div>
-                <div className="flex items-center gap-2 ml-auto">
-                    <span className="text-slate-400">Integridad del Sistema:</span>
-                    <span className="text-green-400 font-bold flex items-center gap-1">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                        </span>
-                        100% OPERATIVO
-                    </span>
-                </div>
+                  <div className="w-px h-4 bg-white/10"></div>
+                  <div className="text-xs text-slate-400 font-mono">LATENCY: 24ms</div>
+               </div>
+               
+               <div className="flex items-center gap-3">
+                  <div className="text-right hidden sm:block">
+                     <div className="text-sm font-bold text-white">{user?.name || 'Administrador'}</div>
+                     <div className="text-xs text-slate-500">{user?.institutionName || 'Institución'}</div>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 border border-white/10 flex items-center justify-center text-white font-bold">
+                     {user?.name?.charAt(0) || 'A'}
+                  </div>
+               </div>
             </div>
-        </div>
+         </header>
 
-        <main className="p-6 max-w-7xl mx-auto space-y-8">
+         {/* Content Padding */}
+         <div className="p-8 pb-20">
+            <AnimatePresence mode="wait">
+               {renderContent()}
+            </AnimatePresence>
+         </div>
 
-          {/* Stats Row Removed - Moved to Header */}
+         {/* Document Viewer Modal */}
+         <DocumentViewer
+            isOpen={docOpen}
+            onClose={() => setDocOpen(false)}
+            url={docUrl}
+            metadata={docMetadata}
+         />
 
-
-          {/* Dynamic Content Area */}
-          <AnimatePresence mode="wait">
-            <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
-            >
-                {renderContent()}
-            </motion.div>
-          </AnimatePresence>
-
-        </main>
-      </div>
-
-      {/* Subscription Modal */}
-      <AnimatePresence>
-        {showPlanModal && (
-            <InstitutionSubscriptionModal 
-                onClose={() => setShowPlanModal(false)} 
-                currentPlanId={currentPlan?.id}
-                onSubscribe={handleSubscribe}
-            />
-        )}
-      </AnimatePresence>
-      <DocumentViewer 
-        open={docOpen} 
-        src={docUrl} 
-        title="Documento Credencial" 
-        metadata={docMetadata}
-        onClose={() => setDocOpen(false)} 
-      />
+         {/* Plan Upgrade Modal */}
+         <InstitutionSubscriptionModal 
+            isOpen={showPlanModal}
+            onClose={() => setShowPlanModal(false)}
+            currentPlan={currentPlan}
+            onSubscribe={handleSubscribe}
+         />
+      </main>
     </div>
   );
 }
 
 export default EnhancedInstitutionDashboard;
-

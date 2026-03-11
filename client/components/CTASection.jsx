@@ -1,102 +1,34 @@
-// src/components/landing/CTASection.js
 import React, { useState, useEffect } from 'react';
 import { useInView } from 'react-intersection-observer';
-import { useAnalytics } from './useAnalytics';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { theme } from './themeConfig';
-import { ShieldCheck, Wrench, Book, CircleDollarSign } from 'lucide-react';
+import { ShieldCheck, Wrench, Book, CircleDollarSign, ArrowRight, CheckCircle2 } from 'lucide-react';
+
+// Mock hook if useAnalytics is not available or we can simplify
+// import { useAnalytics } from './useAnalytics'; 
 
 const CTASection = ({ 
-  variant = 'primary', 
-  title = null,
-  subtitle = null,
-  showDemoForm = false 
+  title = "Blindaje Total contra el Fraude Académico",
+  subtitle = "Fe pública digital con garantía perpetua y estándar global para credenciales verificables.",
+  showDemoForm = true
 }) => {
   const [email, setEmail] = useState('');
   const [institution, setInstitution] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null);
-  const { trackButtonClick, trackFormSubmission } = useAnalytics();
-  const [animatedSubtitle, setAnimatedSubtitle] = useState('');
+  const [institutionCount, setInstitutionCount] = useState(0);
+  
   const navigate = useNavigate();
 
-  // Observer para animaciones
   const [ref, inView] = useInView({
     threshold: 0.1,
     triggerOnce: true
   });
 
-  // Configuraciones por variante
-  const variants = {
-    primary: {
-      bg: 'bg-gradient-to-br from-[#020617] via-[#0b1b3a] to-[#0a0f1f]',
-      text: 'text-white',
-      button: 'bg-[#0066FF] text-white hover:bg-[#0057d6]',
-      secondaryButton: 'border-2 border-white text-white hover:bg-white hover:text-[#0066FF]'
-    },
-    secondary: {
-      bg: 'bg-gradient-to-br from-[#020617] to-[#0b1b3a]',
-      text: 'text-white',
-      button: 'bg-[#0066FF] text-white hover:bg-[#0057d6]',
-      secondaryButton: 'border-2 border-[#0066FF] text-[#cde0ff] hover:bg-[#0066FF] hover:text-white'
-    },
-    light: {
-      bg: 'bg-gradient-to-br from-gray-50 to-blue-50',
-      text: 'text-gray-900',
-      button: 'bg-[#0066FF] text-white hover:bg-[#0057d6]',
-      secondaryButton: 'border-2 border-[#0066FF] text-[#0066FF] hover:bg-[#0066FF] hover:text-white'
-    }
-  };
-
-  const currentVariant = variants[variant] || variants.primary;
-
-  // Contenido por defecto
-  const defaultContent = {
-    primary: {
-      title: 'Blindaje Total contra el Fraude Académico',
-      subtitle: 'Fe pública digital con garantía perpetua y estándar global para credenciales verificables.',
-      primaryButton: '🚀 Comenzar Gratis',
-      secondaryButton: '📅 Agendar Demo',
-      features: [
-        'Activación en minutos',
-        'Soporte 24/7',
-        'Sin costos ocultos',
-        'Integración asegurada'
-      ]
-    },
-    secondary: {
-      title: 'Garantía de Autoridad Inquebrantable',
-      subtitle: 'Títulos con verificación instantánea y trazabilidad forense, sin complejidad técnica.',
-      primaryButton: '🏫 Registrar Institución',
-      secondaryButton: '📚 Ver Casos de Éxito',
-      features: [
-        'Alta disponibilidad',
-        'Verificación en segundos',
-        'Cero mantenimiento oculto',
-        'Cumplimiento internacional'
-      ]
-    },
-    light: {
-      title: 'Transforma tu Institución Hoy',
-      subtitle: 'Prueba AcademicChain y certifica con fe pública digital sin fricción.',
-      primaryButton: '🎯 Probar Demo',
-      secondaryButton: '📞 Contactar Ventas',
-      features: [
-        'Demo interactiva incluida',
-        'Migración asistida',
-        'Training completo',
-        'ROI garantizado'
-      ]
-    }
-  };
-
-  const content = defaultContent[variant] || defaultContent.primary;
-
-  // Contador animado de instituciones
-  const [institutionCount, setInstitutionCount] = useState(0);
+  // Institution Counter Animation
   useEffect(() => {
     if (inView) {
-      const target = 57; // Número real de instituciones
+      const target = 57;
       const duration = 2000;
       const steps = 60;
       const increment = target / steps;
@@ -116,244 +48,176 @@ const CTASection = ({
     }
   }, [inView]);
 
-  // Efecto de máquina de escribir para el subtítulo
-  useEffect(() => {
-    if (inView && (subtitle || content.subtitle)) {
-      const fullText = subtitle || content.subtitle;
-      setAnimatedSubtitle(fullText);
-    }
-  }, [inView, subtitle, content.subtitle]);
-
-
-  
-
   const handleDemoSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-
-    try {
-      trackFormSubmission({
-        formType: 'demo_request',
-        email: email,
-        institution: institution,
-        variant: variant
-      });
-
-      // Simular envío a API
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Aquí iría la llamada real a la API
-      // await api.submitDemoRequest({ email, institution });
-      
-      setSubmitStatus('success');
-      setEmail('');
-      setInstitution('');
-      
-      trackButtonClick({
-        buttonType: 'demo_submit',
-        variant: variant,
-        section: 'cta',
-        action: 'demo_submitted'
-      });
-
-    } catch (error) {
-      setSubmitStatus('error');
-      console.error('Error submitting demo request:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setSubmitStatus('success');
+    setIsSubmitting(false);
   };
+
+  const features = [
+    { icon: <ShieldCheck size={16} />, text: 'Soporte 24/7' },
+    { icon: <Wrench size={16} />, text: 'Migración Asistida' },
+    { icon: <Book size={16} />, text: 'Training Completo' },
+    { icon: <CircleDollarSign size={16} />, text: 'Sin Costos Ocultos' }
+  ];
 
   return (
     <section 
       ref={ref}
-      className={`section-padding ${currentVariant.bg} ${currentVariant.text} relative overflow-hidden`}
-      style={{ paddingBottom: theme.spacing.sectionPb }}
+      className="relative py-24 bg-[#050505] overflow-hidden"
     >
-      <div className="absolute inset-0 opacity-20 pointer-events-none">
-        <div className="absolute top-10 left-10 w-24 h-24 rounded-full bg-white/5 blur-2xl"></div>
-        <div className="absolute top-20 right-20 w-32 h-32 rounded-full bg-white/10 blur-2xl"></div>
-        <div className="absolute bottom-24 left-1/4 w-28 h-28 rounded-full bg-white/5 blur-2xl"></div>
-        <div className="absolute bottom-10 right-1/3 w-36 h-36 rounded-full bg-white/10 blur-2xl"></div>
+      {/* Background Ambience */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-emerald-900/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-blue-900/10 rounded-full blur-[120px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,black,transparent)]"></div>
       </div>
 
-      <div className="container-responsive relative z-10">
-        <div className={`max-w-6xl mx-auto text-center transition-all duration-700 ${
-          inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-        }`}>
+      <div className="container mx-auto px-4 relative z-10">
+        <div className="max-w-4xl mx-auto text-center">
           
-          {/* Badge de confianza */}
-          <div className="badge badge-success mb-8 inline-flex items-center">
-            <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-            <span className="text-sm font-medium">
-              <span className="font-bold">{institutionCount}+</span> Instituciones Confían en Nosotros
+          {/* Trust Badge */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={inView ? { opacity: 1, y: 0 } : {}}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#0d0d0d]/60 border border-emerald-500/20 mb-8 backdrop-blur-md"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-          </div>
+            <span className="text-sm text-emerald-100/80">
+              <span className="font-bold text-emerald-400">{institutionCount}+</span> Instituciones Confían en Nosotros
+            </span>
+          </motion.div>
 
-          {/* Título principal */}
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
-            {title || content.title}
-          </h2>
+          {/* Title */}
+          <motion.h2 
+            initial={{ opacity: 0, y: 20 }}
+            animate={inView ? { opacity: 1, y: 0 } : {}}
+            transition={{ delay: 0.1 }}
+            className="text-4xl md:text-5xl font-bold text-white mb-6 leading-tight tracking-tight"
+          >
+            {title}
+          </motion.h2>
 
-          {/* Subtítulo */}
-          <p className="text-xl md:text-2xl opacity-90 mb-12 max-w-3xl mx-auto leading-relaxed min-h-[3em]">
-            {animatedSubtitle}
-            <span className="inline-block w-1 h-7 ml-1 bg-current animate-pulse" style={{ animation: 'blink 1s step-end infinite' }}></span>
-          </p>
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={inView ? { opacity: 1, y: 0 } : {}}
+            transition={{ delay: 0.2 }}
+            className="text-xl text-slate-400 mb-12 leading-relaxed"
+          >
+            {subtitle}
+          </motion.p>
 
-          {/* Características rápidas */}
-          <div className="flex flex-wrap justify-center gap-6 mb-12">
-            {content.features.map((feature, index) => (
-              <div 
-                key={index}
-                className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm px-4 py-3 rounded-lg"
-              >
-                <span className="text-green-300">✓</span>
-                <span className="font-medium">{feature}</span>
-              </div>
-            ))}
-          </div>
-
-
-
-          {/* Formulario de demo (condicional) */}
-          {(showDemoForm || submitStatus) && (
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 max-w-md mx-auto border border-white/20">
-              {submitStatus === 'success' ? (
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl text-white">✓</span>
-                  </div>
-                  <h3 className="text-xl font-bold mb-2">¡Solicitud Recibida!</h3>
-                  <p className="opacity-90 mb-4">
-                    Te contactaremos en menos de 24 horas para agendar tu demo personalizada.
-                  </p>
-                  <button
-                    onClick={() => setSubmitStatus(null)}
-                    className="text-blue-300 hover:text-white underline"
-                  >
-                    Cerrar
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <h3 className="text-xl font-bold mb-4 text-center">
-                    Agenda una Demo Personalizada
-                  </h3>
-                  <form onSubmit={handleDemoSubmit} className="space-y-4">
-                    <div>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="tu.email@institucion.edu"
-                        className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/30 placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <input
-                        type="text"
-                        value={institution}
-                        onChange={(e) => setInstitution(e.target.value)}
-                        placeholder="Nombre de tu institución"
-                        className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/30 placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-                        required
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full btn-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 hover-lift shadow-soft"
+          {/* Demo Form */}
+          {showDemoForm && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={inView ? { opacity: 1, scale: 1 } : {}}
+              transition={{ delay: 0.3 }}
+              className="relative max-w-md mx-auto"
+            >
+              <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-2xl blur opacity-20"></div>
+              <div className="relative bg-[#0d0d0d]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
+                <AnimatePresence mode="wait">
+                  {submitStatus === 'success' ? (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="text-center py-8"
                     >
-                      {isSubmitting ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                          <span>Enviando...</span>
-                        </>
-                      ) : (
-                        <span>🎯 Solicitar Demo Gratuita</span>
-                      )}
-                    </button>
-                  </form>
-                </>
-              )}
-            </div>
+                      <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
+                        <CheckCircle2 size={32} className="text-emerald-500" />
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-2">¡Solicitud Recibida!</h3>
+                      <p className="text-slate-400 mb-6">
+                        Te contactaremos en breve para agendar tu demo.
+                      </p>
+                      <button
+                        onClick={() => setSubmitStatus(null)}
+                        className="text-emerald-400 hover:text-emerald-300 text-sm font-medium"
+                      >
+                        Enviar otra solicitud
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <motion.form 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onSubmit={handleDemoSubmit} 
+                      className="space-y-4"
+                    >
+                      <h3 className="text-xl font-bold text-white mb-6">Agenda una Demo</h3>
+                      <div>
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="tu.email@institucion.edu"
+                          className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          value={institution}
+                          onChange={(e) => setInstitution(e.target.value)}
+                          placeholder="Nombre de tu institución"
+                          className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                          required
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="w-full py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/20 transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isSubmitting ? (
+                          <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            Solicitar Demo Gratuita <ArrowRight size={18} />
+                          </>
+                        )}
+                      </button>
+                    </motion.form>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
           )}
 
-          <div className="mt-12 pt-8 border-t border-white/20">
-            <p className="text-sm opacity-75 mb-6 uppercase tracking-wider">
+          {/* Features Footer */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={inView ? { opacity: 1 } : {}}
+            transition={{ delay: 0.4 }}
+            className="mt-16 pt-8 border-t border-white/5"
+          >
+            <p className="text-xs text-slate-500 uppercase tracking-widest mb-6 font-semibold">
               Incluye sin costo adicional
             </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
-              <div className="flex items-center justify-center space-x-2">
-                <ShieldCheck className="w-4 h-4 text-green-300" />
-                <span>Soporte 24/7</span>
-              </div>
-              <div className="flex items-center justify-center space-x-2">
-                <Wrench className="w-4 h-4 text-green-300" />
-                <span>Migración Asistida</span>
-              </div>
-              <div className="flex items-center justify-center space-x-2">
-                <Book className="w-4 h-4 text-green-300" />
-                <span>Training Completo</span>
-              </div>
-              <div className="flex items-center justify-center space-x-2">
-                <CircleDollarSign className="w-4 h-4 text-green-300" />
-                <span>Sin Costos Ocultos</span>
-              </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {features.map((feature, idx) => (
+                <div key={idx} className="flex items-center justify-center gap-2 text-slate-400 text-sm">
+                  <span className="text-emerald-500/80">{feature.icon}</span>
+                  <span>{feature.text}</span>
+                </div>
+              ))}
             </div>
-          </div>
+          </motion.div>
 
-          {/* Garantía */}
-          <div className="mt-8 p-4 bg-white/5 rounded-xl border border-white/10">
-            <p className="text-sm opacity-80">
-              <strong className="opacity-100">Garantía de satisfacción:</strong> Si en los primeros 30 días no 
-              estás completamente satisfecho, te ayudamos a migrar tus datos sin costo.
-            </p>
-          </div>
         </div>
-      </div>
-
-      {/* Efecto de partículas decorativas */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(20)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-2 h-2 bg-white/30 rounded-full animate-float"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 5}s`,
-              animationDuration: `${10 + Math.random() * 10}s`
-            }}
-          />
-        ))}
       </div>
     </section>
   );
 };
-
-// Animación CSS para las partículas
-const styles = `
-@keyframes float {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(180deg); }
-}
-.animate-float {
-  animation: float linear infinite;
-}
-@keyframes blink {
-  from, to { opacity: 1 }
-  50% { opacity: 0 }
-}
-`;
-
-// Inject styles
-if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.innerText = styles;
-  document.head.appendChild(styleSheet);
-}
 
 export default CTASection;

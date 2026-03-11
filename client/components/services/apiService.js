@@ -62,13 +62,27 @@ const apiService = {
 
   revokeCredential: async ({ tokenId, serialNumber, reason }) => {
     console.log('[ApiService] Revoking credential...', { tokenId, serialNumber, reason });
-    // TODO: Implement revocation endpoint
-    return { success: true };
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/creators/revoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          certificateId: tokenId, 
+          serialNumber, 
+          reason 
+        })
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('[ApiService] Revocation Error:', error);
+      throw error;
+    }
   },
 
   getCredentialStats: async ({ scope, issuerId, role } = {}) => {
     // Return mock stats to prevent UI errors until backend endpoint is ready
     return {
+      success: true,
       totalIssued: 150,
       active: 145,
       revoked: 5,
@@ -97,23 +111,79 @@ const apiService = {
   getInstitutionAnalytics: async (institutionId) => {
     console.log('[ApiService] Getting analytics for...', institutionId);
     return {
+      success: true,
       issuanceTrend: [10, 15, 8, 20, 25, 30],
       topSkills: ['Blockchain', 'AI', 'Security'],
-      studentEngagement: 85
+      studentEngagement: 85,
+      employability: { rate: 92, trend: '+5%' },
+      perfectMatchStats: { topRankCount: 45 },
+      identityStats: { percentage: 98, verifiedStudents: 450, totalStudents: 460 },
+      skillsGap: {
+        marketDemand: [
+          { name: 'Blockchain Dev', gap: -15 },
+          { name: 'AI Engineering', gap: 5 },
+          { name: 'Cybersecurity', gap: 0 }
+        ]
+      }
     };
   },
 
   getInstitutionPlan: async (id) => {
     return { 
-      id: 'plan-pro', 
-      name: 'Professional', 
-      features: ['Unlimited Issuance', 'API Access'] 
+      details: {
+        id: 'professional',
+        name: 'Plan Profesional',
+        limit: 220,
+        networks: ['hedera', 'xrp'],
+        analytics: 'advanced',
+        price: 155
+      },
+      emissionsUsed: 45
     };
+  },
+
+  getInstitutionCredentials: async (institutionId) => {
+    console.log('[ApiService] Getting credentials for...', institutionId);
+    // Mock data
+    return [
+      {
+        id: 'cred-001',
+        tokenId: '0.0.123456',
+        studentId: 'A001',
+        studentName: 'Juan Pérez',
+        title: 'Ingeniería de Software',
+        type: 'titulo',
+        createdAt: new Date().toISOString(),
+        status: 'verified',
+        ipfsURI: 'ipfs://QmHash1'
+      },
+      {
+        id: 'cred-002',
+        tokenId: '0.0.123457',
+        studentId: 'A002',
+        studentName: 'Maria Garcia',
+        title: 'Certificado de Honor',
+        type: 'certificado',
+        createdAt: new Date(Date.now() - 86400000).toISOString(),
+        status: 'pending',
+        ipfsURI: 'ipfs://QmHash2'
+      }
+    ];
   },
 
   upgradePlan: async (planId) => {
     console.log('[ApiService] Upgrading plan...', planId);
-    return { success: true };
+    return { 
+      success: true,
+      plan: {
+        id: planId,
+        name: planId === 'enterprise' ? 'Plan Enterprise' : 'Plan Profesional',
+        limit: planId === 'enterprise' ? Infinity : 220,
+        networks: planId === 'enterprise' ? ['hedera', 'xrp', 'algorand'] : ['hedera', 'xrp'],
+        analytics: 'advanced',
+        price: planId === 'enterprise' ? 'custom' : 155
+      }
+    };
   },
 
   // --- Payments ---

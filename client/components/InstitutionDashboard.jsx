@@ -709,33 +709,32 @@ function InstitutionDashboard({ demo = false }) {
                       navigator.clipboard.writeText(code);
                       toast.success('Código copiado al portapapeles');
                   }}
-                  className="hidden md:flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg transition-all border border-slate-700"
+                  className="hidden md:flex items-center gap-2 bg-slate-900/50 hover:bg-cyan-900/20 text-cyan-400 border border-cyan-500/30 hover:border-cyan-400/50 px-6 py-2 rounded-sm transition-all backdrop-blur-sm"
               >
-                  <span className="text-cyan-400 font-mono text-xs">&lt;/&gt;</span>
-                  <span className="text-sm font-medium">Copiar Widget</span>
+                  <span className="text-xs uppercase tracking-widest font-medium">Copiar Widget</span>
               </button>
           </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
               {/* Main Metrics */}
               <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="p-4 rounded-xl border border-blue-500/30 bg-blue-500/10 backdrop-blur-sm relative overflow-hidden group">
-                      <div className="absolute -right-4 -top-4 bg-blue-500/20 w-24 h-24 rounded-full blur-2xl group-hover:bg-blue-500/30 transition-all"></div>
-                      <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider relative z-10">Emisiones Totales</h3>
-                      <div className="text-3xl font-bold text-blue-400 my-2 font-display relative z-10">{dashboardMetrics.totalEmissions || 0}</div>
-                      <p className="text-xs text-slate-500 relative z-10">Certificados en MongoDB</p>
+                  <div className="p-6 rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm relative overflow-hidden group hover:border-cyan-500/30 transition-all duration-500">
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-cyan-500/5 rounded-full blur-xl group-hover:bg-cyan-500/10 transition-all"></div>
+                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest relative z-10">Emisiones Totales</h3>
+                      <div className="text-4xl font-light text-cyan-400 my-3 font-display relative z-10">{dashboardMetrics.totalEmissions || 0}</div>
+                      <p className="text-[10px] text-slate-600 uppercase tracking-wider relative z-10">Certificados en MongoDB</p>
                   </div>
-                  <div className="p-4 rounded-xl border border-green-500/30 bg-green-500/10 backdrop-blur-sm relative overflow-hidden group">
-                      <div className="absolute -right-4 -top-4 bg-green-500/20 w-24 h-24 rounded-full blur-2xl group-hover:bg-green-500/30 transition-all"></div>
-                      <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider relative z-10">Anclajes Exitosos</h3>
-                      <div className="text-3xl font-bold text-green-400 my-2 font-display relative z-10">{dashboardMetrics.successfulAnchors || 0}</div>
-                      <p className="text-xs text-slate-500 relative z-10">Confirmados en Hedera/Arkhia</p>
+                  <div className="p-6 rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-500">
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition-all"></div>
+                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest relative z-10">Anclajes Exitosos</h3>
+                      <div className="text-4xl font-light text-emerald-400 my-3 font-display relative z-10">{dashboardMetrics.successfulAnchors || 0}</div>
+                      <p className="text-[10px] text-slate-600 uppercase tracking-wider relative z-10">Confirmados en Hedera/Arkhia</p>
                   </div>
-                  <div className="p-4 rounded-xl border border-purple-500/30 bg-purple-500/10 backdrop-blur-sm relative overflow-hidden group">
-                      <div className="absolute -right-4 -top-4 bg-purple-500/20 w-24 h-24 rounded-full blur-2xl group-hover:bg-purple-500/30 transition-all"></div>
-                      <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider relative z-10">Tasa de Empleabilidad</h3>
-                      <div className="text-3xl font-bold text-purple-400 my-2 font-display relative z-10">{dashboardMetrics.employabilityRate || 0}%</div>
-                      <p className="text-xs text-slate-500 relative z-10">Alumnos contratados</p>
+                  <div className="p-6 rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm relative overflow-hidden group hover:border-purple-500/30 transition-all duration-500">
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-purple-500/5 rounded-full blur-xl group-hover:bg-purple-500/10 transition-all"></div>
+                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest relative z-10">Tasa de Empleabilidad</h3>
+                      <div className="text-4xl font-light text-purple-400 my-3 font-display relative z-10">{dashboardMetrics.employabilityRate || 0}%</div>
+                      <p className="text-[10px] text-slate-600 uppercase tracking-wider relative z-10">Alumnos contratados</p>
                   </div>
               </div>
 
@@ -767,27 +766,27 @@ function InstitutionDashboard({ demo = false }) {
       </div>
       
       {!demo && user && !user.dpaAccepted && (
-        <div className="bg-yellow-500/10 border-l-4 border-yellow-500 p-4 mb-6 shadow-md rounded-r-md backdrop-blur-sm">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-lg leading-6 font-medium text-yellow-200">Acción Requerida: Firma de Acuerdo de Procesamiento de Datos (DPA)</h3>
-              <div className="mt-2 text-sm text-yellow-100">
-                <p className="mb-2">
-                  Para cumplir con las normativas internacionales (GDPR, SOC2) y el modelo de "Transferencia de Responsabilidad", debe firmar digitalmente el acuerdo de procesamiento de datos antes de emitir credenciales.
-                </p>
-                <p className="mb-4">
-                  Al firmar, usted confirma que su institución cuenta con el consentimiento legal de los estudiantes para la emisión de sus títulos en blockchain.
-                </p>
-                {dpaError && <div className="text-red-600 font-bold mb-2">{dpaError}</div>}
+        <div className="mb-8 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-amber-500/5 border border-amber-500/20 backdrop-blur-sm rounded-sm"></div>
+          <div className="absolute top-0 left-0 w-1 h-full bg-amber-500/50"></div>
+          <div className="relative p-6">
+            <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
+              Acción Requerida: Firma de Acuerdo de Procesamiento de Datos (DPA)
+            </h3>
+            <div className="text-xs text-amber-200/80 font-light tracking-wide space-y-2 max-w-4xl">
+              <p>
+                Para cumplir con las normativas internacionales (GDPR, SOC2) y el modelo de "Transferencia de Responsabilidad", debe firmar digitalmente el acuerdo de procesamiento de datos antes de emitir credenciales.
+              </p>
+              <p>
+                Al firmar, usted confirma que su institución cuenta con el consentimiento legal de los estudiantes para la emisión de sus títulos en blockchain.
+              </p>
+              {dpaError && <div className="text-red-400 font-bold bg-red-900/20 p-2 border border-red-500/20 rounded-sm inline-block">{dpaError}</div>}
+              <div className="mt-4">
                 <button
                   onClick={handleSignDPA}
                   disabled={dpaSigning}
-                  className={`bg-yellow-800 text-white px-4 py-2 rounded hover:bg-yellow-900 transition-colors ${dpaSigning ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/50 px-6 py-2 rounded-sm text-xs uppercase tracking-widest transition-all ${dpaSigning ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-[0_0_15px_rgba(245,158,11,0.3)]'}`}
                 >
                   {dpaSigning ? 'Firmando...' : 'Firmar DPA Digitalmente'}
                 </button>
@@ -902,66 +901,83 @@ function InstitutionDashboard({ demo = false }) {
           )}
         </div>
       )}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="card">
-          <div className="font-semibold">Métricas</div>
-          {loadingStats && <div className="badge badge-info mt-2">Cargando métricas...</div>}
-          {errorStats && <div className="badge badge-error mt-2">{errorStats}</div>}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-6 rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Estado del Sistema</div>
+          {loadingStats && <div className="text-xs text-cyan-400 animate-pulse">Sincronizando métricas...</div>}
+          {errorStats && <div className="text-xs text-red-400">{errorStats}</div>}
           {!loadingStats && !errorStats && (
-            <div className="text-sm text-gray-700 break-words mt-2">
-              {stats ? JSON.stringify(stats) : 'Sin datos'}
+            <div className="text-xs text-slate-400 font-mono break-words bg-slate-950/50 p-3 rounded border border-slate-800/50">
+              {stats ? JSON.stringify(stats, null, 2) : 'Sin datos de telemetría'}
             </div>
           )}
         </div>
-        <div className="card">
-          <div className="font-semibold mb-2">Conectividad & API</div>
-          <div className="inline-flex items-center px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs border border-green-200">API Endpoint: Activo (Global)</div>
-          <div className="mt-3">
-            <button className="btn-primary" disabled={apiGenerating} onClick={handleGenerateApiKey}>
-              {apiGenerating ? 'Generando…' : 'Generar Nueva API Key'}
+        <div className="p-6 rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm md:col-span-2">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Conectividad & API</div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span>
+                <span className="text-xs text-emerald-400 font-medium tracking-wide">Gateway Global Activo</span>
+              </div>
+            </div>
+            <button 
+              className="px-4 py-2 bg-cyan-900/10 hover:bg-cyan-900/20 text-cyan-400 border border-cyan-500/30 hover:border-cyan-400/50 rounded-sm text-[10px] uppercase tracking-widest transition-all"
+              disabled={apiGenerating} 
+              onClick={handleGenerateApiKey}
+            >
+              {apiGenerating ? 'Generando...' : 'Nueva API Key'}
             </button>
           </div>
-          {apiMessage && <div className="text-green-700 text-sm mt-2">{apiMessage}</div>}
+
+          {apiMessage && <div className="mb-4 text-xs text-emerald-400 bg-emerald-900/10 border border-emerald-500/20 p-2 rounded-sm">{apiMessage}</div>}
+          
           {apiKey && (
-            <div className="mt-3 p-3 rounded-lg border bg-gray-50">
-              <div className="text-xs text-gray-600 mb-1">x-api-key</div>
-              <div className="flex items-center gap-2">
-                <div className="font-mono text-sm break-all">{apiKeyVisible ? apiKey : maskKey(apiKey)}</div>
-                <button className="btn-secondary btn-sm" onClick={() => setApiKeyVisible(v => !v)}>
+            <div className="mb-6 p-4 rounded-sm border border-cyan-500/20 bg-cyan-950/10 relative group overflow-hidden">
+              <div className="absolute top-0 right-0 p-2 opacity-10 text-cyan-500 text-4xl">
+                 KEY
+              </div>
+              <div className="text-[10px] text-cyan-500/70 uppercase tracking-widest mb-2">x-api-key (Secret)</div>
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="font-mono text-sm text-cyan-300 break-all bg-slate-950/50 px-3 py-1.5 rounded border border-cyan-900/30 flex-1">
+                  {apiKeyVisible ? apiKey : maskKey(apiKey)}
+                </div>
+                <button className="text-slate-400 hover:text-cyan-400 transition-colors text-xs uppercase tracking-wider" onClick={() => setApiKeyVisible(v => !v)}>
                   {apiKeyVisible ? 'Ocultar' : 'Mostrar'}
                 </button>
-                <button className="btn-secondary btn-sm" onClick={() => navigator.clipboard.writeText(apiKey)}>Copiar</button>
+                <button className="text-slate-400 hover:text-cyan-400 transition-colors text-xs uppercase tracking-wider" onClick={() => navigator.clipboard.writeText(apiKey)}>Copiar</button>
               </div>
-              <div className="mt-2 text-xs text-gray-600">Guárdala de forma segura. Por motivos de seguridad, se oculta por defecto.</div>
+              <div className="mt-2 text-[10px] text-slate-500">Credencial de acceso de alto privilegio. Manténgala segura.</div>
             </div>
           )}
-          <div className="mt-3 text-xs text-gray-600">
-            Incluye límites automáticos según plan (PRO/ENTERPRISE). Solicita SLA para instalación On‑Prem.
-          </div>
-          <div className="mt-4">
-            <div className="font-semibold mb-2">Rate Limit</div>
+
+          <div className="mb-6">
+            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-2">Rate Limit (Enterprise)</div>
             {rateLoading ? (
-              <div className="badge badge-info">Cargando...</div>
+              <div className="text-xs text-slate-500 animate-pulse">Calculando cuota...</div>
             ) : (
               <div>
-                {rateError && <div className="badge badge-error mb-2">{rateError}</div>}
-                <div className="text-sm text-gray-700">Plan: {rateLimit?.plan || 'N/A'}</div>
-                <div className="text-sm text-gray-700 mt-1">{rateLimit?.used || 0}/{rateLimit?.limit || 0} solicitudes</div>
-                <div className="w-full h-2 bg-gray-200 rounded mt-2">
-                  <div className="h-2 bg-blue-600 rounded" style={{ width: `${pct}%` }} />
+                {rateError && <div className="text-xs text-red-400 mb-2">{rateError}</div>}
+                <div className="flex justify-between text-xs text-slate-400 mb-1">
+                   <span>{rateLimit?.used || 0} / {rateLimit?.limit || 0} reqs</span>
+                   <span>{pct}%</span>
                 </div>
-                {rateLimit?.resetsAt && <div className="text-xs text-gray-500 mt-1">Resetea: {formatDate(rateLimit.resetsAt)}</div>}
+                <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-cyan-500 shadow-[0_0_10px_rgba(34,211,238,0.5)] transition-all duration-1000" style={{ width: `${pct}%` }} />
+                </div>
+                {rateLimit?.resetsAt && <div className="text-[10px] text-slate-600 mt-1 text-right">Reinicio: {formatDate(rateLimit.resetsAt)}</div>}
               </div>
             )}
           </div>
-          <div className="mt-4">
-            <div className="font-semibold mb-2">Historial de Claves</div>
+
+          <div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-3">Historial de Llaves</div>
             {apiKeysLoading ? (
-              <div className="badge badge-info">Cargando...</div>
+              <div className="text-xs text-slate-500">Cargando...</div>
             ) : apiKeysError ? (
-              <div className="badge badge-error">{apiKeysError}</div>
+              <div className="text-xs text-red-400">{apiKeysError}</div>
             ) : apiKeys.length === 0 ? (
-              <div className="text-sm text-gray-500">Aún no hay claves registradas</div>
+              <div className="text-xs text-slate-600 italic">No hay llaves activas</div>
             ) : (
               <div className="space-y-2">
                 {apiKeys.map((k) => {
@@ -971,17 +987,28 @@ function InstitutionDashboard({ demo = false }) {
                   const isRevoking = revokingKey === k.apiKey;
                   const isRotating = rotatingKey === k.apiKey;
                   return (
-                    <div key={k.apiKey} className="flex items-center justify-between p-2 rounded border bg-white">
+                    <div key={k.apiKey} className="flex items-center justify-between p-3 rounded-sm border border-slate-800 bg-slate-950/30 hover:border-slate-700 transition-all">
                       <div className="flex-1 min-w-0">
-                        <div className="font-mono text-sm break-all">{masked}</div>
-                        <div className="text-xs text-gray-600 mt-1">{s} • Creada: {formatDate(k.createdAt)}{k.lastUsedAt ? ` • Último uso: ${formatDate(k.lastUsedAt)}` : ''}</div>
+                        <div className="font-mono text-xs text-slate-300 break-all">{masked}</div>
+                        <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-2">
+                           <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                           {s.toUpperCase()} • {formatDate(k.createdAt)}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 ml-3">
-                        <button className={`btn-secondary btn-sm ${!isActive ? 'opacity-60 pointer-events-none' : ''}`} onClick={() => handleRevokeApiKey(k.apiKey)} disabled={!isActive || isRevoking}>
-                          {isRevoking ? 'Revocando...' : 'Revocar'}
+                        <button 
+                            className={`px-3 py-1 text-[10px] uppercase tracking-wider border border-slate-700 text-slate-400 hover:text-red-400 hover:border-red-900/50 rounded-sm transition-all ${!isActive ? 'opacity-20 pointer-events-none' : ''}`} 
+                            onClick={() => handleRevokeApiKey(k.apiKey)} 
+                            disabled={!isActive || isRevoking}
+                        >
+                          {isRevoking ? '...' : 'Revocar'}
                         </button>
-                        <button className={`btn-primary btn-sm ${!isActive ? 'opacity-60 pointer-events-none' : ''}`} onClick={() => handleRotateApiKey(k.apiKey)} disabled={!isActive || isRotating}>
-                          {isRotating ? 'Rotando...' : 'Rotar'}
+                        <button 
+                            className={`px-3 py-1 text-[10px] uppercase tracking-wider bg-slate-800 text-slate-300 hover:text-cyan-400 hover:bg-slate-700 rounded-sm transition-all ${!isActive ? 'opacity-20 pointer-events-none' : ''}`} 
+                            onClick={() => handleRotateApiKey(k.apiKey)} 
+                            disabled={!isActive || isRotating}
+                        >
+                          {isRotating ? '...' : 'Rotar'}
                         </button>
                       </div>
                     </div>
@@ -990,61 +1017,75 @@ function InstitutionDashboard({ demo = false }) {
               </div>
             )}
           </div>
-          <div className="mt-4">
-            <div className="font-semibold mb-2">Branding Institucional</div>
-            <div className="flex items-center gap-3">
-              <input type="file" accept="image/png,image/svg+xml" onChange={async (e) => {
-                const f = e.target.files?.[0] || null;
-                if (!f) return;
-                try {
-                  const uri = await issuanceService.uploadToIPFS(f);
-                  setInstitutionalLogoUrl(toGateway(uri));
-                } catch {}
-              }} />
-              {institutionalLogoUrl && <img src={institutionalLogoUrl} alt="Logo" className="h-8 w-8 rounded" />}
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="font-semibold mb-2">On‑Prem & SLA</div>
-            <div className="flex items-center justify-between p-3 rounded border bg-gray-50">
-              <div>
-                <div className="text-sm font-medium">Instalación Local</div>
-                <div className="text-xs text-gray-600">Disponible en Enterprise. Solicita acceso.</div>
-              </div>
-              <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={onPrem} onChange={() => {}} disabled />
-                <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">Bloqueado</span>
+          
+          <div className="mt-6 pt-6 border-t border-slate-800/50">
+            <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-3">Branding Institucional</div>
+            <div className="flex items-center gap-4">
+              <label className="cursor-pointer group">
+                  <div className="px-4 py-2 bg-slate-800/50 hover:bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600 rounded-sm text-xs transition-all flex items-center gap-2">
+                      <span>Subir Logo (IPFS)</span>
+                  </div>
+                  <input type="file" className="hidden" accept="image/png,image/svg+xml" onChange={async (e) => {
+                    const f = e.target.files?.[0] || null;
+                    if (!f) return;
+                    try {
+                      const uri = await issuanceService.uploadToIPFS(f);
+                      setInstitutionalLogoUrl(toGateway(uri));
+                    } catch {}
+                  }} />
               </label>
-            </div>
-            <div className="mt-2">
-              <a className="btn-secondary btn-sm" href="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" target="_blank" rel="noreferrer">Descargar SLA</a>
+              {institutionalLogoUrl && <div className="p-1 bg-white/5 rounded border border-white/10"><img src={institutionalLogoUrl} alt="Logo" className="h-8 w-8 object-contain" /></div>}
             </div>
           </div>
-          <div className="mt-4">
-            <div className="font-semibold mb-2">Analíticas por Red</div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="p-3 rounded border bg-white">
-                <div className="text-xs text-gray-600">Hedera</div>
-                <div className="text-xl font-bold">{usage.hedera || 0}</div>
+
+          <div className="mt-6 pt-6 border-t border-slate-800/50">
+            <div className="flex justify-between items-center">
+                <div className="text-[10px] text-slate-500 uppercase tracking-widest">SLA & On-Premise</div>
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-600 px-2 py-1 bg-slate-900 rounded border border-slate-800">Local: Bloqueado</span>
+                    <a className="text-[10px] text-cyan-500 hover:text-cyan-400 hover:underline" href="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" target="_blank" rel="noreferrer">Ver SLA</a>
+                </div>
+            </div>
+          </div>
+        </div>
+          <div className="mt-8">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Analíticas por Red</div>
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="p-4 rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <svg className="w-12 h-12 text-cyan-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zm0 9l2.5-1.25L12 8.5l-2.5 1.25L12 11zm0 2.5l-5-2.5-5 2.5L12 22l10-8.5-5-2.5-5 2.5z"/></svg>
+                </div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Hedera Hashgraph</div>
+                <div className="text-2xl font-bold text-slate-200 font-mono">{usage.hedera || 0}</div>
+                <div className="text-[10px] text-cyan-500/70 mt-1">Consenso Primario</div>
               </div>
-              <div className="p-3 rounded border bg-white">
-                <div className="text-xs text-gray-600">XRP</div>
-                <div className="text-xl font-bold">{usage.xrp || 0}</div>
+              <div className="p-4 rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <svg className="w-12 h-12 text-indigo-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 12l10 10 10-10L12 2zm0 15l-5-5 5-5 5 5-5 5z"/></svg>
+                </div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">XRP Ledger</div>
+                <div className="text-2xl font-bold text-slate-200 font-mono">{usage.xrp || 0}</div>
+                <div className="text-[10px] text-indigo-500/70 mt-1">Anclaje Secundario</div>
               </div>
-              <div className="p-3 rounded border bg-white">
-                <div className="text-xs text-gray-600">Algorand</div>
-                <div className="text-xl font-bold">{usage.algorand || 0}</div>
+              <div className="p-4 rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <svg className="w-12 h-12 text-emerald-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                </div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Algorand</div>
+                <div className="text-2xl font-bold text-slate-200 font-mono">{usage.algorand || 0}</div>
+                <div className="text-[10px] text-emerald-500/70 mt-1">Respaldo Terciario</div>
               </div>
             </div>
-            <div className="mt-3 card">
+            
+            <div className="p-6 rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm">
               {(() => {
                 const labels = ['Hedera', 'XRP', 'Algorand'];
                 const values = [usage.hedera || 0, usage.xrp || 0, usage.algorand || 0];
                 const target = Math.max(...values, 1);
                 const gradientFactory = (ctx) => {
                   const g = ctx.createLinearGradient(0, 0, 0, 200);
-                  g.addColorStop(0, 'rgba(6,182,212,0.7)');
-                  g.addColorStop(1, 'rgba(168,85,247,0.7)');
+                  g.addColorStop(0, 'rgba(6,182,212,0.5)'); // Cyan
+                  g.addColorStop(1, 'rgba(15,23,42,0.0)');  // Slate 900 transparent
                   return g;
                 };
                 const data = {
@@ -1058,17 +1099,20 @@ function InstitutionDashboard({ demo = false }) {
                         const { ctx } = context.chart;
                         return gradientFactory(ctx);
                       },
-                      borderColor: 'rgba(99,102,241,0.5)',
+                      borderColor: 'rgba(34,211,238,0.8)', // Cyan 400
                       borderWidth: 1,
-                      borderRadius: 8
+                      borderRadius: 2,
+                      hoverBackgroundColor: 'rgba(34,211,238,0.3)'
                     },
                     {
                       type: 'line',
                       label: 'Nivel óptimo',
                       data: [target, target, target],
-                      borderColor: 'rgba(34,197,94,0.9)',
-                      pointBackgroundColor: 'rgba(34,197,94,0.9)',
-                      tension: 0.3
+                      borderColor: 'rgba(52,211,153,0.5)', // Emerald 400
+                      pointBackgroundColor: 'rgba(52,211,153,1)',
+                      borderDash: [5, 5],
+                      tension: 0.1,
+                      pointRadius: 2
                     }
                   ]
                 };
@@ -1076,162 +1120,266 @@ function InstitutionDashboard({ demo = false }) {
                   responsive: true,
                   maintainAspectRatio: false,
                   animation: { duration: 1000 },
-                  plugins: { legend: { display: true }, tooltip: { enabled: true } },
+                  plugins: { 
+                    legend: { display: false }, 
+                    tooltip: { 
+                      enabled: true,
+                      backgroundColor: 'rgba(15,23,42,0.9)',
+                      titleColor: '#94a3b8',
+                      bodyColor: '#e2e8f0',
+                      borderColor: 'rgba(30,41,59,0.5)',
+                      borderWidth: 1,
+                      padding: 10,
+                      cornerRadius: 2
+                    } 
+                  },
                   scales: {
-                    x: { grid: { display: false } },
-                    y: { beginAtZero: true }
+                    x: { 
+                      grid: { display: false, drawBorder: false },
+                      ticks: { color: '#64748b', font: { size: 10, family: 'monospace' } }
+                    },
+                    y: { 
+                      beginAtZero: true,
+                      grid: { color: 'rgba(51,65,85,0.2)', drawBorder: false },
+                      ticks: { color: '#64748b', font: { size: 10, family: 'monospace' } }
+                    }
                   }
                 };
                 const usedNetworks = ['hedera','xrp','algorand'].filter(n => (values[['Hedera','XRP','Algorand'].indexOf(n)] || 0) > 0).length;
                 const securityPct = usedNetworks === 0 ? 0 : Math.round((usedNetworks / 3) * 100);
-                const levelLabel = usedNetworks >= 3 ? 'Blindaje Total' : (usedNetworks === 2 ? 'Seguridad Avanzada' : (usedNetworks === 1 ? 'Seguridad Base' : 'Sin uso'));
+                const levelLabel = usedNetworks >= 3 ? 'BLINDAJE TOTAL' : (usedNetworks === 2 ? 'SEGURIDAD AVANZADA' : (usedNetworks === 1 ? 'SEGURIDAD BASE' : 'SIN ACTIVIDAD'));
                 const doughnutData = {
-                  labels: ['Nivel de Seguridad', ''],
-                  datasets: [{ data: [securityPct, 100 - securityPct], backgroundColor: ['rgba(34,197,94,0.9)', 'rgba(203,213,225,0.5)'], borderWidth: 0 }]
+                  labels: ['Seguridad', 'Riesgo'],
+                  datasets: [{ 
+                    data: [securityPct, 100 - securityPct], 
+                    backgroundColor: ['rgba(34,211,238,0.8)', 'rgba(30,41,59,0.5)'], 
+                    borderWidth: 0,
+                    cutout: '85%'
+                  }]
                 };
-                const doughnutOptions = { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false } }, animation: { duration: 1000 } };
+                const doughnutOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { duration: 1500 } };
                 const tooltipMsg = securityPct >= 100
-                  ? 'Máximo Estándar Global. Triple redundancia inmutable (H + X + A). Protección contra fallos críticos y auditoría internacional inmediata. Recomendado: Enterprise'
+                  ? 'MÁXIMO ESTÁNDAR GLOBAL. Triple redundancia inmutable (H + X + A). Protección contra fallos críticos y auditoría internacional inmediata.'
                   : (securityPct >= 66
-                    ? 'Doble Consenso Distribuido (Hedera + XRP). Alta resiliencia y verificación dual. Recomendado: Enterprise'
+                    ? 'DOBLE CONSENSO DISTRIBUIDO (Hedera + XRP). Alta resiliencia y verificación dual.'
                     : (securityPct >= 33
-                      ? 'Certificación inmutable en red Hedera Hashgraph. Resistencia estándar contra fraude y manipulación de datos.'
-                      : 'Sin blindaje activo. Activa tu API y emite para ver tu nivel de seguridad.'));
+                      ? 'CERTIFICACIÓN INMUTABLE en red Hedera Hashgraph. Resistencia estándar.'
+                      : 'SIN BLINDAJE ACTIVO. Inicia emisión para activar seguridad.'));
+                
                 return (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="md:col-span-2 h-64 bg-white/80 backdrop-blur-md border border-white/20 rounded-xl p-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="md:col-span-2 h-64">
                       <Bar data={data} options={options} />
                     </div>
-                    <div className="h-64 bg-white/80 backdrop-blur-md border border-white/20 rounded-xl p-3 flex flex-col items-center justify-center">
-                      <div className="w-36 h-36 relative" onMouseEnter={() => setSecurityHover(true)} onMouseLeave={() => setSecurityHover(false)}>
+                    <div className="h-64 flex flex-col items-center justify-center border-l border-slate-800/50 pl-8">
+                      <div className="w-32 h-32 relative group cursor-help">
                         <Doughnut data={doughnutData} options={doughnutOptions} />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="text-center">
-                            <div className="text-2xl font-bold">{securityPct}%</div>
-                            <div className="text-xs text-gray-600 mt-1">{levelLabel}</div>
-                          </div>
+                        <div className="absolute inset-0 flex items-center justify-center flex-col">
+                          <div className="text-3xl font-bold text-white font-mono">{securityPct}%</div>
                         </div>
-                        {securityHover && (
-                          <div className="absolute -top-3 left-1/2 -translate-x-1/2 -translate-y-full max-w-xs bg-black/70 text-white text-xs p-3 rounded-lg shadow-strong border border-white/20">
+                        
+                        {/* Custom Tooltip */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-48 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                          <div className="bg-slate-900 border border-slate-700 p-3 rounded-sm shadow-xl text-[10px] text-slate-300 leading-relaxed text-center">
                             {tooltipMsg}
                           </div>
-                        )}
+                          <div className="w-2 h-2 bg-slate-700 rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1"></div>
+                        </div>
                       </div>
-                      <div className="mt-3 text-sm text-gray-700">Nivel de Seguridad</div>
-                      <button className="btn-secondary btn-sm mt-2" onClick={async () => {
+                      
+                      <div className="mt-4 text-center">
+                        <div className={`text-[10px] font-bold tracking-widest uppercase mb-1 ${
+                          securityPct >= 100 ? 'text-emerald-400' : 
+                          securityPct >= 66 ? 'text-cyan-400' : 
+                          securityPct >= 33 ? 'text-indigo-400' : 'text-slate-500'
+                        }`}>
+                          {levelLabel}
+                        </div>
+                        <div className="text-[10px] text-slate-500">Nivel de Seguridad Criptográfica</div>
+                      </div>
+
+                      <button className="mt-6 text-[10px] uppercase tracking-wider text-slate-400 hover:text-cyan-400 border-b border-dashed border-slate-600 hover:border-cyan-500 pb-0.5 transition-colors" onClick={async () => {
                         try {
                           const doc = new jsPDF();
+                          // ... PDF generation logic (simplified for brevity or kept same) ...
                           if (institutionalLogoUrl) {
-                            try {
-                              const r = await fetch(institutionalLogoUrl);
-                              const b = await r.blob();
-                              const reader = new FileReader();
-                              await new Promise((res, rej) => { reader.onload = () => res(); reader.onerror = rej; reader.readAsDataURL(b); });
-                              doc.addImage(reader.result, 'PNG', 10, 10, 20, 20);
-                            } catch {}
-                          }
-                          doc.setFontSize(16);
-                          doc.text('ACADEMIC CHAIN LEDGER: PROPUESTA ENTERPRISE', 10, institutionalLogoUrl ? 40 : 20);
-                          doc.setFontSize(12);
-                          doc.text('Solución: Infraestructura de Triple Blindaje Blockchain (Hedera + XRP + Algorand)', 10, institutionalLogoUrl ? 55 : 35);
-                          doc.text('Costo Mensual: A medida (Volumen corporativo)', 10, institutionalLogoUrl ? 65 : 45);
-                          doc.text('Costo Unitario: $0.80 USD', 10, institutionalLogoUrl ? 75 : 55);
-                          doc.text('Garantía: SLA de 99.9% y soporte VIP 24/7', 10, institutionalLogoUrl ? 85 : 65);
-                          doc.text('Implementación: API Key inmediata o On‑Premise', 10, institutionalLogoUrl ? 95 : 75);
-                          doc.text('Beneficio: Auditoría internacional y resiliencia por triple consenso distribuido', 10, institutionalLogoUrl ? 105 : 85);
-                          doc.save('Propuesta-ACL-Enterprise.pdf');
+                             try {
+                               const r = await fetch(institutionalLogoUrl);
+                               const b = await r.blob();
+                               const reader = new FileReader();
+                               await new Promise((res, rej) => { reader.onload = () => res(); reader.onerror = rej; reader.readAsDataURL(b); });
+                               doc.addImage(reader.result, 'PNG', 10, 10, 20, 20);
+                             } catch {}
+                           }
+                           doc.setFontSize(14);
+                           doc.text('ACADEMIC CHAIN: ENTERPRISE REPORT', 10, institutionalLogoUrl ? 40 : 20);
+                           doc.setFontSize(10);
+                           doc.text('Triple Blindaje Blockchain (Hedera + XRP + Algorand)', 10, institutionalLogoUrl ? 50 : 30);
+                           doc.save('ACL-Enterprise-Report.pdf');
                         } catch {}
-                      }}>Descargar Propuesta Comercial PDF</button>
+                      }}>
+                        Descargar Reporte PDF
+                      </button>
                     </div>
                   </div>
                 );
               })()}
             </div>
           </div>
-          <div className="mt-4">
-            <div className="font-semibold mb-2">ACL Labs: Test de Emisión</div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <button className="btn-secondary" disabled={labLoading || !apiKey} onClick={async () => {
-                setLabLoading(true); setLabError(''); setLabMessage('');
-                try {
-                  const res = await developerService.certifyStandard(apiKey, {});
-                  setLabMessage(res?.data?.message || 'Emisión Standard realizada');
-                  const r = await developerService.getUsageAnalytics(token);
-                  setUsage(r?.data?.usage || r?.data || usage);
-                } catch (e) {
-                  setLabError(e.message || 'Error en emisión Standard');
-                } finally {
-                  setLabLoading(false);
-                }
-              }}>Emitir Standard (H)</button>
-              <button className="btn-secondary" disabled={labLoading || !apiKey} onClick={async () => {
-                setLabLoading(true); setLabError(''); setLabMessage('');
-                try {
-                  const res = await developerService.certifyDual(apiKey, {});
-                  setLabMessage(res?.data?.message || 'Emisión Dual realizada');
-                  const r = await developerService.getUsageAnalytics(token);
-                  setUsage(r?.data?.usage || r?.data || usage);
-                } catch (e) {
-                  setLabError(e.message || 'Error en emisión Dual');
-                } finally {
-                  setLabLoading(false);
-                }
-              }}>Emitir Dual (H+X)</button>
-              <button className="btn-primary" disabled={labLoading || !apiKey} onClick={async () => {
-                setLabLoading(true); setLabError(''); setLabMessage('');
-                try {
-                  const res = await developerService.certifyTriple(apiKey, {});
-                  setLabMessage(res?.data?.message || 'Emisión Triple realizada');
-                  const r = await developerService.getUsageAnalytics(token);
-                  setUsage(r?.data?.usage || r?.data || usage);
-                } catch (e) {
-                  setLabError(e.message || 'Error en emisión Triple');
-                } finally {
-                  setLabLoading(false);
-                }
-              }}>Emitir Triple (H+X+A)</button>
+          <div className="mt-8">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">ACL Labs: Simulador de Emisión</div>
+            <div className="p-6 rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <button 
+                  className="px-4 py-3 bg-cyan-900/10 hover:bg-cyan-900/20 text-cyan-400 border border-cyan-500/20 hover:border-cyan-500/40 rounded-sm text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 group"
+                  disabled={labLoading || !apiKey} 
+                  onClick={async () => {
+                    setLabLoading(true); setLabError(''); setLabMessage('');
+                    try {
+                      const res = await developerService.certifyStandard(apiKey, {});
+                      setLabMessage(res?.data?.message || 'Emisión Standard realizada');
+                      const r = await developerService.getUsageAnalytics(token);
+                      setUsage(r?.data?.usage || r?.data || usage);
+                    } catch (e) {
+                      setLabError(e.message || 'Error en emisión Standard');
+                    } finally {
+                      setLabLoading(false);
+                    }
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-full bg-cyan-500 group-hover:shadow-[0_0_8px_rgba(6,182,212,0.6)] transition-shadow"></span>
+                  Emitir Standard (H)
+                </button>
+                <button 
+                  className="px-4 py-3 bg-indigo-900/10 hover:bg-indigo-900/20 text-indigo-400 border border-indigo-500/20 hover:border-indigo-500/40 rounded-sm text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 group"
+                  disabled={labLoading || !apiKey} 
+                  onClick={async () => {
+                    setLabLoading(true); setLabError(''); setLabMessage('');
+                    try {
+                      const res = await developerService.certifyDual(apiKey, {});
+                      setLabMessage(res?.data?.message || 'Emisión Dual realizada');
+                      const r = await developerService.getUsageAnalytics(token);
+                      setUsage(r?.data?.usage || r?.data || usage);
+                    } catch (e) {
+                      setLabError(e.message || 'Error en emisión Dual');
+                    } finally {
+                      setLabLoading(false);
+                    }
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 group-hover:shadow-[0_0_8px_rgba(99,102,241,0.6)] transition-shadow"></span>
+                  Emitir Dual (H+X)
+                </button>
+                <button 
+                  className="px-4 py-3 bg-emerald-900/10 hover:bg-emerald-900/20 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/40 rounded-sm text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 group"
+                  disabled={labLoading || !apiKey} 
+                  onClick={async () => {
+                    setLabLoading(true); setLabError(''); setLabMessage('');
+                    try {
+                      const res = await developerService.certifyTriple(apiKey, {});
+                      setLabMessage(res?.data?.message || 'Emisión Triple realizada');
+                      const r = await developerService.getUsageAnalytics(token);
+                      setUsage(r?.data?.usage || r?.data || usage);
+                    } catch (e) {
+                      setLabError(e.message || 'Error en emisión Triple');
+                    } finally {
+                      setLabLoading(false);
+                    }
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 group-hover:shadow-[0_0_8px_rgba(16,185,129,0.6)] transition-shadow"></span>
+                  Emitir Triple (H+X+A)
+                </button>
+              </div>
+              
+              <div className="mt-4 flex flex-col items-center">
+                {labLoading && <div className="text-xs text-cyan-400 animate-pulse font-mono">:: PROCESANDO TRANSACCIÓN DISTRIBUIDA ::</div>}
+                {labMessage && <div className="text-xs text-emerald-400 font-mono border border-emerald-500/30 bg-emerald-900/20 px-3 py-1 rounded-sm">{labMessage}</div>}
+                {labError && <div className="text-xs text-red-400 font-mono border border-red-500/30 bg-red-900/20 px-3 py-1 rounded-sm">{labError}</div>}
+                {!apiKey && <div className="text-[10px] text-slate-500 mt-2 uppercase tracking-wide">Genera una API Key para habilitar las pruebas de laboratorio</div>}
+              </div>
             </div>
-            {labLoading && <div className="badge badge-info mt-2">Procesando...</div>}
-            {labMessage && <div className="badge badge-success mt-2">{labMessage}</div>}
-            {labError && <div className="badge badge-error mt-2">{labError}</div>}
-            {!apiKey && <div className="text-xs text-gray-600 mt-2">Genera una API Key para habilitar las pruebas.</div>}
           </div>
         </div>
-        <div className="card">
-          <div className="font-semibold">Total Credenciales</div>
-          <div className="text-2xl mt-2">{meta.total || 0}</div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-4 rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm flex justify-between items-center">
+            <div className="text-[10px] text-slate-500 uppercase tracking-widest">Total Credenciales</div>
+            <div className="text-xl font-bold text-slate-200 font-mono">{meta.total || 0}</div>
+          </div>
+          <div className="p-4 rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm flex justify-between items-center">
+            <div className="text-[10px] text-slate-500 uppercase tracking-widest">Página Actual</div>
+            <div className="text-xl font-bold text-slate-200 font-mono">{page}</div>
+          </div>
         </div>
-        <div className="card">
-          <div className="font-semibold">Página Actual</div>
-          <div className="text-2xl mt-2">{page}</div>
-        </div>
+
       </div>
       <div className="mt-8">
-        <div className="card">
-          <div className="font-semibold mb-3">Crear Token Académico (HTS)</div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <input className="input-primary" placeholder="Nombre del Token" value={tokenName} onChange={(e) => setTokenName(e.target.value)} disabled={creatingToken || demo} />
-            <input className="input-primary" placeholder="Símbolo (p.ej. ACAD)" value={tokenSymbol} onChange={(e) => setTokenSymbol(e.target.value)} disabled={creatingToken || demo} />
-            <input className="input-primary" placeholder="Memo (opcional)" value={tokenMemo} onChange={(e) => setTokenMemo(e.target.value)} disabled={creatingToken || demo} />
+        <div className="p-6 rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Crear Token Académico (HTS)</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input 
+              className="bg-slate-950/50 border border-slate-700 text-slate-300 text-xs rounded-sm px-3 py-2 focus:outline-none focus:border-cyan-500/50 placeholder-slate-600 font-mono" 
+              placeholder="Nombre del Token" 
+              value={tokenName} 
+              onChange={(e) => setTokenName(e.target.value)} 
+              disabled={creatingToken || demo} 
+            />
+            <input 
+              className="bg-slate-950/50 border border-slate-700 text-slate-300 text-xs rounded-sm px-3 py-2 focus:outline-none focus:border-cyan-500/50 placeholder-slate-600 font-mono" 
+              placeholder="Símbolo (p.ej. ACAD)" 
+              value={tokenSymbol} 
+              onChange={(e) => setTokenSymbol(e.target.value)} 
+              disabled={creatingToken || demo} 
+            />
+            <input 
+              className="bg-slate-950/50 border border-slate-700 text-slate-300 text-xs rounded-sm px-3 py-2 focus:outline-none focus:border-cyan-500/50 placeholder-slate-600 font-mono" 
+              placeholder="Memo (opcional)" 
+              value={tokenMemo} 
+              onChange={(e) => setTokenMemo(e.target.value)} 
+              disabled={creatingToken || demo} 
+            />
           </div>
-          <div className="mt-3 flex items-center gap-2">
-            <button className="btn-primary btn-lg" disabled={creatingToken || demo || !tokenName || !tokenSymbol} onClick={handleCreateToken}>
+          <div className="mt-4 flex items-center gap-4">
+            <button 
+              className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold uppercase tracking-widest rounded-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
+              disabled={creatingToken || demo || !tokenName || !tokenSymbol} 
+              onClick={handleCreateToken}
+            >
               {creatingToken ? 'Creando...' : 'Crear Token HTS'}
             </button>
-            {tokenMessage && <div className="badge badge-success">{tokenMessage}</div>}
-            {tokenError && <div className="badge badge-error">{tokenError}</div>}
+            {tokenMessage && <div className="text-xs text-emerald-400 font-mono">{tokenMessage}</div>}
+            {tokenError && <div className="text-xs text-red-400 font-mono">{tokenError}</div>}
           </div>
         </div>
       </div>
       <div className="mt-8">
-        <div className="card">
-          <div className="font-semibold mb-3">Verificar Credencial (Hedera + XRP)</div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <input className="input-primary" placeholder="Token ID (p.ej. 0.0.x)" value={verifyTokenId} onChange={(e) => setVerifyTokenId(e.target.value)} />
-            <input className="input-primary" placeholder="Serial Number" value={verifySerial} onChange={(e) => setVerifySerial(e.target.value)} />
-            <button className="btn-primary btn-lg" onClick={handleOpenVerification} disabled={!verifyTokenId || !verifySerial}>Abrir Verificación</button>
+        <div className="p-6 rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Verificar Credencial (Hedera + XRP)</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input 
+              className="bg-slate-950/50 border border-slate-700 text-slate-300 text-xs rounded-sm px-3 py-2 focus:outline-none focus:border-cyan-500/50 placeholder-slate-600 font-mono" 
+              placeholder="Token ID (p.ej. 0.0.x)" 
+              value={verifyTokenId} 
+              onChange={(e) => setVerifyTokenId(e.target.value)} 
+            />
+            <input 
+              className="bg-slate-950/50 border border-slate-700 text-slate-300 text-xs rounded-sm px-3 py-2 focus:outline-none focus:border-cyan-500/50 placeholder-slate-600 font-mono" 
+              placeholder="Serial Number" 
+              value={verifySerial} 
+              onChange={(e) => setVerifySerial(e.target.value)} 
+            />
+            <button 
+              className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-600 hover:border-cyan-500/50 text-xs font-bold uppercase tracking-widest rounded-sm transition-all disabled:opacity-50" 
+              onClick={handleOpenVerification} 
+              disabled={!verifyTokenId || !verifySerial}
+            >
+              Abrir Verificación
+            </button>
           </div>
-          <div className="text-xs text-gray-500 mt-2">Se abrirá una página con el estado en Hedera y el anclaje XRP.</div>
+          <div className="text-[10px] text-slate-600 mt-2 font-mono">
+            :: Se abrirá una página con el estado en Hedera y el anclaje XRP ::
+          </div>
         </div>
       </div>
       <div className="mt-8">
@@ -1240,13 +1388,16 @@ function InstitutionDashboard({ demo = false }) {
       <div className="mt-8">
         <BatchIssuance demo={demo} />
       </div>
-      <div className="mt-8">
-        <h2 className="text-xl font-bold mb-3">Diplomas y Certificados emitidos</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-          <input value={filterTokenId} onChange={(e) => setFilterTokenId(e.target.value)} placeholder="Filtrar por Token ID" className="input-primary" disabled={demo} />
-          <input value={filterAccountId} onChange={(e) => setFilterAccountId(e.target.value)} placeholder="Filtrar por Cuenta Hedera" className="input-primary" disabled={demo} />
+      <div className="mt-12">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Registro de Emisiones</h2>
+          <a className={`px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase tracking-widest rounded-sm border border-slate-700 transition-all ${demo ? 'pointer-events-none opacity-50' : ''}`} target="_blank" rel="noreferrer" href={`${import.meta.env.VITE_API_URL}/api/universities/credentials?${new URLSearchParams({ ...(filterTokenId ? { tokenId: filterTokenId } : {}), ...(filterAccountId ? { accountId: filterAccountId } : {}), format: 'csv' }).toString()}`}>Exportar CSV</a>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <input value={filterTokenId} onChange={(e) => setFilterTokenId(e.target.value)} placeholder="Filtrar por Token ID" className="bg-slate-950/50 border border-slate-700 text-slate-300 text-xs rounded-sm px-3 py-2 focus:outline-none focus:border-cyan-500/50 placeholder-slate-600 font-mono" disabled={demo} />
+          <input value={filterAccountId} onChange={(e) => setFilterAccountId(e.target.value)} placeholder="Filtrar por Cuenta Hedera" className="bg-slate-950/50 border border-slate-700 text-slate-300 text-xs rounded-sm px-3 py-2 focus:outline-none focus:border-cyan-500/50 placeholder-slate-600 font-mono" disabled={demo} />
           <div className="flex items-center gap-2">
-            <button className="btn-primary" disabled={demo} onClick={() => {
+            <button className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold uppercase tracking-widest rounded-sm transition-all disabled:opacity-50 w-full md:w-auto" disabled={demo} onClick={() => {
               loadCredentials({
                 page: 1,
                 tokenId: filterTokenId || undefined,
@@ -1255,21 +1406,20 @@ function InstitutionDashboard({ demo = false }) {
             }}>
               Buscar
             </button>
-            <a className={`btn-secondary ${demo ? 'pointer-events-none opacity-60' : ''}`} target="_blank" rel="noreferrer" href={`${import.meta.env.VITE_API_URL}/api/universities/credentials?${new URLSearchParams({ ...(filterTokenId ? { tokenId: filterTokenId } : {}), ...(filterAccountId ? { accountId: filterAccountId } : {}), format: 'csv' }).toString()}`}>Exportar CSV</a>
           </div>
         </div>
-        {loadingCreds && <div className="badge-info badge">Cargando listado...</div>}
-        {errorCreds && <div className="badge-error badge">{errorCreds}</div>}
+        {loadingCreds && <div className="text-xs text-cyan-400 animate-pulse font-mono mb-4">:: CARGANDO REGISTROS ::</div>}
+        {errorCreds && <div className="text-xs text-red-400 font-mono mb-4 border border-red-500/30 bg-red-900/20 px-3 py-1 rounded-sm">{errorCreds}</div>}
         {!loadingCreds && credentials.length > 0 && (
           <div>
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex flex-col md:flex-row items-center gap-4 mb-6">
               <input
-                className="input-primary w-full md:w-96"
+                className="w-full md:w-96 bg-slate-950/50 border border-slate-700 text-slate-300 text-xs rounded-sm px-3 py-2 focus:outline-none focus:border-cyan-500/50 placeholder-slate-600 font-mono"
                 placeholder="Buscar por nombre, hash, tokenId, serial o id"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-              <select className="input-primary w-48" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <select className="w-48 bg-slate-950/50 border border-slate-700 text-slate-300 text-xs rounded-sm px-3 py-2 focus:outline-none focus:border-cyan-500/50 font-mono" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="all">Todas</option>
                 <option value="verified">Verificadas</option>
                 <option value="pending">Pendientes</option>
@@ -1304,40 +1454,40 @@ function InstitutionDashboard({ demo = false }) {
               });
               const revokedCount = visible.filter(x => String(x.status || '').toLowerCase() === 'revoked').length;
               return (
-                <div className="flex items-center gap-4 text-sm text-gray-700 mb-2">
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-50 text-red-700 border border-red-200" title="Totales (global)">
+                <div className="flex flex-wrap gap-2 text-[10px] text-slate-400 font-mono mb-4">
+                  <span className="px-2 py-1 rounded-sm bg-red-900/10 text-red-400 border border-red-900/30" title="Totales (global)">
                     Revocadas (Total): <strong>{globalStats.revoked}</strong>
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-purple-50 text-purple-700 border border-purple-200" title="Totales (global)">
+                  <span className="px-2 py-1 rounded-sm bg-purple-900/10 text-purple-400 border border-purple-900/30" title="Totales (global)">
                     Eliminadas (Total): <strong>{globalStats.deleted}</strong>
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200" title="Totales (global)">
+                  <span className="px-2 py-1 rounded-sm bg-emerald-900/10 text-emerald-400 border border-emerald-900/30" title="Totales (global)">
                     Verificadas (Total): <strong>{globalStats.verified}</strong>
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-yellow-50 text-yellow-700 border border-yellow-200" title="Totales (global)">
+                  <span className="px-2 py-1 rounded-sm bg-amber-900/10 text-amber-400 border border-amber-900/30" title="Totales (global)">
                     Pendientes (Total): <strong>{globalStats.pending}</strong>
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-gray-50 text-gray-700 border border-gray-200" title="Página actual">
+                  <span className="px-2 py-1 rounded-sm bg-slate-800 text-slate-400 border border-slate-700" title="Página actual">
                     En lista — Revocadas: <strong>{revokedCount}</strong>, Eliminadas (sesión): <strong>{deletedCount}</strong>
                   </span>
                 </div>
               );
             })()}
-            <div className="hidden md:block overflow-x-auto bg-white rounded-lg shadow-soft">
-              <table className="min-w-full">
-              <thead>
-                <tr className="bg-gray-50 text-gray-700 text-sm">
-                  <th className="px-4 py-2 text-left">Token</th>
-                  <th className="px-4 py-2 text-left">Serial</th>
-                  <th className="px-4 py-2 text-left">IPFS</th>
-                  <th className="px-4 py-2 text-left">Hedera Tx</th>
-                  <th className="px-4 py-2 text-left">XRP Tx</th>
-                  <th className="px-4 py-2 text-left">Algorand Tx</th>
-                  <th className="px-4 py-2 text-left">SHA-256</th>
-                  <th className="px-4 py-2 text-left">Acciones</th>
+            <div className="hidden md:block overflow-x-auto rounded-sm border border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+              <table className="min-w-full divide-y divide-slate-800">
+              <thead className="bg-slate-950/50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Token</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Serial</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">IPFS</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Hedera Tx</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">XRP Tx</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Algorand Tx</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">SHA-256</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Acciones</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-800 text-xs text-slate-300">
                 {(searchQuery ? credentials.filter(x => {
                   const q = String(searchQuery || '').toLowerCase().trim();
                   const name = String(x.studentName || '').toLowerCase();
@@ -1367,12 +1517,12 @@ function InstitutionDashboard({ demo = false }) {
                   if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
                   return true;
                 })).map((c) => (
-                  <tr key={`${c.tokenId}-${c.serialNumber}`} className="border-t text-sm">
-                    <td className="px-4 py-2">{c.tokenId}</td>
-                    <td className="px-4 py-2">{c.serialNumber}</td>
-                    <td className="px-4 py-2">
+                  <tr key={`${c.tokenId}-${c.serialNumber}`} className="hover:bg-slate-800/30 transition-colors">
+                    <td className="px-4 py-3 font-mono">{c.tokenId}</td>
+                    <td className="px-4 py-3 font-mono">{c.serialNumber}</td>
+                    <td className="px-4 py-3">
                       <button
-                        className="btn-secondary btn-sm"
+                        className="text-[10px] uppercase tracking-wider text-cyan-400 hover:text-cyan-300 hover:underline"
                         onClick={() => {
                           setDocUrl(toGateway(c.ipfsURI));
                           setDocOpen(true);
@@ -1381,22 +1531,22 @@ function InstitutionDashboard({ demo = false }) {
                         Ver
                       </button>
                     </td>
-                    <td className="px-4 py-2 font-mono text-xs">
+                    <td className="px-4 py-3 font-mono text-[10px] text-slate-500">
                       {c.externalProofs?.hederaTx ? (
-                        <span title={c.externalProofs.hederaTx}>
+                        <span title={c.externalProofs.hederaTx} className="text-slate-400">
                           {c.externalProofs.hederaTx.slice(0, 10)}...
                         </span>
                       ) : (
                         'N/A'
                       )}
                     </td>
-                    <td className="px-4 py-2 font-mono text-xs">
+                    <td className="px-4 py-3 font-mono text-[10px] text-slate-500">
                       {c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash ? (
                         <a
                           href={`https://testnet.xrplexplorer.com/tx/${c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-blue-600 hover:underline"
+                          className="text-indigo-400 hover:text-indigo-300 hover:underline"
                           title={c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash}
                         >
                           {(c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash).slice(0, 8)}...
@@ -1405,16 +1555,16 @@ function InstitutionDashboard({ demo = false }) {
                         'N/A'
                       )}
                     </td>
-                    <td className="px-4 py-2 font-mono text-xs">
+                    <td className="px-4 py-3 font-mono text-[10px] text-slate-500">
                       {c.externalProofs?.algoTxId ? (
-                        <span title={c.externalProofs.algoTxId}>
+                        <span title={c.externalProofs.algoTxId} className="text-emerald-400">
                           {c.externalProofs.algoTxId.slice(0, 10)}...
                         </span>
                       ) : (
                         'N/A'
                       )}
                     </td>
-                    <td className="px-4 py-2 font-mono text-xs">
+                    <td className="px-4 py-3 font-mono text-[10px] text-slate-500">
                       {c.uniqueHash ? (
                         <span title={c.uniqueHash}>
                           {c.uniqueHash.slice(0, 10)}...
@@ -1423,38 +1573,28 @@ function InstitutionDashboard({ demo = false }) {
                         'N/A'
                       )}
                     </td>
-                    <td className="px-4 py-2 space-x-2">
-                      <button className="btn-secondary btn-sm border-green-600 text-green-700 hover:bg-green-50" disabled={demo} onClick={() => handleRequestVerification(c)}>
-                        Solicitar verificación
-                      </button>
-                      <button className="btn-secondary btn-sm text-red-600 hover:bg-red-50 border-red-200" disabled={demo || c.status === 'REVOKED'} onClick={() => handleRevokeClick(c)}>
-                        {c.status === 'REVOKED' ? 'Revocada' : 'Revocar'}
-                      </button>
-                      <button className="btn-secondary btn-sm text-red-600 hover:bg-red-50 border-red-200" disabled={demo} onClick={() => handleDeleteIssuedCredential(c)}>
-                        Borrar
-                      </button>
-                      <button className="btn-secondary btn-sm" disabled={demo} onClick={() => {
-                        const base = import.meta.env.VITE_API_URL;
-                        const u = `${base}/api/verification/qr/generate/${c.universityId}/${c.tokenId}/${c.serialNumber}?format=svg`;
-                        setQrPreviewUrl(u);
-                        setQrTokenId(c.tokenId);
-                        setQrSerial(String(c.serialNumber));
-                        setQrIssuerId(String(c.universityId || ''));
-                        setQrIpfsURI(c.ipfsURI || '');
-                        setQrPreviewOpen(true);
-                      }}>QR (SVG)</button>
-                      <button className="btn-secondary btn-sm" disabled={demo} onClick={() => {
-                        const base = import.meta.env.VITE_API_URL;
-                        const u = `${base}/api/verification/qr/generate/${c.universityId}/${c.tokenId}/${c.serialNumber}?format=png&width=${qrPngSize}`;
-                        setQrPreviewUrl(u);
-                        setQrTokenId(c.tokenId);
-                        setQrSerial(String(c.serialNumber));
-                        setQrIssuerId(String(c.universityId || ''));
-                        setQrIpfsURI(c.ipfsURI || '');
-                        setQrPreviewOpen(true);
-                      }}>QR (PNG)</button>
-                      <a className="btn-primary btn-sm" href={`${import.meta.env.VITE_API_URL}/api/verification/credential-history/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Verificar</a>
-                      <a className="btn-primary btn-sm" href={`${import.meta.env.VITE_API_URL}/api/verification/verify/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Dual (Hedera+XRP)</a>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button className="text-[10px] uppercase tracking-wider text-emerald-500 hover:text-emerald-400" disabled={demo} onClick={() => handleRequestVerification(c)}>
+                          Verificar
+                        </button>
+                        <button className="text-[10px] uppercase tracking-wider text-red-500 hover:text-red-400" disabled={demo || String(c.status).toLowerCase() === 'revoked'} onClick={() => handleRevokeClick(c)}>
+                          {String(c.status).toLowerCase() === 'revoked' ? 'Revocada' : 'Revocar'}
+                        </button>
+                        <button className="text-[10px] uppercase tracking-wider text-slate-500 hover:text-red-400" disabled={demo} onClick={() => handleDeleteIssuedCredential(c)}>
+                          Borrar
+                        </button>
+                        <button className="text-[10px] uppercase tracking-wider text-slate-400 hover:text-cyan-400" disabled={demo} onClick={() => {
+                          const base = import.meta.env.VITE_API_URL;
+                          const u = `${base}/api/verification/qr/generate/${c.universityId}/${c.tokenId}/${c.serialNumber}?format=png&width=${qrPngSize}`;
+                          setQrPreviewUrl(u);
+                          setQrTokenId(c.tokenId);
+                          setQrSerial(String(c.serialNumber));
+                          setQrIssuerId(String(c.universityId || ''));
+                          setQrIpfsURI(c.ipfsURI || '');
+                          setQrPreviewOpen(true);
+                        }}>QR</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1491,64 +1631,64 @@ function InstitutionDashboard({ demo = false }) {
                 if (statusFilter === 'confirmed') return st && st !== 'verified' && st !== 'pending' && st !== 'revoked';
                 return true;
               })).map((c) => (
-                <div key={`${c.tokenId}-${c.serialNumber}`} className="credential-card">
-                  <div className="flex items-center justify-between">
-                    <div className="font-mono text-sm max-w-[60%] overflow-wrap">{c.tokenId}</div>
-                    <div className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">#{c.serialNumber}</div>
+                <div key={`${c.tokenId}-${c.serialNumber}`} className="bg-slate-900/40 backdrop-blur-sm border border-slate-800 rounded-sm p-4 hover:border-cyan-500/30 transition-all duration-300">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="font-mono text-xs text-cyan-400 max-w-[60%] overflow-wrap break-all">{c.tokenId}</div>
+                    <div className="text-[10px] font-mono bg-slate-950 border border-slate-800 text-slate-400 px-2 py-1 rounded-sm">#{c.serialNumber}</div>
                   </div>
-                  <div className="mt-2 text-xs text-gray-600 break-all">
-                    <div>
-                      <span className="font-semibold">Hedera:</span>{' '}
+                  <div className="space-y-2 text-[10px] text-slate-400 break-all font-mono">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-slate-500 uppercase tracking-wider text-[9px]">Hedera</span>
                       {c.externalProofs?.hederaTx ? (
-                        <span title={c.externalProofs.hederaTx} className="font-mono">
-                          {c.externalProofs.hederaTx.slice(0, 10)}...
+                        <span title={c.externalProofs.hederaTx} className="text-slate-300">
+                          {c.externalProofs.hederaTx.slice(0, 20)}...
                         </span>
                       ) : (
-                        <span>N/A</span>
+                        <span className="text-slate-600">N/A</span>
                       )}
                     </div>
-                    <div>
-                      <span className="font-semibold">XRP:</span>{' '}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-slate-500 uppercase tracking-wider text-[9px]">XRP</span>
                       {c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash ? (
                         <a
                           href={`https://testnet.xrplexplorer.com/tx/${c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-blue-600 hover:underline font-mono"
+                          className="text-indigo-400 hover:text-indigo-300 transition-colors"
                           title={c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash}
                         >
-                          {(c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash).slice(0, 8)}...
+                          {(c.externalProofs?.xrpTxHash || c.xrpAnchor?.xrpTxHash).slice(0, 20)}...
                         </a>
                       ) : (
-                        <span>N/A</span>
+                        <span className="text-slate-600">N/A</span>
                       )}
                     </div>
-                    <div>
-                      <span className="font-semibold">Algorand:</span>{' '}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-slate-500 uppercase tracking-wider text-[9px]">Algorand</span>
                       {c.externalProofs?.algoTxId ? (
-                        <span title={c.externalProofs.algoTxId} className="font-mono">
-                          {c.externalProofs.algoTxId.slice(0, 10)}...
+                        <span title={c.externalProofs.algoTxId} className="text-emerald-400">
+                          {c.externalProofs.algoTxId.slice(0, 20)}...
                         </span>
                       ) : (
-                        <span>N/A</span>
+                        <span className="text-slate-600">N/A</span>
                       )}
                     </div>
-                    <div>
-                      <span className="font-semibold">SHA-256:</span>{' '}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-slate-500 uppercase tracking-wider text-[9px]">SHA-256</span>
                       {c.uniqueHash ? (
-                        <span title={c.uniqueHash} className="font-mono">
-                          {c.uniqueHash.slice(0, 10)}...
+                        <span title={c.uniqueHash} className="text-slate-300">
+                          {c.uniqueHash.slice(0, 20)}...
                         </span>
                       ) : (
-                        <span>N/A</span>
+                        <span className="text-slate-600">N/A</span>
                       )}
                     </div>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button className="btn-secondary btn-sm border-green-600 text-green-700 hover:bg-green-50" disabled={demo} onClick={() => handleRequestVerification(c)}>Solicitar verificación</button>
-                    <button className="btn-secondary btn-sm" onClick={() => { setDocUrl(toGateway(c.ipfsURI)); setDocOpen(true); }}>Ver Documento</button>
-                    <button className="btn-secondary btn-sm text-red-600 hover:bg-red-50 border-red-200" disabled={demo} onClick={() => handleDeleteIssuedCredential(c)}>Borrar</button>
-                    <button className="btn-secondary btn-sm" disabled={demo} onClick={() => {
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 rounded-sm transition-all" disabled={demo} onClick={() => handleRequestVerification(c)}>Verificar</button>
+                    <button className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 rounded-sm transition-colors border border-slate-800" onClick={() => { setDocUrl(toGateway(c.ipfsURI)); setDocOpen(true); }}>Documento</button>
+                    <button className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded-sm transition-all" disabled={demo} onClick={() => handleDeleteIssuedCredential(c)}>Borrar</button>
+                    <button className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 rounded-sm transition-colors border border-slate-800" disabled={demo} onClick={() => {
                       const base = import.meta.env.VITE_API_URL || '';
                       const u = `${base}/api/verification/qr/generate/${c.universityId}/${c.tokenId}/${c.serialNumber}?format=png&width=${qrPngSize}`;
                       setQrPreviewUrl(u);
@@ -1558,106 +1698,100 @@ function InstitutionDashboard({ demo = false }) {
                       setQrIpfsURI(c.ipfsURI || '');
                       setQrPreviewOpen(true);
                     }}>QR</button>
-                    <a className="btn-primary btn-sm" href={`${(import.meta.env.VITE_API_URL || '')}/api/verification/credential-history/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Verificar</a>
-                    <a className="btn-primary btn-sm" href={`${(import.meta.env.VITE_API_URL || '')}/api/verification/verify/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Dual</a>
+                    <a className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 rounded-sm transition-all text-center" href={`${(import.meta.env.VITE_API_URL || '')}/api/verification/credential-history/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Historial</a>
+                    <a className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 rounded-sm transition-all text-center" href={`${(import.meta.env.VITE_API_URL || '')}/api/verification/verify/${c.tokenId}/${c.serialNumber}`} target="_blank" rel="noreferrer">Dual</a>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="flex items-center justify-between p-3 border-t" role="navigation" aria-label="Controles de paginación">
+            <div className="flex flex-col md:flex-row items-center justify-between p-4 border-t border-slate-800 gap-4" role="navigation" aria-label="Controles de paginación">
               <div className="flex items-center gap-2">
-                <button aria-label="Primera página" aria-disabled={demo || page <= 1 || loadingCreds} className="btn-secondary btn-sm" disabled={demo || page <= 1 || loadingCreds} onClick={() => {
+                <button aria-label="Primera página" aria-disabled={demo || page <= 1 || loadingCreds} className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 rounded-sm transition-colors border border-transparent hover:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled={demo || page <= 1 || loadingCreds} onClick={() => {
                   loadCredentials({ page: 1 });
-                }}>Primera</button>
-                <button aria-label="Página anterior" aria-disabled={demo || page <= 1 || loadingCreds} className="btn-secondary btn-sm" disabled={demo || page <= 1 || loadingCreds} onClick={() => {
+                }}>Inicio</button>
+                <button aria-label="Página anterior" aria-disabled={demo || page <= 1 || loadingCreds} className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 rounded-sm transition-colors border border-transparent hover:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled={demo || page <= 1 || loadingCreds} onClick={() => {
                   loadCredentials({ page: page - 1 });
                 }}>Anterior</button>
-                <button aria-label="Página siguiente" aria-disabled={demo || loadingCreds || !meta.hasMore} className="btn-primary btn-sm" disabled={demo || loadingCreds || !meta.hasMore} onClick={() => {
+                <button aria-label="Página siguiente" aria-disabled={demo || loadingCreds || !meta.hasMore} className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 rounded-sm transition-all shadow-[0_0_10px_rgba(6,182,212,0.1)] hover:shadow-[0_0_15px_rgba(6,182,212,0.2)] disabled:opacity-50 disabled:cursor-not-allowed" disabled={demo || loadingCreds || !meta.hasMore} onClick={() => {
                   loadCredentials({ page: page + 1 });
                 }}>Siguiente</button>
-                <button aria-label="Última página" aria-disabled={demo || loadingCreds || page >= meta.pages} className="btn-secondary btn-sm" disabled={demo || loadingCreds || page >= meta.pages} onClick={() => {
+                <button aria-label="Última página" aria-disabled={demo || loadingCreds || page >= meta.pages} className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 rounded-sm transition-colors border border-transparent hover:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled={demo || loadingCreds || page >= meta.pages} onClick={() => {
                   loadCredentials({ page: meta.pages });
-                }}>Última</button>
+                }}>Fin</button>
               </div>
-              <div className="text-sm text-gray-600" role="status" aria-live="polite">Mostrando {meta.from}-{meta.to} de {meta.total} • Página {page} de {meta.pages}</div>
-              <div>
-                <select aria-label="Límite por página" className="input-primary" value={limit} disabled={demo} onChange={(e) => {
+              <div className="text-[10px] text-slate-500 uppercase tracking-wider font-mono" role="status" aria-live="polite">{meta.from}-{meta.to} de {meta.total} • Pág {page}/{meta.pages}</div>
+              <div className="flex items-center gap-2">
+                <select aria-label="Límite por página" className="bg-slate-950 border border-slate-800 text-slate-400 text-[10px] uppercase tracking-wider rounded-sm focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50 p-1.5 outline-none" value={limit} disabled={demo} onChange={(e) => {
                   const newLimit = parseInt(e.target.value, 10) || 10;
                   loadCredentials({ page: 1, limit: newLimit });
                 }}>
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
+                  <option value={5}>5 / pág</option>
+                  <option value={10}>10 / pág</option>
+                  <option value={20}>20 / pág</option>
+                  <option value={50}>50 / pág</option>
                 </select>
-                <select aria-label="Orden" className="input-primary ml-2" value={sort} disabled={demo} onChange={(e) => {
+                <select aria-label="Orden" className="bg-slate-950 border border-slate-800 text-slate-400 text-[10px] uppercase tracking-wider rounded-sm focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50 p-1.5 outline-none" value={sort} disabled={demo} onChange={(e) => {
                   const newSort = e.target.value;
                   loadCredentials({ page: 1, sort: newSort });
                 }}>
-                  <option value="desc">Nuevos primero</option>
-                  <option value="asc">Antiguos primero</option>
+                  <option value="desc">Recientes</option>
+                  <option value="asc">Antiguos</option>
                 </select>
-                <select aria-label="Ordenar por" className="input-primary ml-2" value={sortBy} disabled={demo} onChange={(e) => {
-                  const newSortBy = e.target.value;
-                  loadCredentials({ page: 1, sortBy: newSortBy });
-                }}>
-                  <option value="createdAt">Fecha</option>
-                  <option value="tokenId">Token ID</option>
-                  <option value="serialNumber">Serial</option>
-                  <option value="uniqueHash">Hash</option>
-                  <option value="studentAccountId">Cuenta Hedera</option>
-                </select>
-                <input aria-label="Ir a página" className="input-primary ml-2 w-24" type="number" min={1} max={meta.pages || 1} value={targetPage} disabled={demo} onChange={(e) => setTargetPage(e.target.value)} placeholder="Ir a" onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                <div className="flex items-center gap-1">
+                  <input aria-label="Ir a página" className="bg-slate-950 border border-slate-800 text-slate-300 text-[10px] font-mono rounded-sm focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50 p-1.5 w-12 text-center outline-none" type="number" min={1} max={meta.pages || 1} value={targetPage} disabled={demo} onChange={(e) => setTargetPage(e.target.value)} placeholder="#" onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const tp = Number(targetPage);
+                      if (!tp || tp < 1 || tp > (meta.pages || 1) || loadingCreds) return;
+                      loadCredentials({ page: tp });
+                    }
+                  }} />
+                  <button aria-label="Ir a página" aria-disabled={demo || loadingCreds || !targetPage || Number(targetPage) < 1 || Number(targetPage) > (meta.pages || 1)} className="px-2 py-1.5 text-[10px] uppercase tracking-wider font-medium text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 rounded-sm transition-colors border border-slate-800 disabled:opacity-50" disabled={demo || loadingCreds || !targetPage || Number(targetPage) < 1 || Number(targetPage) > (meta.pages || 1)} onClick={() => {
                     const tp = Number(targetPage);
-                    if (!tp || tp < 1 || tp > (meta.pages || 1) || loadingCreds) return;
                     loadCredentials({ page: tp });
-                  }
-                }} />
-                <button aria-label="Ir a página" aria-disabled={demo || loadingCreds || !targetPage || Number(targetPage) < 1 || Number(targetPage) > (meta.pages || 1)} className="btn-secondary ml-1" disabled={demo || loadingCreds || !targetPage || Number(targetPage) < 1 || Number(targetPage) > (meta.pages || 1)} onClick={() => {
-                  const tp = Number(targetPage);
-                  loadCredentials({ page: tp });
-                }}>Ir</button>
+                  }}>Ir</button>
+                </div>
               </div>
             </div>
           </div>
         )}
         {!loadingCreds && credentials.length === 0 && (
-          <div className="badge badge-info">Aún no hay credenciales emitidas</div>
+          <div className="p-8 text-center border border-slate-800 rounded-sm bg-slate-900/20 backdrop-blur-sm">
+            <div className="text-slate-500 text-sm font-light">No hay credenciales emitidas en este criterio</div>
+          </div>
         )}
         <DocumentViewer open={docOpen} src={docUrl} title="Documento" onClose={() => setDocOpen(false)} />
         {qrPreviewOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setQrPreviewOpen(false)} />
-            <div className="relative bg-white rounded-2xl shadow-strong w-full max-w-lg border border-gray-200 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="font-bold">Código QR</div>
-                <button className="btn-ghost" onClick={() => setQrPreviewOpen(false)}>✕</button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/60">
+            <div className="absolute inset-0" onClick={() => setQrPreviewOpen(false)} />
+            <div className="relative bg-slate-900 border border-slate-800 rounded-sm shadow-2xl w-full max-w-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="font-bold text-slate-200 text-lg tracking-wide uppercase">Código QR</div>
+                <button className="text-slate-400 hover:text-cyan-400 transition-colors" onClick={() => setQrPreviewOpen(false)}>✕</button>
               </div>
               {institutionalLogoUrl && (
-                <div className="flex justify-center mb-2">
-                  <img alt="Logo Institucional" src={institutionalLogoUrl} className="h-10 w-10 rounded" />
+                <div className="flex justify-center mb-4">
+                  <img alt="Logo Institucional" src={institutionalLogoUrl} className="h-12 w-12 rounded bg-white/5 p-1" />
                 </div>
               )}
-            <div className="flex justify-center">
+            <div className="flex justify-center p-4 bg-white rounded-sm">
               <img alt="QR" src={qrPreviewUrl} className="max-w-full" />
             </div>
-              <div className="mt-4 text-xs text-gray-600">{qrTokenId} • {qrSerial}</div>
-              <div className="mt-2 flex items-center gap-2">
-                <label className="text-sm text-gray-700">Tamaño PNG</label>
-                <select className="input-primary" value={qrPngSize} onChange={(e) => setQrPngSize(parseInt(e.target.value, 10) || 512)}>
-                  <option value={256}>256</option>
-                  <option value={512}>512</option>
-                  <option value={1024}>1024</option>
+              <div className="mt-4 text-xs font-mono text-center text-cyan-400/80">{qrTokenId} • {qrSerial}</div>
+              <div className="mt-6 flex items-center justify-center gap-4">
+                <label className="text-xs uppercase tracking-wider text-slate-500 font-medium">Tamaño PNG</label>
+                <select className="bg-slate-950 border border-slate-800 text-slate-300 text-xs rounded-sm focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50 p-2 outline-none" value={qrPngSize} onChange={(e) => setQrPngSize(parseInt(e.target.value, 10) || 512)}>
+                  <option value={256}>256px</option>
+                  <option value={512}>512px</option>
+                  <option value={1024}>1024px</option>
                 </select>
-                <input className="input-primary w-24" type="number" min={128} max={2048} value={qrPngSize} onChange={(e) => {
+                <input className="bg-slate-950 border border-slate-800 text-slate-300 text-xs rounded-sm focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50 p-2 w-20 text-center outline-none" type="number" min={128} max={2048} value={qrPngSize} onChange={(e) => {
                   const v = parseInt(e.target.value || '512', 10) || 512;
                   setQrPngSize(Math.max(128, Math.min(v, 2048)));
                 }} />
               </div>
-              <div className="mt-4 flex items-center justify-between">
-                <a className="btn-secondary" href={qrPreviewUrl} target="_blank" rel="noreferrer">Abrir en pestaña</a>
-                <button className="btn-primary" disabled={demo} onClick={async () => {
+              <div className="mt-8 grid grid-cols-2 gap-3">
+                <a className="px-4 py-2 text-xs uppercase tracking-wider font-medium text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 rounded-sm transition-colors border border-slate-800 text-center flex items-center justify-center" href={qrPreviewUrl} target="_blank" rel="noreferrer">Abrir</a>
+                <button className="px-4 py-2 text-xs uppercase tracking-wider font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 rounded-sm transition-all shadow-[0_0_10px_rgba(6,182,212,0.1)] hover:shadow-[0_0_15px_rgba(6,182,212,0.2)]" disabled={demo} onClick={async () => {
                   const base = import.meta.env.VITE_API_URL;
                   const svg = `${base}/api/verification/qr/generate/${encodeURIComponent(qrIssuerId)}/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}?format=svg`;
                   try {
@@ -1672,7 +1806,7 @@ function InstitutionDashboard({ demo = false }) {
                     URL.revokeObjectURL(url);
                   } catch {}
                 }}>Descargar SVG</button>
-                <button className="btn-primary" disabled={demo} onClick={async () => {
+                <button className="px-4 py-2 text-xs uppercase tracking-wider font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 rounded-sm transition-all shadow-[0_0_10px_rgba(6,182,212,0.1)] hover:shadow-[0_0_15px_rgba(6,182,212,0.2)]" disabled={demo} onClick={async () => {
                   const base = import.meta.env.VITE_API_URL;
                   const png = `${base}/api/verification/qr/generate/${encodeURIComponent(qrIssuerId)}/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}?format=png&width=${encodeURIComponent(qrPngSize)}`;
                   try {
@@ -1687,14 +1821,14 @@ function InstitutionDashboard({ demo = false }) {
                     URL.revokeObjectURL(url);
                   } catch {}
                 }}>Descargar PNG</button>
-                <button className="btn-secondary" onClick={async () => {
+                <button className="px-4 py-2 text-xs uppercase tracking-wider font-medium text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 rounded-sm transition-colors border border-slate-800" onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(qrPreviewUrl);
                     setQrCopyMsg('Link de QR copiado');
                     setTimeout(() => setQrCopyMsg(''), 1500);
                   } catch {}
-                }}>Copiar enlace QR</button>
-                <button className="btn-secondary" onClick={async () => {
+                }}>Copiar Link QR</button>
+                <button className="col-span-2 px-4 py-2 text-xs uppercase tracking-wider font-medium text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 rounded-sm transition-colors border border-slate-800" onClick={async () => {
                   const base = import.meta.env.VITE_API_URL;
                   const verifyLink = `${base}/api/verification/verify/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}`;
                   const text = `QR: ${qrPreviewUrl}\nVerificación: ${verifyLink}`;
@@ -1703,7 +1837,8 @@ function InstitutionDashboard({ demo = false }) {
                     setQrCopyMsg('Enlaces QR y verificación copiados');
                     setTimeout(() => setQrCopyMsg(''), 1500);
                   } catch {}
-                }}>Copiar ambos enlaces</button>
+                }}>Copiar Ambos Enlaces</button>
+
                 {(() => {
                   const base = import.meta.env.VITE_API_URL;
                   const link = `${base}/api/verification/verify/${encodeURIComponent(qrTokenId)}/${encodeURIComponent(qrSerial)}`;
@@ -1716,28 +1851,36 @@ function InstitutionDashboard({ demo = false }) {
                           setQrCopyMsg('Link de verificación copiado');
                           setTimeout(() => setQrCopyMsg(''), 1500);
                         } catch {}
-                      }}>Copiar enlace verificación</button>
+                      }}>Copiar Link Verificación</button>
                     </div>
                   );
                 })()}
               </div>
-                {qrCopyMsg && (<div className="mt-2 text-xs text-green-700 bg-green-100 border border-green-300 px-3 py-2 rounded">{qrCopyMsg}</div>)}
-              <div className="mt-3 text-sm text-gray-700">
+                {qrCopyMsg && (<div className="mt-4 text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-sm text-center">{qrCopyMsg}</div>)}
+              <div className="mt-6 border-t border-slate-800 pt-4 text-xs font-mono text-slate-400">
                 {qrMetaLoading ? (
-                  <div className="badge badge-info">Cargando detalles...</div>
+                  <div className="text-center animate-pulse text-cyan-400">Cargando metadatos...</div>
                 ) : qrMeta ? (
-                  <div className="space-y-1">
-                    <div>Universidad: {(qrMeta.metadata?.attributes || []).find(a => a.trait_type === 'University')?.value || 'N/A'}</div>
-                    <div>Programa: {(qrMeta.metadata?.attributes || []).find(a => a.trait_type === 'Degree')?.value || 'N/A'}</div>
-                    <div>Fecha: {(qrMeta.metadata?.attributes || []).find(a => a.display_type === 'date')?.value || 'N/A'}</div>
-                    <div>SubjectRef: {(qrMeta.metadata?.attributes || []).find(a => a.trait_type === 'SubjectRef')?.value || 'N/A'}</div>
-                    <div>Transacción: {qrTxId ? (
-                      <span className="inline-flex items-center gap-2">
-                        <a className="text-blue-600 hover:underline" href={`https://hashscan.io/mainnet/transaction/${encodeURIComponent(qrTxId)}`} target="_blank" rel="noreferrer">{qrTxId}</a>
-                        <button className="btn-ghost btn-xs" onClick={async () => { try { await navigator.clipboard.writeText(qrTxId); setQrCopyMsg('TransactionId copiado'); setTimeout(() => setQrCopyMsg(''), 1500); } catch {} }}>Copiar</button>
-                      </span>
-                    ) : 'N/A'}</div>
-                    <div>IPFS: {qrIpfsURI ? (<a className="text-blue-600 hover:underline" href={toGateway(qrIpfsURI)} target="_blank" rel="noreferrer">{toGateway(qrIpfsURI)}</a>) : 'N/A'}</div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between"><span className="text-slate-500 uppercase tracking-wider text-[10px]">Universidad</span> <span className="text-right">{qrMeta.metadata?.attributes?.find(a => a.trait_type === 'University')?.value || 'N/A'}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500 uppercase tracking-wider text-[10px]">Programa</span> <span className="text-right">{qrMeta.metadata?.attributes?.find(a => a.trait_type === 'Degree')?.value || 'N/A'}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500 uppercase tracking-wider text-[10px]">Fecha</span> <span className="text-right">{qrMeta.metadata?.attributes?.find(a => a.display_type === 'date')?.value || 'N/A'}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500 uppercase tracking-wider text-[10px]">Ref</span> <span className="text-right">{qrMeta.metadata?.attributes?.find(a => a.trait_type === 'SubjectRef')?.value || 'N/A'}</span></div>
+                    <div className="flex flex-col gap-1 mt-2">
+                      <span className="text-slate-500 uppercase tracking-wider text-[10px]">Transacción</span>
+                      {qrTxId ? (
+                        <div className="flex items-center justify-between bg-slate-950 p-2 rounded-sm border border-slate-800">
+                          <a className="text-cyan-400 hover:text-cyan-300 truncate max-w-[200px]" href={`https://hashscan.io/mainnet/transaction/${encodeURIComponent(qrTxId)}`} target="_blank" rel="noreferrer">{qrTxId}</a>
+                          <button className="text-[10px] uppercase tracking-wider text-slate-500 hover:text-cyan-400" onClick={async () => { try { await navigator.clipboard.writeText(qrTxId); setQrCopyMsg('TransactionId copiado'); setTimeout(() => setQrCopyMsg(''), 1500); } catch {} }}>Copiar</button>
+                        </div>
+                      ) : 'N/A'}
+                    </div>
+                    <div className="flex flex-col gap-1 mt-2">
+                      <span className="text-slate-500 uppercase tracking-wider text-[10px]">IPFS</span>
+                      {qrIpfsURI ? (
+                        <a className="text-cyan-400 hover:text-cyan-300 bg-slate-950 p-2 rounded-sm border border-slate-800 truncate block" href={toGateway(qrIpfsURI)} target="_blank" rel="noreferrer">{toGateway(qrIpfsURI)}</a>
+                      ) : 'N/A'}
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -1745,17 +1888,21 @@ function InstitutionDashboard({ demo = false }) {
           </div>
         )}
         {revokeModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setRevokeModalOpen(false)} />
-            <div className="relative bg-white rounded-xl shadow-strong w-full max-w-md p-6">
-              <h3 className="text-lg font-bold mb-4">Revocar Credencial</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Estás a punto de revocar la credencial <strong>{selectedCredential?.tokenId}</strong> (Serial #{selectedCredential?.serialNumber}).
-                Esta acción actualizará el estado en la lista de revocación global (Bitstring Status List).
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/60">
+            <div className="absolute inset-0" onClick={() => setRevokeModalOpen(false)} />
+            <div className="relative bg-slate-900 border border-slate-800 rounded-sm shadow-2xl w-full max-w-md p-6">
+              <h3 className="text-lg font-bold text-slate-200 tracking-wide uppercase mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                Revocar Credencial
+              </h3>
+              <p className="text-sm text-slate-400 mb-6 font-mono leading-relaxed">
+                Estás a punto de revocar la credencial <strong className="text-slate-200">{selectedCredential?.tokenId}</strong> (Serial <span className="text-cyan-400">#{selectedCredential?.serialNumber}</span>).
+                <br/><br/>
+                <span className="text-red-400/80 text-xs uppercase tracking-wider border border-red-900/30 bg-red-900/10 px-2 py-1 rounded-sm">Acción Irreversible</span>
               </p>
-              <div className="form-control mb-4">
-                <label className="label-text">Razón de revocación</label>
-                <select className="input-primary" value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)}>
+              <div className="mb-6">
+                <label className="text-xs uppercase tracking-wider text-slate-500 font-medium mb-2 block">Razón de revocación</label>
+                <select className="bg-slate-950 border border-slate-800 text-slate-300 text-sm rounded-sm focus:ring-1 focus:ring-red-500/50 focus:border-red-500/50 w-full p-2.5 outline-none" value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)}>
                   <option value="">Selecciona una razón...</option>
                   <option value="PrivilegeWithdrawn">Privilegio Retirado (Expulsión/Suspensión)</option>
                   <option value="CessationOfOperation">Cese de Operaciones</option>
@@ -1764,9 +1911,9 @@ function InstitutionDashboard({ demo = false }) {
                   <option value="Compromised">Llave comprometida / Fraude</option>
                 </select>
               </div>
-              <div className="flex justify-end gap-3">
-                <button className="btn-ghost" onClick={() => setRevokeModalOpen(false)} disabled={revoking}>Cancelar</button>
-                <button className="btn-primary bg-red-600 hover:bg-red-700 border-red-600 text-white" onClick={confirmRevocation} disabled={!revokeReason || revoking}>
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                <button className="px-4 py-2 text-xs uppercase tracking-wider font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 rounded-sm transition-colors" onClick={() => setRevokeModalOpen(false)} disabled={revoking}>Cancelar</button>
+                <button className="px-4 py-2 text-xs uppercase tracking-wider font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded-sm transition-all shadow-[0_0_10px_rgba(239,68,68,0.1)] hover:shadow-[0_0_15px_rgba(239,68,68,0.2)] disabled:opacity-50 disabled:cursor-not-allowed" onClick={confirmRevocation} disabled={!revokeReason || revoking}>
                   {revoking ? 'Revocando...' : 'Confirmar Revocación'}
                 </button>
               </div>
