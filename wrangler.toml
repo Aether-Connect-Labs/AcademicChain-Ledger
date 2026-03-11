@@ -7,4 +7,4 @@ directory = "client/dist"
 binding = "ASSETS"
 
 [vars]
-VITE_API_URL = "https://academicchain-ledger.aether-connect-labs.workers.dev/api"
+VITE_API_URL = "https://academicchain-worker.aether-connect-labs.workers.dev"
